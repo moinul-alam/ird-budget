@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Font configuration - values from src/lib/fonts.js */
+@font-face {
+  font-family: 'Kalpurush';
+  src: url('/fonts/kalpurush.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Apply Kalpurush to EVERYTHING */
+*,
+*::before,
+*::after,
+html,
+body,
+input,
+textarea,
+select,
+button,
+::placeholder,
+option {
+  font-family: 'Kalpurush', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}

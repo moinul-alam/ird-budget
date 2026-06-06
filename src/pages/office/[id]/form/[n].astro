@@ -1,0 +1,389 @@
+---
+import Layout from '../../../../layouts/Layout.astro';
+---
+
+<Layout>
+  <div class="min-h-screen bg-gray-100 p-4">
+    <div class="max-w-4xl mx-auto">
+      <a href={`/office/${Astro.params.id}`} class="text-blue-600 mb-4 inline-block">&larr; পিছনে</a>
+      <h1 class="text-2xl font-bold mb-6" id="form-title">ফর্ম</h1>
+      <div id="form-content" class="bg-white p-6 rounded shadow"></div>
+      <div id="save-status" class="mt-4 text-center"></div>
+    </div>
+  </div>
+  <script>
+    import { supabase } from '../../../../lib/supabase';
+    import { strings } from '../../../../lib/strings';
+    import { calculateBudget } from '../../../../lib/formulas';
+
+    const officeId = Astro.params.id;
+    const formN = parseInt(Astro.params.n);
+
+    async function getOrCreateSubmission() {
+      const { data: cycle } = await supabase.from('cycles').select('*').eq('status', 'open').maybeSingle();
+      if (!cycle) {
+        alert(strings.noCycleOpen);
+        return;
+      }
+
+      let { data: submission } = await supabase.from('submissions').select('*').eq('office_id', officeId).eq('cycle_id', cycle.id).maybeSingle();
+
+      if (!submission) {
+        const { data } = await supabase.from('submissions').insert([
+          { office_id: officeId, cycle_id: cycle.id }
+        ]).select().single();
+        submission = data;
+      }
+
+      return submission;
+    }
+
+    async function loadForm() {
+      const submission = await getOrCreateSubmission();
+      if (!submission) return;
+
+      const title = document.getElementById('form-title');
+      const content = document.getElementById('form-content');
+
+      const forms = [
+        {
+          id: 1,
+          name: strings.form1,
+          table: 'form_basic',
+          fields: [
+            { name: 'head_of_office', label: 'অফিস প্রধান', type: 'text' },
+            { name: 'designation', label: 'পদবী', type: 'text' },
+            { name: 'phone', label: 'ফোন', type: 'text' },
+            { name: 'email', label: 'ইমেইল', type: 'email' }
+          ]
+        },
+        {
+          id: 2,
+          name: strings.form2,
+          table: 'form_staff',
+          type: 'staff'
+        },
+        {
+          id: 3,
+          name: strings.form3,
+          table: 'form_vehicles',
+          type: 'vehicles'
+        },
+        {
+          id: 4,
+          name: strings.form4,
+          table: 'form_equipment',
+          type: 'equipment'
+        },
+        {
+          id: 5,
+          name: strings.form5,
+          table: 'form_utility',
+          fields: [
+            { name: 'electricity_monthly', label: 'বৈদ্যুতিক (মাসিক)', type: 'number' },
+            { name: 'water_monthly', label: 'পানি (মাসিক)', type: 'number' },
+            { name: 'gas_monthly', label: 'গ্যাস (মাসিক)', type: 'number' },
+            { name: 'internet_monthly', label: 'ইন্টারনেট (মাসিক)', type: 'number' }
+          ]
+        },
+        {
+          id: 6,
+          name: strings.form6,
+          table: 'form_fuel',
+          type: 'fuel'
+        },
+        {
+          id: 7,
+          name: strings.form7,
+          table: 'form_rent',
+          fields: [
+            { name: 'office_rent_monthly', label: 'অফিস ভাড়া (মাসিক)', type: 'number' },
+            { name: 'garage_rent_monthly', label: 'গ্যারেজ ভাড়া (মাসিক)', type: 'number' },
+            { name: 'other_rent_monthly', label: 'অন্যান্য ভাড়া (মাসিক)', type: 'number' }
+          ]
+        },
+        {
+          id: 8,
+          name: strings.form8,
+          table: 'form_misc',
+          fields: [
+            { name: 'stationery_annual', label: 'স্টেশনারি (বার্ষিক)', type: 'number' },
+            { name: 'printing_annual', label: 'ছাপা (বার্ষিক)', type: 'number' },
+            { name: 'hospitality_annual', label: 'অতিথি সেবা (বার্ষিক)', type: 'number' },
+            { name: 'training_annual', label: 'প্রশিক্ষণ (বার্ষিক)', type: 'number' },
+            { name: 'other_annual', label: 'অন্যান্য (বার্ষিক)', type: 'number' }
+          ]
+        }
+      ];
+
+      const form = forms.find(f => f.id === formN);
+      title.textContent = form.name;
+
+      if (form.fields) {
+        const { data: existing } = await supabase.from(form.table).select('*').eq('submission_id', submission.id).maybeSingle();
+
+        content.innerHTML = `
+          <form id="data-form">
+            ${form.fields.map(field => `
+              <div class="mb-4">
+                <label for="${field.name}" class="block mb-2 font-medium">${field.label}</label>
+                <input type="${field.type}" id="${field.name}" name="${field.name}"
+                  value="${existing?.[field.name] || ''}"
+                  class="w-full p-2 border border-gray-300 rounded" />
+              </div>
+            `).join('')}
+            <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">${strings.save}</button>
+          </form>
+        `;
+
+        document.getElementById('data-form').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const formData = new FormData(e.target);
+          const data = Object.fromEntries(formData);
+
+          document.getElementById('save-status').textContent = strings.saving;
+
+          if (existing) {
+            await supabase.from(form.table).update(data).eq('submission_id', submission.id);
+          } else {
+            await supabase.from(form.table).insert([{ ...data, submission_id: submission.id }]);
+          }
+
+          await recalculateBudget(submission.id);
+
+          document.getElementById('save-status').textContent = strings.saved;
+        });
+      } else if (form.type === 'staff') {
+        const { data: grades } = await supabase.from('grades').select('*').order('grade_no');
+        const { data: existingStaff } = await supabase.from('form_staff').select('*').eq('submission_id', submission.id);
+
+        content.innerHTML = `
+          <form id="data-form">
+            ${grades.map(grade => {
+              const staff = existingStaff?.find(s => s.grade_id === grade.id);
+              return `
+                <div class="mb-4 p-4 border rounded">
+                  <h4 class="font-bold">${grade.label}</h4>
+                  <div class="grid grid-cols-2 gap-4 mt-2">
+                    <div>
+                      <label class="block mb-1">সংখ্যা</label>
+                      <input type="number" name="count_${grade.id}" value="${staff?.count || 0}" class="w-full p-2 border border-gray-300 rounded" />
+                    </div>
+                    <div>
+                      <label class="block mb-1">গড় মূল বেতন</label>
+                      <input type="number" name="avg_basic_${grade.id}" value="${staff?.avg_basic || 0}" class="w-full p-2 border border-gray-300 rounded" />
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+            <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">${strings.save}</button>
+          </form>
+        `;
+
+        document.getElementById('data-form').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const formData = new FormData(e.target);
+          document.getElementById('save-status').textContent = strings.saving;
+
+          for (const grade of grades) {
+            const count = parseInt(formData.get(`count_${grade.id}`));
+            const avg_basic = parseFloat(formData.get(`avg_basic_${grade.id}`));
+
+            const existing = existingStaff?.find(s => s.grade_id === grade.id);
+
+            if (existing) {
+              await supabase.from('form_staff').update({ count, avg_basic }).eq('id', existing.id);
+            } else {
+              await supabase.from('form_staff').insert([{ submission_id: submission.id, grade_id: grade.id, count, avg_basic }]);
+            }
+          }
+
+          await recalculateBudget(submission.id);
+
+          document.getElementById('save-status').textContent = strings.saved;
+        });
+      } else if (form.type === 'vehicles') {
+        const vehicleTypes = ['জিপ', 'মাইক্রোবাস', 'মোটরসাইকেল'];
+        const { data: existingVehicles } = await supabase.from('form_vehicles').select('*').eq('submission_id', submission.id);
+
+        content.innerHTML = `
+          <form id="data-form">
+            ${vehicleTypes.map(type => {
+              const vehicle = existingVehicles?.find(v => v.vehicle_type === type);
+              return `
+                <div class="mb-4 p-4 border rounded">
+                  <h4 class="font-bold">${type}</h4>
+                  <div class="grid grid-cols-2 gap-4 mt-2">
+                    <div>
+                      <label class="block mb-1">সংখ্যা</label>
+                      <input type="number" name="count_${type}" value="${vehicle?.count || 0}" class="w-full p-2 border border-gray-300 rounded" />
+                    </div>
+                    <div>
+                      <label class="block mb-1">মাসিক জ্বালানি (লিটার)</label>
+                      <input type="number" name="fuel_${type}" value="${vehicle?.monthly_fuel_liters || 0}" class="w-full p-2 border border-gray-300 rounded" />
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+            <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">${strings.save}</button>
+          </form>
+        `;
+
+        document.getElementById('data-form').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const formData = new FormData(e.target);
+          document.getElementById('save-status').textContent = strings.saving;
+
+          for (const type of vehicleTypes) {
+            const count = parseInt(formData.get(`count_${type}`));
+            const monthly_fuel_liters = parseFloat(formData.get(`fuel_${type}`));
+            const existing = existingVehicles?.find(v => v.vehicle_type === type);
+            if (existing) {
+              await supabase.from('form_vehicles').update({ count, monthly_fuel_liters }).eq('id', existing.id);
+            } else {
+              await supabase.from('form_vehicles').insert([{ submission_id: submission.id, vehicle_type: type, count, monthly_fuel_liters }]);
+            }
+          }
+
+          await recalculateBudget(submission.id);
+
+          document.getElementById('save-status').textContent = strings.saved;
+        });
+      } else if (form.type === 'equipment') {
+        const equipmentTypes = ['কম্পিউটার', 'প্রিন্টার', 'এসি'];
+        const { data: existingEquipment } = await supabase.from('form_equipment').select('*').eq('submission_id', submission.id);
+
+        content.innerHTML = `
+          <form id="data-form">
+            ${equipmentTypes.map(type => {
+              const equipment = existingEquipment?.find(eq => eq.equipment_type === type);
+              return `
+                <div class="mb-4 p-4 border rounded">
+                  <h4 class="font-bold">${type}</h4>
+                  <div class="grid grid-cols-2 gap-4 mt-2">
+                    <div>
+                      <label class="block mb-1">সংখ্যা</label>
+                      <input type="number" name="count_${type}" value="${equipment?.count || 0}" class="w-full p-2 border border-gray-300 rounded" />
+                    </div>
+                    <div>
+                      <label class="block mb-1">একক মূল্য</label>
+                      <input type="number" name="unit_cost_${type}" value="${equipment?.unit_cost || 0}" class="w-full p-2 border border-gray-300 rounded" />
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+            <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">${strings.save}</button>
+          </form>
+        `;
+
+        document.getElementById('data-form').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const formData = new FormData(e.target);
+          document.getElementById('save-status').textContent = strings.saving;
+
+          for (const type of equipmentTypes) {
+            const count = parseInt(formData.get(`count_${type}`));
+            const unit_cost = parseFloat(formData.get(`unit_cost_${type}`));
+            const existing = existingEquipment?.find(eq => eq.equipment_type === type);
+            if (existing) {
+              await supabase.from('form_equipment').update({ count, unit_cost }).eq('id', existing.id);
+            } else {
+              await supabase.from('form_equipment').insert([{ submission_id: submission.id, equipment_type: type, count, unit_cost }]);
+            }
+          }
+
+          await recalculateBudget(submission.id);
+
+          document.getElementById('save-status').textContent = strings.saved;
+        });
+      } else if (form.type === 'fuel') {
+        const fuelTypes = ['জিপ', 'মাইক্রোবাস', 'মোটরসাইকেল'];
+        const { data: existingFuel } = await supabase.from('form_fuel').select('*').eq('submission_id', submission.id);
+
+        content.innerHTML = `
+          <form id="data-form">
+            ${fuelTypes.map(type => {
+              const fuel = existingFuel?.find(f => f.vehicle_type === type);
+              return `
+                <div class="mb-4 p-4 border rounded">
+                  <h4 class="font-bold">${type}</h4>
+                  <div class="grid grid-cols-2 gap-4 mt-2">
+                    <div>
+                      <label class="block mb-1">মাসিক লিটার</label>
+                      <input type="number" name="liters_${type}" value="${fuel?.monthly_liters || 0}" class="w-full p-2 border border-gray-300 rounded" />
+                    </div>
+                    <div>
+                      <label class="block mb-1">প্রতি লিটার দাম</label>
+                      <input type="number" name="price_${type}" value="${fuel?.price_per_liter || 0}" class="w-full p-2 border border-gray-300 rounded" />
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+            <button type="submit" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">${strings.save}</button>
+          </form>
+        `;
+
+        document.getElementById('data-form').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const formData = new FormData(e.target);
+          document.getElementById('save-status').textContent = strings.saving;
+
+          for (const type of fuelTypes) {
+            const monthly_liters = parseFloat(formData.get(`liters_${type}`));
+            const price_per_liter = parseFloat(formData.get(`price_${type}`));
+            const existing = existingFuel?.find(f => f.vehicle_type === type);
+            if (existing) {
+              await supabase.from('form_fuel').update({ monthly_liters, price_per_liter }).eq('id', existing.id);
+            } else {
+              await supabase.from('form_fuel').insert([{ submission_id: submission.id, vehicle_type: type, monthly_liters, price_per_liter }]);
+            }
+          }
+
+          await recalculateBudget(submission.id);
+
+          document.getElementById('save-status').textContent = strings.saved;
+        });
+      }
+    }
+
+    async function recalculateBudget(submissionId) {
+      const { data: codes } = await supabase.from('expense_codes').select('*');
+      const { data: ratesData } = await supabase.from('rates').select('*');
+      const rates = {};
+      ratesData.forEach(r => rates[r.key] = r.value);
+
+      const { data: formStaff } = await supabase.from('form_staff').select('*, grades(*)').eq('submission_id', submissionId);
+      const { data: formFuel } = await supabase.from('form_fuel').select('*').eq('submission_id', submissionId);
+      const { data: formUtility } = await supabase.from('form_utility').select('*').eq('submission_id', submissionId).maybeSingle();
+      const { data: formRent } = await supabase.from('form_rent').select('*').eq('submission_id', submissionId).maybeSingle();
+      const { data: formMisc } = await supabase.from('form_misc').select('*').eq('submission_id', submissionId).maybeSingle();
+
+      const submissionData = {
+        staff: formStaff.map(s => ({ grade_no: s.grades.grade_no, count: s.count, avg_basic: s.avg_basic })),
+        fuel: formFuel,
+        utility: formUtility || {},
+        rent: formRent || {},
+        misc: formMisc || {}
+      };
+
+      const budgetData = calculateBudget(submissionData, codes, rates);
+
+      const { data: existingBudget } = await supabase.from('budget_sheet').select('*').eq('submission_id', submissionId);
+
+      for (const row of budgetData) {
+        const existing = existingBudget.find(b => b.code_id === row.code_id);
+        if (existing) {
+          await supabase.from('budget_sheet').update({ auto_value: row.auto_value }).eq('id', existing.id);
+        } else {
+          await supabase.from('budget_sheet').insert([{ submission_id: submissionId, code_id: row.code_id, auto_value: row.auto_value }]);
+        }
+      }
+    }
+
+    loadForm();
+  </script>
+</Layout>

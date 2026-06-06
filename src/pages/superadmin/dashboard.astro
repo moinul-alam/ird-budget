@@ -1,0 +1,53 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout>
+  <div class="min-h-screen bg-gray-100 p-4">
+    <div class="max-w-6xl mx-auto">
+      <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold">সুপারঅ্যাডমিন ড্যাশবোর্ড</h1>
+        <button id="logout-btn" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">লগআউট</button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <a href="/superadmin/codes" class="bg-white p-4 rounded shadow hover:bg-gray-50">
+          <h3 class="font-bold">ব্যয় কোড</h3>
+        </a>
+        <a href="/superadmin/groups" class="bg-white p-4 rounded shadow hover:bg-gray-50">
+          <h3 class="font-bold">অফিস গ্রুপ</h3>
+        </a>
+        <a href="/superadmin/rates" class="bg-white p-4 rounded shadow hover:bg-gray-50">
+          <h3 class="font-bold">রেট</h3>
+        </a>
+        <a href="/superadmin/cycles" class="bg-white p-4 rounded shadow hover:bg-gray-50">
+          <h3 class="font-bold">চক্র</h3>
+        </a>
+        <a href="/superadmin/admins" class="bg-white p-4 rounded shadow hover:bg-gray-50">
+          <h3 class="font-bold">অ্যাডমিন</h3>
+        </a>
+      </div>
+    </div>
+  </div>
+  <script>
+    import { supabase } from '../../lib/supabase';
+
+    async function checkAuth() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        window.location.href = '/admin/login';
+        return;
+      }
+      const { data: profile } = await supabase.from('admin_profiles').select('*').eq('id', user.id).single();
+      if (!profile || profile.role !== 'superadmin') {
+        window.location.href = '/admin/dashboard';
+      }
+    }
+
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      window.location.href = '/admin/login';
+    });
+
+    checkAuth();
+  </script>
+</Layout>

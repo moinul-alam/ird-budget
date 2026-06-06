@@ -1,0 +1,461 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout>
+  <div class="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-12 px-4">
+    <div class="max-w-6xl mx-auto">
+      <!-- Header -->
+      <div class="text-center mb-12">
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl shadow-lg mb-6">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <h1 class="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-4">
+          অভ্যন্তরীণ সম্পদ বিভাগের বাজেট ব্যবস্থাপনায় আপনাকে স্বাগতম
+        </h1>
+        <p class="text-xl text-gray-600 max-w-2xl mx-auto">
+          সহজ, দ্রুত এবং নিরাপদ ভাবে আপনার অফিসের বাজেট প্রস্তুত করুন
+        </p>
+      </div>
+
+      <!-- Main Content - Two Forms Side by Side -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+        <!-- Left: Create New Office -->
+        <div class="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+          <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-6">
+            <h2 class="text-2xl font-bold text-white flex items-center gap-3">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              অফিসের তথ্য যুক্ত করুন
+            </h2>
+          </div>
+          <div class="p-8">
+            <form id="create-office-form" class="space-y-6">
+              <!-- Office Name -->
+              <div>
+                <label for="create-office-name" class="block text-sm font-semibold text-gray-700 mb-2">
+                  অফিসের নাম (বাংলা) <span class="text-red-500">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  id="create-office-name" 
+                  class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg bg-gray-50 focus:bg-white"
+                  placeholder="যেমন: সার্কেল-১, সার্কেল-২"
+                />
+              </div>
+              
+              <!-- Office Code -->
+              <div>
+                <label for="create-office-code" class="block text-sm font-semibold text-gray-700 mb-2">
+                  অফিস কোড (ইংরেজি সংখ্যায়) <span class="text-red-500">*</span>
+                </label>
+                <input 
+                  type="text" 
+                  id="create-office-code" 
+                  class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg bg-gray-50 focus:bg-white font-mono"
+                  placeholder="যেমন: 1234567"
+                />
+              </div>
+              
+              <!-- Office Type -->
+              <div>
+                <label for="create-office-type" class="block text-sm font-semibold text-gray-700 mb-2">
+                  অফিসের ধরণ <span class="text-red-500">*</span>
+                </label>
+                <select 
+                  id="create-office-type" 
+                  class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg bg-white"
+                >
+                  <option value="">অফিসের ধরণ নির্বাচন করুন</option>
+                  <option value="income">আয়কর</option>
+                  <option value="customs_vat">কাস্টম্‌স ও ভ্যাট</option>
+                </select>
+              </div>
+              
+              <!-- Higher Office -->
+              <div>
+                <label for="create-higher-office" class="block text-sm font-semibold text-gray-700 mb-2">
+                  উর্দ্ধতন অফিস <span class="text-red-500">*</span>
+                </label>
+                <select 
+                  id="create-higher-office" 
+                  class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg bg-white"
+                  disabled
+                >
+                  <option value="">প্রথমে অফিসের ধরণ নির্বাচন করুন</option>
+                </select>
+              </div>
+              
+              <button 
+                type="submit" 
+                id="create-btn"
+                class="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-lg rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-0.5 focus:ring-4 focus:ring-blue-200"
+              >
+                নতুন অফিস তৈরি করুন
+              </button>
+            </form>
+            <div id="create-status" class="mt-4 text-center text-sm hidden"></div>
+          </div>
+        </div>
+
+        <!-- Right: Search Office -->
+        <div class="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+          <div class="bg-gradient-to-r from-emerald-600 to-teal-600 px-8 py-6">
+            <h2 class="text-2xl font-bold text-white flex items-center gap-3">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              অফিসের তথ্য খুঁজুন
+            </h2>
+          </div>
+          <div class="p-8">
+            <!-- Search by Office Code -->
+            <form id="search-code-form" class="space-y-4 mb-8">
+              <div>
+                <label for="search-office-code" class="block text-sm font-semibold text-gray-700 mb-2">
+                  অফিস কোড দিয়ে খুঁজুন
+                </label>
+                <div class="flex gap-3">
+                  <input 
+                    type="text" 
+                    id="search-office-code" 
+                    class="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-lg bg-gray-50 focus:bg-white font-mono"
+                    placeholder="অফিস কোড লিখুন"
+                  />
+                  <button 
+                    type="submit" 
+                    class="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all shadow-lg"
+                  >
+                    খুঁজুন
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            <!-- Divider -->
+            <div class="flex items-center gap-4 mb-8">
+              <div class="flex-1 h-px bg-gray-200"></div>
+              <span class="text-gray-500 font-medium">অথবা</span>
+              <div class="flex-1 h-px bg-gray-200"></div>
+            </div>
+
+            <!-- Search by Higher Office & Name -->
+            <form id="search-details-form" class="space-y-4">
+              <div>
+                <label for="search-office-type" class="block text-sm font-semibold text-gray-700 mb-2">
+                  অফিসের ধরণ
+                </label>
+                <select 
+                  id="search-office-type" 
+                  class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-lg bg-white"
+                >
+                  <option value="">অফিসের ধরণ নির্বাচন করুন</option>
+                  <option value="income">১) আয়কর</option>
+                  <option value="customs_vat">২) কাস্টম্‌স ও ভ্যাট</option>
+                </select>
+              </div>
+              
+              <div>
+                <label for="search-higher-office" class="block text-sm font-semibold text-gray-700 mb-2">
+                  উর্দ্ধতন অফিস
+                </label>
+                <select 
+                  id="search-higher-office" 
+                  class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-lg bg-white"
+                  disabled
+                >
+                  <option value="">প্রথমে অফিসের ধরণ নির্বাচন করুন</option>
+                </select>
+              </div>
+              
+              <div>
+                <label for="search-office-name" class="block text-sm font-semibold text-gray-700 mb-2">
+                  অফিসের নাম
+                </label>
+                <div class="flex gap-3">
+                  <input 
+                    type="text" 
+                    id="search-office-name" 
+                    class="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-lg bg-gray-50 focus:bg-white"
+                    placeholder="অফিসের নাম লিখুন"
+                  />
+                  <button 
+                    type="submit" 
+                    class="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all shadow-lg"
+                  >
+                    খুঁজুন
+                  </button>
+                </div>
+              </div>
+            </form>
+            
+            <div id="search-status" class="mt-6 hidden"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Search Results Section -->
+      <div id="results-section" class="hidden">
+        <div class="max-w-3xl mx-auto">
+          <h3 class="text-2xl font-bold text-gray-800 mb-6 text-center">খোঁজার ফলাফল</h3>
+          <div id="results-container" class="space-y-4"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    import { supabase } from '../lib/supabase';
+
+    // Higher office data
+    const higherOfficesData = {
+      income: [
+        'আয়কর অধিদপ্তর',
+        'ঢাকা আয়কর কর্তৃপক্ষ',
+        'চট্টগ্রাম আয়কর কর্তৃপক্ষ',
+        'রাজশাহী আয়কর কর্তৃপক্ষ',
+        'খুলনা আয়কর কর্তৃপক্ষ',
+        'বরিশাল আয়কর কর্তৃপক্ষ',
+        'সিলেট আয়কর কর্তৃপক্ষ',
+        'রংপুর আয়কর কর্তৃপক্ষ',
+        'ময়মনসিংহ আয়কর কর্তৃপক্ষ'
+      ],
+      customs_vat: [
+        'কাস্টমস ও ভ্যাট অধিদপ্তর',
+        'ঢাকা কাস্টমস কর্তৃপক্ষ',
+        'চট্টগ্রাম কাস্টমস কর্তৃপক্ষ',
+        'বেনাপোল কাস্টমস কর্তৃপক্ষ',
+        'তেকনাফ কাস্টমস কর্তৃপক্ষ',
+        'সোনামসি কাস্টমস কর্তৃপক্ষ',
+        'আকাশ কাস্টমস কর্তৃপক্ষ',
+        'দারুশণা কাস্টমস কর্তৃপক্ষ'
+      ]
+    };
+
+    // Sanitize input to English only
+    function sanitizeToEnglish(text) {
+      const banglaToEnglish = {
+        '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4',
+        '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9'
+      };
+      
+      let sanitized = '';
+      for (let char of text) {
+        if (banglaToEnglish[char]) {
+          sanitized += banglaToEnglish[char];
+        } else if (/[a-zA-Z0-9\-_]/.test(char)) {
+          sanitized += char;
+        }
+      }
+      return sanitized.toUpperCase();
+    }
+
+    // Populate higher office dropdown
+    function populateHigherOffices(dropdownId, type) {
+      const dropdown = document.getElementById(dropdownId);
+      dropdown.innerHTML = '';
+      
+      if (!type) {
+        dropdown.innerHTML = '<option value="">প্রথমে অফিসের ধরণ নির্বাচন করুন</option>';
+        dropdown.disabled = true;
+        return;
+      }
+      
+      dropdown.disabled = false;
+      dropdown.innerHTML = '<option value="">উর্দ্ধতন অফিস নির্বাচন করুন</option>';
+      
+      higherOfficesData[type].forEach(office => {
+        const option = document.createElement('option');
+        option.value = office;
+        option.textContent = office;
+        dropdown.appendChild(option);
+      });
+    }
+
+    // Initialize the page
+    async function init() {
+      // Sanitize office code input on create form
+      const createCodeInput = document.getElementById('create-office-code');
+      createCodeInput.addEventListener('input', (e) => {
+        e.target.value = sanitizeToEnglish(e.target.value);
+      });
+
+      // Sanitize office code input on search form
+      const searchCodeInput = document.getElementById('search-office-code');
+      searchCodeInput.addEventListener('input', (e) => {
+        e.target.value = sanitizeToEnglish(e.target.value);
+      });
+
+      // Office type change handlers
+      document.getElementById('create-office-type').addEventListener('change', (e) => {
+        populateHigherOffices('create-higher-office', e.target.value);
+      });
+
+      document.getElementById('search-office-type').addEventListener('change', (e) => {
+        populateHigherOffices('search-higher-office', e.target.value);
+      });
+
+      // Create office form submit
+      document.getElementById('create-office-form').addEventListener('submit', handleCreateOffice);
+
+      // Search by code form submit
+      document.getElementById('search-code-form').addEventListener('submit', handleSearchByCode);
+
+      // Search by details form submit
+      document.getElementById('search-details-form').addEventListener('submit', handleSearchByDetails);
+    }
+
+    async function handleCreateOffice(e) {
+      e.preventDefault();
+      const createBtn = document.getElementById('create-btn');
+      const statusDiv = document.getElementById('create-status');
+      
+      createBtn.disabled = true;
+      createBtn.innerHTML = `
+        <svg class="animate-spin h-5 w-5 text-white inline mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        তৈরি হচ্ছে...
+      `;
+      statusDiv.classList.remove('hidden');
+      statusDiv.className = 'mt-4 text-center text-sm text-yellow-600';
+      statusDiv.textContent = 'অফিস তৈরি হচ্ছে...';
+
+      const name = document.getElementById('create-office-name').value.trim();
+      const code = sanitizeToEnglish(document.getElementById('create-office-code').value.trim());
+      const type = document.getElementById('create-office-type').value;
+      const higherOffice = document.getElementById('create-higher-office').value;
+
+      if (!name || !code || !type || !higherOffice) {
+        statusDiv.className = 'mt-4 text-center text-sm text-red-600';
+        statusDiv.textContent = 'সব প্রয়োজনীয় তথ্য পূরণ করুন';
+        createBtn.disabled = false;
+        createBtn.textContent = 'নতুন অফিস তৈরি করুন';
+        return;
+      }
+
+      try {
+        // Check if code already exists
+        const { data: existingOffice } = await supabase.from('offices').select('*').eq('office_id', code).maybeSingle();
+        if (existingOffice) {
+          statusDiv.className = 'mt-4 text-center text-sm text-red-600';
+          statusDiv.textContent = 'এই কোডে আগে থেকে অফিস আছে';
+          createBtn.disabled = false;
+          createBtn.textContent = 'নতুন অফিস তৈরি করুন';
+          return;
+        }
+
+        // Create office
+        const { data: office, error } = await supabase.from('offices').insert({
+          office_id: code,
+          name: name,
+          office_type: type,
+          higher_office: higherOffice
+        }).select().single();
+
+        if (error) throw error;
+
+        statusDiv.className = 'mt-4 text-center text-sm text-green-600 font-semibold';
+        statusDiv.textContent = '✓ অফিস সফলভাবে তৈরি হয়েছে! পৃষ্ঠাটি রিডাইরেক্ট হচ্ছে...';
+        
+        setTimeout(() => {
+          window.location.href = `/office/${office.office_id}`;
+        }, 1500);
+      } catch (error) {
+        console.error(error);
+        statusDiv.className = 'mt-4 text-center text-sm text-red-600';
+        statusDiv.textContent = '❌ অফিস তৈরি করতে সমস্যা হয়েছে';
+        createBtn.disabled = false;
+        createBtn.textContent = 'নতুন অফিস তৈরি করুন';
+      }
+    }
+
+    async function handleSearchByCode(e) {
+      e.preventDefault();
+      const code = sanitizeToEnglish(document.getElementById('search-office-code').value.trim());
+      
+      if (!code) return;
+
+      const { data: offices } = await supabase.from('offices').select('*').eq('office_id', code);
+      displayResults(offices);
+    }
+
+    async function handleSearchByDetails(e) {
+      e.preventDefault();
+      const type = document.getElementById('search-office-type').value;
+      const higherOffice = document.getElementById('search-higher-office').value;
+      const name = document.getElementById('search-office-name').value.trim();
+
+      let query = supabase.from('offices').select('*');
+      
+      if (type) {
+        query = query.eq('office_type', type);
+      }
+      
+      if (higherOffice) {
+        query = query.eq('higher_office', higherOffice);
+      }
+      
+      if (name) {
+        query = query.ilike('name', `%${name}%`);
+      }
+
+      const { data: offices } = await query;
+      displayResults(offices);
+    }
+
+    function displayResults(offices) {
+      const resultsSection = document.getElementById('results-section');
+      const resultsContainer = document.getElementById('results-container');
+      
+      resultsSection.classList.remove('hidden');
+      
+      if (!offices || offices.length === 0) {
+        resultsContainer.innerHTML = `
+          <div class="bg-white rounded-2xl shadow-xl border border-gray-100 p-10 text-center">
+            <div class="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h4 class="text-2xl font-bold text-gray-800 mb-3">কোনো অফিস পাওয়া যায়নি</h4>
+            <p class="text-gray-600 mb-8">আপনি যে তথ্য দিয়ে খুঁজছেন, তার সাথে কোনো অফিস মিলছে না</p>
+            <a href="#top" class="inline-flex items-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-xl">
+              নতুন অফিস তৈরি করুন
+            </a>
+          </div>
+        `;
+        return;
+      }
+
+      resultsContainer.innerHTML = offices.map(office => `
+        <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-7 hover:shadow-xl transition-all transform hover:-translate-y-1">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center gap-3 mb-2">
+                <h4 class="text-2xl font-bold text-gray-800">${office.name}</h4>
+                <span class="px-3 py-1 bg-blue-100 text-blue-700 font-semibold rounded-full text-sm">${office.office_id}</span>
+              </div>
+              <p class="text-gray-600 mb-1">
+                <span class="font-semibold">অফিসের ধরণ:</span> ${office.office_type === 'income' ? 'আয়কর' : 'কাস্টম্‌স ও ভ্যাট'}
+              </p>
+              ${office.higher_office ? `<p class="text-gray-600"><span class="font-semibold">উর্দ্ধতন অফিস:</span> ${office.higher_office}</p>` : ''}
+            </div>
+            <a href="/office/${office.office_id}" class="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all shadow-lg">
+              ড্যাশবোর্ডে যান
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+            </a>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    init();
+  </script>
+</Layout>

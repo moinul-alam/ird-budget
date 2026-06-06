@@ -1,0 +1,142 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout>
+  <div class="min-h-screen bg-gray-100 p-4">
+    <div class="max-w-6xl mx-auto">
+      <a href="/superadmin/dashboard" class="text-blue-600 mb-4 inline-block">&larr; পিছনে</a>
+      <h1 class="text-2xl font-bold mb-6">অ্যাডমিন</h1>
+      <div id="message" class="hidden mb-4 p-4 rounded"></div>
+      
+      <div class="bg-white p-6 rounded shadow mb-6">
+        <h2 class="text-xl font-bold mb-4">নতুন অ্যাডমিন</h2>
+        <p class="text-sm text-gray-600 mb-4">প্রথমে Supabase Dashboard-এ নতুন ইউজার তৈরি করুন, তারপর নিচের ফর্মটি পূরণ করুন</p>
+        <form id="add-admin-form" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block mb-2 font-medium">Supabase User ID</label>
+            <input type="text" id="admin-id" class="w-full p-2 border border-gray-300 rounded" required />
+          </div>
+          <div>
+            <label class="block mb-2 font-medium">ইউজারনেম</label>
+            <input type="text" id="admin-username" class="w-full p-2 border border-gray-300 rounded" required />
+          </div>
+          <div>
+            <label class="block mb-2 font-medium">রোল</label>
+            <select id="admin-role" class="w-full p-2 border border-gray-300 rounded">
+              <option value="admin">অ্যাডমিন</option>
+              <option value="superadmin">সুপারঅ্যাডমিন</option>
+            </select>
+          </div>
+          <div class="md:col-span-3">
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">অ্যাডমিন যোগ করুন</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="bg-white rounded shadow overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="p-3 text-left">ইউজারনেম</th>
+              <th class="p-3 text-left">রোল</th>
+              <th class="p-3 text-left">সক্রিয়</th>
+              <th class="p-3 text-left">কার্যক্রম</th>
+            </tr>
+          </thead>
+          <tbody id="admins-table"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <script>
+    import { supabase } from '../../lib/supabase';
+
+    function showMessage(message, isError = false) {
+      const el = document.getElementById('message');
+      el.textContent = message;
+      el.className = `mb-4 p-4 rounded ${isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 3000);
+    }
+
+    async function loadAdmins() {
+      const { data: admins } = await supabase.from('admin_profiles').select('*');
+      const table = document.getElementById('admins-table');
+      table.innerHTML = (admins || []).map(admin => `
+        <tr class="border-b" data-id="${admin.id}">
+          <td class="p-3">
+            <input type="text" class="w-full p-2 border border-gray-300 rounded admin-username" value="${admin.username}" />
+          </td>
+          <td class="p-3">
+            <select class="w-full p-2 border border-gray-300 rounded admin-role">
+              <option value="admin" ${admin.role === 'admin' ? 'selected' : ''}>অ্যাডমিন</option>
+              <option value="superadmin" ${admin.role === 'superadmin' ? 'selected' : ''}>সুপারঅ্যাডমিন</option>
+            </select>
+          </td>
+          <td class="p-3">
+            <select class="w-full p-2 border border-gray-300 rounded admin-active">
+              <option value="true" ${admin.active ? 'selected' : ''}>হ্যাঁ</option>
+              <option value="false" ${!admin.active ? 'selected' : ''}>না</option>
+            </select>
+          </td>
+          <td class="p-3 space-x-2">
+            <button class="text-blue-600 hover:underline save-btn">সংরক্ষণ</button>
+            <button class="text-red-600 hover:underline delete-btn">মুছুন</button>
+          </td>
+        </tr>
+      `).join('');
+
+      document.querySelectorAll('.save-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const row = btn.closest('tr');
+          const id = row.dataset.id;
+          const username = row.querySelector('.admin-username').value;
+          const role = row.querySelector('.admin-role').value;
+          const active = row.querySelector('.admin-active').value === 'true';
+
+          const { error } = await supabase.from('admin_profiles').update({ username, role, active }).eq('id', id);
+          if (error) {
+            showMessage('অ্যাডমিন আপডেট করতে সমস্যা হয়েছে: ' + error.message, true);
+          } else {
+            showMessage('অ্যাডমিন সফলভাবে আপডেট হয়েছে!');
+            loadAdmins();
+          }
+        });
+      });
+
+      document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('আপনি কি নিশ্চিত?')) return;
+          const row = btn.closest('tr');
+          const id = row.dataset.id;
+          const { error } = await supabase.from('admin_profiles').delete().eq('id', id);
+          if (error) {
+            showMessage('অ্যাডমিন মুছতে সমস্যা হয়েছে: ' + error.message, true);
+          } else {
+            showMessage('অ্যাডমিন সফলভাবে মুছে ফেলা হয়েছে!');
+            loadAdmins();
+          }
+        });
+      });
+    }
+
+    document.getElementById('add-admin-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('admin-id').value.trim();
+      const username = document.getElementById('admin-username').value.trim();
+      const role = document.getElementById('admin-role').value;
+
+      const { error } = await supabase.from('admin_profiles').insert([{ id, username, role, active: true }]);
+      if (error) {
+        showMessage('অ্যাডমিন যোগ করতে সমস্যা হয়েছে: ' + error.message, true);
+      } else {
+        showMessage('অ্যাডমিন সফলভাবে যোগ করা হয়েছে!');
+        document.getElementById('add-admin-form').reset();
+        loadAdmins();
+      }
+    });
+
+    loadAdmins();
+  </script>
+</Layout>

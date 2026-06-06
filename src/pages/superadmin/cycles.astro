@@ -1,0 +1,140 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout>
+  <div class="min-h-screen bg-gray-100 p-4">
+    <div class="max-w-6xl mx-auto">
+      <a href="/superadmin/dashboard" class="text-blue-600 mb-4 inline-block">&larr; পিছনে</a>
+      <h1 class="text-2xl font-bold mb-6">চক্র</h1>
+      <div id="message" class="hidden mb-4 p-4 rounded"></div>
+      
+      <div class="bg-white p-6 rounded shadow mb-6">
+        <h2 class="text-xl font-bold mb-4">নতুন চক্র যোগ করুন</h2>
+        <form id="add-cycle-form" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block mb-2 font-medium">অর্থবছর</label>
+            <input type="text" id="cycle-year" class="w-full p-2 border border-gray-300 rounded" placeholder="2024-25" required />
+          </div>
+          <div>
+            <label class="block mb-2 font-medium">ধরণ</label>
+            <select id="cycle-type" class="w-full p-2 border border-gray-300 rounded">
+              <option value="estimated">প্রাক্কলিত</option>
+              <option value="revised">সংশোধিত</option>
+            </select>
+          </div>
+          <div class="md:col-span-1">
+            <button type="submit" class="mt-6 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">চক্র যোগ করুন</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="bg-white rounded shadow overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="p-3 text-left">অর্থবছর</th>
+              <th class="p-3 text-left">ধরণ</th>
+              <th class="p-3 text-left">অবস্থা</th>
+              <th class="p-3 text-left">কার্যক্রম</th>
+            </tr>
+          </thead>
+          <tbody id="cycles-table"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <script>
+    import { supabase } from '../../lib/supabase';
+
+    function showMessage(message, isError = false) {
+      const el = document.getElementById('message');
+      el.textContent = message;
+      el.className = `mb-4 p-4 rounded ${isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 3000);
+    }
+
+    async function loadCycles() {
+      const { data: cycles } = await supabase.from('cycles').select('*');
+      const table = document.getElementById('cycles-table');
+      table.innerHTML = (cycles || []).map(cycle => `
+        <tr class="border-b" data-id="${cycle.id}">
+          <td class="p-3">
+            <input type="text" class="w-full p-2 border border-gray-300 rounded cycle-year" value="${cycle.fiscal_year}" />
+          </td>
+          <td class="p-3">
+            <select class="w-full p-2 border border-gray-300 rounded cycle-type">
+              <option value="estimated" ${cycle.type === 'estimated' ? 'selected' : ''}>প্রাক্কলিত</option>
+              <option value="revised" ${cycle.type === 'revised' ? 'selected' : ''}>সংশোধিত</option>
+            </select>
+          </td>
+          <td class="p-3">
+            <select class="w-full p-2 border border-gray-300 rounded cycle-status">
+              <option value="open" ${cycle.status === 'open' ? 'selected' : ''}>খোলা</option>
+              <option value="closed" ${cycle.status === 'closed' ? 'selected' : ''}>বন্ধ</option>
+            </select>
+          </td>
+          <td class="p-3 space-x-2">
+            <button class="text-blue-600 hover:underline save-btn">সংরক্ষণ</button>
+            <button class="text-red-600 hover:underline delete-btn">মুছুন</button>
+          </td>
+        </tr>
+      `).join('');
+
+      document.querySelectorAll('.save-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const row = btn.closest('tr');
+          const id = row.dataset.id;
+          const fiscal_year = row.querySelector('.cycle-year').value;
+          const type = row.querySelector('.cycle-type').value;
+          const status = row.querySelector('.cycle-status').value;
+
+          const { error } = await supabase.from('cycles').update({ 
+            fiscal_year, type, status, 
+            opened_at: status === 'open' ? new Date().toISOString() : null,
+            closed_at: status === 'closed' ? new Date().toISOString() : null
+          }).eq('id', id);
+          if (error) {
+            showMessage('চক্র আপডেট করতে সমস্যা হয়েছে: ' + error.message, true);
+          } else {
+            showMessage('চক্র সফলভাবে আপডেট হয়েছে!');
+            loadCycles();
+          }
+        });
+      });
+
+      document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('আপনি কি নিশ্চিত?')) return;
+          const row = btn.closest('tr');
+          const id = row.dataset.id;
+          const { error } = await supabase.from('cycles').delete().eq('id', id);
+          if (error) {
+            showMessage('চক্র মুছতে সমস্যা হয়েছে: ' + error.message, true);
+          } else {
+            showMessage('চক্র সফলভাবে মুছে ফেলা হয়েছে!');
+            loadCycles();
+          }
+        });
+      });
+    }
+
+    document.getElementById('add-cycle-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fiscal_year = document.getElementById('cycle-year').value.trim();
+      const type = document.getElementById('cycle-type').value;
+
+      const { error } = await supabase.from('cycles').insert([{ fiscal_year, type, status: 'closed' }]);
+      if (error) {
+        showMessage('চক্র যোগ করতে সমস্যা হয়েছে: ' + error.message, true);
+      } else {
+        showMessage('চক্র সফলভাবে যোগ করা হয়েছে!');
+        document.getElementById('add-cycle-form').reset();
+        loadCycles();
+      }
+    });
+
+    loadCycles();
+  </script>
+</Layout>

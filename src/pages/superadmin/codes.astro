@@ -1,0 +1,158 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout>
+  <div class="min-h-screen bg-gray-100 p-4">
+    <div class="max-w-6xl mx-auto">
+      <a href="/superadmin/dashboard" class="text-blue-600 mb-4 inline-block">&larr; পিছনে</a>
+      <h1 class="text-2xl font-bold mb-6">ব্যয় কোড</h1>
+      <div id="message" class="hidden mb-4 p-4 rounded"></div>
+
+      <div class="bg-white p-6 rounded shadow mb-6">
+        <h2 class="text-xl font-bold mb-4">নতুন কোড যোগ করুন</h2>
+        <form id="add-code-form" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label class="block mb-2 font-medium">কোড</label>
+            <input type="text" id="code-code" class="w-full p-2 border border-gray-300 rounded" required />
+          </div>
+          <div>
+            <label class="block mb-2 font-medium">নাম</label>
+            <input type="text" id="code-name" class="w-full p-2 border border-gray-300 rounded" required />
+          </div>
+          <div>
+            <label class="block mb-2 font-medium">ফর্মুলা কী</label>
+            <input type="text" id="code-formula" class="w-full p-2 border border-gray-300 rounded" />
+          </div>
+          <div>
+            <label class="block mb-2 font-medium">ম্যানুয়াল?</label>
+            <select id="code-manual" class="w-full p-2 border border-gray-300 rounded">
+              <option value="false">না</option>
+              <option value="true">হ্যাঁ</option>
+            </select>
+          </div>
+          <div>
+            <label class="block mb-2 font-medium">সর্ট অর্ডার</label>
+            <input type="number" id="code-sort" class="w-full p-2 border border-gray-300 rounded" value="0" />
+          </div>
+          <div class="md:col-span-3">
+            <button type="submit" class="mt-6 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">কোড যোগ করুন</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="bg-white rounded shadow overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="p-3 text-left">কোড</th>
+              <th class="p-3 text-left">নাম</th>
+              <th class="p-3 text-left">ফর্মুলা কী</th>
+              <th class="p-3 text-left">ম্যানুয়াল</th>
+              <th class="p-3 text-left">সর্ট</th>
+              <th class="p-3 text-left">কার্যক্রম</th>
+            </tr>
+          </thead>
+          <tbody id="codes-table"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <script>
+    import { supabase } from '../../lib/supabase';
+
+    function showMessage(message, isError = false) {
+      const el = document.getElementById('message');
+      el.textContent = message;
+      el.className = `mb-4 p-4 rounded ${isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 3000);
+    }
+
+    async function loadCodes() {
+      const { data: codes } = await supabase.from('expense_codes').select('*').order('sort_order');
+      const table = document.getElementById('codes-table');
+      table.innerHTML = (codes || []).map(code => `
+        <tr class="border-b" data-id="${code.id}">
+          <td class="p-3">
+            <input type="text" class="w-full p-2 border border-gray-300 rounded code-code" value="${code.code}" />
+          </td>
+          <td class="p-3">
+            <input type="text" class="w-full p-2 border border-gray-300 rounded code-name" value="${code.name}" />
+          </td>
+          <td class="p-3">
+            <input type="text" class="w-full p-2 border border-gray-300 rounded code-formula" value="${code.formula_key || ''}" />
+          </td>
+          <td class="p-3">
+            <select class="w-full p-2 border border-gray-300 rounded code-manual">
+              <option value="false" ${!code.is_manual ? 'selected' : ''}>না</option>
+              <option value="true" ${code.is_manual ? 'selected' : ''}>হ্যাঁ</option>
+            </select>
+          </td>
+          <td class="p-3">
+            <input type="number" class="w-full p-2 border border-gray-300 rounded code-sort" value="${code.sort_order || 0}" />
+          </td>
+          <td class="p-3 space-x-2">
+            <button class="text-blue-600 hover:underline save-btn">সংরক্ষণ</button>
+            <button class="text-red-600 hover:underline delete-btn">মুছুন</button>
+          </td>
+        </tr>
+      `).join('');
+
+      document.querySelectorAll('.save-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const row = btn.closest('tr');
+          const id = row.dataset.id;
+          const code = row.querySelector('.code-code').value;
+          const name = row.querySelector('.code-name').value;
+          const formula_key = row.querySelector('.code-formula').value || null;
+          const is_manual = row.querySelector('.code-manual').value === 'true';
+          const sort_order = parseInt(row.querySelector('.code-sort').value);
+
+          const { error } = await supabase.from('expense_codes').update({ code, name, formula_key, is_manual, sort_order }).eq('id', id);
+          if (error) {
+            showMessage('কোড আপডেট করতে সমস্যা হয়েছে: ' + error.message, true);
+          } else {
+            showMessage('কোড সফলভাবে আপডেট হয়েছে!');
+            loadCodes();
+          }
+        });
+      });
+
+      document.querySelectorAll('.delete-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('আপনি কি নিশ্চিত?')) return;
+          const row = btn.closest('tr');
+          const id = row.dataset.id;
+          const { error } = await supabase.from('expense_codes').delete().eq('id', id);
+          if (error) {
+            showMessage('কোড মুছতে সমস্যা হয়েছে: ' + error.message, true);
+          } else {
+            showMessage('কোড সফলভাবে মুছে ফেলা হয়েছে!');
+            loadCodes();
+          }
+        });
+      });
+    }
+
+    document.getElementById('add-code-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const code = document.getElementById('code-code').value.trim();
+      const name = document.getElementById('code-name').value.trim();
+      const formula_key = document.getElementById('code-formula').value.trim() || null;
+      const is_manual = document.getElementById('code-manual').value === 'true';
+      const sort_order = parseInt(document.getElementById('code-sort').value);
+
+      const { error } = await supabase.from('expense_codes').insert([{ code, name, formula_key, is_manual, sort_order }]);
+      if (error) {
+        showMessage('কোড যোগ করতে সমস্যা হয়েছে: ' + error.message, true);
+      } else {
+        showMessage('কোড সফলভাবে যোগ করা হয়েছে!');
+        document.getElementById('add-code-form').reset();
+        loadCodes();
+      }
+    });
+
+    loadCodes();
+  </script>
+</Layout>

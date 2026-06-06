@@ -1,0 +1,240 @@
+---
+import Layout from '../../layouts/Layout.astro';
+---
+
+<Layout>
+  <div class="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-12 px-4">
+    <div class="max-w-3xl mx-auto">
+      <!-- Header -->
+      <div class="mb-8">
+        <a href={`/office/${Astro.params.id}`} class="inline-flex items-center gap-2 text-gray-600 hover:text-blue-600 mb-6 font-medium">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          ড্যাশবোর্ডে ফিরে যান
+        </a>
+        <div class="flex items-center gap-4 mb-4">
+          <div class="w-14 h-14 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-3xl font-extrabold text-gray-800">ফর্ম ১: অফিসের মূল তথ্য</h1>
+            <p class="text-gray-600 mt-1">আপনার অফিসের প্রয়োজনীয় মূল তথ্য পূরণ করুন</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Form Card -->
+      <div class="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
+        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 px-10 py-6">
+          <div class="flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+            <span class="text-2xl font-bold text-white">অফিস তথ্য পূরণ করুন</span>
+          </div>
+        </div>
+        
+        <div class="p-10">
+          <form id="office-form" class="space-y-7">
+            <!-- Office Head -->
+            <div class="space-y-2">
+              <label for="head_of_office" class="block text-base font-semibold text-gray-700">
+                অফিস প্রধানের নাম <span class="text-red-500">*</span>
+              </label>
+              <input 
+                type="text" 
+                id="head_of_office" 
+                name="head_of_office"
+                class="w-full px-5 py-4 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all text-lg bg-gray-50 focus:bg-white"
+                placeholder="যেমন: মোহাম্মদ রহিম"
+              />
+            </div>
+
+            <!-- Designation -->
+            <div class="space-y-2">
+              <label for="designation" class="block text-base font-semibold text-gray-700">
+                পদবী <span class="text-red-500">*</span>
+              </label>
+              <input 
+                type="text" 
+                id="designation" 
+                name="designation"
+                class="w-full px-5 py-4 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all text-lg bg-gray-50 focus:bg-white"
+                placeholder="যেমন: উপপরিচালক"
+              />
+            </div>
+
+            <!-- Phone -->
+            <div class="space-y-2">
+              <label for="phone" class="block text-base font-semibold text-gray-700">
+                ফোন নম্বর <span class="text-red-500">*</span>
+              </label>
+              <input 
+                type="tel" 
+                id="phone" 
+                name="phone"
+                class="w-full px-5 py-4 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all text-lg bg-gray-50 focus:bg-white font-mono"
+                placeholder="যেমন: 01712345678"
+              />
+            </div>
+
+            <!-- Email -->
+            <div class="space-y-2">
+              <label for="email" class="block text-base font-semibold text-gray-700">
+                ইমেইল অ্যাড্রেস
+              </label>
+              <input 
+                type="email" 
+                id="email" 
+                name="email"
+                class="w-full px-5 py-4 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all text-lg bg-gray-50 focus:bg-white"
+                placeholder="যেমন: office@example.com"
+              />
+            </div>
+
+            <!-- Address -->
+            <div class="space-y-2">
+              <label for="address" class="block text-base font-semibold text-gray-700">
+                অফিসের ঠিকানা <span class="text-red-500">*</span>
+              </label>
+              <textarea 
+                id="address" 
+                name="address"
+                rows="3"
+                class="w-full px-5 py-4 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all text-lg bg-gray-50 focus:bg-white resize-none"
+                placeholder="আপনার অফিসের সম্পূর্ণ ঠিকানা লিখুন"
+              ></textarea>
+            </div>
+
+            <!-- Buttons -->
+            <div class="flex items-center justify-between pt-6 border-t border-gray-100 mt-8">
+              <div id="save-status" class="text-base"></div>
+              <button 
+                type="submit" 
+                id="save-button"
+                class="px-10 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-lg rounded-2xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1 focus:ring-4 focus:ring-blue-200"
+              >
+                <span id="btn-text">সংরক্ষণ করুন</span>
+                <span id="btn-loader" class="hidden">
+                  <svg class="animate-spin h-5 w-5 text-white inline mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  সংরক্ষণ হচ্ছে...
+                </span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    import { supabase } from '../../lib/supabase';
+
+    const officeParam = Astro.params.id;
+
+    async function init() {
+      // Load existing data
+      const { data: office } = await supabase.from('offices').select('*').eq('office_id', officeParam).maybeSingle();
+      if (office) {
+        document.getElementById('address').value = office.address || '';
+      }
+
+      const { data: cycle } = await supabase.from('cycles').select('*').eq('status', 'open').maybeSingle();
+      if (cycle && office) {
+        const { data: submission } = await supabase.from('submissions').select('*').eq('office_id', office.id).eq('cycle_id', cycle.id).maybeSingle();
+        if (submission) {
+          const { data: formBasic } = await supabase.from('form_basic').select('*').eq('submission_id', submission.id).maybeSingle();
+          if (formBasic) {
+            document.getElementById('head_of_office').value = formBasic.head_of_office || '';
+            document.getElementById('designation').value = formBasic.designation || '';
+            document.getElementById('phone').value = formBasic.phone || '';
+            document.getElementById('email').value = formBasic.email || '';
+          }
+        }
+      }
+
+      // Form submit handler
+      document.getElementById('office-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const saveButton = document.getElementById('save-button');
+        const saveStatus = document.getElementById('save-status');
+        const btnText = document.getElementById('btn-text');
+        const btnLoader = document.getElementById('btn-loader');
+        
+        saveButton.disabled = true;
+        btnText.classList.add('hidden');
+        btnLoader.classList.remove('hidden');
+        saveStatus.textContent = '';
+        saveStatus.className = 'text-base';
+
+        try {
+          // 1. Get or create office
+          let { data: office } = await supabase.from('offices').select('*').eq('office_id', officeParam).maybeSingle();
+          
+          if (!office) {
+            alert('প্রথমে অফিস তৈরি করতে হবে!');
+            window.location.href = '/';
+            return;
+          } else {
+            // Update office address
+            await supabase.from('offices').update({
+              address: document.getElementById('address').value
+            }).eq('id', office.id);
+          }
+
+          // 2. Get or create open cycle submission
+          let { data: cycle } = await supabase.from('cycles').select('*').eq('status', 'open').maybeSingle();
+          if (!cycle) {
+            alert('বর্তমানে কোনো দাখিলের চক্র খোলা নেই!');
+            return;
+          }
+
+          let { data: submission } = await supabase.from('submissions').select('*').eq('office_id', office.id).eq('cycle_id', cycle.id).maybeSingle();
+          if (!submission) {
+            const { data: newSub } = await supabase.from('submissions').insert({
+              office_id: office.id,
+              cycle_id: cycle.id
+            }).select().single();
+            submission = newSub;
+          }
+
+          // 3. Save form basic
+          const formData = {
+            head_of_office: document.getElementById('head_of_office').value,
+            designation: document.getElementById('designation').value,
+            phone: document.getElementById('phone').value,
+            email: document.getElementById('email').value,
+            submission_id: submission.id
+          };
+
+          const { data: existingBasic } = await supabase.from('form_basic').select('*').eq('submission_id', submission.id).maybeSingle();
+          if (existingBasic) {
+            await supabase.from('form_basic').update(formData).eq('id', existingBasic.id);
+          } else {
+            await supabase.from('form_basic').insert(formData);
+          }
+
+          saveStatus.textContent = '✓ সফলভাবে সংরক্ষিত হয়েছে!';
+          saveStatus.className = 'text-base text-green-600 font-semibold';
+        } catch (error) {
+          console.error(error);
+          saveStatus.textContent = '✗ সংরক্ষণ করতে সমস্যা হয়েছে!';
+          saveStatus.className = 'text-base text-red-600 font-semibold';
+        } finally {
+          saveButton.disabled = false;
+          btnText.classList.remove('hidden');
+          btnLoader.classList.add('hidden');
+        }
+      });
+    }
+
+    init();
+  </script>
+</Layout>

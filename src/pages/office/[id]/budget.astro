@@ -1,0 +1,53 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+---
+
+<Layout>
+  <div class="min-h-screen bg-gray-100 p-4">
+    <div class="max-w-4xl mx-auto">
+      <a href={`/office/${Astro.params.id}`} class="text-blue-600 mb-4 inline-block">&larr; পিছনে</a>
+      <h1 class="text-2xl font-bold mb-6">বাজেট শিট</h1>
+      <div class="bg-white rounded shadow overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="p-3 text-left">কোড</th>
+              <th class="p-3 text-left">ব্যয় খাত</th>
+              <th class="p-3 text-left">পরিমাণ (টাকা)</th>
+              <th class="p-3 text-left">পূর্ববর্তী বছর (টাকা)</th>
+            </tr>
+          </thead>
+          <tbody id="budget-table"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <script>
+    import { supabase } from '../../../lib/supabase';
+    import { toBanglaCurrency } from '../../../lib/bangla';
+
+    const officeId = Astro.params.id;
+
+    async function loadBudget() {
+      const { data: cycle } = await supabase.from('cycles').select('*').eq('status', 'open').maybeSingle();
+      if (!cycle) return;
+
+      const { data: submission } = await supabase.from('submissions').select('*').eq('office_id', officeId).eq('cycle_id', cycle.id).maybeSingle();
+      if (!submission) return;
+
+      const { data: budgetSheet } = await supabase.from('budget_sheet').select('*, expense_codes(*)').eq('submission_id', submission.id);
+      const table = document.getElementById('budget-table');
+
+      table.innerHTML = budgetSheet.map(row => `
+        <tr class="border-b">
+          <td class="p-3">${row.expense_codes.code}</td>
+          <td class="p-3">${row.expense_codes.name}</td>
+          <td class="p-3">${toBanglaCurrency(row.final_value)}</td>
+          <td class="p-3">${toBanglaCurrency(row.prev_year_actual)}</td>
+        </tr>
+      `).join('');
+    }
+
+    loadBudget();
+  </script>
+</Layout>
