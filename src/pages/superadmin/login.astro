@@ -31,18 +31,18 @@ import { strings } from '../../lib/strings.js';
           </div>
 
           <div>
-            <label class="block text-slate-700 font-bold mb-2 ml-1">ইমেইল ঠিকানা</label>
+            <label class="block text-slate-700 font-bold mb-2 ml-1">ইউজারনেম (Username)</label>
             <div class="relative">
               <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </div>
               <input 
-                type="email" 
-                id="email" 
+                type="text" 
+                id="username" 
                 required
-                placeholder="admin@nbr.gov.bd"
+                placeholder="যেমন: admin_dhaka"
                 class="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-medium text-slate-800 placeholder-slate-400"
               />
             </div>
@@ -101,7 +101,7 @@ import { strings } from '../../lib/strings.js';
     }
 
     const form = document.getElementById('login-form');
-    const emailInput = document.getElementById('email') as HTMLInputElement;
+    const usernameInput = document.getElementById('username') as HTMLInputElement;
     const passwordInput = document.getElementById('password') as HTMLInputElement;
     const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement;
     
@@ -118,10 +118,13 @@ import { strings } from '../../lib/strings.js';
     form?.addEventListener('submit', async (e) => {
       e.preventDefault();
       
-      const email = emailInput.value.trim();
+      const username = usernameInput.value.trim();
       const password = passwordInput.value;
 
-      if (!email || !password) return;
+      if (!username || !password) return;
+
+      // Supabase Auth requires an email, so we append a dummy domain to the username
+      const email = `${username}@ird-budget.local`;
 
       // Reset state
       errorBox?.classList.add('hidden');
@@ -137,7 +140,7 @@ import { strings } from '../../lib/strings.js';
         });
 
         if (authError || !authData.user) {
-          throw new Error('ইমেইল বা পাসওয়ার্ড সঠিক নয়।');
+          throw new Error('ইউজারনেম বা পাসওয়ার্ড সঠিক নয়।');
         }
 
         // 2. Verify admin role in admin_profiles
