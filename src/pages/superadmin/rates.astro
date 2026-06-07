@@ -1,139 +1,175 @@
 ---
-import Layout from '../../layouts/Layout.astro';
+import SuperAdminLayout from '../../layouts/SuperAdminLayout.astro';
+import { strings } from '../../lib/strings.js';
 ---
 
-<Layout>
-  <div class="min-h-screen bg-gray-100 p-4">
-    <div class="max-w-6xl mx-auto">
-      <a href="/superadmin/dashboard" class="text-blue-600 mb-4 inline-block">&larr; পিছনে</a>
-      <h1 class="text-2xl font-bold mb-6">রেট</h1>
-      <div id="message" class="hidden mb-4 p-4 rounded"></div>
-      <div class="bg-white rounded shadow overflow-x-auto">
-        <table class="w-full">
-          <thead class="bg-gray-100">
-            <tr>
-              <th class="p-3 text-left">কী</th>
-              <th class="p-3 text-left">মান</th>
-              <th class="p-3 text-left">বিবরণ</th>
-              <th class="p-3 text-left">কার্যক্রম</th>
-            </tr>
-          </thead>
-          <tbody id="rates-table"></tbody>
-        </table>
-      </div>
+<SuperAdminLayout activePath="/superadmin/rates" title={strings.superAdmin.rates.title}>
+  
+  <div class="mb-8">
+    <h1 class="text-3xl font-bold text-slate-800 mb-2">{strings.superAdmin.rates.title}</h1>
+    <p class="text-slate-500">বাজেট গণনার জন্য নির্ধারিত হারসমূহ</p>
+  </div>
+
+  <div class="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl mb-6 flex items-start gap-3">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 mt-0.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    </svg>
+    <p class="text-sm font-medium">{strings.superAdmin.rates.warning}</p>
+  </div>
+
+  <div id="loading-state" class="py-12 flex flex-col items-center justify-center">
+    <div class="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+  </div>
+
+  <div id="rates-container" class="hidden bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse">
+        <thead class="bg-slate-50 border-b border-slate-200">
+          <tr>
+            <th class="p-4 font-bold text-slate-600">{strings.superAdmin.rates.key}</th>
+            <th class="p-4 font-bold text-slate-600">{strings.superAdmin.rates.description}</th>
+            <th class="p-4 font-bold text-slate-600">{strings.superAdmin.rates.value}</th>
+          </tr>
+        </thead>
+        <tbody id="rates-body" class="divide-y divide-slate-100">
+          <!-- Populated via JS -->
+        </tbody>
+      </table>
     </div>
   </div>
-  <script>
-    import { supabase } from '../../lib/supabase';
-    import { calculateBudget } from '../../lib/formulas';
 
-    function showMessage(message, isError = false) {
-      const el = document.getElementById('message');
-      el.textContent = message;
-      el.className = `mb-4 p-4 rounded ${isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
-      el.classList.remove('hidden');
-      setTimeout(() => el.classList.add('hidden'), 3000);
-    }
+</SuperAdminLayout>
 
-    async function recalculateAllBudgets() {
-      const { data: cycle } = await supabase.from('cycles').select('*').eq('status', 'open').maybeSingle();
-      if (!cycle) return;
+<script>
+  import { supabase } from '../../lib/supabase.js';
+  import { toBanglaNumber, toBanglaCurrency } from '../../lib/bangla.js';
+  import { strings } from '../../lib/strings.js';
 
-      const { data: submissions } = await supabase.from('submissions').select('*').eq('cycle_id', cycle.id).eq('status', 'draft');
+  document.addEventListener('DOMContentLoaded', async () => {
+    const loadingState = document.getElementById('loading-state');
+    const container = document.getElementById('rates-container');
+    const tbody = document.getElementById('rates-body');
+    
+    let ratesData = [];
 
-      const { data: codes } = await supabase.from('expense_codes').select('*');
-      const { data: ratesData } = await supabase.from('rates').select('*');
-      const rates = {};
-      ratesData.forEach(r => rates[r.key] = r.value);
+    const loadRates = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('rates')
+          .select('*')
+          .order('key', { ascending: true });
 
-      for (const submission of (submissions || [])) {
-        const { data: formStaff } = await supabase.from('form_staff').select('*, grades(*)').eq('submission_id', submission.id);
-        const { data: formFuel } = await supabase.from('form_fuel').select('*').eq('submission_id', submission.id);
-        const { data: formUtility } = await supabase.from('form_utility').select('*').eq('submission_id', submission.id).maybeSingle();
-        const { data: formRent } = await supabase.from('form_rent').select('*').eq('submission_id', submission.id).maybeSingle();
-        const { data: formMisc } = await supabase.from('form_misc').select('*').eq('submission_id', submission.id).maybeSingle();
-
-        const submissionData = {
-          staff: (formStaff || []).map(s => ({
-            grade_no: s.grades?.grade_no,
-            count: s.count,
-            avg_basic: s.avg_basic
-          })),
-          fuel: formFuel || [],
-          utility: formUtility || {},
-          rent: formRent || {},
-          misc: formMisc || {}
-        };
-
-        const budgetData = calculateBudget(submissionData, codes, rates);
-
-        for (const row of budgetData) {
-          const { data: existing } = await supabase.from('budget_sheet').select('*').eq('submission_id', submission.id).eq('code_id', row.code_id).maybeSingle();
-          if (existing) {
-            await supabase.from('budget_sheet').update({ auto_value: row.auto_value }).eq('id', existing.id);
-          } else {
-            await supabase.from('budget_sheet').insert([{ submission_id: submission.id, code_id: row.code_id, auto_value: row.auto_value }]);
-          }
-        }
+        if (error) throw error;
+        ratesData = data || [];
+        renderTable();
+      } catch (err) {
+        console.error(err);
+        if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-rose-500">ডেটা লোড করতে সমস্যা হয়েছে।</td></tr>`;
+      } finally {
+        loadingState?.classList.add('hidden');
+        container?.classList.remove('hidden');
       }
-    }
+    };
 
-    async function loadRates() {
-      const { data: rates } = await supabase.from('rates').select('*');
-      const table = document.getElementById('rates-table');
-      table.innerHTML = (rates || []).map(rate => `
-        <tr class="border-b" data-id="${rate.id}">
-          <td class="p-3">
-            <input type="text" class="w-full p-2 border border-gray-300 rounded rate-key" value="${rate.key}" />
-          </td>
-          <td class="p-3">
-            <input type="number" class="w-full p-2 border border-gray-300 rounded rate-value" value="${rate.value}" />
-          </td>
-          <td class="p-3">
-            <input type="text" class="w-full p-2 border border-gray-300 rounded rate-desc" value="${rate.description || ''}" />
-          </td>
-          <td class="p-3 space-x-2">
-            <button class="text-blue-600 hover:underline save-btn">সংরক্ষণ</button>
-            <button class="text-red-600 hover:underline delete-btn">মুছুন</button>
-          </td>
-        </tr>
-      `).join('');
+    const renderTable = () => {
+      if (!tbody) return;
+      tbody.innerHTML = '';
 
-      document.querySelectorAll('.save-btn').forEach((btn, i) => {
-        btn.addEventListener('click', async () => {
-          const row = btn.closest('tr');
-          const id = row.dataset.id;
-          const key = row.querySelector('.rate-key').value;
-          const value = parseFloat(row.querySelector('.rate-value').value);
-          const description = row.querySelector('.rate-desc').value;
+      if (ratesData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="3" class="p-8 text-center text-slate-500">কোনো তথ্য পাওয়া যায়নি</td></tr>`;
+        return;
+      }
 
-          const { error } = await supabase.from('rates').update({ key, value, description, updated_at: new Date().toISOString() }).eq('id', id);
-          if (error) {
-            showMessage('রেট আপডেট করতে সমস্যা হয়েছে: ' + error.message, true);
-          } else {
-            showMessage('রেট সফলভাবে আপডেট হয়েছে!');
-            await recalculateAllBudgets();
-            showMessage('সব খসড়া বাজেট পুনরায় গণনা করা হয়েছে!');
-          }
-        });
+      ratesData.forEach(rate => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition-colors group';
+        
+        // Formatted display value
+        const isCurrency = rate.key.includes('cost') || rate.key.includes('allowance') || rate.key.includes('amount') || rate.key.includes('basic') || rate.key.includes('salary');
+        const displayVal = isCurrency ? toBanglaCurrency(rate.value) : toBanglaNumber(rate.value);
+
+        tr.innerHTML = `
+          <td class="p-4 font-mono text-indigo-600 font-semibold bg-slate-50/50">${rate.key}</td>
+          <td class="p-4 text-slate-600">${rate.description || '--'}</td>
+          <td class="p-4 relative">
+            <div class="flex items-center gap-2 group-hover:bg-blue-50/50 -mx-2 px-2 py-1 rounded-lg transition-colors cursor-text editable-wrapper" data-key="${rate.key}">
+                <span class="flex-1 font-medium text-slate-800 value-display">${displayVal}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+            </div>
+            <input type="number" step="any" class="hidden absolute inset-y-2 left-2 right-2 px-3 border-2 border-blue-500 rounded-lg outline-none font-sans value-input" value="${rate.value}">
+          </td>
+        `;
+        tbody.appendChild(tr);
       });
 
-      document.querySelectorAll('.delete-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          if (!confirm('আপনি কি নিশ্চিত?')) return;
-          const row = btn.closest('tr');
-          const id = row.dataset.id;
-          const { error } = await supabase.from('rates').delete().eq('id', id);
-          if (error) {
-            showMessage('রেট মুছতে সমস্যা হয়েছে: ' + error.message, true);
-          } else {
-            showMessage('রেট সফলভাবে মুছে ফেলা হয়েছে!');
-            loadRates();
+      // Bind Inline Edit
+      const wrappers = tbody.querySelectorAll('.editable-wrapper');
+      wrappers.forEach(wrapper => {
+        const display = wrapper.querySelector('.value-display');
+        const input = wrapper.nextElementSibling as HTMLInputElement;
+        const key = wrapper.getAttribute('data-key');
+
+        wrapper.addEventListener('click', () => {
+          wrapper.classList.add('hidden');
+          input.classList.remove('hidden');
+          input.focus();
+        });
+
+        // Save on blur
+        input.addEventListener('blur', async () => {
+          const newVal = parseFloat(input.value);
+          const oldRate = ratesData.find(r => r.key === key);
+          
+          if (isNaN(newVal) || newVal === oldRate.value) {
+            // Revert UI
+            input.classList.add('hidden');
+            wrapper.classList.remove('hidden');
+            return;
+          }
+
+          // Save to DB
+          input.disabled = true;
+          try {
+            const { error } = await supabase.from('rates').update({ value: newVal }).eq('key', key);
+            if (error) throw error;
+            
+            // Success: update local data and re-render row visually without full reload
+            oldRate.value = newVal;
+            const isCurrency = key.includes('cost') || key.includes('allowance') || key.includes('amount') || key.includes('basic') || key.includes('salary');
+            if (display) display.textContent = isCurrency ? toBanglaCurrency(newVal) : toBanglaNumber(newVal);
+            
+            // Toast notification (simple visual cue)
+            input.classList.remove('border-blue-500');
+            input.classList.add('border-emerald-500', 'bg-emerald-50');
+            setTimeout(() => {
+                input.classList.add('hidden');
+                wrapper.classList.remove('hidden');
+                input.classList.remove('border-emerald-500', 'bg-emerald-50');
+                input.classList.add('border-blue-500');
+                input.disabled = false;
+            }, 500);
+
+          } catch (err) {
+            alert('সংরক্ষণ ব্যর্থ হয়েছে');
+            input.disabled = false;
+            input.focus();
           }
         });
+        
+        // Handle Enter key
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                input.blur();
+            } else if (e.key === 'Escape') {
+                input.value = ratesData.find(r => r.key === key).value;
+                input.blur();
+            }
+        });
       });
-    }
+    };
 
     loadRates();
-  </script>
-</Layout>
+  });
+</script>

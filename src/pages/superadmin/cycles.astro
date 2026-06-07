@@ -1,140 +1,241 @@
 ---
-import Layout from '../../layouts/Layout.astro';
+import SuperAdminLayout from '../../layouts/SuperAdminLayout.astro';
+import { strings } from '../../lib/strings.js';
 ---
 
-<Layout>
-  <div class="min-h-screen bg-gray-100 p-4">
-    <div class="max-w-6xl mx-auto">
-      <a href="/superadmin/dashboard" class="text-blue-600 mb-4 inline-block">&larr; পিছনে</a>
-      <h1 class="text-2xl font-bold mb-6">চক্র</h1>
-      <div id="message" class="hidden mb-4 p-4 rounded"></div>
-      
-      <div class="bg-white p-6 rounded shadow mb-6">
-        <h2 class="text-xl font-bold mb-4">নতুন চক্র যোগ করুন</h2>
-        <form id="add-cycle-form" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label class="block mb-2 font-medium">অর্থবছর</label>
-            <input type="text" id="cycle-year" class="w-full p-2 border border-gray-300 rounded" placeholder="2024-25" required />
-          </div>
-          <div>
-            <label class="block mb-2 font-medium">ধরণ</label>
-            <select id="cycle-type" class="w-full p-2 border border-gray-300 rounded">
-              <option value="estimated">প্রাক্কলিত</option>
-              <option value="revised">সংশোধিত</option>
-            </select>
-          </div>
-          <div class="md:col-span-1">
-            <button type="submit" class="mt-6 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">চক্র যোগ করুন</button>
-          </div>
-        </form>
-      </div>
+<SuperAdminLayout activePath="/superadmin/cycles" title={strings.superAdmin.cycles.title}>
+  
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+    <div>
+      <h1 class="text-3xl font-bold text-slate-800 mb-2">{strings.superAdmin.cycles.title}</h1>
+      <p class="text-slate-500">বাজেট চক্র তৈরি এবং খোলা/বন্ধ করুন</p>
+    </div>
+    <button id="add-cycle-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold shadow-md shadow-blue-600/20 transition-colors flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+      </svg>
+      {strings.superAdmin.cycles.create}
+    </button>
+  </div>
 
-      <div class="bg-white rounded shadow overflow-x-auto">
-        <table class="w-full">
-          <thead class="bg-gray-100">
-            <tr>
-              <th class="p-3 text-left">অর্থবছর</th>
-              <th class="p-3 text-left">ধরণ</th>
-              <th class="p-3 text-left">অবস্থা</th>
-              <th class="p-3 text-left">কার্যক্রম</th>
-            </tr>
-          </thead>
-          <tbody id="cycles-table"></tbody>
-        </table>
+  <!-- Add Cycle Form (Hidden by default) -->
+  <div id="add-cycle-form-container" class="hidden bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-8">
+    <h3 class="text-lg font-bold text-slate-800 mb-4">{strings.superAdmin.cycles.create}</h3>
+    <form id="add-cycle-form" class="flex flex-col md:flex-row gap-4 items-end">
+      <div class="flex-1 w-full">
+        <label class="block text-sm font-bold text-slate-700 mb-2">{strings.superAdmin.cycles.fiscalYear}</label>
+        <input type="text" id="new-fy" required placeholder={strings.superAdmin.cycles.fiscalYearPlaceholder} class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
       </div>
+      <div class="flex-1 w-full">
+        <label class="block text-sm font-bold text-slate-700 mb-2">{strings.superAdmin.cycles.budgetType}</label>
+        <select id="new-type" required class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white">
+          <option value="new">{strings.cycle.newBudget}</option>
+          <option value="revised">{strings.cycle.revisedBudget}</option>
+        </select>
+      </div>
+      <div class="flex gap-2 w-full md:w-auto mt-4 md:mt-0">
+        <button type="button" id="cancel-add-btn" class="px-6 py-2 border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">
+          {strings.cancel}
+        </button>
+        <button type="submit" id="save-cycle-btn" class="px-6 py-2 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-md shadow-emerald-500/20">
+          {strings.fields.save}
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div id="loading-state" class="py-12 flex flex-col items-center justify-center">
+    <div class="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+  </div>
+
+  <!-- Cycles Table -->
+  <div id="cycles-container" class="hidden bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse">
+        <thead class="bg-slate-50 border-b border-slate-200">
+          <tr>
+            <th class="p-4 font-bold text-slate-600">ID</th>
+            <th class="p-4 font-bold text-slate-600">{strings.superAdmin.cycles.fiscalYear}</th>
+            <th class="p-4 font-bold text-slate-600">{strings.superAdmin.cycles.budgetType}</th>
+            <th class="p-4 font-bold text-slate-600">স্ট্যাটাস</th>
+            <th class="p-4 font-bold text-slate-600">{strings.superAdmin.cycles.openedAt}</th>
+            <th class="p-4 font-bold text-slate-600">{strings.superAdmin.cycles.closedAt}</th>
+            <th class="p-4 font-bold text-slate-600 text-right">অ্যাকশন</th>
+          </tr>
+        </thead>
+        <tbody id="cycles-body" class="divide-y divide-slate-100">
+          <!-- Populated via JS -->
+        </tbody>
+      </table>
     </div>
   </div>
-  <script>
-    import { supabase } from '../../lib/supabase';
 
-    function showMessage(message, isError = false) {
-      const el = document.getElementById('message');
-      el.textContent = message;
-      el.className = `mb-4 p-4 rounded ${isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
-      el.classList.remove('hidden');
-      setTimeout(() => el.classList.add('hidden'), 3000);
-    }
+</SuperAdminLayout>
 
-    async function loadCycles() {
-      const { data: cycles } = await supabase.from('cycles').select('*');
-      const table = document.getElementById('cycles-table');
-      table.innerHTML = (cycles || []).map(cycle => `
-        <tr class="border-b" data-id="${cycle.id}">
-          <td class="p-3">
-            <input type="text" class="w-full p-2 border border-gray-300 rounded cycle-year" value="${cycle.fiscal_year}" />
-          </td>
-          <td class="p-3">
-            <select class="w-full p-2 border border-gray-300 rounded cycle-type">
-              <option value="estimated" ${cycle.type === 'estimated' ? 'selected' : ''}>প্রাক্কলিত</option>
-              <option value="revised" ${cycle.type === 'revised' ? 'selected' : ''}>সংশোধিত</option>
-            </select>
-          </td>
-          <td class="p-3">
-            <select class="w-full p-2 border border-gray-300 rounded cycle-status">
-              <option value="open" ${cycle.status === 'open' ? 'selected' : ''}>খোলা</option>
-              <option value="closed" ${cycle.status === 'closed' ? 'selected' : ''}>বন্ধ</option>
-            </select>
-          </td>
-          <td class="p-3 space-x-2">
-            <button class="text-blue-600 hover:underline save-btn">সংরক্ষণ</button>
-            <button class="text-red-600 hover:underline delete-btn">মুছুন</button>
-          </td>
-        </tr>
-      `).join('');
+<script>
+  import { supabase } from '../../lib/supabase.js';
+  import { toBanglaNumber, toBanglaFiscalYear, toBanglaBudgetType } from '../../lib/bangla.js';
+  import { strings } from '../../lib/strings.js';
 
-      document.querySelectorAll('.save-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const row = btn.closest('tr');
-          const id = row.dataset.id;
-          const fiscal_year = row.querySelector('.cycle-year').value;
-          const type = row.querySelector('.cycle-type').value;
-          const status = row.querySelector('.cycle-status').value;
+  document.addEventListener('DOMContentLoaded', async () => {
+    const loadingState = document.getElementById('loading-state');
+    const container = document.getElementById('cycles-container');
+    const tbody = document.getElementById('cycles-body');
+    
+    const addBtn = document.getElementById('add-cycle-btn');
+    const addFormContainer = document.getElementById('add-cycle-form-container');
+    const cancelAddBtn = document.getElementById('cancel-add-btn');
+    const addForm = document.getElementById('add-cycle-form');
 
-          const { error } = await supabase.from('cycles').update({ 
-            fiscal_year, type, status, 
-            opened_at: status === 'open' ? new Date().toISOString() : null,
-            closed_at: status === 'closed' ? new Date().toISOString() : null
-          }).eq('id', id);
-          if (error) {
-            showMessage('চক্র আপডেট করতে সমস্যা হয়েছে: ' + error.message, true);
-          } else {
-            showMessage('চক্র সফলভাবে আপডেট হয়েছে!');
-            loadCycles();
-          }
-        });
+    let cyclesData = [];
+
+    const formatDate = (isoString) => {
+      if (!isoString) return '--';
+      const d = new Date(isoString);
+      return toBanglaNumber(d.toLocaleDateString('en-GB')); // DD/MM/YYYY converted to Bangla
+    };
+
+    const loadCycles = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('cycles')
+          .select('*')
+          .order('id', { ascending: false });
+
+        if (error) throw error;
+        cyclesData = data || [];
+        renderTable();
+      } catch (err) {
+        console.error(err);
+        if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-rose-500">ডেটা লোড করতে সমস্যা হয়েছে।</td></tr>`;
+      } finally {
+        loadingState?.classList.add('hidden');
+        container?.classList.remove('hidden');
+      }
+    };
+
+    const renderTable = () => {
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      if (cyclesData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500">কোনো চক্র পাওয়া যায়নি</td></tr>`;
+        return;
+      }
+
+      cyclesData.forEach(cycle => {
+        const isOpen = cycle.status === 'open';
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition-colors group';
+        
+        const statusBadge = isOpen 
+          ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">${strings.superAdmin.cycles.statusOpen}</span>`
+          : `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">${strings.superAdmin.cycles.statusClosed}</span>`;
+
+        const actionBtn = isOpen
+          ? `<button data-id="${cycle.id}" data-action="close" class="action-btn px-3 py-1 bg-amber-100 text-amber-700 hover:bg-amber-200 rounded-lg text-sm font-semibold transition-colors">${strings.superAdmin.cycles.closeCycle}</button>`
+          : `<button data-id="${cycle.id}" data-action="open" data-type="${cycle.budget_type}" class="action-btn px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg text-sm font-semibold transition-colors">${strings.superAdmin.cycles.openCycle}</button>`;
+
+        tr.innerHTML = `
+          <td class="p-4 font-mono text-slate-500">${toBanglaNumber(cycle.id)}</td>
+          <td class="p-4 font-medium text-slate-800">${toBanglaFiscalYear(cycle.fiscal_year)}</td>
+          <td class="p-4 text-slate-600">${toBanglaBudgetType(cycle.budget_type)}</td>
+          <td class="p-4">${statusBadge}</td>
+          <td class="p-4 text-slate-500 text-sm">${formatDate(cycle.opened_at)}</td>
+          <td class="p-4 text-slate-500 text-sm">${formatDate(cycle.closed_at)}</td>
+          <td class="p-4 text-right">${actionBtn}</td>
+        `;
+        tbody.appendChild(tr);
       });
 
-      document.querySelectorAll('.delete-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          if (!confirm('আপনি কি নিশ্চিত?')) return;
-          const row = btn.closest('tr');
-          const id = row.dataset.id;
-          const { error } = await supabase.from('cycles').delete().eq('id', id);
-          if (error) {
-            showMessage('চক্র মুছতে সমস্যা হয়েছে: ' + error.message, true);
-          } else {
-            showMessage('চক্র সফলভাবে মুছে ফেলা হয়েছে!');
-            loadCycles();
-          }
-        });
+      // Bind actions
+      document.querySelectorAll('.action-btn').forEach(btn => {
+        btn.addEventListener('click', handleAction);
       });
-    }
+    };
 
-    document.getElementById('add-cycle-form').addEventListener('submit', async (e) => {
+    const handleAction = async (e) => {
+      const btn = e.currentTarget as HTMLButtonElement;
+      const id = btn.getAttribute('data-id');
+      const action = btn.getAttribute('data-action');
+      const type = btn.getAttribute('data-type'); // Only present on 'open' action
+
+      if (action === 'open') {
+        // Validate if another cycle of same type is open
+        const existingOpen = cyclesData.find(c => c.status === 'open' && c.budget_type === type);
+        if (existingOpen) {
+          alert('ইতিমধ্যেই এই ধরনের একটি চক্র খোলা আছে। নতুন চক্র খোলার আগে পুরনো চক্রটি বন্ধ করুন।');
+          return;
+        }
+
+        if (!confirm(strings.superAdmin.cycles.openConfirm)) return;
+        
+        btn.disabled = true;
+        btn.textContent = '...';
+        try {
+          await supabase.from('cycles').update({ status: 'open', opened_at: new Date().toISOString() }).eq('id', id);
+          await loadCycles();
+        } catch (err) {
+          alert('ত্রুটি হয়েছে');
+          btn.disabled = false;
+        }
+
+      } else if (action === 'close') {
+        if (!confirm(strings.superAdmin.cycles.closeConfirm)) return;
+        
+        btn.disabled = true;
+        btn.textContent = '...';
+        try {
+          await supabase.from('cycles').update({ status: 'closed', closed_at: new Date().toISOString() }).eq('id', id);
+          await loadCycles();
+        } catch (err) {
+          alert('ত্রুটি হয়েছে');
+          btn.disabled = false;
+        }
+      }
+    };
+
+    // Form Handlers
+    addBtn?.addEventListener('click', () => {
+      addFormContainer?.classList.remove('hidden');
+    });
+
+    cancelAddBtn?.addEventListener('click', () => {
+      addFormContainer?.classList.add('hidden');
+      (addForm as HTMLFormElement).reset();
+    });
+
+    addForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const fiscal_year = document.getElementById('cycle-year').value.trim();
-      const type = document.getElementById('cycle-type').value;
+      const fyInput = document.getElementById('new-fy') as HTMLInputElement;
+      const typeInput = document.getElementById('new-type') as HTMLSelectElement;
+      const submitBtn = document.getElementById('save-cycle-btn') as HTMLButtonElement;
 
-      const { error } = await supabase.from('cycles').insert([{ fiscal_year, type, status: 'closed' }]);
-      if (error) {
-        showMessage('চক্র যোগ করতে সমস্যা হয়েছে: ' + error.message, true);
-      } else {
-        showMessage('চক্র সফলভাবে যোগ করা হয়েছে!');
-        document.getElementById('add-cycle-form').reset();
-        loadCycles();
+      submitBtn.disabled = true;
+      submitBtn.textContent = strings.saving;
+
+      try {
+        const { error } = await supabase.from('cycles').insert({
+          fiscal_year: fyInput.value.trim(),
+          budget_type: typeInput.value,
+          status: 'closed' // Created as closed by default
+        });
+
+        if (error) throw error;
+
+        (addForm as HTMLFormElement).reset();
+        addFormContainer?.classList.add('hidden');
+        await loadCycles();
+      } catch (err) {
+        console.error(err);
+        alert(strings.errors.saveFailed);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = strings.fields.save;
       }
     });
 
+    // Initial load
     loadCycles();
-  </script>
-</Layout>
+  });
+</script>

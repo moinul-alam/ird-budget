@@ -1,0 +1,245 @@
+---
+import SuperAdminLayout from '../../layouts/SuperAdminLayout.astro';
+import { strings } from '../../lib/strings.js';
+---
+
+<SuperAdminLayout activePath="/superadmin/submissions" title="দাখিলকৃত বাজেট | আইআরডি বাজেট">
+  
+  <div class="mb-8">
+    <h1 class="text-3xl font-bold text-slate-800 mb-2">দাখিলকৃত বাজেট</h1>
+    <p class="text-slate-500">অফিসসমূহের জমা দেওয়া বাজেট পর্যালোচনা ও পরিচালনা করুন</p>
+  </div>
+
+  <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-8 flex flex-col md:flex-row gap-4 justify-between items-end">
+    <div class="flex gap-4 w-full md:w-auto">
+        <div class="flex-1 md:w-64">
+            <label class="block text-sm font-bold text-slate-700 mb-2">বাজেট চক্র</label>
+            <select id="filter-cycle" class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium text-slate-800">
+                <option value="all">সকল চক্র</option>
+                <!-- Populated via JS -->
+            </select>
+        </div>
+        <div class="flex-1 md:w-48">
+            <label class="block text-sm font-bold text-slate-700 mb-2">স্ট্যাটাস</label>
+            <select id="filter-status" class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium text-slate-800">
+                <option value="all">সকল</option>
+                <option value="submitted">দাখিলকৃত</option>
+                <option value="draft">খসড়া</option>
+                <option value="needs_resubmit">ফেরত (Needs Resubmit)</option>
+            </select>
+        </div>
+    </div>
+    
+    <button id="apply-filters-btn" class="w-full md:w-auto px-6 py-2 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors shadow-md shadow-blue-500/20 flex items-center justify-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+        </svg>
+        ফিল্টার করুন
+    </button>
+  </div>
+
+  <div id="loading-state" class="py-12 flex flex-col items-center justify-center">
+    <div class="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+  </div>
+
+  <div id="submissions-container" class="hidden bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left border-collapse">
+        <thead class="bg-slate-50 border-b border-slate-200">
+          <tr>
+            <th class="p-4 font-bold text-slate-600">অফিসের নাম ও আইডি</th>
+            <th class="p-4 font-bold text-slate-600">অর্থবছর ও ধরন</th>
+            <th class="p-4 font-bold text-slate-600">স্ট্যাটাস</th>
+            <th class="p-4 font-bold text-slate-600">দাখিলের তারিখ</th>
+            <th class="p-4 font-bold text-slate-600 text-right">অ্যাকশন</th>
+          </tr>
+        </thead>
+        <tbody id="submissions-body" class="divide-y divide-slate-100">
+          <!-- Populated via JS -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</SuperAdminLayout>
+
+<script>
+  import { supabase } from '../../lib/supabase.js';
+  import { toBanglaNumber, toBanglaFiscalYear, toBanglaBudgetType } from '../../lib/bangla.js';
+  import { strings } from '../../lib/strings.js';
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const loadingState = document.getElementById('loading-state');
+    const container = document.getElementById('submissions-container');
+    const tbody = document.getElementById('submissions-body');
+    const cycleSelect = document.getElementById('filter-cycle') as HTMLSelectElement;
+    const statusSelect = document.getElementById('filter-status') as HTMLSelectElement;
+    const applyBtn = document.getElementById('apply-filters-btn');
+
+    let allSubmissions = [];
+
+    const formatDate = (isoString) => {
+      if (!isoString) return '--';
+      const d = new Date(isoString);
+      return toBanglaNumber(d.toLocaleDateString('en-GB'));
+    };
+
+    const getStatusHtml = (status) => {
+        if (status === 'submitted') {
+            return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">দাখিলকৃত</span>`;
+        } else if (status === 'draft') {
+            return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">খসড়া</span>`;
+        } else if (status === 'needs_resubmit') {
+            return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-100 text-rose-800">ফেরত</span>`;
+        }
+        return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">${status}</span>`;
+    };
+
+    const loadData = async () => {
+      loadingState?.classList.remove('hidden');
+      container?.classList.add('hidden');
+
+      try {
+        // Load filter options
+        const { data: cycles } = await supabase.from('cycles').select('*').order('id', { ascending: false });
+        if (cycles && cycleSelect.options.length <= 1) {
+            cycles.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = `${toBanglaFiscalYear(c.fiscal_year)} - ${toBanglaBudgetType(c.budget_type)}`;
+                cycleSelect.appendChild(opt);
+            });
+        }
+
+        // Build Query
+        let query = supabase.from('submissions').select(`
+            id,
+            status,
+            submitted_at,
+            offices ( name, budget_id ),
+            cycles ( fiscal_year, budget_type, id )
+        `).order('submitted_at', { ascending: false });
+
+        if (cycleSelect.value !== 'all') {
+            query = query.eq('cycle_id', cycleSelect.value);
+        }
+        if (statusSelect.value !== 'all') {
+            query = query.eq('status', statusSelect.value);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        
+        allSubmissions = data || [];
+        renderTable();
+
+      } catch (err) {
+        console.error(err);
+        if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-500">ডেটা লোড করতে সমস্যা হয়েছে।</td></tr>`;
+      } finally {
+        loadingState?.classList.add('hidden');
+        container?.classList.remove('hidden');
+      }
+    };
+
+    const renderTable = () => {
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      if (allSubmissions.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500">কোনো দাখিল পাওয়া যায়নি</td></tr>`;
+        return;
+      }
+
+      allSubmissions.forEach(sub => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition-colors group';
+        
+        let actionBtns = `
+          <button data-action="view" data-id="${sub.id}" class="action-btn text-blue-600 hover:text-blue-800 px-2 py-1 rounded bg-blue-50 hover:bg-blue-100 transition-colors font-medium text-sm">
+            ভিউ
+          </button>
+        `;
+
+        if (sub.status === 'submitted') {
+            actionBtns += `
+              <button data-action="resubmit" data-id="${sub.id}" class="action-btn text-rose-600 hover:text-rose-800 px-2 py-1 rounded bg-rose-50 hover:bg-rose-100 transition-colors font-medium text-sm ml-2">
+                ফেরত পাঠান
+              </button>
+            `;
+        } else if (sub.status === 'draft' || sub.status === 'needs_resubmit') {
+            actionBtns += `
+              <button data-action="lock" data-id="${sub.id}" class="action-btn text-emerald-600 hover:text-emerald-800 px-2 py-1 rounded bg-emerald-50 hover:bg-emerald-100 transition-colors font-medium text-sm ml-2">
+                লক করুন
+              </button>
+            `;
+        }
+
+        tr.innerHTML = `
+          <td class="p-4">
+             <div class="font-bold text-slate-800">${sub.offices?.name || '--'}</div>
+             <div class="text-slate-500 text-sm font-mono mt-0.5">${toBanglaNumber(sub.offices?.budget_id || '--')}</div>
+          </td>
+          <td class="p-4">
+             <div class="font-medium text-slate-700">${toBanglaFiscalYear(sub.cycles?.fiscal_year)}</div>
+             <div class="text-slate-500 text-sm mt-0.5">${toBanglaBudgetType(sub.cycles?.budget_type)}</div>
+          </td>
+          <td class="p-4">${getStatusHtml(sub.status)}</td>
+          <td class="p-4 text-slate-600 font-mono text-sm">${formatDate(sub.submitted_at)}</td>
+          <td class="p-4 text-right">${actionBtns}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      bindActions();
+    };
+
+    const bindActions = () => {
+      document.querySelectorAll('.action-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const target = e.currentTarget as HTMLButtonElement;
+          const action = target.getAttribute('data-action');
+          const id = target.getAttribute('data-id');
+
+          if (action === 'view') {
+              // Normally, we'd open a readonly budget sheet viewer
+              // We could navigate to a new page like /superadmin/view-budget?id=...
+              alert('বাজেট শিট ভিউয়ার তৈরি করা হচ্ছে...');
+              return;
+          }
+
+          if (action === 'resubmit') {
+              if(!confirm('আপনি কি নিশ্চিত যে এই বাজেটটি সংশোধনের জন্য ফেরত পাঠাতে চান?')) return;
+              target.disabled = true;
+              target.textContent = '...';
+              try {
+                  await supabase.from('submissions').update({ status: 'needs_resubmit' }).eq('id', id);
+                  await loadData();
+              } catch(err) {
+                  alert('ত্রুটি হয়েছে');
+                  target.disabled = false;
+              }
+          }
+
+          if (action === 'lock') {
+              if(!confirm('আপনি কি নিশ্চিত যে এই বাজেটটি দাখিলকৃত হিসেবে লক করতে চান?')) return;
+              target.disabled = true;
+              target.textContent = '...';
+              try {
+                  await supabase.from('submissions').update({ status: 'submitted', submitted_at: new Date().toISOString() }).eq('id', id);
+                  await loadData();
+              } catch(err) {
+                  alert('ত্রুটি হয়েছে');
+                  target.disabled = false;
+              }
+          }
+        });
+      });
+    };
+
+    applyBtn?.addEventListener('click', loadData);
+
+    // Initial load
+    loadData();
+  });
+</script>

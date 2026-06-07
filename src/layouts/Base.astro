@@ -1,0 +1,24 @@
+---
+import '../styles/global.css';
+import { strings } from '../lib/strings.js';
+
+interface Props {
+  title?: string;
+}
+
+const { title = strings.appName } = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="bn">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title}</title>
+  </head>
+  <body class="min-h-screen bg-slate-50 text-slate-900 selection:bg-blue-200">
+    <main class="container mx-auto px-4 py-8 max-w-5xl">
+      <slot />
+    </main>
+  </body>
+</html>

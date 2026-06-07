@@ -1,0 +1,392 @@
+---
+import FormLayout from '../../layouts/FormLayout.astro';
+import { strings } from '../../lib/strings.js';
+---
+
+<FormLayout title="আইটি সরঞ্জাম" formId="Form 7">
+  
+  <div class="p-8 md:p-10 space-y-12">
+    
+    <!-- TOP TABLE: Existing Equipment & Toner -->
+    <section>
+      <div class="mb-6 flex justify-between items-end">
+        <div>
+          <h2 class="text-xl font-bold text-slate-800 mb-2">বিদ্যমান সরঞ্জাম ও টোনারের তথ্য</h2>
+        </div>
+        <button id="add-existing-btn" class="px-5 py-2.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold rounded-xl transition-colors border border-emerald-200 shadow-sm flex items-center gap-2 text-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
+          </svg>
+          + সরঞ্জাম যোগ করুন
+        </button>
+      </div>
+
+      <div class="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
+        <table class="w-full text-left border-collapse" id="existing-table">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-200 text-sm">
+              <th class="p-4 font-semibold text-slate-700 min-w-[200px]">সরঞ্জামের ধরন</th>
+              <th class="p-4 font-semibold text-slate-700">বিদ্যমান সংখ্যা</th>
+              <th class="p-4 font-semibold text-slate-700">অকেজো সংখ্যা</th>
+              <th class="p-4 font-semibold text-slate-700 min-w-[150px]">মাসিক টোনার মূল্য (টাকা)</th>
+              <th class="p-4 font-semibold text-slate-700 text-right">মোট পরিমাণ (বার্ষিক)</th>
+              <th class="p-4 font-semibold text-slate-700 w-16"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100" id="existing-body">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+
+      <div id="existing-empty" class="hidden py-12 text-center text-slate-500 bg-slate-50 rounded-2xl border border-slate-200 mt-4 flex flex-col items-center justify-center gap-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        </svg>
+        <p>কোনো বিদ্যমান আইটি সরঞ্জাম যোগ করা হয়নি</p>
+      </div>
+    </section>
+
+    <!-- BOTTOM TABLE: Required Equipment -->
+    <section>
+      <div class="mb-6 flex justify-between items-end">
+        <div>
+          <h2 class="text-xl font-bold text-slate-800 mb-2">প্রয়োজনীয় নতুন সরঞ্জাম</h2>
+        </div>
+        <button id="add-required-btn" class="px-5 py-2.5 bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold rounded-xl transition-colors border border-blue-200 shadow-sm flex items-center gap-2 text-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
+          </svg>
+          + সরঞ্জাম যোগ করুন
+        </button>
+      </div>
+
+      <div class="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
+        <table class="w-full text-left border-collapse" id="required-table">
+          <thead>
+            <tr class="bg-slate-50 border-b border-slate-200 text-sm">
+              <th class="p-4 font-semibold text-slate-700 min-w-[200px]">সরঞ্জামের ধরন</th>
+              <th class="p-4 font-semibold text-slate-700">প্রয়োজনীয় সংখ্যা</th>
+              <th class="p-4 font-semibold text-slate-700">প্রতি ইউনিট বরাদ্দ</th>
+              <th class="p-4 font-semibold text-slate-700 text-right">মোট পরিমাণ (টাকা)</th>
+              <th class="p-4 font-semibold text-slate-700 w-16"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100" id="required-body">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+
+      <div id="required-empty" class="hidden py-12 text-center text-slate-500 bg-slate-50 rounded-2xl border border-slate-200 mt-4 flex flex-col items-center justify-center gap-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        </svg>
+        <p>কোনো প্রয়োজনীয় সরঞ্জাম যোগ করা হয়নি</p>
+      </div>
+    </section>
+
+  </div>
+
+  <a href="/office/form-8" slot="footer-action" class="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors shadow-md shadow-blue-500/20 flex items-center gap-2">
+    {strings.next}
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+      <path fill-rule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+    </svg>
+  </a>
+
+</FormLayout>
+
+<script>
+  import { supabase } from '../../lib/supabase.js';
+  import { strings } from '../../lib/strings.js';
+  import { toBanglaCurrency } from '../../lib/bangla.js';
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const submissionId = sessionStorage.getItem('submission_id');
+    if (!submissionId) {
+      window.location.href = '/';
+      return;
+    }
+
+    const saveIndicator = document.getElementById('save-indicator');
+    const saveSpinner = document.getElementById('save-spinner');
+    const saveCheck = document.getElementById('save-check');
+    const saveText = document.getElementById('save-text');
+
+    let isLocked = false;
+    let eqTypes = [];
+
+    const existingBody = document.getElementById('existing-body');
+    const requiredBody = document.getElementById('required-body');
+    
+    const existingTable = document.getElementById('existing-table');
+    const requiredTable = document.getElementById('required-table');
+    
+    const existingEmpty = document.getElementById('existing-empty');
+    const requiredEmpty = document.getElementById('required-empty');
+
+    const showSaving = () => {
+      saveIndicator?.classList.remove('opacity-0');
+      saveSpinner?.classList.remove('hidden');
+      saveCheck?.classList.add('hidden');
+      if (saveText) saveText.textContent = strings.saving;
+    };
+
+    const showSaved = () => {
+      saveSpinner?.classList.add('hidden');
+      saveCheck?.classList.remove('hidden');
+      if (saveText) saveText.textContent = strings.saved;
+      setTimeout(() => saveIndicator?.classList.add('opacity-0'), 3000);
+    };
+
+    const updateVisibility = () => {
+      if (existingBody.children.length === 0) {
+        existingTable.classList.add('hidden');
+        existingEmpty.classList.remove('hidden');
+      } else {
+        existingTable.classList.remove('hidden');
+        existingEmpty.classList.remove('hidden');
+        existingEmpty.classList.add('hidden');
+      }
+
+      if (requiredBody.children.length === 0) {
+        requiredTable.classList.add('hidden');
+        requiredEmpty.classList.remove('hidden');
+      } else {
+        requiredTable.classList.remove('hidden');
+        requiredEmpty.classList.remove('hidden');
+        requiredEmpty.classList.add('hidden');
+      }
+    };
+
+    const upsertEquipment = async (typeId, payloadUpdates) => {
+        if (isLocked || !typeId) return null;
+        showSaving();
+
+        try {
+            const { data: existing } = await supabase.from('form_it_equipment')
+                .select('id')
+                .eq('submission_id', parseInt(submissionId))
+                .eq('equipment_type_id', parseInt(typeId))
+                .maybeSingle();
+
+            let recordId = null;
+            if (existing) {
+                await supabase.from('form_it_equipment').update(payloadUpdates).eq('id', existing.id);
+                recordId = existing.id;
+            } else {
+                const payload = {
+                    submission_id: parseInt(submissionId),
+                    equipment_type_id: parseInt(typeId),
+                    ...payloadUpdates
+                };
+                const { data } = await supabase.from('form_it_equipment').insert(payload).select('id').single();
+                if (data) recordId = data.id;
+            }
+            showSaved();
+            return recordId;
+        } catch (err) {
+            console.error('Row save error', err);
+            if (saveText) saveText.textContent = strings.saveFailed;
+            saveSpinner?.classList.add('hidden');
+            return null;
+        }
+    };
+
+    const renderExistingRow = (initialData = null) => {
+      const lockAttr = isLocked ? 'disabled' : '';
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-50 transition-colors group';
+      if (initialData?.equipment_type_id) tr.dataset.typeId = initialData.equipment_type_id;
+
+      tr.innerHTML = `
+        <td class="p-3 border-r border-slate-100">
+          <select class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none type-select" ${lockAttr}>
+            <option value="">নির্বাচন করুন</option>
+            ${eqTypes.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}
+          </select>
+        </td>
+        <td class="p-3"><input type="number" min="0" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none existing-input row-input" value="${initialData?.existing_count || ''}" ${lockAttr} /></td>
+        <td class="p-3"><input type="number" min="0" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none damaged-input row-input" value="${initialData?.damaged_count || ''}" ${lockAttr} /></td>
+        <td class="p-3"><input type="number" min="0" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none toner-input row-input calc-trigger" value="${initialData?.monthly_toner_cost || ''}" ${lockAttr} placeholder="প্রিন্টারের জন্য" /></td>
+        <td class="p-3 font-bold text-slate-800 text-right total-calc font-mono">০</td>
+        <td class="p-3 text-center">
+          <button class="text-slate-300 hover:text-red-500 transition-colors delete-btn p-2 rounded-lg hover:bg-red-50" ${lockAttr} title="মুছে ফেলুন">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+          </button>
+        </td>
+      `;
+
+      existingBody.appendChild(tr);
+
+      const typeSelect = tr.querySelector('.type-select');
+      const inputs = tr.querySelectorAll('.row-input');
+      const calcTriggers = tr.querySelectorAll('.calc-trigger');
+      const delBtn = tr.querySelector('.delete-btn');
+      const totalEl = tr.querySelector('.total-calc');
+
+      const updateRowTotal = () => {
+          const toner = parseInt(tr.querySelector('.toner-input').value || '0', 10);
+          totalEl.textContent = toBanglaCurrency(toner * 12);
+      };
+
+      const saveRowData = async () => {
+          if (!tr.dataset.typeId) return;
+          const ex = parseInt(tr.querySelector('.existing-input').value || '0', 10);
+          const dm = parseInt(tr.querySelector('.damaged-input').value || '0', 10);
+          const ton = parseInt(tr.querySelector('.toner-input').value || '0', 10);
+          await upsertEquipment(tr.dataset.typeId, { existing_count: ex, damaged_count: dm, monthly_toner_cost: ton });
+      };
+
+      if (initialData) {
+        typeSelect.value = initialData.equipment_type_id;
+        updateRowTotal();
+      }
+
+      if (!isLocked) {
+        let timeoutMap;
+        typeSelect.addEventListener('change', (e) => {
+          tr.dataset.typeId = e.target.value || '';
+          if (e.target.value) saveRowData();
+        });
+
+        calcTriggers.forEach(inp => inp.addEventListener('input', updateRowTotal));
+
+        inputs.forEach(inp => {
+          inp.addEventListener('blur', () => {
+            clearTimeout(timeoutMap);
+            timeoutMap = setTimeout(saveRowData, 500);
+          });
+        });
+
+        delBtn.addEventListener('click', async () => {
+          if (!isLocked) {
+              if (tr.dataset.typeId) {
+                  await upsertEquipment(tr.dataset.typeId, { existing_count: 0, damaged_count: 0, monthly_toner_cost: 0 });
+              }
+              tr.remove();
+              updateVisibility();
+          }
+        });
+      }
+
+      updateVisibility();
+    };
+
+
+    const renderRequiredRow = (initialData = null) => {
+      const lockAttr = isLocked ? 'disabled' : '';
+      const tr = document.createElement('tr');
+      tr.className = 'hover:bg-slate-50 transition-colors group';
+      if (initialData?.equipment_type_id) tr.dataset.typeId = initialData.equipment_type_id;
+
+      tr.innerHTML = `
+        <td class="p-3 border-r border-slate-100">
+          <select class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none type-select" ${lockAttr}>
+            <option value="">নির্বাচন করুন</option>
+            ${eqTypes.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}
+          </select>
+        </td>
+        <td class="p-3"><input type="number" min="0" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none req-input row-input calc-trigger" value="${initialData?.required_qty || ''}" ${lockAttr} /></td>
+        <td class="p-3"><input type="number" min="0" class="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none budget-input row-input calc-trigger" value="${initialData?.unit_budget || ''}" ${lockAttr} /></td>
+        <td class="p-3 font-bold text-slate-800 text-right total-calc font-mono">০</td>
+        <td class="p-3 text-center">
+          <button class="text-slate-300 hover:text-red-500 transition-colors delete-btn p-2 rounded-lg hover:bg-red-50" ${lockAttr} title="মুছে ফেলুন">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+          </button>
+        </td>
+      `;
+
+      requiredBody.appendChild(tr);
+
+      const typeSelect = tr.querySelector('.type-select');
+      const inputs = tr.querySelectorAll('.row-input');
+      const calcTriggers = tr.querySelectorAll('.calc-trigger');
+      const delBtn = tr.querySelector('.delete-btn');
+      const totalEl = tr.querySelector('.total-calc');
+
+      const updateRowTotal = () => {
+          const req = parseInt(tr.querySelector('.req-input').value || '0', 10);
+          const bdg = parseInt(tr.querySelector('.budget-input').value || '0', 10);
+          totalEl.textContent = toBanglaCurrency(req * bdg);
+      };
+
+      const saveRowData = async () => {
+          if (!tr.dataset.typeId) return;
+          const req = parseInt(tr.querySelector('.req-input').value || '0', 10);
+          const bdg = parseInt(tr.querySelector('.budget-input').value || '0', 10);
+          await upsertEquipment(tr.dataset.typeId, { required_qty: req, unit_budget: bdg });
+      };
+
+      if (initialData) {
+        typeSelect.value = initialData.equipment_type_id;
+        updateRowTotal();
+      }
+
+      if (!isLocked) {
+        let timeoutMap;
+        typeSelect.addEventListener('change', (e) => {
+          tr.dataset.typeId = e.target.value || '';
+          if (e.target.value) saveRowData();
+        });
+
+        calcTriggers.forEach(inp => inp.addEventListener('input', updateRowTotal));
+
+        inputs.forEach(inp => {
+          inp.addEventListener('blur', () => {
+            clearTimeout(timeoutMap);
+            timeoutMap = setTimeout(saveRowData, 500);
+          });
+        });
+
+        delBtn.addEventListener('click', async () => {
+          if (!isLocked) {
+              if (tr.dataset.typeId) {
+                  await upsertEquipment(tr.dataset.typeId, { required_qty: 0, unit_budget: 0 });
+              }
+              tr.remove();
+              updateVisibility();
+          }
+        });
+      }
+
+      updateVisibility();
+    };
+
+    document.getElementById('add-existing-btn')?.addEventListener('click', () => {
+      if (!isLocked) renderExistingRow();
+    });
+
+    document.getElementById('add-required-btn')?.addEventListener('click', () => {
+      if (!isLocked) renderRequiredRow();
+    });
+
+    try {
+      const [{ data: typesData }, { data: formData }, { data: subData }] = await Promise.all([
+        supabase.from('equipment_types').select('id, name').order('name'),
+        supabase.from('form_it_equipment').select('*').eq('submission_id', submissionId),
+        supabase.from('submissions').select('status').eq('id', submissionId).single()
+      ]);
+
+      if (subData && subData.status === 'submitted') isLocked = true;
+      if (typesData) eqTypes = typesData;
+      
+      if (formData && formData.length > 0) {
+        formData.forEach(row => {
+            if (row.existing_count > 0 || row.damaged_count > 0 || row.monthly_toner_cost > 0) {
+                renderExistingRow(row);
+            }
+            if (row.required_qty > 0 || row.unit_budget > 0) {
+                renderRequiredRow(row);
+            }
+        });
+      }
+      
+      updateVisibility();
+
+    } catch (err) {
+      console.error('Error loading form 7:', err);
+    }
+  });
+</script>

@@ -1,0 +1,401 @@
+---
+import SuperAdminLayout from '../../layouts/SuperAdminLayout.astro';
+import { strings } from '../../lib/strings.js';
+---
+
+<SuperAdminLayout activePath="/superadmin/expense-codes" title={strings.superAdmin.codes.title}>
+  
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+    <div>
+      <h1 class="text-3xl font-bold text-slate-800 mb-2">{strings.superAdmin.codes.title}</h1>
+      <p class="text-slate-500">বাজেট খাতসমূহ এবং তাদের অবস্থা পরিচালনা করুন</p>
+    </div>
+    <button id="add-code-btn" class="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-xl font-bold shadow-md shadow-amber-500/20 transition-colors flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+      </svg>
+      {strings.superAdmin.codes.addCode}
+    </button>
+  </div>
+
+  <!-- Add Code Form (Hidden by default) -->
+  <div id="add-code-form-container" class="hidden bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-8">
+    <h3 class="text-lg font-bold text-slate-800 mb-4">{strings.superAdmin.codes.addCode}</h3>
+    <form id="add-code-form" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+      
+      <div>
+        <label class="block text-sm font-bold text-slate-700 mb-2">প্যারেন্ট কোড</label>
+        <input type="text" id="new-parent-code" required placeholder="যেমন: ৩১১১" class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm font-bold text-slate-700 mb-2">প্যারেন্ট টাইটেল</label>
+        <input type="text" id="new-parent-title" required placeholder="যেমন: নগদ মজুরি" class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm font-bold text-slate-700 mb-2">{strings.superAdmin.codes.code}</label>
+        <input type="text" id="new-code" required placeholder="যেমন: ৩১১১১১" class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm font-bold text-slate-700 mb-2">{strings.superAdmin.codes.name}</label>
+        <input type="text" id="new-name" required placeholder="যেমন: উৎসব ভাতা" class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm font-bold text-slate-700 mb-2">{strings.superAdmin.codes.formulaKey}</label>
+        <input type="text" id="new-formula" placeholder="যেমন: leave_encashment" class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+      </div>
+      <div>
+        <label class="block text-sm font-bold text-slate-700 mb-2">{strings.superAdmin.codes.sortOrder}</label>
+        <input type="number" id="new-sort" required value="100" class="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none">
+      </div>
+      <div class="flex items-center h-[42px]">
+        <label class="flex items-center gap-2 cursor-pointer text-slate-700 font-bold">
+          <input type="checkbox" id="new-is-manual" class="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+          {strings.superAdmin.codes.isManual}
+        </label>
+      </div>
+
+      <div class="flex gap-2">
+        <button type="button" id="cancel-code-btn" class="flex-1 py-2 border border-slate-300 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">
+          {strings.cancel}
+        </button>
+        <button type="submit" id="save-code-btn" class="flex-1 py-2 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-md shadow-emerald-500/20">
+          {strings.fields.save}
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div id="loading-state" class="py-12 flex flex-col items-center justify-center">
+    <div class="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+  </div>
+
+  <!-- Codes Table Grouped -->
+  <div id="codes-container" class="hidden space-y-6">
+    <!-- Populated via JS -->
+  </div>
+
+</SuperAdminLayout>
+
+<script>
+  import { supabase } from '../../lib/supabase.js';
+  import { toBanglaNumber } from '../../lib/bangla.js';
+  import { strings } from '../../lib/strings.js';
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const loadingState = document.getElementById('loading-state');
+    const container = document.getElementById('codes-container');
+    
+    const addBtn = document.getElementById('add-code-btn');
+    const addFormContainer = document.getElementById('add-code-form-container');
+    const cancelAddBtn = document.getElementById('cancel-code-btn');
+    const addForm = document.getElementById('add-code-form');
+
+    let codesData = [];
+
+    const loadCodes = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('expense_codes')
+          .select('*')
+          .order('sort_order', { ascending: true });
+
+        if (error) throw error;
+        codesData = data || [];
+        renderGroupedTables();
+      } catch (err) {
+        console.error(err);
+        if (container) container.innerHTML = `<p class="text-center text-rose-500">ডেটা লোড করতে সমস্যা হয়েছে।</p>`;
+      } finally {
+        loadingState?.classList.add('hidden');
+        container?.classList.remove('hidden');
+      }
+    };
+
+    const renderGroupedTables = () => {
+      if (!container) return;
+      container.innerHTML = '';
+
+      if (codesData.length === 0) {
+        container.innerHTML = `<p class="text-center text-slate-500 bg-white p-8 rounded-2xl border border-slate-200">কোনো কোড পাওয়া যায়নি</p>`;
+        return;
+      }
+
+      // Group by parent_code
+      const groups = {};
+      codesData.forEach(c => {
+        const key = c.parent_code || 'Others';
+        if (!groups[key]) groups[key] = { title: c.parent_title, codes: [] };
+        groups[key].codes.push(c);
+      });
+
+      for (const [parentCode, group] of Object.entries(groups)) {
+        
+        const groupEl = document.createElement('div');
+        groupEl.className = 'bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden';
+        
+        // Group Header (Editable Parent Title)
+        const headerHtml = `
+          <div class="bg-slate-50 border-b border-slate-200 p-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="px-2.5 py-1 bg-blue-100 text-blue-800 font-mono font-bold rounded-lg">${toBanglaNumber(parentCode)}</span>
+              <div class="relative group cursor-text editable-parent-wrapper" data-pcode="${parentCode}">
+                  <h2 class="text-lg font-bold text-slate-800 parent-title-display">${group.title || '--'}</h2>
+                  <svg xmlns="http://www.w3.org/2000/svg" class="absolute -right-5 top-1 h-4 w-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+              </div>
+              <input type="text" class="hidden text-lg font-bold px-2 py-0 border-2 border-blue-500 rounded outline-none parent-title-input" value="${group.title || ''}">
+            </div>
+          </div>
+        `;
+
+        // Table
+        let tableRowsHtml = '';
+        group.codes.forEach(code => {
+           const activeClass = code.active ? 'bg-emerald-500' : 'bg-slate-300';
+           const manualChecked = code.is_manual ? 'checked' : '';
+           
+           tableRowsHtml += `
+             <tr class="hover:bg-slate-50 transition-colors group/row">
+                <td class="p-3 pl-4 w-32">
+                  <span class="font-mono font-semibold text-slate-600 bg-slate-100 px-2 py-1 rounded">${toBanglaNumber(code.code)}</span>
+                </td>
+                <td class="p-3 relative w-1/3">
+                  <div class="flex items-center gap-2 group-hover/row:bg-blue-50/50 -mx-2 px-2 py-1 rounded-lg transition-colors cursor-text editable-name-wrapper" data-id="${code.id}">
+                    <span class="flex-1 font-medium text-slate-800 name-display">${code.name}</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 opacity-0 group-hover/row:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </div>
+                  <input type="text" class="hidden absolute inset-y-2 left-2 right-2 px-3 border-2 border-blue-500 rounded-lg outline-none font-sans name-input" value="${code.name}">
+                </td>
+                <td class="p-3 text-slate-500 font-mono text-sm">${code.formula_key || '--'}</td>
+                <td class="p-3 text-center">
+                   <input type="checkbox" disabled ${manualChecked} class="w-4 h-4 rounded text-blue-600">
+                </td>
+                <td class="p-3 pr-4 text-right">
+                  <button data-id="${code.id}" data-active="${code.active}" class="toggle-active-btn relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${activeClass}">
+                    <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${code.active ? 'translate-x-6' : 'translate-x-1'}"></span>
+                  </button>
+                </td>
+             </tr>
+           `;
+        });
+
+        groupEl.innerHTML = `
+          ${headerHtml}
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead class="text-xs uppercase text-slate-400 border-b border-slate-100">
+                <tr>
+                  <th class="p-3 pl-4 font-semibold">${strings.superAdmin.codes.code}</th>
+                  <th class="p-3 font-semibold">${strings.superAdmin.codes.name}</th>
+                  <th class="p-3 font-semibold">${strings.superAdmin.codes.formulaKey}</th>
+                  <th class="p-3 text-center font-semibold">${strings.superAdmin.codes.isManual}</th>
+                  <th class="p-3 pr-4 text-right font-semibold">${strings.superAdmin.codes.active}</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-50">
+                ${tableRowsHtml}
+              </tbody>
+            </table>
+          </div>
+        `;
+        
+        container.appendChild(groupEl);
+      }
+
+      bindActions();
+    };
+
+    const bindActions = () => {
+      // 1. Toggle Active Status
+      document.querySelectorAll('.toggle-active-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const target = e.currentTarget as HTMLButtonElement;
+          const id = target.getAttribute('data-id');
+          const currentActive = target.getAttribute('data-active') === 'true';
+          const newActive = !currentActive;
+
+          target.disabled = true;
+          try {
+            await supabase.from('expense_codes').update({ active: newActive }).eq('id', id);
+            
+            // Visual update
+            target.setAttribute('data-active', String(newActive));
+            target.className = `toggle-active-btn relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${newActive ? 'bg-emerald-500' : 'bg-slate-300'}`;
+            target.innerHTML = `<span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${newActive ? 'translate-x-6' : 'translate-x-1'}"></span>`;
+            
+            // Update local state
+            const code = codesData.find(c => c.id == id);
+            if(code) code.active = newActive;
+            
+          } catch(err) {
+             alert('সংরক্ষণ ব্যর্থ হয়েছে');
+          } finally {
+            target.disabled = false;
+          }
+        });
+      });
+
+      // 2. Inline Edit Code Name
+      document.querySelectorAll('.editable-name-wrapper').forEach(wrapper => {
+        const display = wrapper.querySelector('.name-display');
+        const input = wrapper.nextElementSibling as HTMLInputElement;
+        const id = wrapper.getAttribute('data-id');
+
+        wrapper.addEventListener('click', () => {
+          wrapper.classList.add('hidden');
+          input.classList.remove('hidden');
+          input.focus();
+        });
+
+        const saveName = async () => {
+          const newVal = input.value.trim();
+          const oldCode = codesData.find(c => c.id == id);
+          if (!newVal || newVal === oldCode.name) {
+            input.classList.add('hidden');
+            wrapper.classList.remove('hidden');
+            return;
+          }
+
+          input.disabled = true;
+          try {
+            await supabase.from('expense_codes').update({ name: newVal }).eq('id', id);
+            oldCode.name = newVal;
+            if(display) display.textContent = newVal;
+            
+            input.classList.add('border-emerald-500', 'bg-emerald-50');
+            setTimeout(() => {
+                input.classList.add('hidden');
+                wrapper.classList.remove('hidden');
+                input.classList.remove('border-emerald-500', 'bg-emerald-50');
+                input.disabled = false;
+            }, 300);
+          } catch (err) {
+            alert('সংরক্ষণ ব্যর্থ হয়েছে');
+            input.disabled = false;
+            input.focus();
+          }
+        };
+
+        input.addEventListener('blur', saveName);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') input.blur();
+            else if (e.key === 'Escape') {
+                input.value = codesData.find(c => c.id == id).name;
+                input.blur();
+            }
+        });
+      });
+
+      // 3. Inline Edit Parent Title
+      document.querySelectorAll('.editable-parent-wrapper').forEach(wrapper => {
+        const display = wrapper.querySelector('.parent-title-display');
+        const input = wrapper.nextElementSibling as HTMLInputElement;
+        const pcode = wrapper.getAttribute('data-pcode');
+
+        wrapper.addEventListener('click', () => {
+          wrapper.classList.add('hidden');
+          input.classList.remove('hidden');
+          input.focus();
+        });
+
+        const saveParentTitle = async () => {
+          const newVal = input.value.trim();
+          // Find current title
+          const anyCodeInGroup = codesData.find(c => c.parent_code === pcode);
+          if (!newVal || !anyCodeInGroup || newVal === anyCodeInGroup.parent_title) {
+            input.classList.add('hidden');
+            wrapper.classList.remove('hidden');
+            return;
+          }
+
+          input.disabled = true;
+          try {
+            // Update ALL codes with this parent_code
+            await supabase.from('expense_codes').update({ parent_title: newVal }).eq('parent_code', pcode);
+            
+            // Update local
+            codesData.forEach(c => {
+                if (c.parent_code === pcode) c.parent_title = newVal;
+            });
+
+            if(display) display.textContent = newVal;
+            
+            input.classList.add('border-emerald-500', 'bg-emerald-50');
+            setTimeout(() => {
+                input.classList.add('hidden');
+                wrapper.classList.remove('hidden');
+                input.classList.remove('border-emerald-500', 'bg-emerald-50');
+                input.disabled = false;
+            }, 300);
+          } catch (err) {
+            alert('সংরক্ষণ ব্যর্থ হয়েছে');
+            input.disabled = false;
+            input.focus();
+          }
+        };
+
+        input.addEventListener('blur', saveParentTitle);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') input.blur();
+        });
+      });
+    };
+
+    // Form Handlers
+    addBtn?.addEventListener('click', () => {
+      addFormContainer?.classList.remove('hidden');
+    });
+
+    cancelAddBtn?.addEventListener('click', () => {
+      addFormContainer?.classList.add('hidden');
+      (addForm as HTMLFormElement).reset();
+    });
+
+    addForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const pCode = (document.getElementById('new-parent-code') as HTMLInputElement).value.trim();
+      const pTitle = (document.getElementById('new-parent-title') as HTMLInputElement).value.trim();
+      const code = (document.getElementById('new-code') as HTMLInputElement).value.trim();
+      const name = (document.getElementById('new-name') as HTMLInputElement).value.trim();
+      const formula = (document.getElementById('new-formula') as HTMLInputElement).value.trim();
+      const sort = parseInt((document.getElementById('new-sort') as HTMLInputElement).value);
+      const isManual = (document.getElementById('new-is-manual') as HTMLInputElement).checked;
+      const submitBtn = document.getElementById('save-code-btn') as HTMLButtonElement;
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = strings.saving;
+
+      try {
+        const { error } = await supabase.from('expense_codes').insert({
+          parent_code: pCode,
+          parent_title: pTitle,
+          code: code,
+          name: name,
+          formula_key: formula || null,
+          sort_order: sort,
+          is_manual: isManual,
+          active: true
+        });
+
+        if (error) throw error;
+
+        (addForm as HTMLFormElement).reset();
+        addFormContainer?.classList.add('hidden');
+        await loadCodes(); // full reload to re-group
+      } catch (err) {
+        console.error(err);
+        alert(strings.errors.saveFailed);
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = strings.fields.save;
+      }
+    });
+
+    // Initial load
+    loadCodes();
+  });
+</script>
