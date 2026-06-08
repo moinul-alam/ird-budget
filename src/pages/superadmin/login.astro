@@ -148,7 +148,7 @@ import { strings } from '../../lib/strings.js';
           .from('admin_profiles')
           .select('username, role, active')
           .eq('auth_id', authData.user.id)
-          .single();
+          .maybeSingle();
 
         if (profileError || !profileData) {
            await supabase.auth.signOut();

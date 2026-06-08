@@ -43,11 +43,11 @@ export const strings = {
     // LANDING PAGE — Office ID Entry
     // ============================================================
     landing: {
-        title: 'বাজেট দাখিল পোর্টাল',
+        title: 'বাজেট ম্যানেজমেন্ট সিস্টেম',
         subtitle: 'অভ্যন্তরীণ সম্পদ বিভাগ',
-        enterBudgetId: 'আপনার অফিসের বাজেট আইডি লিখুন',
-        budgetIdPlaceholder: 'যেমন: ০৮০৩১০১',
-        searchButton: 'অনুসন্ধান করুন',
+        enterBudgetId: 'আপনার অফিসের বাজেট আইডি লিখে সার্চ করুন',
+        budgetIdPlaceholder: 'যেমন: 1110215102427',
+        searchButton: 'সার্চ করুন',
         adminLogin: 'প্রশাসক লগইন',
         notFound: 'এই আইডিতে কোনো অফিস পাওয়া যায়নি।',
         registerPrompt: 'নতুন অফিস নিবন্ধন করতে নিচের বাটনে চাপুন।',
@@ -63,13 +63,13 @@ export const strings = {
     registration: {
         title: 'নতুন অফিস নিবন্ধন',
         officeName: 'অফিসের নাম',
-        officeNamePlaceholder: 'যেমন: কর অঞ্চল-১, ঢাকা',
+        officeNamePlaceholder: 'যেমন: কর অঞ্চল-১১, ঢাকা',
         budgetId: 'বাজেট আইডি',
-        budgetIdPlaceholder: 'যেমন: ০৮০৩১০১',
+        budgetIdPlaceholder: 'যেমন: 1110215102427',
         department: 'বিভাগ',
         departmentPlaceholder: 'বিভাগ নির্বাচন করুন',
-        parentOffice: 'অভিভাবক অফিস',
-        parentOfficePlaceholder: 'অভিভাবক অফিস নির্বাচন করুন',
+        parentOffice: 'উর্ধ্বতন অফিস',
+        parentOfficePlaceholder: 'উর্ধ্বতন অফিস নির্বাচন করুন',
         officeType: 'অফিসের ধরন',
         officeTypePlaceholder: 'অফিসের ধরন নির্বাচন করুন',
         previewTitle: 'তথ্য পর্যালোচনা করুন',

@@ -101,7 +101,7 @@ import { strings } from '../../lib/strings.js';
     const cancelAddBtn = document.getElementById('cancel-admin-btn');
     const addForm = document.getElementById('add-admin-form');
 
-    let adminsData = [];
+    let adminsData: any[] = [];
     const currentUsername = sessionStorage.getItem('sa_username');
 
     const loadAdmins = async () => {
