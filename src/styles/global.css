@@ -26,3 +26,15 @@ body {
   font-family: 'Kalpurush', sans-serif;
   opacity: 0.6;
 }
+
+/* =============================================
+   View Transitions - Instant SPA Navigation
+   Kill all visual transition effects so pages 
+   swap instantly with zero flickering.
+   ClientRouter still handles SPA routing.
+   ============================================= */
+::view-transition-group(*),
+::view-transition-old(*),
+::view-transition-new(*) {
+  animation: none !important;
+}

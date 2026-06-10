@@ -68,7 +68,8 @@ import { strings } from '../../lib/strings.js';
   import { toBanglaNumber, toBanglaFiscalYear, toBanglaBudgetType } from '../../lib/bangla.js';
   import { strings } from '../../lib/strings.js';
 
-  document.addEventListener('DOMContentLoaded', async () => {
+  document.addEventListener('astro:page-load', async () => {
+    if (!window.location.pathname.includes('/superadmin/submissions')) return;
     const loadingState = document.getElementById('loading-state');
     const container = document.getElementById('submissions-container');
     const tbody = document.getElementById('submissions-body');

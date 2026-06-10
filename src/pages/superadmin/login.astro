@@ -93,7 +93,8 @@ import { strings } from '../../lib/strings.js';
   import { supabase } from '../../lib/supabase.js';
   import { strings } from '../../lib/strings.js';
 
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('astro:page-load', () => {
+    if (!window.location.pathname.includes('/superadmin/login')) return;
     // If already logged in, redirect
     if (sessionStorage.getItem('sa_username')) {
       window.location.href = '/superadmin/dashboard';

@@ -1,4 +1,5 @@
 ---
+import { ClientRouter } from 'astro:transitions';
 import '../styles/global.css';
 import { strings } from '../lib/strings.js';
 
@@ -25,6 +26,7 @@ const menuItems = [
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{title} | {strings.appName}</title>
+    <ClientRouter />
   </head>
   <body class="min-h-screen bg-slate-50 text-slate-900 flex selection:bg-blue-200">
     
@@ -83,7 +85,7 @@ const menuItems = [
 <script>
   import { supabase } from '../lib/supabase.js';
 
-  document.addEventListener('DOMContentLoaded', async () => {
+  document.addEventListener('astro:page-load', async () => {
     // 1. Check Session Storage first for fast fail
     const saUser = sessionStorage.getItem('sa_username');
     if (!saUser) {

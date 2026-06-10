@@ -91,7 +91,8 @@ import { strings } from '../../lib/strings.js';
   import { supabase } from '../../lib/supabase.js';
   import { strings } from '../../lib/strings.js';
 
-  document.addEventListener('DOMContentLoaded', async () => {
+  document.addEventListener('astro:page-load', async () => {
+    if (!window.location.pathname.includes('/superadmin/admins')) return;
     const loadingState = document.getElementById('loading-state');
     const container = document.getElementById('admins-container');
     const tbody = document.getElementById('admins-body');

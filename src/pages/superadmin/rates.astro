@@ -45,7 +45,8 @@ import { strings } from '../../lib/strings.js';
   import { toBanglaNumber, toBanglaCurrency } from '../../lib/bangla.js';
   import { strings } from '../../lib/strings.js';
 
-  document.addEventListener('DOMContentLoaded', async () => {
+  document.addEventListener('astro:page-load', async () => {
+    if (!window.location.pathname.includes('/superadmin/rates')) return;
     const loadingState = document.getElementById('loading-state');
     const container = document.getElementById('rates-container');
     const tbody = document.getElementById('rates-body');

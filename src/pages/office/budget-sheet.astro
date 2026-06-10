@@ -76,7 +76,8 @@ import { strings } from '../../lib/strings.js';
   import { toBanglaCurrency } from '../../lib/bangla.js';
   import { calculateAll, codeFormulas } from '../../lib/formulas.js';
 
-  document.addEventListener('DOMContentLoaded', async () => {
+  document.addEventListener('astro:page-load', async () => {
+    if (!window.location.pathname.includes('/office/budget-sheet')) return;
     const submissionId = sessionStorage.getItem('submission_id');
     const cycleId = sessionStorage.getItem('cycle_id');
     if (!submissionId || !cycleId) {

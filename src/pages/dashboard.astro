@@ -1,10 +1,18 @@
 ---
 import Base from '../layouts/Base.astro';
 import { strings } from '../lib/strings.js';
+import { toBanglaNumber } from '../lib/bangla.js';
+
+interface FormType {
+  id: number;
+  title: string;
+  short: string;
+  hidden?: boolean;
+}
 
 // Pre-define the 10 forms to loop over in UI
-const forms = [
-  { id: 1, ...strings.forms.form1, hidden: true },
+const forms: FormType[] = [
+  { id: 1, ...strings.forms.form1 },
   { id: 2, ...strings.forms.form2 },
   { id: 3, ...strings.forms.form3 },
   { id: 4, ...strings.forms.form4 },
@@ -34,8 +42,8 @@ const visibleForms = forms.filter(f => !f.hidden);
       <div class="absolute -right-20 -top-20 w-64 h-64 border-[30px] border-white/10 rounded-full blur-sm"></div>
       <div class="absolute -right-10 -bottom-20 w-48 h-48 border-[20px] border-white/5 rounded-full blur-sm"></div>
       
-      <div class="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
+      <div class="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+        <div class="flex-1">
           <span class="inline-block px-3 py-1 bg-white/20 backdrop-blur-md rounded-lg text-xs font-semibold tracking-wider uppercase mb-3 border border-white/10">
             {strings.dashboard.welcome}
           </span>
@@ -48,7 +56,7 @@ const visibleForms = forms.filter(f => !f.hidden);
           </div>
         </div>
         
-        <div class="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-5 md:min-w-[280px]">
+        <div class="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 lg:min-w-[320px] shadow-inner">
           <h3 class="text-blue-100 text-sm font-semibold mb-1 uppercase tracking-wider">{strings.dashboard.currentCycle}</h3>
           
           <!-- Cycle Selection UI -->
@@ -84,7 +92,7 @@ const visibleForms = forms.filter(f => !f.hidden);
     <div class="mb-6 flex items-center justify-between">
       <h2 class="text-xl font-bold text-slate-800">{strings.dashboard.formProgress}</h2>
       <span class="text-sm font-semibold text-slate-500 bg-slate-200 px-3 py-1 rounded-full">
-        0 / {visibleForms.length} {strings.dashboard.progressLabel}
+        <span id="forms-completed-count">০</span> / {toBanglaNumber(visibleForms.length)} {strings.dashboard.progressLabel}
       </span>
     </div>
 
@@ -99,9 +107,9 @@ const visibleForms = forms.filter(f => !f.hidden);
           <div class="relative z-10 flex flex-col h-full">
             <div class="flex justify-between items-start mb-4">
               <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                {form.id}
+                {toBanglaNumber(form.id)}
               </div>
-              <span class="px-2.5 py-1 bg-slate-100 text-slate-500 text-xs font-semibold rounded-lg border border-slate-200">
+              <span id={`status-badge-${form.id}`} class="px-2.5 py-1 bg-slate-100 text-slate-500 text-xs font-semibold rounded-lg border border-slate-200 transition-colors">
                 {strings.dashboard.formNotStarted}
               </span>
             </div>
@@ -174,7 +182,8 @@ const visibleForms = forms.filter(f => !f.hidden);
   import { toBanglaNumber, toBanglaFiscalYear, toBanglaBudgetType, toBanglaCurrency } from '../lib/bangla.js';
   import { strings } from '../lib/strings.js';
 
-  document.addEventListener('DOMContentLoaded', async () => {
+  document.addEventListener('astro:page-load', async () => {
+    if (!window.location.pathname.includes('/dashboard')) return;
     const officeId = sessionStorage.getItem('office_id');
     
     // Redirect if no session
@@ -210,19 +219,19 @@ const visibleForms = forms.filter(f => !f.hidden);
     const totalBudgetRow = document.getElementById('total-budget-row');
     const totalBudgetAmount = document.getElementById('total-budget-amount');
 
-    let currentSubmissionId = null;
-    let selectedCycleId = null;
-    let existingSubmissionStatus = null;
+    let currentSubmissionId: number | null = null;
+    let selectedCycleId: string | null = null;
+    let existingSubmissionStatus: string | null = null;
 
     // Helper: format cycle text
-    const formatCycleText = (cycle) => {
+    const formatCycleText = (cycle: any) => {
       const fy = toBanglaFiscalYear(cycle.fiscal_year);
       const bt = toBanglaBudgetType(cycle.budget_type);
       return `${fy} - ${bt}`;
     };
 
     // Helper: handle submission status UI
-    const updateStatusUI = (status) => {
+    const updateStatusUI = (status: string) => {
       if (!statusLabel || !statusIndicator) return;
       
       statusIndicator.className = 'w-3 h-3 rounded-full shadow-lg';
@@ -268,7 +277,7 @@ const visibleForms = forms.filter(f => !f.hidden);
     };
 
     // Helper: process selected cycle
-    const processCycle = async (cId) => {
+    const processCycle = async (cId: string) => {
       selectedCycleId = cId;
       sessionStorage.setItem('cycle_id', cId);
 
@@ -298,14 +307,15 @@ const visibleForms = forms.filter(f => !f.hidden);
           if (insertErr) throw insertErr;
           
           currentSubmissionId = newSub.id;
-          sessionStorage.setItem('submission_id', newSub.id);
+          sessionStorage.setItem('submission_id', String(newSub.id));
           updateStatusUI(newSub.status);
           unlockForms();
+          updateFormProgress(newSub.id);
 
         } else {
           // Exists
           currentSubmissionId = sub.id;
-          sessionStorage.setItem('submission_id', sub.id);
+          sessionStorage.setItem('submission_id', String(sub.id));
           existingSubmissionStatus = sub.status;
           updateStatusUI(sub.status);
 
@@ -314,10 +324,13 @@ const visibleForms = forms.filter(f => !f.hidden);
           } else if (sub.status === 'submitted') {
             showSubmittedState();
           }
+          updateFormProgress(sub.id);
         }
 
         // Fetch and display total budget
-        await fetchTotalBudget(currentSubmissionId);
+        if (currentSubmissionId) {
+          await fetchTotalBudget(currentSubmissionId);
+        }
 
       } catch (err) {
         console.error('Error processing cycle', err);
@@ -325,8 +338,62 @@ const visibleForms = forms.filter(f => !f.hidden);
       }
     };
 
+    // Helper: check progress of forms
+    const updateFormProgress = async (subId: number) => {
+      let completedCount = 0;
+      
+      const setCompleted = (formId: number) => {
+        completedCount++;
+        const badge = document.getElementById(`status-badge-${formId}`);
+        if (badge) {
+          badge.textContent = 'তথ্য এন্টি করা হয়েছে';
+          badge.className = 'px-2.5 py-1 bg-emerald-50 text-emerald-600 text-xs font-semibold rounded-lg border border-emerald-200 transition-colors';
+        }
+      };
+
+      try {
+        // For form_basic, check if there's actually meaningful data (auto-save creates empty rows)
+        const [
+          { data: d1 }, { count: c2 }, { count: c3 }, { count: c4 }, { count: c5 },
+          { count: c6 }, { count: c7 }, { count: c8 }, { count: c9 }, { count: c10 }
+        ] = await Promise.all([
+          supabase.from('form_basic').select('head_of_office, designation, phone, email, address').eq('submission_id', subId).maybeSingle(),
+          supabase.from('form_staff').select('*', { count: 'exact', head: true }).eq('submission_id', subId),
+          supabase.from('form_allowances').select('*', { count: 'exact', head: true }).eq('submission_id', subId),
+          supabase.from('form_leave').select('*', { count: 'exact', head: true }).eq('submission_id', subId),
+          supabase.from('form_vehicles').select('*', { count: 'exact', head: true }).eq('submission_id', subId),
+          supabase.from('form_vehicle_rent').select('*', { count: 'exact', head: true }).eq('submission_id', subId),
+          supabase.from('form_it_equipment').select('*', { count: 'exact', head: true }).eq('submission_id', subId),
+          supabase.from('form_utility').select('*', { count: 'exact', head: true }).eq('submission_id', subId),
+          supabase.from('form_house_rent').select('*', { count: 'exact', head: true }).eq('submission_id', subId),
+          supabase.from('form_return_info').select('*', { count: 'exact', head: true }).eq('submission_id', subId)
+        ]);
+
+        // Debug: log all counts
+        console.log('Form progress:', { d1, c2, c3, c4, c5, c6, c7, c8, c9, c10 });
+
+        // Form 1: check actual field content, not just row existence
+        const hasForm1Data = d1 && (d1.head_of_office || d1.designation || d1.phone || d1.email || d1.address);
+        if (hasForm1Data) setCompleted(1);
+        if (c2 && c2 > 0) setCompleted(2);
+        if (c3 && c3 > 0) setCompleted(3);
+        if (c4 && c4 > 0) setCompleted(4);
+        if (c5 && c5 > 0) setCompleted(5);
+        if (c6 && c6 > 0) setCompleted(6);
+        if (c7 && c7 > 0) setCompleted(7);
+        if (c8 && c8 > 0) setCompleted(8);
+        if (c9 && c9 > 0) setCompleted(9);
+        if (c10 && c10 > 0) setCompleted(10);
+
+        const completedEl = document.getElementById('forms-completed-count');
+        if (completedEl) completedEl.textContent = toBanglaNumber(completedCount);
+      } catch (err) {
+        console.error('Error fetching progress', err);
+      }
+    };
+
     // Helper: fetch and display total budget
-    const fetchTotalBudget = async (subId) => {
+    const fetchTotalBudget = async (subId: number) => {
         try {
             const { data: rows } = await supabase
                 .from('budget_sheet')
@@ -336,8 +403,8 @@ const visibleForms = forms.filter(f => !f.hidden);
             if (rows && rows.length > 0) {
                 const { codeFormulas } = await import('../lib/formulas.js');
                 let total = 0;
-                rows.forEach(row => {
-                    const code = row.expense_codes?.code;
+                rows.forEach((row: any) => {
+                    const code = row.expense_codes?.code as keyof typeof codeFormulas;
                     const isAuto = codeFormulas[code] !== undefined;
                     if (isAuto) {
                         total += parseFloat(row.auto_value) || 0;

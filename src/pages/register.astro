@@ -179,7 +179,8 @@ import { strings } from '../lib/strings.js';
   import { toEnglishNumber } from '../lib/bangla.js';
   import { strings } from '../lib/strings.js';
 
-  document.addEventListener('DOMContentLoaded', async () => {
+  document.addEventListener('astro:page-load', async () => {
+    if (!window.location.pathname.includes('/register')) return;
     const deptSelect = document.getElementById('department') as HTMLSelectElement;
     const parentSelect = document.getElementById('parent_office') as HTMLSelectElement;
     const typeSelect = document.getElementById('office_type') as HTMLSelectElement;

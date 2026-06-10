@@ -3,7 +3,7 @@ import FormLayout from '../../layouts/FormLayout.astro';
 import { strings } from '../../lib/strings.js';
 ---
 
-<FormLayout title={strings.forms.form3.title} formId="Form 3">
+<FormLayout title={strings.forms.form3.title} formId="Form 3" prevUrl="/office/form-2" nextUrl="/office/form-4">
   
   <div class="p-8 md:p-10">
     <div class="mb-4">
@@ -46,14 +46,7 @@ import { strings } from '../../lib/strings.js';
 
   </div>
 
-  <a href="/office/form-4" slot="footer-action" class="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors shadow-md shadow-blue-500/20 flex items-center gap-2">
-    {strings.next}
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-      <path fill-rule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
-    </svg>
-  </a>
-
-</FormLayout>
+  </FormLayout>
 
 <script>
   import { supabase } from '../../lib/supabase.js';
@@ -61,7 +54,8 @@ import { strings } from '../../lib/strings.js';
   import { toBanglaCurrency } from '../../lib/bangla.js';
   import { calculateAllowance } from '../../lib/formulas.js';
 
-  document.addEventListener('DOMContentLoaded', async () => {
+  document.addEventListener('astro:page-load', async () => {
+    if (!window.location.pathname.includes('/office/form-3')) return;
     // 1. Session Check
     const officeId = sessionStorage.getItem('office_id');
     const cycleId = sessionStorage.getItem('cycle_id');
@@ -286,5 +280,29 @@ import { strings } from '../../lib/strings.js';
       console.error('Error loading form 3:', err);
     }
 
+
+    // Manual Save Button Logic
+    const manualSaveBtn = document.getElementById('manual-save-btn');
+    if (manualSaveBtn) {
+      manualSaveBtn.addEventListener('click', () => {
+        // Trigger blur on active element to fire auto-save, or just trigger save
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+        
+        // Show saving if not already shown by blur
+        const saveIndicator = document.getElementById('save-indicator');
+        const saveSpinner = document.getElementById('save-spinner');
+        const saveCheck = document.getElementById('save-check');
+        const saveText = document.getElementById('save-text');
+        
+        if (saveIndicator) saveIndicator.classList.remove('opacity-0');
+        if (saveSpinner) saveSpinner.classList.remove('hidden');
+        if (saveCheck) saveCheck.classList.add('hidden');
+        if (saveText) saveText.textContent = strings.saving || 'সংরক্ষণ করা হচ্ছে...';
+        
+        // Let auto-save handle the actual save, if nothing was active, nothing to save but visual feedback helps
+      });
+    }
   });
 </script>

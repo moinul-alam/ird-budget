@@ -138,7 +138,8 @@ import { strings } from '../../lib/strings.js';
   import { supabase } from '../../lib/supabase.js';
   import { toBanglaNumber } from '../../lib/bangla.js';
 
-  document.addEventListener('DOMContentLoaded', async () => {
+  document.addEventListener('astro:page-load', async () => {
+    if (!window.location.pathname.includes('/superadmin/dashboard')) return;
     try {
       // Fetch all required data in parallel
       const [

@@ -390,7 +390,8 @@ import { strings } from "../lib/strings.js";
   import { toEnglishNumber } from "../lib/bangla.js";
   import { strings } from "../lib/strings.js";
 
-  document.addEventListener("DOMContentLoaded", async () => {
+  document.addEventListener("astro:page-load", async () => {
+    if (window.location.pathname !== '/' && window.location.pathname !== '/index.html') return;
     // =============================================
     // Search Flow Elements
     // =============================================

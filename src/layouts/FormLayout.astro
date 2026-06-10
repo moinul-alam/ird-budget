@@ -1,33 +1,66 @@
 ---
 import Base from './Base.astro';
 import { strings } from '../lib/strings.js';
+import { toBanglaNumber } from '../lib/bangla.js';
 
 interface Props {
   title: string;
   formId: string;
+  prevUrl?: string;
+  nextUrl?: string;
 }
 
-const { title, formId } = Astro.props;
+const { title, formId, prevUrl, nextUrl } = Astro.props;
+
+// For Navbar highlighting
+const currentFormNumber = parseInt(formId.replace('Form ', ''));
+const formsList = Array.from({ length: 10 }, (_, i) => i + 1);
 ---
 
 <Base title={title}>
-  <div class="max-w-5xl mx-auto py-6">
-    <!-- Header -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-      <div class="flex items-center gap-4">
-        <a href="/dashboard" class="p-2 bg-slate-50 hover:bg-blue-50 text-slate-500 hover:text-blue-600 rounded-full transition-colors group">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 transform group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-        </a>
-        <div>
-          <div class="flex items-center gap-3">
-            <span class="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-bold rounded-lg border border-blue-200">
-              {formId}
-            </span>
-            <h1 class="text-2xl font-bold text-slate-800">{title}</h1>
-          </div>
-        </div>
+  <!-- Top Navigation Bar (Edge-to-Edge Full Width) -->
+  <div id="form-navbar" slot="full-width-header" class="w-full bg-white shadow-sm border-b border-slate-200 overflow-x-auto custom-scrollbar flex md:justify-center py-4">
+    <div class="flex items-center gap-2 px-4 shrink-0">
+      <a href="/dashboard" class="px-4 py-2 rounded-xl text-sm font-semibold transition-colors bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200 flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+        </svg>
+        ড্যাশবোর্ড
+      </a>
+      
+      <div class="w-px h-6 bg-slate-200 mx-1"></div>
+
+      {formsList.map((num) => {
+        const label = `ফর্ম-${toBanglaNumber(num)}`;
+        return (
+          <a 
+            href={`/office/form-${num}`}
+            class="nav-link px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap border bg-white text-slate-600 hover:bg-slate-50 border-slate-200 hover:border-slate-300"
+          >
+            {label}
+          </a>
+        );
+      })}
+
+      <div class="w-px h-6 bg-slate-200 mx-1"></div>
+      <a href="/office/budget-sheet" class="nav-link px-4 py-2 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap flex items-center gap-2 border bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        চূড়ান্ত বাজেট
+      </a>
+    </div>
+  </div>
+
+  <!-- Form Content Container -->
+  <div class="w-full pb-6">
+    <!-- Header Context & Save Indicator -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 bg-white px-6 py-4 rounded-3xl shadow-sm border border-slate-100">
+      <div class="flex items-center gap-3">
+        <span class="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-bold rounded-lg border border-blue-200">
+          {isNaN(currentFormNumber) ? formId : `ফর্ম-${toBanglaNumber(currentFormNumber)}`}
+        </span>
+        <h1 class="text-xl font-bold text-slate-800">{title}</h1>
       </div>
       
       <!-- Save Indicator -->
@@ -41,17 +74,110 @@ const { title, formId } = Astro.props;
     </div>
 
     <!-- Form Content -->
-    <div class="bg-white rounded-3xl shadow-xl shadow-slate-200/20 border border-slate-100 overflow-hidden mb-8">
+    <div class="bg-white rounded-3xl shadow-xl shadow-slate-200/20 border border-slate-100 overflow-hidden mb-6">
       <slot />
     </div>
     
-    <!-- Footer Actions -->
-    <div class="flex justify-between items-center bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-      <a href="/dashboard" class="px-6 py-3 border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-600 font-semibold rounded-xl transition-colors">
-        {strings.dashboard.title}
-      </a>
-      
-      <slot name="footer-action" />
+    <!-- Unified Footer Actions -->
+    <div class="grid grid-cols-3 items-center bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+      <div class="flex justify-start">
+        {prevUrl && (
+          <a href={prevUrl} class="px-6 py-3 bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-xl transition-all flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M7.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l2.293 2.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+            </svg>
+            পূর্ববর্তী
+          </a>
+        )}
+      </div>
+
+      <div class="flex justify-center">
+        <button id="manual-save-btn" type="button" class="px-8 py-3 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 font-bold rounded-xl transition-colors shadow-sm flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+          </svg>
+          সংরক্ষণ করুন
+        </button>
+      </div>
+
+      <div class="flex justify-end">
+        {nextUrl ? (
+          <a href={nextUrl} class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-all shadow-md shadow-blue-500/20 flex items-center gap-2">
+            পরবর্তী
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+          </a>
+        ) : (
+          <a href="/dashboard" class="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-xl transition-all shadow-md shadow-emerald-500/20 flex items-center gap-2">
+            ড্যাশবোর্ডে ফিরে যান
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+            </svg>
+          </a>
+        )}
+      </div>
     </div>
   </div>
+
+  <style>
+    .custom-scrollbar::-webkit-scrollbar {
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background-color: #cbd5e1;
+      border-radius: 20px;
+    }
+  </style>
+
+  <script>
+    // Update navbar active state on SPA navigation
+    const updateNavbar = () => {
+      const navbar = document.getElementById('form-navbar');
+      if (!navbar) return;
+      
+      const path = window.location.pathname;
+      const links = navbar.querySelectorAll('a[href]');
+      
+      const activeClasses = 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20';
+      const inactiveClasses = 'bg-white text-slate-600 hover:bg-slate-50 border-slate-200 hover:border-slate-300';
+      const budgetActiveClasses = 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/20';
+      const budgetInactiveClasses = 'bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200';
+      
+      links.forEach(link => {
+        const href = link.getAttribute('href');
+        if (!href || href === '/dashboard') return;
+        
+        const isBudgetLink = href === '/office/budget-sheet';
+        const isActive = path === href || path === href + '/';
+        
+        // Remove all possible state classes first
+        link.className = link.className
+          .replace(/bg-blue-600|bg-white|bg-amber-50/g, '')
+          .replace(/text-white|text-slate-600|text-amber-700/g, '')
+          .replace(/border-blue-600|border-slate-200|border-amber-200/g, '')
+          .replace(/shadow-md|shadow-blue-500\/20/g, '')
+          .replace(/hover:bg-slate-50|hover:bg-amber-100/g, '')
+          .replace(/hover:border-slate-300/g, '')
+          .replace(/shadow-amber-400\/50/g, '')
+          .replace(/\s+/g, ' ').trim();
+        
+        if (isActive) {
+          link.className += ` ${activeClasses}`;
+        } else if (isBudgetLink) {
+          link.className += ` ${budgetInactiveClasses}`;
+        } else {
+          link.className += ` ${inactiveClasses}`;
+        }
+      });
+    };
+
+    // astro:after-swap runs exactly when the new DOM is swapped in, before the animation starts
+    document.addEventListener('astro:after-swap', updateNavbar);
+    // astro:page-load handles initial page load
+    document.addEventListener('astro:page-load', updateNavbar);
+  </script>
 </Base>

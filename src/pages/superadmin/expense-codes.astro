@@ -81,7 +81,8 @@ import { strings } from '../../lib/strings.js';
   import { toBanglaNumber } from '../../lib/bangla.js';
   import { strings } from '../../lib/strings.js';
 
-  document.addEventListener('DOMContentLoaded', async () => {
+  document.addEventListener('astro:page-load', async () => {
+    if (!window.location.pathname.includes('/superadmin/expense-codes')) return;
     const loadingState = document.getElementById('loading-state');
     const container = document.getElementById('codes-container');
     
