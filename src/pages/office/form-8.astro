@@ -170,24 +170,24 @@ import { strings } from '../../lib/strings.js';
     // Manual Save Button Logic
     const manualSaveBtn = document.getElementById('manual-save-btn');
     if (manualSaveBtn) {
-      manualSaveBtn.addEventListener('click', () => {
-        // Trigger blur on active element to fire auto-save, or just trigger save
+      manualSaveBtn.addEventListener('click', async () => {
+        // Disable button
+        manualSaveBtn.disabled = true;
+        manualSaveBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        
+        // Clear all debounced timeouts
+        timeoutMap.clear();
+        
+        // Trigger blur to save current field
         if (document.activeElement instanceof HTMLElement) {
           document.activeElement.blur();
         }
         
-        // Show saving if not already shown by blur
-        const saveIndicator = document.getElementById('save-indicator');
-        const saveSpinner = document.getElementById('save-spinner');
-        const saveCheck = document.getElementById('save-check');
-        const saveText = document.getElementById('save-text');
-        
-        if (saveIndicator) saveIndicator.classList.remove('opacity-0');
-        if (saveSpinner) saveSpinner.classList.remove('hidden');
-        if (saveCheck) saveCheck.classList.add('hidden');
-        if (saveText) saveText.textContent = strings.saving || 'সংরক্ষণ করা হচ্ছে...';
-        
-        // Let auto-save handle the actual save, if nothing was active, nothing to save but visual feedback helps
+        // Wait a bit to let autosave finish, then re-enable
+        setTimeout(() => {
+          manualSaveBtn.disabled = false;
+          manualSaveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }, 700);
       });
     }
   });

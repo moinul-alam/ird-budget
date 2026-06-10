@@ -4,213 +4,141 @@ import { strings } from "../lib/strings.js";
 ---
 
 <Base title={strings.landing.title}>
-  <div
-    class="min-h-[80vh] flex flex-col items-center justify-center relative overflow-hidden"
-  >
-    <!-- Admin Login Top Right -->
+  <div class="min-h-[80vh] flex flex-col items-center justify-center relative overflow-hidden">
+
+    <!-- Admin Login -->
     <div class="absolute top-2 right-2 sm:top-4 sm:right-4 z-50">
       <a
         href="/superadmin/login"
         title={strings.landing.adminLogin}
         class="text-slate-300 hover:text-slate-500 transition-colors opacity-50 hover:opacity-100 flex items-center justify-center w-8 h-8 rounded-full"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="h-5 w-5"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-          ></path>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
         </svg>
       </a>
     </div>
 
-    <div
-      class="w-full max-w-lg bg-white/80 backdrop-blur-xl border border-white/40 shadow-2xl rounded-3xl p-8 sm:p-10 transition-all duration-500 hover:shadow-blue-900/10 hover:-translate-y-1"
-    >
+    <!-- Main Card -->
+    <div class="w-full max-w-4xl bg-white/80 backdrop-blur-xl border border-white/40 shadow-2xl rounded-3xl p-8 sm:p-10">
+
+      <!-- Header -->
       <div class="text-center mb-10">
-        <div
-          class="w-20 h-20 mx-auto flex items-center justify-center mb-6 transition-transform hover:scale-105"
-        >
-          <img
-            src="/images/bdgovlogo.png"
-            alt="Government Logo"
-            class="w-full h-full object-contain drop-shadow-md"
-          />
+        <div class="w-20 h-20 mx-auto flex items-center justify-center mb-6">
+          <img src="/images/bdgovlogo.png" alt="Government Logo" class="w-full h-full object-contain drop-shadow-md" />
         </div>
-        <h1
-          class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-indigo-700 mb-2"
-        >
+        <h1 class="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-700 to-indigo-700 mb-2">
           {strings.landing.title}
         </h1>
         <p class="text-slate-500 font-medium">{strings.landing.subtitle}</p>
       </div>
 
-      <form id="search-form" class="space-y-6">
-        <div>
-          <label
-            for="budget_id"
-            class="block text-sm font-semibold text-slate-700 mb-2"
-          >
-            {strings.landing.enterBudgetId}
-          </label>
-          <div class="relative">
-            <input
-              type="text"
-              id="budget_id"
-              name="budget_id"
-              placeholder={strings.landing.budgetIdPlaceholder}
-              class="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-xl text-lg font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all shadow-sm"
-              required
-            />
-            <div
-              class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-slate-400"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
+      <!-- Split layout container -->
+      <div id="split-container" class="flex gap-8 items-start justify-center">
+
+        <!-- LEFT: Search panel -->
+        <div
+          id="search-panel"
+          class="w-full max-w-lg transition-all duration-500 ease-in-out"
+          style="transform: translateX(0);"
+        >
+          <form id="search-form" class="space-y-6">
+            <div>
+              <label for="budget_id" class="block text-sm font-semibold text-slate-700 mb-2">
+                {strings.landing.enterBudgetId}
+              </label>
+              <div class="relative">
+                <input
+                  type="text"
+                  id="budget_id"
+                  name="budget_id"
+                  placeholder={strings.landing.budgetIdPlaceholder}
+                  class="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-xl text-lg font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all shadow-sm"
+                  required
+                />
+                <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-slate-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex gap-3">
+              <button
+                type="button"
+                id="open-register-modal-btn"
+                class="flex-1 bg-white border-2 border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-slate-600 hover:text-blue-600 font-semibold py-4 px-4 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 group"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                <span class="text-base">{strings.landing.registerButton}</span>
+              </button>
+              <button
+                type="submit"
+                id="search-btn"
+                class="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold text-lg py-4 px-6 rounded-xl shadow-lg shadow-blue-500/30 transition-all hover:shadow-blue-600/40 active:scale-[0.98] flex justify-center items-center gap-2 group"
+              >
+                <span id="search-btn-text">{strings.landing.searchButton}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- RIGHT: Result panel (hidden initially, slides in) -->
+        <div
+          id="result-panel"
+          class="w-full max-w-lg transition-all duration-500 ease-in-out"
+          style="opacity: 0; transform: translateX(40px); pointer-events: none; width: 0; overflow: hidden; min-width: 0; max-width: 0;"
+        >
+          <!-- Not Found -->
+          <div id="not-found-view" class="hidden text-center bg-red-50/50 border border-red-100 rounded-2xl p-6">
+            <div class="w-12 h-12 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
+            </div>
+            <p class="text-slate-700 font-medium mb-1">{strings.landing.notFound}</p>
+            <p class="text-slate-500 text-sm mb-5">{strings.landing.registerPrompt}</p>
+            <button
+              type="button"
+              id="not-found-register-btn"
+              class="inline-block w-full bg-white border-2 border-slate-200 hover:border-slate-300 text-slate-700 font-semibold py-3 px-6 rounded-xl transition-all shadow-sm cursor-pointer"
+            >
+              {strings.landing.registerButton}
+            </button>
+          </div>
+
+          <!-- Found -->
+          <div id="found-view" class="hidden text-center bg-emerald-50/50 border border-emerald-100 rounded-2xl p-6">
+            <div class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            <p class="text-slate-500 text-sm font-medium mb-1">{strings.landing.foundOffice}</p>
+            <h3 id="office-name" class="text-xl font-bold text-slate-800 mb-5">--</h3>
+            <div class="flex flex-col gap-3">
+              <button
+                id="confirm-btn"
+                class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-sm shadow-emerald-200 active:scale-[0.98]"
+              >
+                {strings.landing.confirmOffice}
+              </button>
+              <button
+                id="reject-btn"
+                class="w-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 font-semibold py-3 px-6 rounded-xl transition-all"
+              >
+                {strings.landing.wrongOffice}
+              </button>
             </div>
           </div>
         </div>
 
-        <div class="flex gap-3">
-          <button
-            type="button"
-            id="open-register-modal-btn"
-            class="flex-1 bg-white border-2 border-slate-200 hover:border-blue-300 hover:bg-blue-50 text-slate-600 hover:text-blue-600 font-semibold text-lg py-4 px-4 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 group"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400 group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-            </svg>
-            <span class="text-base">{strings.landing.registerButton}</span>
-          </button>
-          <button
-            type="submit"
-            id="search-btn"
-            class="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold text-lg py-4 px-6 rounded-xl shadow-lg shadow-blue-500/30 transition-all hover:shadow-blue-600/40 active:scale-[0.98] flex justify-center items-center gap-2 group"
-          >
-            <span>{strings.landing.searchButton}</span>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-5 w-5 transform group-hover:translate-x-1 transition-transform"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
-            </svg>
-          </button>
-        </div>
-      </form>
-
-      <!-- Feedback Area -->
-      <div
-        id="feedback-area"
-        class="mt-8 hidden opacity-0 transition-opacity duration-300"
-      >
-        <!-- Not Found View -->
-        <div
-          id="not-found-view"
-          class="hidden text-center bg-red-50/50 border border-red-100 rounded-2xl p-6"
-        >
-          <div
-            class="w-12 h-12 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-3"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              ></path>
-            </svg>
-          </div>
-          <p class="text-slate-700 font-medium mb-1">
-            {strings.landing.notFound}
-          </p>
-          <p class="text-slate-500 text-sm mb-5">
-            {strings.landing.registerPrompt}
-          </p>
-          <button
-            type="button"
-            id="not-found-register-btn"
-            class="inline-block w-full bg-white border-2 border-slate-200 hover:border-slate-300 text-slate-700 font-semibold py-3 px-6 rounded-xl transition-all shadow-sm cursor-pointer"
-          >
-            {strings.landing.registerButton}
-          </button>
-        </div>
-
-        <!-- Found View -->
-        <div
-          id="found-view"
-          class="hidden text-center bg-emerald-50/50 border border-emerald-100 rounded-2xl p-6"
-        >
-          <div
-            class="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-              ></path>
-            </svg>
-          </div>
-          <p class="text-slate-500 text-sm font-medium mb-1">
-            {strings.landing.foundOffice}
-          </p>
-          <h3 id="office-name" class="text-xl font-bold text-slate-800 mb-5">
-            --
-          </h3>
-
-          <div class="flex flex-col gap-3">
-            <button
-              id="confirm-btn"
-              class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-sm shadow-emerald-200 active:scale-[0.98]"
-            >
-              {strings.landing.confirmOffice}
-            </button>
-            <button
-              id="reject-btn"
-              class="w-full bg-white border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-700 font-semibold py-3 px-6 rounded-xl transition-all"
-            >
-              {strings.landing.wrongOffice}
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -220,7 +148,6 @@ import { strings } from "../lib/strings.js";
     <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity opacity-0" id="reg-modal-backdrop"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4 sm:p-6">
       <div class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden transform scale-95 opacity-0 transition-all duration-300 flex flex-col max-h-[95vh]" id="reg-modal-content">
-        <!-- Header -->
         <div class="bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-5 text-white flex justify-between items-center shrink-0">
           <div>
             <h2 class="text-xl font-bold">{strings.registration.title}</h2>
@@ -232,8 +159,6 @@ import { strings } from "../lib/strings.js";
             </svg>
           </button>
         </div>
-
-        <!-- Form Body -->
         <div class="p-6 overflow-y-auto">
           <form id="register-form" class="space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -241,80 +166,47 @@ import { strings } from "../lib/strings.js";
                 <label for="reg_name" class="block text-sm font-semibold text-slate-700 mb-2">
                   {strings.registration.officeName} <span class="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  id="reg_name"
-                  name="name"
-                  placeholder={strings.registration.officeNamePlaceholder}
-                  class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
-                  required
-                />
+                <input type="text" id="reg_name" name="name" placeholder={strings.registration.officeNamePlaceholder}
+                  class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" required />
               </div>
-
               <div>
                 <label for="reg_budget_id" class="block text-sm font-semibold text-slate-700 mb-2">
                   {strings.registration.budgetId} <span class="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  id="reg_budget_id"
-                  name="budget_id"
-                  placeholder={strings.registration.budgetIdPlaceholder}
-                  class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
-                  required
-                />
+                <input type="text" id="reg_budget_id" name="budget_id" placeholder={strings.registration.budgetIdPlaceholder}
+                  class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" required />
               </div>
-
               <div>
                 <label for="department" class="block text-sm font-semibold text-slate-700 mb-2">
                   {strings.registration.department} <span class="text-red-500">*</span>
                 </label>
-                <select
-                  id="department"
-                  name="department"
-                  class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all appearance-none cursor-pointer"
-                  required
-                >
+                <select id="department" name="department"
+                  class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all appearance-none cursor-pointer" required>
                   <option value="" disabled selected>{strings.registration.departmentPlaceholder}</option>
                 </select>
               </div>
-
               <div>
                 <label for="parent_office" class="block text-sm font-semibold text-slate-700 mb-2">
                   {strings.registration.parentOffice}
                 </label>
-                <select
-                  id="parent_office"
-                  name="parent_office"
-                  class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled
-                >
+                <select id="parent_office" name="parent_office"
+                  class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                   <option value="" selected>{strings.registration.parentOfficePlaceholder}</option>
                 </select>
               </div>
-
               <div>
                 <label for="office_type" class="block text-sm font-semibold text-slate-700 mb-2">
                   {strings.registration.officeType} <span class="text-red-500">*</span>
                 </label>
-                <select
-                  id="office_type"
-                  name="office_type"
-                  class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  required
-                  disabled
-                >
+                <select id="office_type" name="office_type"
+                  class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed" required disabled>
                   <option value="" disabled selected>{strings.registration.officeTypePlaceholder}</option>
                 </select>
               </div>
             </div>
-
             <div class="pt-4">
-              <button
-                type="button"
-                id="preview-btn"
-                class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-lg py-4 px-6 rounded-xl transition-all active:scale-[0.98]"
-              >
+              <button type="button" id="preview-btn"
+                class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold text-lg py-4 px-6 rounded-xl transition-all active:scale-[0.98]">
                 {strings.registration.saveButton}
               </button>
             </div>
@@ -324,7 +216,7 @@ import { strings } from "../lib/strings.js";
     </div>
   </div>
 
-  <!-- Preview/Confirm Modal -->
+  <!-- Preview Modal -->
   <div id="preview-modal" class="fixed inset-0 z-[60] hidden">
     <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity opacity-0" id="preview-backdrop"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4">
@@ -337,7 +229,6 @@ import { strings } from "../lib/strings.js";
             </svg>
           </button>
         </div>
-
         <div class="p-6 overflow-y-auto">
           <p class="text-sm text-slate-500 mb-6">{strings.registration.previewPrompt}</p>
           <div class="space-y-4">
@@ -363,20 +254,13 @@ import { strings } from "../lib/strings.js";
             </div>
           </div>
         </div>
-
         <div class="p-6 border-t border-slate-100 flex gap-4 bg-slate-50 mt-auto">
-          <button
-            type="button"
-            id="edit-btn"
-            class="flex-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold py-3 px-4 rounded-xl transition-colors"
-          >
+          <button type="button" id="edit-btn"
+            class="flex-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold py-3 px-4 rounded-xl transition-colors">
             {strings.registration.editButton}
           </button>
-          <button
-            type="button"
-            id="confirm-submit-btn"
-            class="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 px-4 rounded-xl transition-all shadow-md shadow-blue-500/20 active:scale-[0.98]"
-          >
+          <button type="button" id="confirm-submit-btn"
+            class="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 px-4 rounded-xl transition-all shadow-md shadow-blue-500/20 active:scale-[0.98]">
             {strings.confirm}
           </button>
         </div>
@@ -391,42 +275,34 @@ import { strings } from "../lib/strings.js";
   import { strings } from "../lib/strings.js";
 
   document.addEventListener("astro:page-load", async () => {
-    if (window.location.pathname !== '/' && window.location.pathname !== '/index.html') return;
-    // =============================================
-    // Search Flow Elements
-    // =============================================
+    if (window.location.pathname !== "/" && window.location.pathname !== "/index.html") return;
+
     const searchForm = document.getElementById("search-form");
     const budgetInput = document.getElementById("budget_id") as HTMLInputElement;
-    const searchBtn = document.getElementById("search-btn");
-    const searchBtnSpan = searchBtn?.querySelector("span");
+    const searchBtn = document.getElementById("search-btn") as HTMLButtonElement;
+    const searchBtnText = document.getElementById("search-btn-text");
 
-    const feedbackArea = document.getElementById("feedback-area");
+    const searchPanel = document.getElementById("search-panel");
+    const resultPanel = document.getElementById("result-panel");
     const notFoundView = document.getElementById("not-found-view");
     const foundView = document.getElementById("found-view");
     const officeNameEl = document.getElementById("office-name");
 
-    const searchConfirmBtn = document.getElementById("confirm-btn");
+    const confirmBtn = document.getElementById("confirm-btn");
     const rejectBtn = document.getElementById("reject-btn");
     const notFoundRegisterBtn = document.getElementById("not-found-register-btn");
-
-    let currentOfficeId: string | null = null;
-
-    // =============================================
-    // Registration Modal Elements
-    // =============================================
     const openRegisterModalBtn = document.getElementById("open-register-modal-btn");
+
     const registrationModal = document.getElementById("registration-modal");
     const regModalBackdrop = document.getElementById("reg-modal-backdrop");
     const regModalContent = document.getElementById("reg-modal-content");
     const closeRegModalBtn = document.getElementById("close-reg-modal-btn");
     const regBudgetIdInput = document.getElementById("reg_budget_id") as HTMLInputElement | null;
 
-    // Registration form selects
     const deptSelect = document.getElementById("department") as HTMLSelectElement;
     const parentSelect = document.getElementById("parent_office") as HTMLSelectElement;
     const typeSelect = document.getElementById("office_type") as HTMLSelectElement;
 
-    // Preview modal elements
     const regForm = document.getElementById("register-form") as HTMLFormElement;
     const previewBtn = document.getElementById("preview-btn");
     const previewModal = document.getElementById("preview-modal");
@@ -434,17 +310,110 @@ import { strings } from "../lib/strings.js";
     const previewModalContent = document.getElementById("preview-modal-content");
     const closePreviewBtn = document.getElementById("close-preview-btn");
     const editBtn = document.getElementById("edit-btn");
-    const regConfirmBtn = document.getElementById("confirm-submit-btn");
+    const regConfirmBtn = document.getElementById("confirm-submit-btn") as HTMLButtonElement;
+
+    let currentOfficeId: string | null = null;
 
     // =============================================
-    // Registration Modal Open/Close
+    // Split panel animation
+    // =============================================
+    const showResult = () => {
+      if (!resultPanel || !searchPanel) return;
+
+      // Expand result panel
+      resultPanel.style.width = "";
+      resultPanel.style.maxWidth = "";
+      resultPanel.style.minWidth = "";
+      resultPanel.style.overflow = "";
+      resultPanel.style.pointerEvents = "";
+
+      // Slight delay so width expansion starts before opacity kicks in
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          resultPanel.style.opacity = "1";
+          resultPanel.style.transform = "translateX(0)";
+        });
+      });
+    };
+
+    const hideResult = () => {
+      if (!resultPanel) return;
+      resultPanel.style.opacity = "0";
+      resultPanel.style.transform = "translateX(40px)";
+      resultPanel.style.pointerEvents = "none";
+
+      setTimeout(() => {
+        resultPanel.style.width = "0";
+        resultPanel.style.maxWidth = "0";
+        resultPanel.style.minWidth = "0";
+        resultPanel.style.overflow = "hidden";
+      }, 300);
+    };
+
+    // =============================================
+    // Search
+    // =============================================
+    searchForm?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const rawInput = budgetInput.value.trim();
+      if (!rawInput) return;
+
+      const budgetId = toEnglishNumber(rawInput);
+      const originalText = searchBtnText?.textContent ?? "";
+      if (searchBtnText) searchBtnText.textContent = strings.loading;
+      searchBtn.disabled = true;
+
+      try {
+        const { data, error } = await supabase
+          .from("offices")
+          .select("id, name")
+          .eq("budget_id", budgetId)
+          .maybeSingle();
+
+        notFoundView?.classList.add("hidden");
+        foundView?.classList.add("hidden");
+
+        if (error || !data) {
+          notFoundView?.classList.remove("hidden");
+          currentOfficeId = null;
+        } else {
+          if (officeNameEl) officeNameEl.textContent = data.name;
+          foundView?.classList.remove("hidden");
+          currentOfficeId = data.id;
+        }
+
+        showResult();
+        openRegisterModalBtn?.classList.add("hidden");
+      } catch (err) {
+        console.error("Search error", err);
+        alert(strings.errors.general);
+      } finally {
+        if (searchBtnText) searchBtnText.textContent = originalText;
+        searchBtn.disabled = false;
+      }
+    });
+
+    confirmBtn?.addEventListener("click", () => {
+      if (currentOfficeId) {
+        sessionStorage.setItem("office_id", currentOfficeId);
+        window.location.href = "/dashboard";
+      }
+    });
+
+    rejectBtn?.addEventListener("click", () => {
+      budgetInput.value = "";
+      hideResult();
+      openRegisterModalBtn?.classList.remove("hidden");
+      budgetInput.focus();
+    });
+
+    // =============================================
+    // Registration modal
     // =============================================
     const openRegModal = () => {
-      // Auto-fill budget_id from search input
       if (budgetInput && regBudgetIdInput && budgetInput.value.trim()) {
         regBudgetIdInput.value = budgetInput.value.trim();
       }
-
       registrationModal?.classList.remove("hidden");
       setTimeout(() => {
         regModalBackdrop?.classList.remove("opacity-0");
@@ -455,9 +424,7 @@ import { strings } from "../lib/strings.js";
     const closeRegModal = () => {
       regModalBackdrop?.classList.add("opacity-0");
       regModalContent?.classList.add("opacity-0", "scale-95");
-      setTimeout(() => {
-        registrationModal?.classList.add("hidden");
-      }, 300);
+      setTimeout(() => registrationModal?.classList.add("hidden"), 300);
     };
 
     openRegisterModalBtn?.addEventListener("click", openRegModal);
@@ -466,21 +433,11 @@ import { strings } from "../lib/strings.js";
     regModalBackdrop?.addEventListener("click", closeRegModal);
 
     // =============================================
-    // Load Departments
+    // Load departments
     // =============================================
     try {
       const { data: departments, error } = await supabase.from("departments").select("id, name").order("name");
-      console.log("Supabase departments response:", { departments, error });
-
-      if (error) {
-        console.error("Supabase error details:", error);
-        alert("Error loading departments: " + error.message);
-      }
-
-      if (departments && departments.length === 0) {
-        console.warn("Departments returned empty. If data exists online, this is likely an RLS (Row Level Security) issue.");
-      }
-
+      if (error) console.error("Supabase error:", error);
       if (departments && !error) {
         departments.forEach((dept) => {
           const option = document.createElement("option");
@@ -493,49 +450,30 @@ import { strings } from "../lib/strings.js";
       console.error("Error loading departments", err);
     }
 
-    // =============================================
-    // Handle Department Change
-    // =============================================
     deptSelect.addEventListener("change", async () => {
       const deptId = deptSelect.value;
-
       parentSelect.innerHTML = `<option value="" selected>${strings.registration.parentOfficePlaceholder}</option>`;
       typeSelect.innerHTML = `<option value="" disabled selected>${strings.registration.officeTypePlaceholder}</option>`;
       parentSelect.disabled = true;
       typeSelect.disabled = true;
-
       if (!deptId) return;
 
       try {
-        const { data: parents } = await supabase
-          .from("parent_offices")
-          .select("id, name")
-          .eq("department_id", deptId)
-          .order("name");
+        const [{ data: parents }, { data: types }] = await Promise.all([
+          supabase.from("parent_offices").select("id, name").eq("department_id", deptId).order("name"),
+          supabase.from("office_types").select("id, name").eq("department_id", deptId).order("name"),
+        ]);
 
-        if (parents && parents.length > 0) {
-          parents.forEach((p) => {
-            const option = document.createElement("option");
-            option.value = p.id;
-            option.textContent = p.name;
-            parentSelect.appendChild(option);
-          });
-        }
-
-        const { data: types } = await supabase
-          .from("office_types")
-          .select("id, name")
-          .eq("department_id", deptId)
-          .order("name");
-
-        if (types && types.length > 0) {
-          types.forEach((t) => {
-            const option = document.createElement("option");
-            option.value = t.id;
-            option.textContent = t.name;
-            typeSelect.appendChild(option);
-          });
-        }
+        parents?.forEach((p) => {
+          const o = document.createElement("option");
+          o.value = p.id; o.textContent = p.name;
+          parentSelect.appendChild(o);
+        });
+        types?.forEach((t) => {
+          const o = document.createElement("option");
+          o.value = t.id; o.textContent = t.name;
+          typeSelect.appendChild(o);
+        });
 
         parentSelect.disabled = false;
         typeSelect.disabled = false;
@@ -545,13 +483,10 @@ import { strings } from "../lib/strings.js";
     });
 
     // =============================================
-    // Preview Modal Open/Close
+    // Preview modal
     // =============================================
     const openPreviewModal = () => {
-      if (!regForm.checkValidity()) {
-        regForm.reportValidity();
-        return;
-      }
+      if (!regForm.checkValidity()) { regForm.reportValidity(); return; }
 
       const name = (document.getElementById("reg_name") as HTMLInputElement).value;
       const budgetId = (document.getElementById("reg_budget_id") as HTMLInputElement).value;
@@ -575,9 +510,7 @@ import { strings } from "../lib/strings.js";
     const closePreviewModal = () => {
       previewBackdrop?.classList.add("opacity-0");
       previewModalContent?.classList.add("opacity-0", "scale-95");
-      setTimeout(() => {
-        previewModal?.classList.add("hidden");
-      }, 300);
+      setTimeout(() => previewModal?.classList.add("hidden"), 300);
     };
 
     previewBtn?.addEventListener("click", openPreviewModal);
@@ -586,27 +519,21 @@ import { strings } from "../lib/strings.js";
     previewBackdrop?.addEventListener("click", closePreviewModal);
 
     // =============================================
-    // Registration Submit
+    // Registration submit
     // =============================================
     regConfirmBtn?.addEventListener("click", async () => {
       const name = (document.getElementById("reg_name") as HTMLInputElement).value.trim();
       const rawBudgetId = (document.getElementById("reg_budget_id") as HTMLInputElement).value.trim();
       const typeId = typeSelect.value;
       const parentId = parentSelect.value || null;
-
       const budgetId = toEnglishNumber(rawBudgetId);
 
       const oldText = regConfirmBtn.textContent;
       regConfirmBtn.textContent = strings.saving;
-      (regConfirmBtn as HTMLButtonElement).disabled = true;
+      regConfirmBtn.disabled = true;
 
       try {
-        const { data: existing } = await supabase
-          .from("offices")
-          .select("id")
-          .eq("budget_id", budgetId)
-          .maybeSingle();
-
+        const { data: existing } = await supabase.from("offices").select("id").eq("budget_id", budgetId).maybeSingle();
         if (existing) {
           alert(strings.registration.alreadyExists);
           closePreviewModal();
@@ -625,8 +552,7 @@ import { strings } from "../lib/strings.js";
           .single();
 
         if (error) throw error;
-
-        if (data && data.id) {
+        if (data?.id) {
           sessionStorage.setItem("office_id", data.id);
           window.location.href = "/dashboard";
         }
@@ -634,78 +560,9 @@ import { strings } from "../lib/strings.js";
         console.error("Insert error", err);
         alert(strings.saveFailed);
       } finally {
-        if (regConfirmBtn) {
-          regConfirmBtn.textContent = oldText;
-          (regConfirmBtn as HTMLButtonElement).disabled = false;
-        }
+        regConfirmBtn.textContent = oldText;
+        regConfirmBtn.disabled = false;
       }
-    });
-
-    // =============================================
-    // Search Flow
-    // =============================================
-    searchForm?.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const rawInput = budgetInput.value.trim();
-      if (!rawInput) return;
-
-      const budgetId = toEnglishNumber(rawInput);
-
-      const originalText = searchBtnSpan ? searchBtnSpan.textContent : "";
-      if (searchBtnSpan) searchBtnSpan.textContent = strings.loading;
-      if (searchBtn) (searchBtn as HTMLButtonElement).disabled = true;
-      searchBtn?.classList.add("opacity-75", "cursor-not-allowed");
-
-      try {
-        const { data, error } = await supabase
-          .from("offices")
-          .select("id, name")
-          .eq("budget_id", budgetId)
-          .maybeSingle();
-
-        feedbackArea?.classList.remove("hidden");
-        setTimeout(() => feedbackArea?.classList.remove("opacity-0"), 10);
-        notFoundView?.classList.add("hidden");
-        foundView?.classList.add("hidden");
-
-        if (error || !data) {
-          notFoundView?.classList.remove("hidden");
-          openRegisterModalBtn?.classList.add("hidden");
-          currentOfficeId = null;
-        } else {
-          if (officeNameEl) officeNameEl.textContent = data.name;
-          foundView?.classList.remove("hidden");
-          openRegisterModalBtn?.classList.add("hidden");
-          currentOfficeId = data.id;
-        }
-      } catch (err) {
-        console.error("Search error", err);
-        alert(strings.errors.general);
-      } finally {
-        if (searchBtnSpan && originalText)
-          searchBtnSpan.textContent = originalText;
-        if (searchBtn) (searchBtn as HTMLButtonElement).disabled = false;
-        searchBtn?.classList.remove("opacity-75", "cursor-not-allowed");
-      }
-    });
-
-    searchConfirmBtn?.addEventListener("click", () => {
-      if (currentOfficeId) {
-        sessionStorage.setItem("office_id", currentOfficeId);
-        window.location.href = "/dashboard";
-      }
-    });
-
-    rejectBtn?.addEventListener("click", () => {
-      budgetInput.value = "";
-      feedbackArea?.classList.add("opacity-0");
-      setTimeout(() => {
-        feedbackArea?.classList.add("hidden");
-        notFoundView?.classList.add("hidden");
-        foundView?.classList.add("hidden");
-        openRegisterModalBtn?.classList.remove("hidden");
-      }, 300);
-      budgetInput.focus();
     });
   });
 </script>
