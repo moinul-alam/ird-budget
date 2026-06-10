@@ -115,6 +115,8 @@ export const strings = {
         statusDraft: 'খসড়া',
         statusSubmitted: 'দাখিলকৃত',
         statusNeedsResubmit: 'পুনরায় দাখিল প্রয়োজন',
+        statusFinalSubmitted: 'চূড়ান্ত বাজেট দাখিলকৃত',
+        statusNotSubmitted: 'চূড়ান্ত বাজেট দাখিল করা হয়নি',
         formComplete: 'সম্পন্ন',
         formIncomplete: 'অসম্পন্ন',
         formNotStarted: 'শুরু হয়নি',
