@@ -19,67 +19,68 @@ const formsList = Array.from({ length: 10 }, (_, i) => i + 1);
 
 <Base title={title}>
   <!-- Top Navbar -->
-  <div slot="full-width-header" class="w-full bg-white shadow-sm border-b border-slate-200">
-    <div class="container mx-auto px-4 py-3 max-w-5xl flex items-center justify-between mb-0">
+  <div slot="full-width-header" class="w-full bg-white shadow-sm border-b border-slate-200 flex flex-col" transition:animate="none">
+    <!-- Top Row: Office Info and Actions -->
+    <div class="container mx-auto px-4 py-3 max-w-5xl flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center">
+        <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shrink-0">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         </div>
-        <div>
-          <h1 id="nav-office-name" class="text-xl font-bold text-slate-800 inline">বাজেট ব্যবস্থাপনা</h1>
-          <span id="nav-office-budget-id" class="text-sm text-slate-500 ml-2"></span>
+        <div class="min-w-0">
+          <h1 id="nav-office-name" class="text-lg md:text-xl font-bold text-slate-800 truncate">বাজেট ব্যবস্থাপনা</h1>
+          <span id="nav-office-budget-id" class="text-xs md:text-sm text-slate-500"></span>
         </div>
       </div>
       
-      <div class="flex items-center gap-3">
-        <a href="/dashboard" class="px-4 py-2 rounded-xl text-sm font-semibold transition-colors bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200 flex items-center gap-2">
+      <div class="flex items-center gap-2 md:gap-3 shrink-0">
+        <a href="/dashboard" class="px-3 md:px-4 py-2 rounded-xl text-sm font-semibold transition-colors bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200 flex items-center gap-2">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
           </svg>
-          ড্যাশবোর্ড
+          <span class="hidden sm:inline">ড্যাশবোর্ড</span>
         </a>
         
-        <a href="/office/profile" class="px-4 py-2 rounded-xl text-sm font-semibold transition-colors bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200 flex items-center gap-2">
+        <a href="/office/profile" class="px-3 md:px-4 py-2 rounded-xl text-sm font-semibold transition-colors bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200 flex items-center gap-2">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
           </svg>
-          অফিস প্রোফাইল
+          <span class="hidden sm:inline">প্রোফাইল</span>
         </a>
         
-        <button id="logout-btn" class="px-4 py-2 rounded-xl text-sm font-semibold transition-colors bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 flex items-center gap-2">
+        <button id="logout-btn" class="px-3 md:px-4 py-2 rounded-xl text-sm font-semibold transition-colors bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 flex items-center gap-2">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3" />
           </svg>
-          লগ আউট
+          <span class="hidden sm:inline">লগ আউট</span>
         </button>
       </div>
     </div>
-  </div>
 
-  <!-- Top Navigation Bar (Edge-to-Edge Full Width) -->
-  <div id="form-navbar" class="w-full bg-white border-b border-slate-100 overflow-x-auto custom-scrollbar flex md:justify-center py-3">
-    <div class="flex items-center gap-2 px-4 shrink-0">
-      {formsList.map((num) => {
-        const label = `ফর্ম-${toBanglaNumber(num)}`;
-        return (
-          <a 
-            href={`/office/form-${num}`}
-            class="nav-link px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap border bg-white text-slate-600 hover:bg-slate-50 border-slate-200 hover:border-slate-300"
-          >
-            {label}
-          </a>
-        );
-      })}
+    <!-- Bottom Row: Form Navbar (Merged, no gap) -->
+    <div id="form-navbar" class="w-full bg-slate-50/50 border-t border-slate-100 overflow-x-auto custom-scrollbar flex md:justify-center py-2 px-2">
+      <div class="flex items-center gap-2 px-2 shrink-0">
+        {formsList.map((num) => {
+          const label = `ফর্ম-${toBanglaNumber(num)}`;
+          return (
+            <a 
+              href={`/office/form-${num}`}
+              class="nav-link px-4 py-1.5 rounded-lg text-sm font-semibold transition-all whitespace-nowrap border bg-white text-slate-600 hover:bg-slate-50 border-slate-200 hover:border-slate-300"
+            >
+              {label}
+            </a>
+          );
+        })}
 
-      <div class="w-px h-6 bg-slate-200 mx-1"></div>
-      <a href="/office/budget-sheet" class="nav-link px-4 py-2 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap flex items-center gap-2 border bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-        চূড়ান্ত বাজেট
-      </a>
+        <div class="w-px h-6 bg-slate-200 mx-1"></div>
+        <a href="/office/budget-sheet" class="nav-link px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap flex items-center gap-2 border bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          চূড়ান্ত বাজেট
+        </a>
+      </div>
     </div>
   </div>
 
@@ -165,6 +166,9 @@ const formsList = Array.from({ length: 10 }, (_, i) => i + 1);
   </style>
 
   <script>
+    import { supabase } from '../lib/supabase.js';
+    import { toBanglaNumber } from '../lib/bangla.js';
+
     // Logout logic
     const handleLogout = () => {
       sessionStorage.removeItem('office_id');
@@ -225,7 +229,22 @@ const formsList = Array.from({ length: 10 }, (_, i) => i + 1);
     const loadOfficeData = async () => {
       const officeId = sessionStorage.getItem('office_id');
       if (!officeId) return;
+
+      const navOfficeNameEl = document.getElementById('nav-office-name');
+      const navOfficeBudgetIdEl = document.getElementById('nav-office-budget-id');
       
+      // Try cache first for instant display
+      const CACHE_KEY = `dash_cache_${officeId}`;
+      const cacheStr = sessionStorage.getItem(CACHE_KEY);
+      if (cacheStr) {
+        try {
+          const cache = JSON.parse(cacheStr);
+          if (cache.officeName && navOfficeNameEl) navOfficeNameEl.textContent = cache.officeName;
+          if (cache.navBudgetId && navOfficeBudgetIdEl) navOfficeBudgetIdEl.textContent = cache.navBudgetId;
+        } catch (e) {}
+      }
+      
+      // Silent background fetch to ensure it is always up to date
       try {
         const { data: office, error } = await supabase
           .from('offices')
@@ -234,8 +253,6 @@ const formsList = Array.from({ length: 10 }, (_, i) => i + 1);
           .single();
         
         if (!error && office) {
-          const navOfficeNameEl = document.getElementById('nav-office-name');
-          const navOfficeBudgetIdEl = document.getElementById('nav-office-budget-id');
           if (navOfficeNameEl) navOfficeNameEl.textContent = office.name;
           if (navOfficeBudgetIdEl) navOfficeBudgetIdEl.textContent = `(${toBanglaNumber(office.budget_id)})`;
         }

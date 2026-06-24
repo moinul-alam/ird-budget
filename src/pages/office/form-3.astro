@@ -70,9 +70,10 @@ import { strings } from '../../lib/strings.js';
     const saveCheck = document.getElementById('save-check');
     const saveText = document.getElementById('save-text');
 
-    let allowanceTypes = [];
-    let formAllowancesData = [];
+    let allowanceTypes: any[] = [];
+    let formAllowancesData: any[] = [];
     let isLocked = false;
+    let timeoutMap = new Map<string, any>();
 
     // Save UI handlers
     const showSaving = () => {
@@ -90,7 +91,7 @@ import { strings } from '../../lib/strings.js';
     };
 
     // Recalculate a row's amount if is_calculated
-    const recalculateRow = (typeId) => {
+    const recalculateRow = (typeId: any) => {
       const type = allowanceTypes.find(a => String(a.id) === String(typeId));
       if (!type || !type.is_calculated) return;
 
@@ -123,7 +124,7 @@ import { strings } from '../../lib/strings.js';
     };
 
     // Handle input events: recalculate + update totals
-    const handleInput = (e) => {
+    const handleInput = (e: any) => {
       const target = e.target as HTMLInputElement;
       const typeId = target.dataset.typeId;
       if (typeId) recalculateRow(typeId);
@@ -131,7 +132,7 @@ import { strings } from '../../lib/strings.js';
     };
 
     // Save Row Logic (UPSERT or DELETE)
-    const saveRow = async (typeId) => {
+    const saveRow = async (typeId: any) => {
       if (isLocked) return;
       showSaving();
 
@@ -210,7 +211,7 @@ import { strings } from '../../lib/strings.js';
       
       allowanceTypes.forEach(type => {
         const rowData = formAllowancesData.find(d => d.allowance_type_id === type.id) || {};
-        const displayName = nameMap[type.name] || type.name;
+        const displayName = (nameMap as any)[type.name] || type.name;
         const lockAttr = isLocked ? 'disabled' : '';
 
         // Name cell with calculated indicator
@@ -255,7 +256,6 @@ import { strings } from '../../lib/strings.js';
       // Attach Event Listeners (skip if locked)
       if (!isLocked) {
         const inputs = document.querySelectorAll('.row-input');
-        let timeoutMap = new Map();
 
         inputs.forEach(input => {
           // Real-time calculation on input
@@ -286,7 +286,7 @@ import { strings } from '../../lib/strings.js';
     if (manualSaveBtn) {
       manualSaveBtn.addEventListener('click', async () => {
         // Disable button
-        manualSaveBtn.disabled = true;
+        (manualSaveBtn as HTMLButtonElement).disabled = true;
         manualSaveBtn.classList.add('opacity-50', 'cursor-not-allowed');
         
         // Clear all debounced timeouts
@@ -299,7 +299,7 @@ import { strings } from '../../lib/strings.js';
         
         // Wait a bit to let autosave finish, then re-enable
         setTimeout(() => {
-          manualSaveBtn.disabled = false;
+          (manualSaveBtn as HTMLButtonElement).disabled = false;
           manualSaveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
         }, 700);
       });

@@ -56,8 +56,9 @@ import { strings } from '../../lib/strings.js';
     const saveText = document.getElementById('save-text');
 
     let isLocked = false;
-    let utilityTypes = [];
-    let formUtilityData = [];
+    let utilityTypes: any[] = [];
+    let formUtilityData: any[] = [];
+    let timeoutMap = new Map();
 
     // Save UI handlers
     const showSaving = () => {
@@ -75,7 +76,7 @@ import { strings } from '../../lib/strings.js';
     };
 
     // Save Row Logic
-    const saveRow = async (utilityTypeId) => {
+    const saveRow = async (utilityTypeId: any) => {
       if (isLocked) return;
       showSaving();
 
@@ -146,7 +147,6 @@ import { strings } from '../../lib/strings.js';
       // Attach Event Listeners
       if (!isLocked) {
         const inputs = document.querySelectorAll('.row-input');
-        let timeoutMap = new Map();
 
         inputs.forEach(input => {
           input.addEventListener('blur', (e) => {
@@ -172,7 +172,7 @@ import { strings } from '../../lib/strings.js';
     if (manualSaveBtn) {
       manualSaveBtn.addEventListener('click', async () => {
         // Disable button
-        manualSaveBtn.disabled = true;
+        (manualSaveBtn as HTMLButtonElement).disabled = true;
         manualSaveBtn.classList.add('opacity-50', 'cursor-not-allowed');
         
         // Clear all debounced timeouts
@@ -185,7 +185,7 @@ import { strings } from '../../lib/strings.js';
         
         // Wait a bit to let autosave finish, then re-enable
         setTimeout(() => {
-          manualSaveBtn.disabled = false;
+          (manualSaveBtn as HTMLButtonElement).disabled = false;
           manualSaveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
         }, 700);
       });

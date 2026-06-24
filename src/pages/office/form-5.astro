@@ -67,13 +67,13 @@ import { strings } from '../../lib/strings.js';
     const saveText = document.getElementById('save-text');
 
     let isLocked = false;
-    let configs = [];
-    let formVehiclesData = [];
+    let configs: any[] = [];
+    let formVehiclesData: any[] = [];
 
     // Unique UI logic
-    const tbody = document.getElementById('vehicles-body');
-    const emptyState = document.getElementById('empty-state');
-    const table = document.getElementById('vehicles-table');
+    const tbody = document.getElementById('vehicles-body') as HTMLElement;
+    const emptyState = document.getElementById('empty-state') as HTMLElement;
+    const table = document.getElementById('vehicles-table') as HTMLElement;
 
     // Extract unique car types and their valid fuels from configs
     const getCars = () => {
@@ -102,8 +102,8 @@ import { strings } from '../../lib/strings.js';
       setTimeout(() => saveIndicator?.classList.add('opacity-0'), 3000);
     };
 
-    // Save row to DB
-    const saveRow = async (rowEl) => {
+    // Save Row Logic
+    const saveRow = async (rowEl: any) => {
       if (isLocked) return;
 
       const recordId = rowEl.dataset.recordId;
@@ -152,7 +152,7 @@ import { strings } from '../../lib/strings.js';
       }
     };
 
-    const deleteRow = async (rowEl) => {
+    const deleteRow = async (rowEl: HTMLElement) => {
       if (isLocked) return;
       const recordId = rowEl.dataset.recordId;
       if (recordId) {
@@ -165,6 +165,11 @@ import { strings } from '../../lib/strings.js';
     };
 
     const updateVisibility = () => {
+      const tbody = document.getElementById('vehicles-body');
+      const table = document.getElementById('vehicles-table');
+      const emptyState = document.getElementById('empty-state');
+      if (!tbody || !table || !emptyState) return;
+
       if (tbody.children.length === 0) {
         table.classList.add('hidden');
         emptyState.classList.remove('hidden');
@@ -175,7 +180,7 @@ import { strings } from '../../lib/strings.js';
     };
 
     // Create a DOM row
-    const renderRow = (initialData = null) => {
+    const renderRow = (initialData: any = null) => {
       const lockAttr = isLocked ? 'disabled' : '';
       const cars = getCars();
 
@@ -218,36 +223,38 @@ import { strings } from '../../lib/strings.js';
       // Setup initial data if available
       if (initialData) {
         const config = configs.find(c => c.id === initialData.vehicle_fuel_config_id);
-        if (config) {
-          carSelect.value = config.car_type_id;
+        if (config && carSelect && fuelSelect) {
+          (carSelect as HTMLSelectElement).value = config.car_type_id;
           // Trigger fuel population
           const selectedCar = cars.find(c => c.id == config.car_type_id);
           fuelSelect.innerHTML = `<option value="">নির্বাচন করুন</option>` + 
-            selectedCar.fuels.map(f => `<option value="${f.id}" data-config-id="${f.configId}">${f.name}</option>`).join('');
-          fuelSelect.value = config.fuel_type_id;
+            selectedCar.fuels.map((f: any) => `<option value="${f.id}" data-config-id="${f.configId}">${f.name}</option>`).join('');
+          (fuelSelect as HTMLSelectElement).value = config.fuel_type_id;
         }
       }
 
       // Event Listeners
+      let timeoutMap: any = undefined;
       if (!isLocked) {
-        let timeoutMap;
 
         // Cascade logic
-        carSelect.addEventListener('change', (e) => {
-          const carId = parseInt(e.target.value);
+        carSelect?.addEventListener('change', (e) => {
+          const target = e.target as HTMLSelectElement;
+          const carId = parseInt(target.value);
           if (!carId) {
-            fuelSelect.innerHTML = '<option value="">আগে গাড়ি নির্বাচন করুন</option>';
+            if (fuelSelect) fuelSelect.innerHTML = '<option value="">আগে গাড়ি নির্বাচন করুন</option>';
             tr.dataset.configId = '';
             return;
           }
           const selectedCar = cars.find(c => c.id === carId);
-          fuelSelect.innerHTML = `<option value="">নির্বাচন করুন</option>` + 
-            selectedCar.fuels.map(f => `<option value="${f.id}" data-config-id="${f.configId}">${f.name}</option>`).join('');
+          if (fuelSelect) fuelSelect.innerHTML = `<option value="">নির্বাচন করুন</option>` + 
+            selectedCar.fuels.map((f: any) => `<option value="${f.id}" data-config-id="${f.configId}">${f.name}</option>`).join('');
           tr.dataset.configId = ''; // Reset until fuel is chosen
         });
 
-        fuelSelect.addEventListener('change', (e) => {
-          const selectedOption = e.target.options[e.target.selectedIndex];
+        fuelSelect?.addEventListener('change', (e) => {
+          const target = e.target as HTMLSelectElement;
+          const selectedOption = target.options[target.selectedIndex];
           const cId = selectedOption.dataset.configId;
           tr.dataset.configId = cId || '';
           if (cId) saveRow(tr); // Save once combo is finalized
@@ -262,13 +269,13 @@ import { strings } from '../../lib/strings.js';
         });
 
         // Delete logic
-        delBtn.addEventListener('click', () => deleteRow(tr));
+        if (delBtn) delBtn.addEventListener('click', () => deleteRow(tr));
       }
 
       updateVisibility();
     };
 
-    document.getElementById('add-btn').addEventListener('click', () => renderRow());
+    document.getElementById('add-btn')?.addEventListener('click', () => renderRow());
 
     // Load Data Phase
     try {
@@ -286,7 +293,8 @@ import { strings } from '../../lib/strings.js';
       if (fData) formVehiclesData = fData;
       if (subData && subData.status === 'submitted') {
         isLocked = true;
-        document.getElementById('add-btn').style.display = 'none';
+        const addBtn = document.getElementById('add-btn');
+        if (addBtn) addBtn.style.display = 'none';
       }
 
       // Render existing rows
@@ -305,7 +313,7 @@ import { strings } from '../../lib/strings.js';
     if (manualSaveBtn) {
       manualSaveBtn.addEventListener('click', async () => {
         // Disable button
-        manualSaveBtn.disabled = true;
+        (manualSaveBtn as HTMLButtonElement).disabled = true;
         manualSaveBtn.classList.add('opacity-50', 'cursor-not-allowed');
         
         // Trigger blur to save current field
@@ -315,7 +323,7 @@ import { strings } from '../../lib/strings.js';
         
         // Wait a bit to let autosave finish, then re-enable
         setTimeout(() => {
-          manualSaveBtn.disabled = false;
+          (manualSaveBtn as HTMLButtonElement).disabled = false;
           manualSaveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
         }, 700);
       });
