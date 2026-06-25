@@ -160,22 +160,22 @@ export function LandingClient() {
       </div>
 
       {/* Main Card */}
-      <div className="relative w-full max-w-3xl bg-white/60 backdrop-blur-2xl border border-white/60 shadow-[0_8px_40px_rgb(0,0,0,0.06)] rounded-[2.5rem] p-8 sm:p-12 overflow-hidden z-10 transition-all duration-700">
+      <div className="relative w-full max-w-3xl bg-white/60 backdrop-blur-2xl border border-white/60 shadow-[0_8px_40px_rgb(0,0,0,0.06)] rounded-[2.5rem] p-6 sm:p-8 overflow-hidden z-10 transition-all duration-700">
         <div className="absolute inset-0 bg-gradient-to-br from-white/80 to-white/20 pointer-events-none" />
 
         {/* Header */}
-        <div className="relative text-center mb-12">
-          <div className="w-24 h-24 mx-auto flex items-center justify-center mb-6 transform hover:scale-110 transition-transform duration-500">
+        <div className="relative text-center mb-8">
+          <div className="w-16 h-16 mx-auto flex items-center justify-center mb-4 transform hover:scale-110 transition-transform duration-500">
             <img
               src="/images/bdgovlogo.png"
               alt="Government Logo"
               className="w-full h-full object-contain drop-shadow-xl"
             />
           </div>
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-900 mb-4 drop-shadow-sm">
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-900 mb-3 py-2 drop-shadow-sm leading-normal">
             {strings.landing.title}
           </h1>
-          <p className="text-slate-500 font-medium text-lg max-w-xl mx-auto">
+          <p className="text-slate-500 font-medium text-base max-w-xl mx-auto">
             {strings.landing.subtitle}
           </p>
         </div>

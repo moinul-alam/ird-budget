@@ -1,11 +1,10 @@
-import { createClient } from '@/lib/supabase/server'
+import { createOfficeClient } from '@/lib/supabase/server'
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { Form2Client } from './form-2-client'
 
 export default async function Form2Page() {
-  const supabase = await createClient()
-
+  const supabase = createOfficeClient()
   const session = await getOfficeSession()
   if (!session) redirect('/')
 
@@ -27,3 +26,5 @@ export default async function Form2Page() {
     />
   )
 }
+
+

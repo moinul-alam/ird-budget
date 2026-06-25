@@ -1,11 +1,10 @@
-import { createClient } from '@/lib/supabase/server'
+import { createOfficeClient } from '@/lib/supabase/server'
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { Form4Client } from './form-4-client'
 
 export default async function Form4Page() {
-  const supabase = await createClient()
-
+  const supabase = createOfficeClient()
   const session = await getOfficeSession()
   if (!session) redirect('/')
 
@@ -23,3 +22,5 @@ export default async function Form4Page() {
 
   return <Form4Client submissionId={submissionId} initialData={initialData} />
 }
+
+

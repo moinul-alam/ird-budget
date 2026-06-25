@@ -1,10 +1,10 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createOfficeClient } from '@/lib/supabase/server'
 import { formBasicSchema } from '@/lib/schemas/forms'
 
 export async function saveFormBasic(submissionId: number, formData: FormData) {
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
 
   const parsed = formBasicSchema.safeParse({
     head_of_office: formData.get('head_of_office'),
@@ -58,7 +58,7 @@ export async function saveFormStaffRow(
     suspended_due_salary: number
   }
 ) {
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
 
   const payload = {
     submission_id: submissionId,
@@ -100,7 +100,7 @@ export async function saveFormLeave(
     rest_recreation_due: number
   }
 ) {
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
 
   const payload = {
     submission_id: submissionId,
@@ -134,7 +134,7 @@ export async function saveFormAllowanceRow(
   allowanceTypeId: number,
   data: { count: number; total_basic: number; amount: number; due: number }
 ) {
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
 
   const isZero = data.count === 0 && data.total_basic === 0 && data.amount === 0 && data.due === 0
 
@@ -181,7 +181,7 @@ export async function saveFormUtilityRow(
   utilityTypeId: number,
   data: { annual_cost: number; due: number }
 ) {
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
 
   const payload = {
     submission_id: submissionId,
@@ -221,7 +221,7 @@ export async function saveFormHouseRent(
     contract_end_date: string | null
   }
 ) {
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
 
   const payload = {
     submission_id: submissionId,
@@ -254,7 +254,7 @@ export async function saveFormReturnInfo(
   submissionId: number,
   data: { tin_count: number; return_submitted_count: number }
 ) {
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
 
   const payload = {
     submission_id: submissionId,
@@ -296,7 +296,7 @@ export async function saveFormVehicleRow(
     additional_expense: number
   }
 ) {
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
 
   const payload = {
     submission_id: submissionId,
@@ -328,7 +328,7 @@ export async function saveFormVehicleRow(
 }
 
 export async function deleteFormVehicleRow(rowId: number) {
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
   const { error } = await supabase.from('form_vehicles').delete().eq('id', rowId)
   if (error) return { error: error.message }
   return { success: true }
@@ -343,7 +343,7 @@ export async function saveFormVehicleRentRow(
     monthly_allowance: number
   }
 ) {
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
 
   const payload = {
     submission_id: submissionId,
@@ -371,7 +371,7 @@ export async function saveFormVehicleRentRow(
 }
 
 export async function deleteFormVehicleRentRow(rowId: number) {
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
   const { error } = await supabase.from('form_vehicle_rent').delete().eq('id', rowId)
   if (error) return { error: error.message }
   return { success: true }
@@ -388,7 +388,7 @@ export async function saveFormITEquipmentRow(
     unit_budget: number
   }
 ) {
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
 
   const payload = {
     submission_id: submissionId,

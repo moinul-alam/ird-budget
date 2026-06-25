@@ -1,11 +1,11 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createOfficeClient } from '@/lib/supabase/server'
 import { getBudgetContext } from '@/lib/budget/fetcher'
 import { calculateAll, codeFormulas } from '@/lib/budget/calculate'
 
 export async function recalculateBudget(submissionId: number) {
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
 
   // 1. Fetch form data & rates
   const ctx = await getBudgetContext(submissionId)
@@ -20,7 +20,7 @@ export async function recalculateBudget(submissionId: number) {
   if (!codesData) return { error: 'Failed to load expense codes' }
 
   // 3. Calculate auto values
-  const formulaCodes = codesData.filter((c) => !c.is_manual).map((c) => c.code)
+  const formulaCodes = (codesData || []).filter((c: any) => !c.is_manual).map((c: any) => c.code)
   const calculatedValues = calculateAll(formulaCodes, ctx)
 
   // 4. Upsert into budget_sheet
@@ -58,7 +58,7 @@ export async function recalculateBudget(submissionId: number) {
 }
 
 export async function saveManualValue(submissionId: number, codeId: number, manualValue: number) {
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
 
   const { data: existing } = await supabase
     .from('budget_sheet')
@@ -89,7 +89,7 @@ export async function saveManualValue(submissionId: number, codeId: number, manu
 }
 
 export async function submitBudget(submissionId: number) {
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
 
   // Change submission status to 'submitted'
   const { error } = await supabase

@@ -1,26 +1,14 @@
-import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { AppShell } from '@/components/app-shell'
-import { cookies } from 'next/headers'
+import { getOfficeSession } from '@/lib/session'
 
 export default async function OfficeLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const cookieStore = await cookies()
-  const sessionStr = cookieStore.get('office_session')?.value
-  
-  if (!sessionStr) {
-    redirect('/')
-  }
+  const session = await getOfficeSession()
+  if (!session) redirect('/')
 
-  let office
-  try {
-    office = JSON.parse(sessionStr)
-  } catch (e) {
-    redirect('/')
-  }
-
-  return <AppShell user={office}>{children}</AppShell>
+  return <AppShell user={session}>{children}</AppShell>
 }

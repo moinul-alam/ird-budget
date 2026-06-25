@@ -14,7 +14,11 @@ The IRD Budget System is a modernized web application built with Next.js 15, Rea
 ## Key Architectural Decisions
 
 ### 1. Server Components First
-All data fetching and initial rendering is performed using **React Server Components (RSC)**. This minimizes client-side JavaScript, improves initial load times, and allows direct secure database access from the server using the Supabase Server Client (`src/lib/supabase/server.ts`).
+All data fetching and initial rendering is performed using **React Server Components (RSC)**. This minimizes client-side JavaScript, improves initial load times, and allows direct secure database access from the server. 
+
+For maximum performance, we employ a split Supabase client approach (`src/lib/supabase/server.ts`):
+- `createOfficeClient()`: A blazing-fast pure `supabase-js` client bypassing expensive SSR auth for regular office users.
+- `createClient()`: A standard `@supabase/ssr` client for admin users requiring strict cookie-based auth validation.
 
 ### 2. Client Components for Interactivity
 Only parts of the application requiring user interaction (e.g., form inputs, state management) are marked with `'use client'`. We follow the "leaves of the tree" pattern, where parent Server Components fetch data and pass it as props to child Client Components.
@@ -59,7 +63,7 @@ src/
 ```
 
 ## Data Flow (Office User)
-1. **Authentication:** User logs in (`/login`). `proxy.ts` establishes a secure session via cookies.
+1. **Authentication:** User soft-logs in (`/login`) with an office ID. `proxy.ts` establishes a secure local `office_session` cookie and short-circuits expensive Supabase Auth checks for office routes, keeping navigation extremely fast.
 2. **Dashboard:** User is redirected to `/dashboard` which displays the progress of their form submissions.
 3. **Data Entry:** User proceeds through Forms 1-10. For each form:
    - Server Component (`page.tsx`) fetches existing data from Supabase.
@@ -69,5 +73,4 @@ src/
 
 ## Future Enhancements
 - Implementation of the full Admin Reports (Phase 7 placeholders currently exist).
-- Complete the UI implementation of Forms 3-10 (currently using skeleton components to allow navigation).
 - Integration of a robust PDF generation service for printing the final budget sheet.

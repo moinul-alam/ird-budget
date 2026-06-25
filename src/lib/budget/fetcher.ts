@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createOfficeClient } from '@/lib/supabase/server'
 import type { BudgetContext } from './calculate'
 
 /**
@@ -6,7 +6,7 @@ import type { BudgetContext } from './calculate'
  * the BudgetContext expected by the calculation engine.
  */
 export async function getBudgetContext(submissionId: number): Promise<BudgetContext> {
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
 
   // Run all queries in parallel
   const [
@@ -37,20 +37,20 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
   }
 
   // Format Staff
-  const formattedStaff = (staff || []).map((s) => ({
+  const formattedStaff = (staff || []).map((s: any) => ({
     category: s.grade_id <= 9 ? 'officer' as const : 'staff' as const,
     total_basic: Number(s.total_basic),
     count: Number(s.count),
   }))
 
   // Format Utilities
-  const formattedUtilities = (utility || []).map((u) => ({
+  const formattedUtilities = (utility || []).map((u: any) => ({
     type_name: u.utility_type?.name || '',
     annual_cost: Number(u.annual_cost),
   }))
 
   // Format Vehicles
-  const formattedVehicles = (vehicles || []).map((v) => ({
+  const formattedVehicles = (vehicles || []).map((v: any) => ({
     rate_key: v.fuel_config?.rate_key || null,
     count: Number(v.count),
     monthly_fuel_allowance: Number(v.monthly_fuel_allowance || 0),
@@ -60,7 +60,7 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
   }))
 
   // Format Vehicle Rent
-  const formattedVehicleRent = (vehicleRent || []).map((v) => ({
+  const formattedVehicleRent = (vehicleRent || []).map((v: any) => ({
     count: Number(v.count),
     monthly_rent_allowance: Number(v.rent_config?.monthly_allowance || 0),
   }))

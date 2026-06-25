@@ -2,20 +2,25 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
 export async function proxy(request: NextRequest) {
-  // Update Supabase session (for Admin routes)
-  const supabaseResponse = await updateSession(request)
-  
   const path = request.nextUrl.pathname
 
-  // Protect Office routes
+  // Protect Office routes (cookie-based auth only — no Supabase round-trip)
   if (path.startsWith('/office') || path.startsWith('/dashboard')) {
     const officeSession = request.cookies.get('office_session')
     if (!officeSession) {
       return NextResponse.redirect(new URL('/', request.url))
     }
+    // Skip Supabase auth entirely for office routes — blazing fast
+    return NextResponse.next()
   }
 
-  return supabaseResponse
+  // Only run expensive Supabase auth session refresh for admin routes
+  if (path.startsWith('/admin') || path.startsWith('/superadmin') || path.startsWith('/auth')) {
+    return updateSession(request)
+  }
+
+  // Public routes — no auth needed
+  return NextResponse.next()
 }
 
 export const config = {

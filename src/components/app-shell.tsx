@@ -89,6 +89,7 @@ export function AppShell({
             {/* Dashboard */}
             <Link
               href="/dashboard"
+              prefetch={true}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
                 ${pathname === '/dashboard'
                   ? 'bg-blue-600/20 text-blue-400'
@@ -112,6 +113,7 @@ export function AppShell({
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={true}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors
                     ${isActive
                       ? 'bg-blue-600/20 text-blue-400'
@@ -131,6 +133,7 @@ export function AppShell({
             <div className="pt-2">
               <Link
                 href="/office/budget-sheet"
+                prefetch={true}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
                   ${pathname === '/office/budget-sheet'
                     ? 'bg-emerald-600/20 text-emerald-400'

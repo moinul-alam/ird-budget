@@ -76,14 +76,14 @@ export function FormShell({
       {/* Navigation */}
       <div className="mt-6 flex items-center justify-between">
         {prevHref ? (
-          <Link href={prevHref} className={buttonVariants({ variant: "outline" })}>
+          <Link href={prevHref} prefetch={true} className={buttonVariants({ variant: "outline" })}>
             {strings.previous}
           </Link>
         ) : (
           <div />
         )}
         {nextHref && (
-          <Link href={nextHref} className={buttonVariants({ variant: "default" })}>
+          <Link href={nextHref} prefetch={true} className={buttonVariants({ variant: "default" })}>
             {strings.next}
           </Link>
         )}

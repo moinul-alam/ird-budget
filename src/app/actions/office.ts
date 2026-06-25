@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createOfficeClient } from '@/lib/supabase/server'
 
 interface SelectOption {
   id: string
@@ -8,7 +8,7 @@ interface SelectOption {
 }
 
 export async function searchOffice(budgetId: string): Promise<{ found: boolean; office?: { id: string; name: string } }> {
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
   const { data, error } = await supabase
     .from('offices')
     .select('id, name')
@@ -23,7 +23,7 @@ export async function searchOffice(budgetId: string): Promise<{ found: boolean; 
 }
 
 export async function getDepartments(): Promise<SelectOption[]> {
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
   const { data } = await supabase
     .from('departments')
     .select('id, name')
@@ -33,7 +33,7 @@ export async function getDepartments(): Promise<SelectOption[]> {
 }
 
 export async function getParentOffices(departmentId: string): Promise<SelectOption[]> {
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
   const { data } = await supabase
     .from('parent_offices')
     .select('id, name')
@@ -44,7 +44,7 @@ export async function getParentOffices(departmentId: string): Promise<SelectOpti
 }
 
 export async function getOfficeTypes(departmentId: string): Promise<SelectOption[]> {
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
   const { data } = await supabase
     .from('office_types')
     .select('id, name')
