@@ -4,9 +4,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Kalpurush', 'sans-serif'],
-        mono: ['Kalpurush', 'monospace'],
-        serif: ['Kalpurush', 'serif'],
+        sans: ['var(--font-kalpurush)', 'sans-serif'],
+        mono: ['var(--font-kalpurush)', 'monospace'],
+        serif: ['var(--font-kalpurush)', 'serif'],
       },
     },
   },
