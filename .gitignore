@@ -1,36 +1,111 @@
+# ==========================================
 # Dependencies
+# ==========================================
 node_modules/
-package-lock.json
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
 
-# Build output
+# Note: Do NOT ignore package-lock.json, yarn.lock, or pnpm-lock.yaml.
+# Lockfiles MUST be committed to ensure reproducible builds.
+
+
+# ==========================================
+# Build & Output Directories
+# ==========================================
 dist/
 build/
-
-# Astro
+out/
+.output/
+.next/
+.nuxt/
 .astro/
+.svelte-kit/
+.turbo/
+.vercel/
+.netlify/
+storybook-static/
 
-# IDE
-.vscode/
-.idea/
+
+# ==========================================
+# Caches & Temporary Files
+# ==========================================
+.cache/
+*.tmp
+*.temp
 *.swp
 *.swo
+*~
+.eslintcache
+.stylelintcache
+.terser-cache
+.tsbuildinfo
 
-# OS
-.DS_Store
-Thumbs.db
 
-# Environment variables
+# ==========================================
+# Testing & Coverage
+# ==========================================
+coverage/
+.nyc_output/
+playwright-report/
+blob-report/
+test-results/
+cypress/videos/
+cypress/screenshots/
+
+
+# ==========================================
+# Environment Variables & Secrets
+# ==========================================
+# Block all .env files EXCEPT the safe example/template file
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.template
 
+
+# ==========================================
 # Logs
+# ==========================================
+logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 server.log
 access.log
 error.log
 
-# Temporary files
-*.tmp
-*.temp
-.cache/
+
+# ==========================================
+# IDEs & System Files
+# ==========================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehground.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# IDEs & Editors
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
