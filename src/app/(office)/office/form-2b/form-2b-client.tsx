@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/table'
 import { Card, CardContent } from '@/components/ui/card'
 import { saveFormStaffSuspendedRows, deleteFormStaffSuspendedRow } from '@/app/actions/forms'
-import { Plus, Trash2, UserX, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, Edit2, UserX, AlertTriangle } from 'lucide-react'
 import { useState, useTransition, useMemo } from 'react'
 
 export interface SuspendedStaffRow {
@@ -48,7 +48,7 @@ interface Form2bClientProps {
 const ALL_GRADES = Array.from({ length: 20 }, (_, i) => ({
   id: i + 1,
   label: `গ্রেড ${toBanglaNumber(i + 1)}`,
-  category: i + 1 <= 9 ? 'কর্মকর্তা' : 'কর্মচারী',
+  category: i + 1 <= 10 ? 'কর্মকর্তা' : 'কর্মচারী',
 }))
 
 export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
@@ -62,12 +62,14 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
         suspended_total_basic: r.suspended_total_basic || 0,
         suspended_due_salary: r.suspended_due_salary || 0,
       }))
+      .sort((a, b) => a.grade_id - b.grade_id)
   })
 
   const [isPending, startTransition] = useTransition()
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingGradeId, setEditingGradeId] = useState<number | null>(null)
   const [selectedGrade, setSelectedGrade] = useState<string>('')
   const [countInput, setCountInput] = useState('')
   const [basicInput, setBasicInput] = useState('')
@@ -75,6 +77,9 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
 
   // Confirmation on accidental close
   const [showConfirmClose, setShowConfirmClose] = useState(false)
+
+  // Confirmation on delete
+  const [gradeToDelete, setGradeToDelete] = useState<number | null>(null)
 
   // Has user typed anything in modal
   const hasModalDirtyData = useMemo(() => {
@@ -86,13 +91,18 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
     )
   }, [selectedGrade, countInput, basicInput, dueInput])
 
-  // Available grades (not yet added)
+  // Available grades (not yet added, except currently editing)
   const availableGrades = useMemo(() => {
-    const used = new Set(rows.map((r) => r.grade_id))
+    const used = new Set(
+      rows
+        .filter((r) => r.grade_id !== editingGradeId)
+        .map((r) => r.grade_id)
+    )
     return ALL_GRADES.filter((g) => !used.has(g.id))
-  }, [rows])
+  }, [rows, editingGradeId])
 
   const openAddModal = () => {
+    setEditingGradeId(null)
     setSelectedGrade(availableGrades[0]?.id ? String(availableGrades[0].id) : '')
     setCountInput('')
     setBasicInput('')
@@ -100,7 +110,17 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
     setIsModalOpen(true)
   }
 
+  const openEditModal = (row: SuspendedStaffRow) => {
+    setEditingGradeId(row.grade_id)
+    setSelectedGrade(String(row.grade_id))
+    setCountInput(row.suspended_count ? String(row.suspended_count) : '')
+    setBasicInput(row.suspended_total_basic ? String(row.suspended_total_basic) : '')
+    setDueInput(row.suspended_due_salary ? String(row.suspended_due_salary) : '')
+    setIsModalOpen(true)
+  }
+
   const resetModalFields = () => {
+    setEditingGradeId(null)
     setSelectedGrade('')
     setCountInput('')
     setBasicInput('')
@@ -131,27 +151,45 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
     }
 
     setRows((prev) => {
-      const existsIndex = prev.findIndex((r) => r.grade_id === gradeId)
+      // Remove previous entry if editing different grade
+      const filtered = editingGradeId !== null && editingGradeId !== gradeId
+        ? prev.filter((r) => r.grade_id !== editingGradeId)
+        : prev
+
+      const existsIndex = filtered.findIndex((r) => r.grade_id === gradeId)
       if (existsIndex >= 0) {
-        const next = [...prev]
+        const next = [...filtered]
         next[existsIndex] = newRow
         return next.sort((a, b) => a.grade_id - b.grade_id)
       }
-      return [...prev, newRow].sort((a, b) => a.grade_id - b.grade_id)
+      return [...filtered, newRow].sort((a, b) => a.grade_id - b.grade_id)
     })
 
     resetModalFields()
   }
 
-  // Delete row
-  const handleDeleteRow = (gradeId: number) => {
-    setRows((prev) => prev.filter((r) => r.grade_id !== gradeId))
+  // Delete row with confirmation
+  const handleConfirmDelete = () => {
+    if (!gradeToDelete) return
+    const gradeId = gradeToDelete
+    setRows((prev) => prev.filter((r) => r.grade_id !== gradeId).sort((a, b) => a.grade_id - b.grade_id))
+    setGradeToDelete(null)
+
     if (submissionId) {
       startTransition(async () => {
         await deleteFormStaffSuspendedRow(submissionId, gradeId)
       })
     }
   }
+
+  // Separate sorted officer rows (Grades 1-10) and staff rows (Grades 11-20)
+  const officerRows = useMemo(() => {
+    return rows.filter((r) => r.grade_id <= 10).sort((a, b) => a.grade_id - b.grade_id)
+  }, [rows])
+
+  const staffRows = useMemo(() => {
+    return rows.filter((r) => r.grade_id > 10).sort((a, b) => a.grade_id - b.grade_id)
+  }, [rows])
 
   // Summary calculations
   const summary = useMemo(() => {
@@ -161,7 +199,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
     let staffBasic = 0
 
     rows.forEach((r) => {
-      if (r.grade_id <= 9) {
+      if (r.grade_id <= 10) {
         officerCount += r.suspended_count || 0
         officerBasic += r.suspended_total_basic || 0
       } else {
@@ -214,7 +252,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
           </Button>
         </div>
 
-        {/* Data Table or Empty State */}
+        {/* Data Tables or Empty State */}
         {rows.length === 0 ? (
           <div className="text-center py-12 px-4 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
             <UserX className="mx-auto h-12 w-12 text-slate-300 mb-3" />
@@ -232,59 +270,142 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
             </Button>
           </div>
         ) : (
-          <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
-            <Table>
-              <TableHeader className="bg-slate-50">
-                <TableRow>
-                  <TableHead className="w-24 font-bold text-slate-700">{strings.form2b.gradeColumn}</TableHead>
-                  <TableHead className="w-32 font-bold text-slate-700">{strings.form2b.categoryColumn}</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">{strings.form2b.countColumn}</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">{strings.form2b.basicColumn}</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">{strings.form2b.dueSalaryColumn}</TableHead>
-                  <TableHead className="w-16 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row) => {
-                  const isOfficer = row.grade_id <= 9
-                  return (
-                    <TableRow key={row.grade_id} className="hover:bg-slate-50/70">
-                      <TableCell className="font-bold font-mono text-slate-800">
-                        গ্রেড {toBanglaNumber(row.grade_id)}
-                      </TableCell>
-                      <TableCell>
-                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          isOfficer ? 'bg-amber-50 text-amber-700 border border-amber-100' : 'bg-orange-50 text-orange-700 border border-orange-100'
-                        }`}>
-                          {isOfficer ? 'কর্মকর্তা' : 'কর্মচারী'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right font-mono font-medium">
-                        {toBanglaNumber(row.suspended_count)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono font-medium text-slate-800">
-                        {toBanglaAmount(row.suspended_total_basic)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-slate-600">
-                        {row.suspended_due_salary ? toBanglaAmount(row.suspended_due_salary) : '—'}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteRow(row.grade_id)}
-                          className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
-                          title="মুছে ফেলুন"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
+          <div className="space-y-6">
+            {/* Officer Table (Grade 1 - 10) */}
+            {officerRows.length > 0 && (
+              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
+                <div className="bg-amber-50/60 px-4 py-2.5 border-b border-amber-100 flex items-center justify-between">
+                  <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-600"></span>
+                    {strings.form2b.officerTableTitle}
+                  </h3>
+                  <span className="text-xs font-semibold text-slate-500">
+                    মোট: {toBanglaNumber(officerRows.length)} টি গ্রেড
+                  </span>
+                </div>
+                <Table>
+                  <TableHeader className="bg-slate-50">
+                    <TableRow>
+                      <TableHead className="w-28 font-bold text-slate-700">{strings.form2b.gradeColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form2b.officerCountColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form2b.basicColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form2b.tableDueSalaryColumn}</TableHead>
+                      <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
                     </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {officerRows.map((row) => (
+                      <TableRow key={row.grade_id} className="hover:bg-slate-50/70">
+                        <TableCell className="font-bold font-mono text-slate-800">
+                          গ্রেড {toBanglaNumber(row.grade_id)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-medium">
+                          {toBanglaNumber(row.suspended_count)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-medium text-slate-800">
+                          {toBanglaAmount(row.suspended_total_basic)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-slate-600">
+                          {row.suspended_due_salary ? toBanglaAmount(row.suspended_due_salary) : '—'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditModal(row)}
+                              className="text-slate-500 hover:text-amber-600 hover:bg-amber-50 h-8 w-8 p-0"
+                              title="সম্পাদনা করুন"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setGradeToDelete(row.grade_id)}
+                              className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
+                              title="মুছে ফেলুন"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            {/* Staff Table (Grade 11 - 20) */}
+            {staffRows.length > 0 && (
+              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
+                <div className="bg-amber-50/60 px-4 py-2.5 border-b border-amber-100 flex items-center justify-between">
+                  <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-orange-600"></span>
+                    {strings.form2b.staffTableTitle}
+                  </h3>
+                  <span className="text-xs font-semibold text-slate-500">
+                    মোট: {toBanglaNumber(staffRows.length)} টি গ্রেড
+                  </span>
+                </div>
+                <Table>
+                  <TableHeader className="bg-slate-50">
+                    <TableRow>
+                      <TableHead className="w-28 font-bold text-slate-700">{strings.form2b.gradeColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form2b.staffCountColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form2b.basicColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form2b.tableDueSalaryColumn}</TableHead>
+                      <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {staffRows.map((row) => (
+                      <TableRow key={row.grade_id} className="hover:bg-slate-50/70">
+                        <TableCell className="font-bold font-mono text-slate-800">
+                          গ্রেড {toBanglaNumber(row.grade_id)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-medium">
+                          {toBanglaNumber(row.suspended_count)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-medium text-slate-800">
+                          {toBanglaAmount(row.suspended_total_basic)}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-slate-600">
+                          {row.suspended_due_salary ? toBanglaAmount(row.suspended_due_salary) : '—'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditModal(row)}
+                              className="text-slate-500 hover:text-amber-600 hover:bg-amber-50 h-8 w-8 p-0"
+                              title="সম্পাদনা করুন"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setGradeToDelete(row.grade_id)}
+                              className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
+                              title="মুছে ফেলুন"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </div>
         )}
 
@@ -341,7 +462,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-slate-800">
-              {strings.form2b.modalTitle}
+              {editingGradeId !== null ? strings.form2b.editModalTitle : strings.form2b.modalTitle}
             </DialogTitle>
           </DialogHeader>
 
@@ -391,7 +512,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
 
             {/* Due Salary */}
             <div className="space-y-1.5">
-              <Label htmlFor="due_input_2b">{strings.form2b.dueSalaryColumn}</Label>
+              <Label htmlFor="due_input_2b">{strings.form2b.modalDueSalaryColumn}</Label>
               <Input
                 id="due_input_2b"
                 type="number"
@@ -417,7 +538,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
               disabled={!selectedGrade || (!countInput && !basicInput)}
               className="bg-amber-600 hover:bg-amber-700 text-white"
             >
-              যোগ করুন
+              {editingGradeId !== null ? 'সংরক্ষণ করুন' : 'যোগ করুন'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -456,6 +577,43 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
               className="bg-amber-600 hover:bg-amber-700 text-white"
             >
               {strings.form2b.saveAndClose}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* CONFIRM DELETE MODAL */}
+      <Dialog open={gradeToDelete !== null} onOpenChange={(open) => {
+        if (!open) setGradeToDelete(null)
+      }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-red-600 mb-1">
+              <Trash2 className="h-5 w-5" />
+              <DialogTitle className="text-base font-bold text-slate-800">
+                {strings.form2b.confirmDeleteTitle}
+              </DialogTitle>
+            </div>
+            <p className="text-sm text-slate-500">
+              {gradeToDelete ? `গ্রেড ${toBanglaNumber(gradeToDelete)} এর ` : ''}{strings.form2b.confirmDeleteDesc}
+            </p>
+          </DialogHeader>
+
+          <DialogFooter className="flex flex-row justify-end gap-2 pt-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setGradeToDelete(null)}
+              className="text-slate-600"
+            >
+              {strings.cancel}
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              মুছে ফেলুন
             </Button>
           </DialogFooter>
         </DialogContent>

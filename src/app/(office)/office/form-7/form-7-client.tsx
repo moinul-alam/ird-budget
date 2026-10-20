@@ -2,44 +2,268 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
+import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { saveFormITEquipmentRow } from '@/app/actions/forms'
-import { useState, useCallback } from 'react'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { saveFormITEquipmentRow, deleteFormITEquipmentRow } from '@/app/actions/forms'
+import {
+  Plus,
+  Trash2,
+  Edit2,
+  Monitor,
+  Printer,
+  Scan,
+  Copy,
+  CheckCircle2,
+  AlertTriangle,
+  Layers,
+  Banknote,
+  Cpu,
+} from 'lucide-react'
+import { useState, useTransition, useMemo } from 'react'
 
 export interface Form7ClientProps {
   submissionId: number | null
-  equipmentTypes: any[]
+  equipmentTypes: Array<{ id: number; name: string }>
   initialData: any[]
 }
 
-export function Form7Client({ submissionId, equipmentTypes, initialData }: Form7ClientProps) {
-  const [formData, setFormData] = useState<Record<number, any>>(
-    initialData.reduce((acc, row) => ({ ...acc, [row.equipment_type_id]: row }), {})
-  )
+interface EquipmentCardData {
+  existing_count: number
+  damaged_count: number
+  toner_cost: number // প্রতি টোনারের দাম
+  required_qty: number // নতুন প্রয়োজন
+  unit_budget: number
+}
 
-  const handleChange = useCallback((typeId: number, field: string, value: string) => {
-    setFormData((prev) => {
-      const existing = prev[typeId] || { 
-        existing_count: 0, damaged_count: 0, toner_cost: 0, required_qty: 0, unit_budget: 0 
-      }
-      return { 
-        ...prev, 
-        [typeId]: { ...existing, [field]: parseInt(value) || 0 } 
-      }
-    })
-  }, [])
+// 4 cards in one line as specified
+type EquipmentKey = 'computer' | 'printer' | 'scanner' | 'photocopier'
 
-  const handleBlur = useCallback(async (typeId: number) => {
-    if (!submissionId) return
-    const row = formData[typeId] || {}
-    await saveFormITEquipmentRow(submissionId, typeId, {
-      existing_count: row.existing_count || 0,
-      damaged_count: row.damaged_count || 0,
-      toner_cost: row.toner_cost || 0,
-      required_qty: row.required_qty || 0,
-      unit_budget: row.unit_budget || 0,
-    })
-  }, [submissionId, formData])
+interface CardConfig {
+  key: EquipmentKey
+  title: string
+  icon: any
+  iconColor: string
+  bgIconColor: string
+  aliases: string[]
+  isPrinter?: boolean
+  defaultUnitPrice: number // Predefined price by admin (fallbacks)
+}
+
+const CARD_CONFIGS: CardConfig[] = [
+  {
+    key: 'computer',
+    title: strings.form7.cards.computer,
+    icon: Monitor,
+    iconColor: 'text-blue-600',
+    bgIconColor: 'bg-blue-50',
+    aliases: ['কম্পিউটার', 'কম্পিউটার/ডেস্কটপ', 'ডেস্কটপ', 'computer', 'desktop'],
+    defaultUnitPrice: 65000,
+  },
+  {
+    key: 'printer',
+    title: strings.form7.cards.printer,
+    icon: Printer,
+    iconColor: 'text-emerald-600',
+    bgIconColor: 'bg-emerald-50',
+    aliases: ['প্রিন্টার', 'printer'],
+    isPrinter: true,
+    defaultUnitPrice: 25000,
+  },
+  {
+    key: 'scanner',
+    title: strings.form7.cards.scanner,
+    icon: Scan,
+    iconColor: 'text-amber-600',
+    bgIconColor: 'bg-amber-50',
+    aliases: ['স্ক্যানার', 'scanner'],
+    defaultUnitPrice: 18000,
+  },
+  {
+    key: 'photocopier',
+    title: strings.form7.cards.photocopier,
+    icon: Copy,
+    iconColor: 'text-purple-600',
+    bgIconColor: 'bg-purple-50',
+    aliases: ['ফটোকপিয়ার', 'ফটোকপি মেশিন', 'ফটোকপি', 'photocopier'],
+    defaultUnitPrice: 120000,
+  },
+]
+
+export function Form7Client({
+  submissionId,
+  equipmentTypes,
+  initialData,
+}: Form7ClientProps) {
+  // Helper to resolve equipment type id by card aliases
+  const getTypeIdForConfig = (config: CardConfig): number | null => {
+    const match = equipmentTypes.find((t) =>
+      config.aliases.some((alias) =>
+        t.name.trim().toLowerCase().includes(alias.toLowerCase())
+      )
+    )
+    return match ? match.id : null
+  }
+
+  // Initialize data keyed by EquipmentKey
+  const [dataMap, setDataMap] = useState<Record<EquipmentKey, EquipmentCardData>>(() => {
+    const initialMap: Record<EquipmentKey, EquipmentCardData> = {
+      computer: { existing_count: 0, damaged_count: 0, toner_cost: 0, required_qty: 0, unit_budget: 0 },
+      printer: { existing_count: 0, damaged_count: 0, toner_cost: 0, required_qty: 0, unit_budget: 0 },
+      scanner: { existing_count: 0, damaged_count: 0, toner_cost: 0, required_qty: 0, unit_budget: 0 },
+      photocopier: { existing_count: 0, damaged_count: 0, toner_cost: 0, required_qty: 0, unit_budget: 0 },
+    }
+
+    if (initialData && initialData.length > 0) {
+      CARD_CONFIGS.forEach((config) => {
+        const typeId = getTypeIdForConfig(config)
+        const row = initialData.find((item) =>
+          typeId ? item.equipment_type_id === typeId : false
+        )
+        if (row) {
+          initialMap[config.key] = {
+            existing_count: Number(row.existing_count || 0),
+            damaged_count: Number(row.damaged_count || 0),
+            toner_cost: Number(row.toner_cost || 0),
+            required_qty: Number(row.required_qty || 0),
+            unit_budget: Number(row.unit_budget || config.defaultUnitPrice),
+          }
+        }
+      })
+    }
+
+    return initialMap
+  })
+
+  const [isPending, startTransition] = useTransition()
+
+  // Modal State
+  const [activeModalKey, setActiveModalKey] = useState<EquipmentKey | null>(null)
+  const [existingInput, setExistingInput] = useState('')
+  const [damagedInput, setDamagedInput] = useState('')
+  const [tonerPriceInput, setTonerPriceInput] = useState('')
+  const [requiredInput, setRequiredInput] = useState('')
+
+  // Delete State
+  const [keyToDelete, setKeyToDelete] = useState<EquipmentKey | null>(null)
+
+  const activeConfig = useMemo(() => {
+    if (!activeModalKey) return null
+    return CARD_CONFIGS.find((c) => c.key === activeModalKey) || null
+  }, [activeModalKey])
+
+  const hasData = (key: EquipmentKey) => {
+    const d = dataMap[key]
+    if (!d) return false
+    return d.existing_count > 0 || d.damaged_count > 0 || d.toner_cost > 0 || d.required_qty > 0
+  }
+
+  // Open modal
+  const openModal = (key: EquipmentKey) => {
+    const curr = dataMap[key]
+    setActiveModalKey(key)
+    setExistingInput(curr.existing_count ? curr.existing_count.toString() : '')
+    setDamagedInput(curr.damaged_count ? curr.damaged_count.toString() : '')
+    setTonerPriceInput(curr.toner_cost ? curr.toner_cost.toString() : '')
+    setRequiredInput(curr.required_qty ? curr.required_qty.toString() : '')
+  }
+
+  // Save modal handler
+  const handleSaveModal = () => {
+    if (!activeModalKey || !activeConfig) return
+
+    const existingCount = parseInt(existingInput, 10) || 0
+    const damagedCount = parseInt(damagedInput, 10) || 0
+    const tonerPrice = activeConfig.isPrinter ? parseInt(tonerPriceInput, 10) || 0 : 0
+    const requiredQty = parseInt(requiredInput, 10) || 0
+
+    const updatedData: EquipmentCardData = {
+      existing_count: existingCount,
+      damaged_count: damagedCount,
+      toner_cost: tonerPrice,
+      required_qty: requiredQty,
+      unit_budget: activeConfig.defaultUnitPrice,
+    }
+
+    setDataMap((prev) => ({
+      ...prev,
+      [activeModalKey]: updatedData,
+    }))
+
+    const typeId = getTypeIdForConfig(activeConfig)
+
+    if (submissionId && typeId) {
+      startTransition(async () => {
+        await saveFormITEquipmentRow(submissionId, typeId, {
+          existing_count: existingCount,
+          damaged_count: damagedCount,
+          toner_cost: tonerPrice,
+          required_qty: requiredQty,
+          unit_budget: activeConfig.defaultUnitPrice,
+        })
+      })
+    }
+
+    setActiveModalKey(null)
+  }
+
+  // Delete card handler
+  const handleConfirmDelete = () => {
+    if (!keyToDelete) return
+    const config = CARD_CONFIGS.find((c) => c.key === keyToDelete)
+    if (!config) return
+
+    setDataMap((prev) => ({
+      ...prev,
+      [keyToDelete]: {
+        existing_count: 0,
+        damaged_count: 0,
+        toner_cost: 0,
+        required_qty: 0,
+        unit_budget: 0,
+      },
+    }))
+
+    const typeId = getTypeIdForConfig(config)
+    if (submissionId && typeId) {
+      startTransition(async () => {
+        await deleteFormITEquipmentRow(submissionId, typeId)
+      })
+    }
+
+    setKeyToDelete(null)
+  }
+
+  // Calculations for summary:
+  // 1. কম্পিউটার সামগ্রী : based on entered toner price (e.g. printer toner price * active printers or annual projection)
+  const computerSuppliesTotal = useMemo(() => {
+    const printerData = dataMap.printer
+    const activePrinterCount = Math.max(0, printerData.existing_count - printerData.damaged_count)
+    // If toner cost is per cartridge/unit, budget projection = toner_price * (active printers or direct annual estimate)
+    // We calculate based on entered toner price: if printers exist, toner_cost * active printers, else direct entered toner price
+    if (activePrinterCount > 0) {
+      return printerData.toner_cost * activePrinterCount
+    }
+    return printerData.toner_cost
+  }, [dataMap])
+
+  // 2. কম্পিউটার ও আনুষঙ্গিক: (new computer x predefined price + new printer x predefined price + scanner x predefined price + photocopier x predefined price)
+  const computerAccessoriesTotal = useMemo(() => {
+    return CARD_CONFIGS.reduce((sum, config) => {
+      const data = dataMap[config.key]
+      const qty = data.required_qty || 0
+      return sum + qty * config.defaultUnitPrice
+    }, 0)
+  }, [dataMap])
 
   return (
     <FormShell
@@ -48,82 +272,326 @@ export function Form7Client({ submissionId, equipmentTypes, initialData }: Form7
       prevHref="/office/form-6"
       nextHref="/office/form-8"
     >
-      <div className="p-6 lg:p-8 space-y-6">
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
-          <table className="w-full text-left border-collapse min-w-[800px]">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="p-4 font-semibold text-slate-700 min-w-[150px]">{strings.form7.itemType}</th>
-                <th className="p-4 font-semibold text-slate-700">{strings.form7.countLabel}</th>
-                <th className="p-4 font-semibold text-slate-700">{strings.form7.damagedLabel}</th>
-                <th className="p-4 font-semibold text-slate-700">{strings.form7.tonerLabel}</th>
-                <th className="p-4 font-semibold text-slate-700 border-l border-slate-200 bg-blue-50/50">{strings.form7.requiredQty}</th>
-                <th className="p-4 font-semibold text-slate-700 bg-blue-50/50">{strings.form7.unitBudget}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {equipmentTypes.map(type => {
-                const row = formData[type.id] || { 
-                  existing_count: '', damaged_count: '', toner_cost: '', required_qty: '', unit_budget: '' 
-                }
-                return (
-                  <tr key={type.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="p-4 font-medium text-slate-800 border-r border-slate-100">
-                      {type.name}
-                    </td>
-                    <td className="p-2">
-                      <Input
-                        type="number" min="0"
-                        value={row.existing_count}
-                        onChange={e => handleChange(type.id, 'existing_count', e.target.value)}
-                        onBlur={() => handleBlur(type.id)}
-                        className="bg-white"
-                      />
-                    </td>
-                    <td className="p-2">
-                      <Input
-                        type="number" min="0"
-                        value={row.damaged_count}
-                        onChange={e => handleChange(type.id, 'damaged_count', e.target.value)}
-                        onBlur={() => handleBlur(type.id)}
-                        className="bg-white"
-                      />
-                    </td>
-                    <td className="p-2">
-                      <Input
-                        type="number" min="0"
-                        value={row.toner_cost}
-                        onChange={e => handleChange(type.id, 'toner_cost', e.target.value)}
-                        onBlur={() => handleBlur(type.id)}
-                        className="bg-white"
-                        disabled={type.name !== 'প্রিন্টার' && type.name !== 'ফটোকপি মেশিন' && type.name !== 'ফ্যাক্স'}
-                      />
-                    </td>
-                    <td className="p-2 border-l border-slate-200 bg-blue-50/20">
-                      <Input
-                        type="number" min="0"
-                        value={row.required_qty}
-                        onChange={e => handleChange(type.id, 'required_qty', e.target.value)}
-                        onBlur={() => handleBlur(type.id)}
-                        className="bg-white"
-                      />
-                    </td>
-                    <td className="p-2 bg-blue-50/20">
-                      <Input
-                        type="number" min="0"
-                        value={row.unit_budget}
-                        onChange={e => handleChange(type.id, 'unit_budget', e.target.value)}
-                        onBlur={() => handleBlur(type.id)}
-                        className="bg-white"
-                      />
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+      <div className="p-6 lg:p-8 space-y-8 max-w-6xl mx-auto">
+        {/* Page Header */}
+        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+            <Monitor className="w-5 h-5 text-blue-600" />
+            {strings.form7.title}
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            {strings.form7.subtitle}
+          </p>
+        </div>
+
+        {/* 4 Cards in one line (responsive 1 col on mobile, 2 on md, 4 on lg) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {CARD_CONFIGS.map((config) => {
+            const data = dataMap[config.key]
+            const filled = hasData(config.key)
+            const Icon = config.icon
+
+            return (
+              <Card
+                key={config.key}
+                className={`flex flex-col justify-between transition-all duration-200 border rounded-2xl shadow-xs overflow-hidden ${
+                  filled
+                    ? 'border-blue-200 bg-white ring-1 ring-blue-100'
+                    : 'border-slate-200 bg-slate-50/50 hover:bg-white hover:border-slate-300'
+                }`}
+              >
+                <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/80 px-4 pt-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                      <div className={`w-8 h-8 rounded-lg ${config.bgIconColor} ${config.iconColor} flex items-center justify-center shrink-0`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <span>{config.title}</span>
+                    </CardTitle>
+                    {filled && (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                    )}
+                  </div>
+                </CardHeader>
+
+                <CardContent className="p-4 flex-1 flex flex-col justify-between space-y-4">
+                  {filled ? (
+                    <div className="space-y-2 text-xs">
+                      {/* বিদ্যমান সংখ্যা */}
+                      <div className="flex justify-between py-1 border-b border-slate-100">
+                        <span className="text-slate-500">{strings.form7.existingCount}:</span>
+                        <span className="font-bold text-slate-800">
+                          {toBanglaNumber(data.existing_count)} {strings.form7.unitPiece}
+                        </span>
+                      </div>
+
+                      {/* অকেজো সংখ্যা */}
+                      <div className="flex justify-between py-1 border-b border-slate-100">
+                        <span className="text-slate-500">{strings.form7.damagedCount}:</span>
+                        <span className={`font-bold ${data.damaged_count > 0 ? 'text-rose-600' : 'text-slate-700'}`}>
+                          {toBanglaNumber(data.damaged_count)} {strings.form7.unitPiece}
+                        </span>
+                      </div>
+
+                      {/* প্রতি টোনারের দাম (only for printer) */}
+                      {config.isPrinter && (
+                        <div className="flex justify-between py-1 border-b border-slate-100 bg-emerald-50/40 px-1.5 rounded">
+                          <span className="text-emerald-800 font-medium">{strings.form7.tonerPricePerUnit}:</span>
+                          <span className="font-bold text-emerald-700">
+                            {data.toner_cost > 0 ? toBanglaAmount(data.toner_cost) : '—'}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* নতুন প্রয়োজন */}
+                      <div className="flex justify-between py-1">
+                        <span className="text-slate-500">{strings.form7.newRequiredQty}:</span>
+                        <span className={`font-bold ${data.required_qty > 0 ? 'text-purple-700' : 'text-slate-600'}`}>
+                          {toBanglaNumber(data.required_qty)} {strings.form7.unitPiece}
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-6 text-center">
+                      <p className="text-xs text-slate-400">{strings.form7.notAdded}</p>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="pt-2">
+                    {filled ? (
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => openModal(config.key)}
+                          className="flex-1 text-blue-700 border-blue-200 hover:bg-blue-50 text-xs h-8 gap-1"
+                        >
+                          <Edit2 className="h-3 w-3" />
+                          {strings.form7.editInfo}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => setKeyToDelete(config.key)}
+                          className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
+                          title={strings.form7.deleteInfo}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => openModal(config.key)}
+                        className="w-full text-blue-600 border-blue-200 hover:bg-blue-50 text-xs h-8 gap-1.5 font-semibold"
+                      >
+                        <Plus className="h-3 w-3" />
+                        {strings.form7.addInfo}
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+
+        {/* SUMMARY SECTION BELOW */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 lg:p-6 shadow-xs space-y-4">
+          <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+              <Banknote className="w-4 h-4 text-emerald-600" />
+              {strings.form7.summaryTitle}
+            </h3>
+            <span className="text-xs text-slate-400">প্রাক্কলিত হিসাব বিবরণী</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* 1. কম্পিউটার সামগ্রী */}
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                    <Printer className="w-3.5 h-3.5 text-emerald-600" />
+                    {strings.form7.computerSupplies}
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    {strings.form7.tonerBasedCost}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  প্রিন্টারের প্রতি টোনারের দামের ভিত্তিতে সামগ্রিক বরাদ্দ
+                </p>
+              </div>
+              <div className="mt-3 pt-2 border-t border-slate-200/60 flex items-baseline justify-between">
+                <span className="text-xs text-slate-500">প্রাক্কলিত বরাদ্দ:</span>
+                <span className="text-lg font-bold text-emerald-700">
+                  {toBanglaAmount(computerSuppliesTotal)}
+                </span>
+              </div>
+            </div>
+
+            {/* 2. কম্পিউটার ও আনুষঙ্গিক */}
+            <div className="p-4 rounded-xl bg-purple-50/50 border border-purple-100 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-purple-950 flex items-center gap-1.5">
+                    <Cpu className="w-3.5 h-3.5 text-purple-600" />
+                    {strings.form7.computerAndAccessories}
+                  </span>
+                  <span className="text-[11px] text-purple-500">
+                    নতুন ক্রয়ের প্রাক্কলন
+                  </span>
+                </div>
+                <p className="text-xs text-purple-700/80 mt-1">
+                  {strings.form7.accessoriesCalculationNote}
+                </p>
+              </div>
+              <div className="mt-3 pt-2 border-t border-purple-200/60 flex items-baseline justify-between">
+                <span className="text-xs text-purple-800">সর্বমোট ক্রয় বরাদ্দ:</span>
+                <span className="text-lg font-bold text-purple-900">
+                  {toBanglaAmount(computerAccessoriesTotal)}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* MODAL */}
+      <Dialog open={activeModalKey !== null} onOpenChange={(open) => !open && setActiveModalKey(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+              {activeConfig && (
+                <>
+                  <activeConfig.icon className={`w-5 h-5 ${activeConfig.iconColor}`} />
+                  <span>{activeConfig.title} - {strings.form7.modalTitle}</span>
+                </>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3">
+            {/* বিদ্যমান সংখ্যা */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">
+                {strings.form7.existingCount} ({strings.form7.unitPiece})
+              </Label>
+              <Input
+                type="number"
+                min="0"
+                placeholder="যেমন: ৫"
+                value={existingInput}
+                onChange={(e) => setExistingInput(e.target.value)}
+                className="bg-white"
+              />
+            </div>
+
+            {/* অকেজো সংখ্যা */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">
+                {strings.form7.damagedCount} ({strings.form7.unitPiece})
+              </Label>
+              <Input
+                type="number"
+                min="0"
+                placeholder="যেমন: ১"
+                value={damagedInput}
+                onChange={(e) => setDamagedInput(e.target.value)}
+                className="bg-white"
+              />
+            </div>
+
+            {/* প্রতি টোনারের দাম (only for printer) */}
+            {activeConfig?.isPrinter && (
+              <div className="space-y-1.5 p-3 rounded-xl bg-emerald-50/60 border border-emerald-100">
+                <Label className="text-xs font-semibold text-emerald-900">
+                  {strings.form7.tonerPricePerUnit}
+                </Label>
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="যেমন: ২৫০০"
+                  value={tonerPriceInput}
+                  onChange={(e) => setTonerPriceInput(e.target.value)}
+                  className="bg-white"
+                />
+              </div>
+            )}
+
+            {/* নতুন প্রয়োজন */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">
+                {strings.form7.newRequiredQty} ({strings.form7.unitPiece})
+              </Label>
+              <Input
+                type="number"
+                min="0"
+                placeholder="যেমন: ২"
+                value={requiredInput}
+                onChange={(e) => setRequiredInput(e.target.value)}
+                className="bg-white"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setActiveModalKey(null)}
+              disabled={isPending}
+            >
+              {strings.cancel}
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSaveModal}
+              disabled={isPending}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {isPending ? strings.saving : strings.save}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DELETE CONFIRMATION DIALOG */}
+      <Dialog
+        open={keyToDelete !== null}
+        onOpenChange={(open) => !open && setKeyToDelete(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-rose-500" />
+              {strings.form7.confirmDeleteTitle}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-500">
+            {strings.form7.confirmDeleteDesc}
+          </p>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setKeyToDelete(null)}
+              disabled={isPending}
+            >
+              {strings.cancel}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={isPending}
+            >
+              {isPending ? strings.saving : strings.delete}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </FormShell>
   )
 }

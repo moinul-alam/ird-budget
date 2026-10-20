@@ -255,6 +255,48 @@ export async function saveFormLeave(
   return { success: true }
 }
 
+export async function saveFormRestRecreation(
+  submissionId: number,
+  data: {
+    rest_recreation_amount: number
+    rest_recreation_due: number
+  }
+) {
+  const supabase = createOfficeClient()
+
+  const { data: existing } = await supabase
+    .from('form_leave')
+    .select('*')
+    .eq('submission_id', submissionId)
+    .maybeSingle()
+
+  if (existing) {
+    const { error } = await supabase
+      .from('form_leave')
+      .update({
+        rest_recreation_amount: data.rest_recreation_amount,
+        rest_recreation_due: data.rest_recreation_due,
+      })
+      .eq('id', existing.id)
+    if (error) return { error: error.message }
+  } else {
+    const { error } = await supabase
+      .from('form_leave')
+      .insert({
+        submission_id: submissionId,
+        leave_encashment_officer_basic: 0,
+        leave_encashment_officer_due: 0,
+        leave_encashment_staff_basic: 0,
+        leave_encashment_staff_due: 0,
+        rest_recreation_amount: data.rest_recreation_amount,
+        rest_recreation_due: data.rest_recreation_due,
+      })
+    if (error) return { error: error.message }
+  }
+
+  return { success: true }
+}
+
 export async function saveFormAllowanceRow(
   submissionId: number,
   allowanceTypeId: number,
@@ -338,6 +380,20 @@ export async function saveFormUtilityRow(
   return { success: true }
 }
 
+export async function deleteFormUtilityRow(
+  submissionId: number,
+  utilityTypeId: number
+) {
+  const supabase = createOfficeClient()
+  const { error } = await supabase
+    .from('form_utility')
+    .delete()
+    .eq('submission_id', submissionId)
+    .eq('utility_type_id', utilityTypeId)
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
 export async function saveFormHouseRent(
   submissionId: number,
   data: {
@@ -413,26 +469,23 @@ export async function saveFormVehicleRow(
   submissionId: number,
   data: {
     id?: number
-    vehicle_type: string
-    fuel_type: string
+    vehicle_fuel_config_id: number
     count: number
-    fuel_allowance: number
-    fuel_rate: number
-    maintenance_cost: number
+    maintenance_cost?: number
     additional_expense: number
   }
 ) {
   const supabase = createOfficeClient()
 
-  const payload = {
+  const payload: any = {
     submission_id: submissionId,
-    vehicle_type: data.vehicle_type,
-    fuel_type: data.fuel_type,
+    vehicle_fuel_config_id: data.vehicle_fuel_config_id,
     count: data.count,
-    fuel_allowance: data.fuel_allowance,
-    fuel_rate: data.fuel_rate,
-    maintenance_cost: data.maintenance_cost,
     additional_expense: data.additional_expense,
+  }
+
+  if (data.maintenance_cost !== undefined) {
+    payload.maintenance_cost = data.maintenance_cost
   }
 
   if (data.id) {
@@ -443,6 +496,23 @@ export async function saveFormVehicleRow(
     if (error) return { error: error.message }
     return { success: true, id: data.id }
   } else {
+    // Check if entry already exists for this submission and config
+    const { data: existing } = await supabase
+      .from('form_vehicles')
+      .select('id')
+      .eq('submission_id', submissionId)
+      .eq('vehicle_fuel_config_id', data.vehicle_fuel_config_id)
+      .maybeSingle()
+
+    if (existing) {
+      const { error } = await supabase
+        .from('form_vehicles')
+        .update(payload)
+        .eq('id', existing.id)
+      if (error) return { error: error.message }
+      return { success: true, id: existing.id }
+    }
+
     const { data: inserted, error } = await supabase
       .from('form_vehicles')
       .insert(payload)
@@ -464,18 +534,16 @@ export async function saveFormVehicleRentRow(
   submissionId: number,
   data: {
     id?: number
-    vehicle_type: string
+    vehicle_rent_config_id: number
     count: number
-    monthly_allowance: number
   }
 ) {
   const supabase = createOfficeClient()
 
   const payload = {
     submission_id: submissionId,
-    vehicle_type: data.vehicle_type,
+    vehicle_rent_config_id: data.vehicle_rent_config_id,
     count: data.count,
-    monthly_allowance: data.monthly_allowance,
   }
 
   if (data.id) {
@@ -486,6 +554,23 @@ export async function saveFormVehicleRentRow(
     if (error) return { error: error.message }
     return { success: true, id: data.id }
   } else {
+    // Check if entry exists
+    const { data: existing } = await supabase
+      .from('form_vehicle_rent')
+      .select('id')
+      .eq('submission_id', submissionId)
+      .eq('vehicle_rent_config_id', data.vehicle_rent_config_id)
+      .maybeSingle()
+
+    if (existing) {
+      const { error } = await supabase
+        .from('form_vehicle_rent')
+        .update(payload)
+        .eq('id', existing.id)
+      if (error) return { error: error.message }
+      return { success: true, id: existing.id }
+    }
+
     const { data: inserted, error } = await supabase
       .from('form_vehicle_rent')
       .insert(payload)
@@ -542,5 +627,19 @@ export async function saveFormITEquipmentRow(
     if (error) return { error: error.message }
   }
 
+  return { success: true }
+}
+
+export async function deleteFormITEquipmentRow(
+  submissionId: number,
+  equipmentTypeId: number
+) {
+  const supabase = createOfficeClient()
+  const { error } = await supabase
+    .from('form_it_equipment')
+    .delete()
+    .eq('submission_id', submissionId)
+    .eq('equipment_type_id', equipmentTypeId)
+  if (error) return { error: error.message }
   return { success: true }
 }

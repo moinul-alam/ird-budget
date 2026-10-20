@@ -10,17 +10,28 @@ export default async function Form5Page() {
 
   const submissionId = session.submission_id || null
 
-  let initialData: any[] = []
-  if (submissionId) {
-    const { data } = await supabase
-      .from('form_vehicles')
-      .select('*')
-      .eq('submission_id', submissionId)
-      .order('id')
-    initialData = data || []
-  }
+  const [carsRes, fuelsRes, configsRes, vehiclesRes] = await Promise.all([
+    supabase.from('car_types').select('*').order('id'),
+    supabase.from('fuel_types').select('*').order('id'),
+    supabase.from('vehicle_fuel_config').select('*, car_type:car_type_id(id, name), fuel_type:fuel_type_id(id, name)'),
+    submissionId
+      ? supabase
+          .from('form_vehicles')
+          .select('*, vehicle_fuel_config(*, car_type:car_type_id(name), fuel_type:fuel_type_id(name))')
+          .eq('submission_id', submissionId)
+          .order('id')
+      : Promise.resolve({ data: [] }),
+  ])
 
-  return <Form5Client submissionId={submissionId} initialData={initialData} />
+  return (
+    <Form5Client
+      submissionId={submissionId}
+      initialData={vehiclesRes.data || []}
+      carTypes={carsRes.data || []}
+      fuelTypes={fuelsRes.data || []}
+      fuelConfigs={configsRes.data || []}
+    />
+  )
 }
 
 
