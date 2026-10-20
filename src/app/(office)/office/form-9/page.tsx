@@ -11,16 +11,25 @@ export default async function Form9Page() {
   const submissionId = session.submission_id || null
 
   let initialData = null
+  let vatPercentage = 15 // Standard default fallback
   if (submissionId) {
-    const { data } = await supabase
-      .from('form_house_rent')
-      .select('*')
-      .eq('submission_id', submissionId)
-      .maybeSingle()
-    initialData = data
+    const [houseRes, rateRes] = await Promise.all([
+      supabase.from('form_house_rent').select('*').eq('submission_id', submissionId).maybeSingle(),
+      supabase.from('rates').select('value').eq('key', 'vat_percentage').maybeSingle(),
+    ])
+    initialData = houseRes.data
+    if (rateRes.data && rateRes.data.value != null) {
+      vatPercentage = Number(rateRes.data.value)
+    }
   }
 
-  return <Form9Client submissionId={submissionId} initialData={initialData} />
+  return (
+    <Form9Client
+      submissionId={submissionId}
+      initialData={initialData}
+      vatPercentage={vatPercentage}
+    />
+  )
 }
 
 

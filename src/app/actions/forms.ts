@@ -465,6 +465,26 @@ export async function saveFormReturnInfo(
   return { success: true }
 }
 
+export async function deleteFormHouseRent(submissionId: number) {
+  const supabase = createOfficeClient()
+  const { error } = await supabase
+    .from('form_house_rent')
+    .delete()
+    .eq('submission_id', submissionId)
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+export async function deleteFormReturnInfo(submissionId: number) {
+  const supabase = createOfficeClient()
+  const { error } = await supabase
+    .from('form_return_info')
+    .delete()
+    .eq('submission_id', submissionId)
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
 export async function saveFormVehicleRow(
   submissionId: number,
   data: {
