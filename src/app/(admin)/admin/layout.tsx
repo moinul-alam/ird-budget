@@ -34,8 +34,11 @@ export default async function AdminLayout({
           <h2 className="text-xl font-bold">{strings.admin.dashboard.title}</h2>
         </div>
         <nav className="flex-1 p-4 space-y-2">
-          <Link href="/admin/dashboard" className="block px-4 py-2 rounded bg-slate-800 hover:bg-slate-700">
-            Dashboard
+          <Link href="/admin/dashboard" className="block px-4 py-2 rounded hover:bg-slate-800">
+            {strings.dashboard.title}
+          </Link>
+          <Link href="/admin/settings" className="block px-4 py-2 rounded bg-slate-800 hover:bg-slate-700 text-blue-400 font-medium">
+            {strings.admin.settings.short}
           </Link>
           <Link href="/admin/reports/combined" className="block px-4 py-2 rounded hover:bg-slate-800">
             {strings.reports.groupReport}
