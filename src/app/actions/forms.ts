@@ -46,6 +46,132 @@ export async function saveFormBasic(submissionId: number, formData: FormData) {
   return { success: true }
 }
 
+export async function saveFormStaffActiveRows(
+  submissionId: number,
+  rows: Array<{
+    grade_id: number
+    count: number
+    total_basic: number
+    due_salary: number
+  }>
+) {
+  const supabase = createOfficeClient()
+
+  for (const row of rows) {
+    const { data: existing } = await supabase
+      .from('form_staff')
+      .select('id, suspended_count, suspended_total_basic, suspended_due_salary')
+      .eq('submission_id', submissionId)
+      .eq('grade_id', row.grade_id)
+      .maybeSingle()
+
+    const payload = {
+      submission_id: submissionId,
+      grade_id: row.grade_id,
+      count: row.count,
+      total_basic: row.total_basic,
+      due_salary: row.due_salary,
+      suspended_count: existing?.suspended_count ?? 0,
+      suspended_total_basic: existing?.suspended_total_basic ?? 0,
+      suspended_due_salary: existing?.suspended_due_salary ?? 0,
+    }
+
+    if (existing) {
+      await supabase.from('form_staff').update(payload).eq('id', existing.id)
+    } else {
+      await supabase.from('form_staff').insert(payload)
+    }
+  }
+
+  return { success: true }
+}
+
+export async function saveFormStaffSuspendedRows(
+  submissionId: number,
+  rows: Array<{
+    grade_id: number
+    suspended_count: number
+    suspended_total_basic: number
+    suspended_due_salary: number
+  }>
+) {
+  const supabase = createOfficeClient()
+
+  for (const row of rows) {
+    const { data: existing } = await supabase
+      .from('form_staff')
+      .select('id, count, total_basic, due_salary')
+      .eq('submission_id', submissionId)
+      .eq('grade_id', row.grade_id)
+      .maybeSingle()
+
+    const payload = {
+      submission_id: submissionId,
+      grade_id: row.grade_id,
+      count: existing?.count ?? 0,
+      total_basic: existing?.total_basic ?? 0,
+      due_salary: existing?.due_salary ?? 0,
+      suspended_count: row.suspended_count,
+      suspended_total_basic: row.suspended_total_basic,
+      suspended_due_salary: row.suspended_due_salary,
+    }
+
+    if (existing) {
+      await supabase.from('form_staff').update(payload).eq('id', existing.id)
+    } else {
+      await supabase.from('form_staff').insert(payload)
+    }
+  }
+
+  return { success: true }
+}
+
+export async function deleteFormStaffActiveRow(submissionId: number, gradeId: number) {
+  const supabase = createOfficeClient()
+  const { data: existing } = await supabase
+    .from('form_staff')
+    .select('id, suspended_count, suspended_total_basic, suspended_due_salary')
+    .eq('submission_id', submissionId)
+    .eq('grade_id', gradeId)
+    .maybeSingle()
+
+  if (existing) {
+    if ((existing.suspended_count ?? 0) > 0 || (existing.suspended_total_basic ?? 0) > 0) {
+      await supabase.from('form_staff').update({
+        count: 0,
+        total_basic: 0,
+        due_salary: 0,
+      }).eq('id', existing.id)
+    } else {
+      await supabase.from('form_staff').delete().eq('id', existing.id)
+    }
+  }
+  return { success: true }
+}
+
+export async function deleteFormStaffSuspendedRow(submissionId: number, gradeId: number) {
+  const supabase = createOfficeClient()
+  const { data: existing } = await supabase
+    .from('form_staff')
+    .select('id, count, total_basic, due_salary')
+    .eq('submission_id', submissionId)
+    .eq('grade_id', gradeId)
+    .maybeSingle()
+
+  if (existing) {
+    if ((existing.count ?? 0) > 0 || (existing.total_basic ?? 0) > 0) {
+      await supabase.from('form_staff').update({
+        suspended_count: 0,
+        suspended_total_basic: 0,
+        suspended_due_salary: 0,
+      }).eq('id', existing.id)
+    } else {
+      await supabase.from('form_staff').delete().eq('id', existing.id)
+    }
+  }
+  return { success: true }
+}
+
 export async function saveFormStaffRow(
   submissionId: number,
   gradeId: number,

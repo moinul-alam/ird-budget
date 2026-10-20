@@ -28,6 +28,7 @@ import { useState } from 'react'
 const FORM_NAV_ITEMS = [
   { href: '/office/form-1', label: strings.forms.form1.short, icon: FileText },
   { href: '/office/form-2', label: strings.forms.form2.short, icon: Users },
+  { href: '/office/form-2b', label: strings.forms.form2b.short, icon: Users },
   { href: '/office/form-3', label: strings.forms.form3.short, icon: Gift },
   { href: '/office/form-4', label: strings.forms.form4.short, icon: CalendarDays },
   { href: '/office/form-5', label: strings.forms.form5.short, icon: Car },

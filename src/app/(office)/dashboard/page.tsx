@@ -11,6 +11,7 @@ import { BarChart3, ArrowRight } from 'lucide-react'
 const FORM_LIST = [
   { key: 'form1' as const, href: '/office/form-1' },
   { key: 'form2' as const, href: '/office/form-2' },
+  { key: 'form2b' as const, href: '/office/form-2b' },
   { key: 'form3' as const, href: '/office/form-3' },
   { key: 'form4' as const, href: '/office/form-4' },
   { key: 'form5' as const, href: '/office/form-5' },
@@ -43,10 +44,10 @@ export default async function DashboardPage() {
   const completedForms = new Set<string>()
   if (submissionId) {
     const [
-      f1, f2, f3, f4, f5, f6, f7, f8, f9, f10
+      f1, fStaff, f3, f4, f5, f6, f7, f8, f9, f10
     ] = await Promise.all([
       supabase.from('form_basic').select('id').eq('submission_id', submissionId).maybeSingle(),
-      supabase.from('form_staff').select('id').eq('submission_id', submissionId).limit(1),
+      supabase.from('form_staff').select('id, count, total_basic, suspended_count, suspended_total_basic').eq('submission_id', submissionId),
       supabase.from('form_allowances').select('id').eq('submission_id', submissionId).limit(1),
       supabase.from('form_leave').select('id').eq('submission_id', submissionId).maybeSingle(),
       supabase.from('form_vehicles').select('id').eq('submission_id', submissionId).limit(1),
@@ -58,7 +59,14 @@ export default async function DashboardPage() {
     ])
 
     if (f1.data) completedForms.add('form1')
-    if (f2.data && f2.data.length > 0) completedForms.add('form2')
+    
+    // Check if any active or suspended staff rows exist with values
+    const staffData = fStaff.data || []
+    const hasActiveStaff = staffData.some((s: any) => (s.count > 0 || s.total_basic > 0))
+    const hasSuspendedStaff = staffData.some((s: any) => (s.suspended_count > 0 || s.suspended_total_basic > 0))
+    if (hasActiveStaff) completedForms.add('form2')
+    if (hasSuspendedStaff) completedForms.add('form2b')
+
     if (f3.data && f3.data.length > 0) completedForms.add('form3')
     if (f4.data) completedForms.add('form4')
     if (f5.data && f5.data.length > 0) completedForms.add('form5')

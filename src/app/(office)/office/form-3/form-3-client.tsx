@@ -57,7 +57,7 @@ export function Form3Client({ submissionId, allowanceTypes, initialData }: Form3
     <FormShell
       title={strings.forms.form3.title}
       formNumber={3}
-      prevHref="/office/form-2"
+      prevHref="/office/form-2b"
       nextHref="/office/form-4"
     >
       <div className="p-6 lg:p-8 space-y-6">
