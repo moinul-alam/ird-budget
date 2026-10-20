@@ -48,22 +48,17 @@ export function FormShell({
             <h1 className="text-xl font-bold text-slate-900">{title}</h1>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {saveStatus === 'saved' && (
-            <span className="text-sm text-emerald-600 flex items-center gap-1">
+            <span className="text-sm text-emerald-600 flex items-center gap-1 font-medium">
               <CheckCircle className="h-4 w-4" />
               {strings.saved}
             </span>
           )}
-          {onSave && (
-            <Button onClick={handleSave} disabled={isPending} size="sm">
-              {isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-1" />
-              ) : (
-                <Save className="h-4 w-4 mr-1" />
-              )}
-              {isPending ? strings.saving : strings.saving.replace('...', '')}
-            </Button>
+          {nextHref && (
+            <Link href={nextHref} prefetch={true} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              {strings.next}
+            </Link>
           )}
         </div>
       </div>
@@ -82,10 +77,15 @@ export function FormShell({
         ) : (
           <div />
         )}
-        {nextHref && (
-          <Link href={nextHref} prefetch={true} className={buttonVariants({ variant: "default" })}>
-            {strings.next}
-          </Link>
+        {onSave && (
+          <Button onClick={handleSave} disabled={isPending} className="px-6 py-2.5">
+            {isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+            ) : (
+              <Save className="h-4 w-4 mr-1.5" />
+            )}
+            {isPending ? strings.saving : 'সংরক্ষণ করুন'}
+          </Button>
         )}
       </div>
     </div>

@@ -69,7 +69,7 @@ export const strings = {
   },
 
   forms: {
-    form1: { title: 'অফিসের মূল তথ্য', short: 'মূল তথ্য' },
+    form1: { title: 'অফিসের তথ্য', short: 'অফিসের তথ্য' },
     form2: { title: 'কর্মকর্তা ও কর্মচারীর বেতন তথ্য', short: 'বেতন তথ্য' },
     form3: { title: 'ভাতা সংক্রান্ত তথ্য', short: 'ভাতা' },
     form4: { title: 'ছুটি নগদায়ন ও বিনোদন ভাতা', short: 'ছুটি ও বিনোদন' },
@@ -82,11 +82,11 @@ export const strings = {
   },
 
   form1: {
-    headOfOffice: 'অফিস প্রধানের নাম',
+    headOfOffice: 'বাজেট বিষয়ক ফোকাল পয়েন্টের নাম',
     headOfOfficePlaceholder: 'যেমন: মোহাম্মদ আলী',
     designation: 'পদবি',
     designationPlaceholder: 'যেমন: কর কমিশনার',
-    phone: 'ফোন নম্বর',
+    phone: 'মোবাইল নম্বর',
     phonePlaceholder: 'যেমন: ০১৭১১২৩৪৫৬৭',
     email: 'ইমেইল',
     emailPlaceholder: 'যেমন: office@nbr.gov.bd',
