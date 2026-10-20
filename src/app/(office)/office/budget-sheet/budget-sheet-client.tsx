@@ -18,7 +18,8 @@ interface BudgetRow {
   manual_value: number | null
   expense_codes: {
     code: string
-    title: string
+    name?: string
+    title?: string
     is_manual: boolean
     sort_order: number
   }
@@ -103,7 +104,7 @@ export function BudgetSheetClient({ initialRows, submissionId }: { initialRows: 
                 ) : rows.map((row) => (
                   <tr key={row.id} className="hover:bg-slate-50/50">
                     <td className="p-3 font-medium font-mono text-slate-600">{row.expense_codes?.code}</td>
-                    <td className="p-3">{row.expense_codes?.title}</td>
+                    <td className="p-3">{row.expense_codes?.name || row.expense_codes?.title}</td>
                     <td className="p-3 text-right font-mono">
                       {row.expense_codes?.is_manual ? '—' : toBanglaAmount(row.auto_value)}
                     </td>

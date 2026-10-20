@@ -1,86 +1,166 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createOfficeClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { z } from 'zod'
 
 const OFFICE_COOKIE = 'office_session'
 
-export async function loginOffice(budgetId: string) {
-  const supabase = await createClient()
+async function getOrCreateOfficeSubmission(officeId: number) {
+  const supabase = createOfficeClient()
   
-  // 1. Convert Bangla numbers to English if necessary (handled mostly on client or by bangla utility)
-  // For safety, assuming it's already English numerals here
-  const { data: office, error } = await supabase
-    .from('offices')
-    .select('id, name')
-    .eq('budget_id', budgetId)
+  // 1. Get active/open cycle (or most recent)
+  let { data: cycle } = await supabase
+    .from('cycles')
+    .select('id')
+    .eq('status', 'open')
+    .order('id', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
-  if (error || !office) {
-    return { error: 'Office not found', notFound: true }
+  if (!cycle) {
+    const { data: latestCycle } = await supabase
+      .from('cycles')
+      .select('id')
+      .order('id', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    cycle = latestCycle
   }
 
-  // 2. Set custom cookie for office session
-  const cookieStore = await cookies()
-  cookieStore.set(OFFICE_COOKIE, JSON.stringify({ office_id: office.id, budget_id: budgetId, name: office.name }), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 7, // 1 week
-  })
+  if (!cycle) return null
 
-  return { success: true }
+  // 2. Find or create submission for this office and cycle
+  let { data: submission } = await supabase
+    .from('submissions')
+    .select('id, status')
+    .eq('office_id', officeId)
+    .eq('cycle_id', cycle.id)
+    .maybeSingle()
+
+  if (!submission) {
+    const { data: newSub } = await supabase
+      .from('submissions')
+      .insert({
+        office_id: officeId,
+        cycle_id: cycle.id,
+        status: 'draft',
+      })
+      .select('id, status')
+      .maybeSingle()
+    submission = newSub
+  }
+
+  return submission ? submission.id : null
+}
+
+export async function loginOffice(budgetId: string) {
+  try {
+    const supabase = createOfficeClient()
+    
+    const { data: office, error } = await supabase
+      .from('offices')
+      .select('id, name')
+      .eq('budget_id', budgetId)
+      .maybeSingle()
+
+    if (error || !office) {
+      return { error: 'Office not found', notFound: true }
+    }
+
+    // Resolve submission_id for the current cycle
+    const submissionId = await getOrCreateOfficeSubmission(office.id)
+
+    // Set custom cookie for office session
+    const cookieStore = await cookies()
+    cookieStore.set(
+      OFFICE_COOKIE,
+      JSON.stringify({
+        id: String(office.id),
+        office_id: office.id,
+        budget_id: budgetId,
+        name: office.name,
+        submission_id: submissionId || undefined,
+      }),
+      {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+      }
+    )
+
+    return { success: true }
+  } catch (err: any) {
+    return { error: err?.message || 'Login failed' }
+  }
 }
 
 export async function registerOffice(formData: FormData) {
-  const name = formData.get('name') as string
-  const budgetId = formData.get('budget_id') as string
-  const typeId = formData.get('type_id') as string
-  const parentId = formData.get('parent_id') as string | null
+  try {
+    const name = formData.get('name') as string
+    const budgetId = formData.get('budget_id') as string
+    const typeId = formData.get('type_id') as string
+    const parentId = formData.get('parent_id') as string | null
 
-  const supabase = await createClient()
+    const supabase = createOfficeClient()
 
-  // 1. Check if exists
-  const { data: existing } = await supabase
-    .from('offices')
-    .select('id')
-    .eq('budget_id', budgetId)
-    .maybeSingle()
+    // 1. Check if exists
+    const { data: existing } = await supabase
+      .from('offices')
+      .select('id')
+      .eq('budget_id', budgetId)
+      .maybeSingle()
 
-  if (existing) {
-    return { error: 'বাজেট কোডটি ইতিমধ্যেই নিবন্ধিত' }
+    if (existing) {
+      return { error: 'বাজেট কোডটি ইতিমধ্যেই নিবন্ধিত' }
+    }
+
+    // 2. Insert
+    const { data, error } = await supabase
+      .from('offices')
+      .insert({
+        name,
+        budget_id: budgetId,
+        office_type_id: parseInt(typeId),
+        parent_office_id: parentId ? parseInt(parentId) : null,
+      })
+      .select('id, name')
+      .single()
+
+    if (error || !data) {
+      return { error: 'সংরক্ষণ ব্যর্থ হয়েছে' }
+    }
+
+    // 3. Resolve active submission
+    const submissionId = await getOrCreateOfficeSubmission(data.id)
+
+    // 4. Log them in
+    const cookieStore = await cookies()
+    cookieStore.set(
+      OFFICE_COOKIE,
+      JSON.stringify({
+        id: String(data.id),
+        office_id: data.id,
+        budget_id: budgetId,
+        name: data.name,
+        submission_id: submissionId || undefined,
+      }),
+      {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 7,
+      }
+    )
+
+    return { success: true }
+  } catch (err: any) {
+    return { error: err?.message || 'Registration failed' }
   }
-
-  // 2. Insert
-  const { data, error } = await supabase
-    .from('offices')
-    .insert({
-      name,
-      budget_id: budgetId,
-      office_type_id: parseInt(typeId),
-      parent_office_id: parentId ? parseInt(parentId) : null,
-    })
-    .select('id, name')
-    .single()
-
-  if (error) {
-    return { error: 'সংরক্ষণ ব্যর্থ হয়েছে' }
-  }
-
-  // 3. Log them in
-  const cookieStore = await cookies()
-  cookieStore.set(OFFICE_COOKIE, JSON.stringify({ office_id: data.id, budget_id: budgetId, name: data.name }), {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 7,
-  })
-
-  return { success: true }
 }
 
 export async function logoutOffice() {
@@ -124,5 +204,5 @@ export async function loginAdmin(formData: FormData) {
 export async function logoutAdmin() {
   const supabase = await createClient()
   await supabase.auth.signOut()
-  redirect('/admin/login')
+  redirect('/superadmin/login')
 }
