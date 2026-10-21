@@ -29,17 +29,43 @@ export interface OfficeTypeHierarchyItem {
   created_at?: string
 }
 
+export interface OfficeLevelItem {
+  id: string // e.g. "lvl-123456789"
+  office_type_id: number
+  office_type_name?: string
+  department_id: number
+  department_name?: string
+  level_name: string // e.g. "কর অঞ্চল", "কর আপীল অঞ্চল", "কর রেঞ্জসমূহ"
+  level_order: number // e.g. 1, 1, 2
+  created_at?: string
+}
+
+export interface GroupBudgetSettingItem {
+  id: string // e.g. "grp-123456789"
+  department_id: number
+  department_name?: string
+  office_type_id: number
+  office_type_name?: string
+  office_level_id?: string
+  office_level_name?: string
+  office_level_order?: number
+  is_group_budget: boolean
+  created_at?: string
+}
+
 // -------------------------------------------------------------------
-// Helper for Ministry storage via admin_profiles
+// Helper for Ministry, Office Levels & Group Settings storage via admin_profiles
 // -------------------------------------------------------------------
 interface OfficeHierarchyConfig {
   ministries: MinistryItem[]
+  office_levels?: OfficeLevelItem[]
+  group_settings?: GroupBudgetSettingItem[]
 }
 
 async function getStoredOfficeConfig(): Promise<OfficeHierarchyConfig> {
   const supabase = createOfficeClient()
   const { data: profiles } = await supabase.from('admin_profiles').select('id, username').limit(1)
-  if (!profiles || profiles.length === 0) return { ministries: [] }
+  if (!profiles || profiles.length === 0) return { ministries: [], office_levels: [], group_settings: [] }
 
   const root = profiles[0]
   if (root.username.includes(':::ocfg=')) {
@@ -48,12 +74,14 @@ async function getStoredOfficeConfig(): Promise<OfficeHierarchyConfig> {
       const parsed = JSON.parse(decodeURIComponent(encoded))
       return {
         ministries: Array.isArray(parsed.ministries) ? parsed.ministries : [],
+        office_levels: Array.isArray(parsed.office_levels) ? parsed.office_levels : [],
+        group_settings: Array.isArray(parsed.group_settings) ? parsed.group_settings : [],
       }
     } catch {
-      return { ministries: [] }
+      return { ministries: [], office_levels: [], group_settings: [] }
     }
   }
-  return { ministries: [] }
+  return { ministries: [], office_levels: [], group_settings: [] }
 }
 
 async function saveStoredOfficeConfig(config: OfficeHierarchyConfig) {
@@ -395,3 +423,241 @@ export async function deleteOfficeType(id: number) {
   revalidatePath('/admin/offices-config')
   return { success: true }
 }
+
+// -------------------------------------------------------------------
+// TAB 4: মাঠ অফিসের স্তর (Office Levels Hierarchy)
+// -------------------------------------------------------------------
+export async function getOfficeLevels(): Promise<OfficeLevelItem[]> {
+  const cfg = await getStoredOfficeConfig()
+  const officeTypes = await getOfficeTypesHierarchy()
+  const officeTypeMap = new Map(officeTypes.map((ot) => [ot.id, ot]))
+
+  const levels = cfg.office_levels || []
+  return levels.map((lvl) => {
+    const ot = officeTypeMap.get(lvl.office_type_id)
+    return {
+      ...lvl,
+      office_type_name: ot?.name || lvl.office_type_name || '',
+      department_id: ot?.department_id || lvl.department_id,
+      department_name: ot?.department_name || lvl.department_name || '',
+    }
+  }).sort((a, b) => {
+    if (a.level_order !== b.level_order) {
+      return a.level_order - b.level_order
+    }
+    return (a.level_name || '').localeCompare(b.level_name || '', 'bn')
+  })
+}
+
+export async function saveOfficeLevel(data: {
+  id?: string
+  office_type_id: number
+  level_name: string
+  level_order: number
+}) {
+  const session = await getAdminSession()
+  if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
+
+  const trimmed = data.level_name.trim()
+  if (!trimmed) return { error: 'স্তরের নাম আবশ্যক' }
+  if (!data.office_type_id) return { error: 'অফিসের ধরণ নির্বাচন আবশ্যক' }
+  if (!data.level_order || data.level_order < 1) return { error: 'সঠিক স্তরের ক্রম আবশ্যক' }
+
+  const cfg = await getStoredOfficeConfig()
+  const list = [...(cfg.office_levels || [])]
+
+  // Get department info from office_types
+  const supabase = createOfficeClient()
+  const { data: otData } = await supabase
+    .from('office_types')
+    .select('id, name, department_id, departments(id, name)')
+    .eq('id', data.office_type_id)
+    .maybeSingle()
+
+  let deptName = otData?.departments?.name || ''
+  if (deptName.includes(':::min=')) {
+    deptName = deptName.split(':::min=')[0]
+  }
+
+  let otName = otData?.name || ''
+  if (otName.includes(':::order=')) {
+    otName = otName.split(':::order=')[0]
+  }
+  if (otName.includes(':::label=')) {
+    otName = otName.split(':::label=')[0]
+  }
+
+  const levelItem: OfficeLevelItem = {
+    id: data.id || `lvl-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    office_type_id: data.office_type_id,
+    office_type_name: otName,
+    department_id: otData?.department_id || 0,
+    department_name: deptName,
+    level_name: trimmed,
+    level_order: data.level_order,
+    created_at: new Date().toISOString(),
+  }
+
+  if (data.id) {
+    const idx = list.findIndex((l) => l.id === data.id)
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], ...levelItem }
+    } else {
+      list.push(levelItem)
+    }
+  } else {
+    list.push(levelItem)
+  }
+
+  const res = await saveStoredOfficeConfig({
+    ministries: cfg.ministries,
+    office_levels: list,
+    group_settings: cfg.group_settings,
+  })
+
+  if (res.error) return { error: res.error }
+
+  revalidatePath('/admin/offices-config')
+  return { success: true, level: levelItem }
+}
+
+export async function deleteOfficeLevel(id: string) {
+  const session = await getAdminSession()
+  if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
+
+  const cfg = await getStoredOfficeConfig()
+  const list = (cfg.office_levels || []).filter((l) => l.id !== id)
+
+  const res = await saveStoredOfficeConfig({
+    ministries: cfg.ministries,
+    office_levels: list,
+    group_settings: cfg.group_settings,
+  })
+
+  if (res.error) return { error: res.error }
+
+  revalidatePath('/admin/offices-config')
+  return { success: true }
+}
+
+// -------------------------------------------------------------------
+// TAB 5: গ্রুপ বাজেট নির্ধারণ (Group Budget Settings)
+// -------------------------------------------------------------------
+export async function getGroupBudgetSettings(): Promise<GroupBudgetSettingItem[]> {
+  const cfg = await getStoredOfficeConfig()
+  const officeTypes = await getOfficeTypesHierarchy()
+  const officeLevels = await getOfficeLevels()
+
+  const otMap = new Map(officeTypes.map((ot) => [ot.id, ot]))
+  const lvlMap = new Map(officeLevels.map((lvl) => [lvl.id, lvl]))
+
+  const list = cfg.group_settings || []
+  return list.map((g) => {
+    const ot = otMap.get(g.office_type_id)
+    const lvl = g.office_level_id ? lvlMap.get(g.office_level_id) : undefined
+    return {
+      ...g,
+      department_name: ot?.department_name || g.department_name || 'সাধারণ',
+      office_type_name: ot?.name || g.office_type_name || '',
+      office_level_name: lvl?.level_name || g.office_level_name || '',
+      office_level_order: lvl?.level_order || g.office_level_order,
+    }
+  })
+}
+
+export async function saveGroupBudgetSetting(data: {
+  id?: string
+  department_id: number
+  office_type_id: number
+  office_level_id?: string
+  is_group_budget: boolean
+}) {
+  const session = await getAdminSession()
+  if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
+
+  if (!data.office_type_id) return { error: 'অফিসের ধরণ নির্বাচন আবশ্যক' }
+
+  const cfg = await getStoredOfficeConfig()
+  const officeTypes = await getOfficeTypesHierarchy()
+  const officeLevels = await getOfficeLevels()
+
+  const ot = officeTypes.find((o) => o.id === data.office_type_id)
+  const lvl = data.office_level_id ? officeLevels.find((l) => l.id === data.office_level_id) : undefined
+
+  const list = [...(cfg.group_settings || [])]
+
+  const item: GroupBudgetSettingItem = {
+    id: data.id || `grp-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    department_id: data.department_id || ot?.department_id || 0,
+    department_name: ot?.department_name || '',
+    office_type_id: data.office_type_id,
+    office_type_name: ot?.name || '',
+    office_level_id: data.office_level_id || '',
+    office_level_name: lvl?.level_name || '',
+    office_level_order: lvl?.level_order,
+    is_group_budget: data.is_group_budget,
+    created_at: new Date().toISOString(),
+  }
+
+  // Also update is_group_budget on office_types table so existing logic keeps working
+  await updateGroupBudgetStatus(data.office_type_id, data.is_group_budget)
+
+  if (data.id) {
+    const idx = list.findIndex((g) => g.id === data.id)
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], ...item }
+    } else {
+      list.push(item)
+    }
+  } else {
+    // If setting already exists for this office_type_id + office_level_id, update it
+    const existingIdx = list.findIndex(
+      (g) => g.office_type_id === data.office_type_id && (g.office_level_id || '') === (data.office_level_id || '')
+    )
+    if (existingIdx !== -1) {
+      list[existingIdx] = { ...list[existingIdx], ...item }
+    } else {
+      list.push(item)
+    }
+  }
+
+  const res = await saveStoredOfficeConfig({
+    ministries: cfg.ministries,
+    office_levels: cfg.office_levels,
+    group_settings: list,
+  })
+
+  if (res.error) return { error: res.error }
+
+  revalidatePath('/admin/offices-config')
+  return { success: true, setting: item }
+}
+
+export async function deleteGroupBudgetSetting(id: string) {
+  const session = await getAdminSession()
+  if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
+
+  const cfg = await getStoredOfficeConfig()
+  const target = (cfg.group_settings || []).find((g) => g.id === id)
+  const list = (cfg.group_settings || []).filter((g) => g.id !== id)
+
+  if (target?.office_type_id) {
+    // If no other group settings remain for this office_type, turn is_group_budget off
+    const hasOthers = list.some((g) => g.office_type_id === target.office_type_id && g.is_group_budget)
+    if (!hasOthers) {
+      await updateGroupBudgetStatus(target.office_type_id, false)
+    }
+  }
+
+  const res = await saveStoredOfficeConfig({
+    ministries: cfg.ministries,
+    office_levels: cfg.office_levels,
+    group_settings: list,
+  })
+
+  if (res.error) return { error: res.error }
+
+  revalidatePath('/admin/offices-config')
+  return { success: true }
+}
+

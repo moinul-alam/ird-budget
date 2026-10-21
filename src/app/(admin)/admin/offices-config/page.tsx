@@ -1,6 +1,6 @@
 import { getAdminSession } from '@/lib/auth-admin'
 import { redirect } from 'next/navigation'
-import { getDepartments, getOfficeTypesHierarchy, getMinistries } from '@/app/actions/admin-offices-config'
+import { getDepartments, getOfficeTypesHierarchy, getMinistries, getOfficeLevels, getGroupBudgetSettings } from '@/app/actions/admin-offices-config'
 import { AdminOfficesConfigClient } from './admin-offices-config-client'
 
 export const metadata = {
@@ -15,10 +15,12 @@ export default async function AdminOfficesConfigPage() {
     redirect('/admin/login')
   }
 
-  const [ministries, departments, officeTypes] = await Promise.all([
+  const [ministries, departments, officeTypes, officeLevels, groupSettings] = await Promise.all([
     getMinistries(),
     getDepartments(),
     getOfficeTypesHierarchy(),
+    getOfficeLevels(),
+    getGroupBudgetSettings(),
   ])
 
   return (
@@ -27,6 +29,8 @@ export default async function AdminOfficesConfigPage() {
         initialMinistries={ministries}
         initialDepartments={departments}
         initialOfficeTypes={officeTypes}
+        initialOfficeLevels={officeLevels}
+        initialGroupSettings={groupSettings}
       />
     </div>
   )
