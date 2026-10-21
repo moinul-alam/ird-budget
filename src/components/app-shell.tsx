@@ -269,25 +269,8 @@ export function AppShell({
           {/* Drawer Inner Nav */}
           <div className="w-72 flex flex-col h-full">
             <div className="flex-1 overflow-y-auto p-3.5 space-y-1.5 custom-scrollbar">
-              {/* Dashboard Menu Item */}
-              <Link
-                href="/dashboard"
-                prefetch={true}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  pathname === '/dashboard'
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-                }`}
-                onClick={() => {
-                  if (window.innerWidth < 1024) setDrawerOpen(false)
-                }}
-              >
-                <LayoutDashboard className="h-4 w-4 shrink-0 text-blue-400" />
-                <span>{strings.dashboard.title}</span>
-              </Link>
-
               {/* Accordion: ফর্মসমূহ (clicking shows all forms serially) */}
-              <div className="pt-2">
+              <div className="pt-1">
                 <button
                   type="button"
                   onClick={() => setFormsSubmenuOpen((prev) => !prev)}
