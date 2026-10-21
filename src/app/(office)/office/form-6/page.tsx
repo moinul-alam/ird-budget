@@ -1,6 +1,7 @@
 import { createOfficeClient } from '@/lib/supabase/server'
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
+import { getVehicleTypes } from '@/app/actions/admin-settings'
 import { Form6Client } from './form-6-client'
 
 export default async function Form6Page() {
@@ -10,8 +11,8 @@ export default async function Form6Page() {
 
   const submissionId = session.submission_id || null
 
-  const [carsRes, rentConfigsRes, rentRes] = await Promise.all([
-    supabase.from('car_types').select('*').order('id'),
+  const [vehicleTypes, rentConfigsRes, rentRes] = await Promise.all([
+    getVehicleTypes(),
     supabase.from('vehicle_rent_config').select('*, car_type:car_type_id(id, name)'),
     submissionId
       ? supabase
@@ -26,7 +27,7 @@ export default async function Form6Page() {
     <Form6Client
       submissionId={submissionId}
       initialData={rentRes.data || []}
-      carTypes={carsRes.data || []}
+      carTypes={vehicleTypes}
       rentConfigs={rentConfigsRes.data || []}
     />
   )

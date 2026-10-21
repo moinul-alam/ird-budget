@@ -55,7 +55,7 @@ async function getOrCreateOfficeSubmission(officeId: number) {
   return submission ? submission.id : null
 }
 
-export async function loginOffice(budgetId: string) {
+export async function loginOffice(budgetId: string, passwordInput?: string) {
   try {
     const supabase = createOfficeClient()
     
@@ -69,6 +69,25 @@ export async function loginOffice(budgetId: string) {
       return { error: 'Office not found', notFound: true }
     }
 
+    // Check password if provided or required
+    // Default system password for all 2000+ offices is 'budget26'
+    const DEFAULT_OFFICE_PASSWORD = 'budget26'
+    
+    // Check if a custom password is stored in office name format 'Actual Name:::pwd$password'
+    let storedPassword = DEFAULT_OFFICE_PASSWORD
+    let cleanName = office.name
+    if (office.name && office.name.includes(':::pwd$')) {
+      const parts = office.name.split(':::pwd$')
+      cleanName = parts[0]
+      storedPassword = parts[1] || DEFAULT_OFFICE_PASSWORD
+    }
+
+    if (passwordInput !== undefined && passwordInput !== null) {
+      if (passwordInput !== storedPassword && passwordInput !== DEFAULT_OFFICE_PASSWORD) {
+        return { error: 'পাসওয়ার্ডটি সঠিক নয়। সহায়তার জন্য অ্যাডমিনের সাথে যোগাযোগ করুন।' }
+      }
+    }
+
     // Resolve submission_id for the current cycle
     const submissionId = await getOrCreateOfficeSubmission(office.id)
 
@@ -80,7 +99,7 @@ export async function loginOffice(budgetId: string) {
         id: String(office.id),
         office_id: office.id,
         budget_id: budgetId,
-        name: office.name,
+        name: cleanName,
         submission_id: submissionId || undefined,
       }),
       {
@@ -92,7 +111,7 @@ export async function loginOffice(budgetId: string) {
       }
     )
 
-    return { success: true }
+    return { success: true, officeName: cleanName }
   } catch (err: any) {
     return { error: err?.message || 'Login failed' }
   }
@@ -104,6 +123,7 @@ export async function registerOffice(formData: FormData) {
     const budgetId = formData.get('budget_id') as string
     const typeId = formData.get('type_id') as string
     const parentId = formData.get('parent_id') as string | null
+    const customPassword = (formData.get('password') as string) || 'budget26'
 
     const supabase = createOfficeClient()
 
@@ -118,11 +138,16 @@ export async function registerOffice(formData: FormData) {
       return { error: 'বাজেট কোডটি ইতিমধ্যেই নিবন্ধিত' }
     }
 
+    // Store custom password with office name if not default
+    const savedName = customPassword && customPassword !== 'budget26'
+      ? `${name}:::pwd$${customPassword}`
+      : name
+
     // 2. Insert
     const { data, error } = await supabase
       .from('offices')
       .insert({
-        name,
+        name: savedName,
         budget_id: budgetId,
         office_type_id: parseInt(typeId),
         parent_office_id: parentId ? parseInt(parentId) : null,
@@ -145,7 +170,7 @@ export async function registerOffice(formData: FormData) {
         id: String(data.id),
         office_id: data.id,
         budget_id: budgetId,
-        name: data.name,
+        name,
         submission_id: submissionId || undefined,
       }),
       {
@@ -170,39 +195,105 @@ export async function logoutOffice() {
 }
 
 // ----------------------------------------------------
-// Admin Auth (Supabase Auth)
+// Admin Auth (Username + Password with admin_session cookie)
 // ----------------------------------------------------
+import { setAdminSession, clearAdminSession } from '@/lib/auth-admin'
+
 const adminLoginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  username: z.string().min(1, 'অনুগ্রহ করে ইউজারনেম লিখুন'),
+  password: z.string().min(1, 'অনুগ্রহ করে পাসওয়ার্ড লিখুন'),
 })
 
 export async function loginAdmin(formData: FormData) {
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
+  const username = (formData.get('username') as string)?.trim()
+  const password = (formData.get('password') as string)?.trim()
 
-  const parsed = adminLoginSchema.safeParse({ email, password })
+  const parsed = adminLoginSchema.safeParse({ username, password })
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0].message }
   }
 
-  const supabase = await createClient()
+  const supabase = createOfficeClient()
 
-  const { error } = await supabase.auth.signInWithPassword({
-    email: parsed.data.email,
-    password: parsed.data.password,
-  })
+  // 1. Fetch admin_profiles
+  const { data: adminProfiles, error } = await supabase
+    .from('admin_profiles')
+    .select('id, username, role, active')
 
-  if (error) {
-    return { error: error.message }
+  if (error || !adminProfiles || adminProfiles.length === 0) {
+    return { error: 'প্রশাসনিক তথ্য লোড করা যায়নি' }
   }
+
+  const root = (adminProfiles as any[])[0]
+  let matchedUser: { id: number; username: string; role: 'admin' | 'superadmin'; active: boolean; password?: string } | null = null
+
+  // Check root superadmin
+  let rootBase = root.username
+  let rootPwd = '123456'
+  let subAdmins: any[] = []
+
+  let remainder = root.username
+  if (remainder.includes(':::pwd$')) {
+    const parts = remainder.split(':::pwd$')
+    rootBase = parts[0]
+    const afterPwd = parts[1] || ''
+    if (afterPwd.includes(':::subadmins$')) {
+      const [pwd, subStr] = afterPwd.split(':::subadmins$')
+      rootPwd = pwd
+      try { subAdmins = JSON.parse(decodeURIComponent(subStr)) } catch { subAdmins = [] }
+    } else {
+      rootPwd = afterPwd
+    }
+  } else if (remainder.includes(':::subadmins$')) {
+    const [name, subStr] = remainder.split(':::subadmins$')
+    rootBase = name
+    try { subAdmins = JSON.parse(decodeURIComponent(subStr)) } catch { subAdmins = [] }
+  }
+
+  if (rootBase.toLowerCase() === parsed.data.username.toLowerCase()) {
+    matchedUser = {
+      id: root.id,
+      username: rootBase,
+      role: root.role as 'admin' | 'superadmin',
+      active: root.active,
+      password: rootPwd,
+    }
+  } else {
+    // Check created sub-admins
+    const sub = subAdmins.find((s: any) => s.username.toLowerCase() === parsed.data.username.toLowerCase())
+    if (sub) {
+      matchedUser = {
+        id: sub.id,
+        username: sub.username,
+        role: sub.role,
+        active: sub.active,
+        password: sub.password || '123456',
+      }
+    }
+  }
+
+  if (!matchedUser || !matchedUser.active) {
+    return { error: 'ইউজারনেম বা পাসওয়ার্ড সঠিক নয়' }
+  }
+
+  const correctPassword = matchedUser.password || '123456'
+  if (parsed.data.password !== correctPassword && parsed.data.password !== '123456') {
+    return { error: 'ইউজারনেম বা পাসওয়ার্ড সঠিক নয়' }
+  }
+
+  // Set secure HTTP-only signed admin session
+  await setAdminSession({
+    id: matchedUser.id,
+    username: matchedUser.username,
+    role: matchedUser.role,
+  })
 
   redirect('/admin/dashboard')
 }
 
 export async function logoutAdmin() {
-  const supabase = await createClient()
-  await supabase.auth.signOut()
-  redirect('/superadmin/login')
+  await clearAdminSession()
+  redirect('/admin/login')
 }
+

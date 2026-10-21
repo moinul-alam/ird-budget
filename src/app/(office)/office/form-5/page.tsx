@@ -1,6 +1,7 @@
 import { createOfficeClient } from '@/lib/supabase/server'
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
+import { getVehicleTypes, getFuelTypes } from '@/app/actions/admin-settings'
 import { Form5Client } from './form-5-client'
 
 export default async function Form5Page() {
@@ -10,9 +11,9 @@ export default async function Form5Page() {
 
   const submissionId = session.submission_id || null
 
-  const [carsRes, fuelsRes, configsRes, vehiclesRes] = await Promise.all([
-    supabase.from('car_types').select('*').order('id'),
-    supabase.from('fuel_types').select('*').order('id'),
+  const [vehicleTypes, fuelTypes, configsRes, vehiclesRes] = await Promise.all([
+    getVehicleTypes(),
+    getFuelTypes(),
     supabase.from('vehicle_fuel_config').select('*, car_type:car_type_id(id, name), fuel_type:fuel_type_id(id, name)'),
     submissionId
       ? supabase
@@ -27,8 +28,8 @@ export default async function Form5Page() {
     <Form5Client
       submissionId={submissionId}
       initialData={vehiclesRes.data || []}
-      carTypes={carsRes.data || []}
-      fuelTypes={fuelsRes.data || []}
+      carTypes={vehicleTypes}
+      fuelTypes={fuelTypes}
       fuelConfigs={configsRes.data || []}
     />
   )

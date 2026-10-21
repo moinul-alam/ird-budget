@@ -2,7 +2,7 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaAmount, toBanglaNumber, cleanTypeName } from '@/lib/bangla'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -58,7 +58,7 @@ export function Form6Client({
   const [rows, setRows] = useState<Form6VehicleRentRow[]>(() => {
     return (initialData || []).map((v) => {
       const cfg = v.vehicle_rent_config || rentConfigs.find((c) => c.id === v.vehicle_rent_config_id)
-      const carName = cfg?.car_type?.name || ''
+      const carName = cleanTypeName(cfg?.car_type?.name || '')
       const monthly = Number(cfg?.monthly_rent_allowance || 0)
       const count = Number(v.count || 0)
       return {
@@ -142,7 +142,7 @@ export function Form6Client({
     const newRow: Form6VehicleRentRow = {
       id: existingRow?.id,
       vehicle_rent_config_id: configId,
-      vehicle_type_name: carObj?.name || '',
+      vehicle_type_name: cleanTypeName(carObj?.name || ''),
       count,
       monthly_allowance: monthly,
       annual_total: annual,
@@ -193,8 +193,8 @@ export function Form6Client({
 
   return (
     <FormShell
-      title={strings.forms.form6.title}
-      formNumber={6}
+      title={strings.forms.form7.title}
+      formNumber={7}
       prevHref="/office/form-5"
       nextHref="/office/form-7"
     >
@@ -319,12 +319,14 @@ export function Form6Client({
                 onValueChange={(val) => setSelectedCarTypeId(val ?? '')}
               >
                 <SelectTrigger id="car_type_rent_select" className="w-full">
-                  <SelectValue placeholder={strings.form6.selectVehicleType} />
+                  <SelectValue placeholder={strings.form6.selectVehicleType}>
+                    {cleanTypeName(carTypes.find((c) => String(c.id) === selectedCarTypeId)?.name)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {carTypes.map((c) => (
                     <SelectItem key={c.id} value={String(c.id)}>
-                      {c.name}
+                      {cleanTypeName(c.name)}
                     </SelectItem>
                   ))}
                 </SelectContent>

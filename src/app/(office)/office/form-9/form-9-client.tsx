@@ -130,8 +130,8 @@ export function Form9Client({
 
   return (
     <FormShell
-      title={strings.forms.form9.title}
-      formNumber={9}
+      title={strings.forms.form8.title}
+      formNumber={8}
       prevHref="/office/form-8"
       nextHref="/office/form-10"
     >

@@ -1,41 +1,53 @@
-import { createClient } from '@/lib/supabase/server'
+import { getAdminSession } from '@/lib/auth-admin'
 import { redirect } from 'next/navigation'
+import {
+  getSalaryCodeConfig,
+  getVehicleTypes,
+  getFuelTypes,
+  getVehicleFuelConfigs,
+  getVehicleRentConfigs,
+  getUtilityTypes,
+} from '@/app/actions/admin-settings'
 import { AdminSettingsClient } from './admin-settings-client'
 
+export const metadata = {
+  title: 'কোড কনফিগারেশন | আইআরডি বাজেট সিস্টেম',
+  description: 'বাজেট কোডসমূহ, বেতন-ভাতা, যানবাহন ও সরঞ্জামের পূর্বনির্ধারিত মান ব্যবস্থাপনা',
+}
+
 export default async function AdminSettingsPage() {
-  const supabase = await createClient()
+  const session = await getAdminSession()
 
-  const [ratesRes, carsRes, fuelsRes, fuelConfigsRes, rentConfigsRes, equipmentTypesRes] =
-    await Promise.all([
-      supabase.from('rates').select('*'),
-      supabase.from('car_types').select('*').order('id'),
-      supabase.from('fuel_types').select('*').order('id'),
-      supabase
-        .from('vehicle_fuel_config')
-        .select('*, car_type:car_type_id(name), fuel_type:fuel_type_id(name)')
-        .order('id'),
-      supabase
-        .from('vehicle_rent_config')
-        .select('*, car_type:car_type_id(name)')
-        .order('id'),
-      supabase.from('equipment_types').select('*').order('id'),
-    ])
-
-  const rates: Record<string, number> = {}
-  if (ratesRes.data) {
-    ratesRes.data.forEach((r) => {
-      rates[r.key] = Number(r.value)
-    })
+  if (!session) {
+    redirect('/admin/login')
   }
 
+  const [
+    salaryConfig,
+    vehicleTypes,
+    fuelTypes,
+    fuelConfigs,
+    rentConfigs,
+    utilityTypes,
+  ] = await Promise.all([
+    getSalaryCodeConfig(),
+    getVehicleTypes(),
+    getFuelTypes(),
+    getVehicleFuelConfigs(),
+    getVehicleRentConfigs(),
+    getUtilityTypes(),
+  ])
+
   return (
-    <AdminSettingsClient
-      initialRates={rates}
-      carTypes={carsRes.data || []}
-      fuelTypes={fuelsRes.data || []}
-      fuelConfigs={fuelConfigsRes.data || []}
-      rentConfigs={rentConfigsRes.data || []}
-      equipmentTypes={equipmentTypesRes.data || []}
-    />
+    <div className="space-y-6">
+      <AdminSettingsClient
+        initialSalaryConfig={salaryConfig}
+        initialVehicleTypes={vehicleTypes}
+        initialFuelTypes={fuelTypes}
+        initialFuelConfigs={fuelConfigs}
+        initialRentConfigs={rentConfigs}
+        initialUtilityTypes={utilityTypes}
+      />
+    </div>
   )
 }

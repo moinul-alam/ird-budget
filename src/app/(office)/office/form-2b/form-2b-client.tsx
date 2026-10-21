@@ -224,8 +224,8 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
 
   return (
     <FormShell
-      title={strings.form2b.title}
-      formNumber={2}
+      title={strings.forms.form3.title}
+      formNumber={3}
       prevHref="/office/form-2"
       nextHref="/office/form-3"
       onSave={submissionId ? handleSaveAll : undefined}

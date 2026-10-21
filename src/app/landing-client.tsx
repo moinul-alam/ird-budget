@@ -44,11 +44,14 @@ export function LandingClient() {
   const [selectedParent, setSelectedParent] = useState('')
   const [selectedType, setSelectedType] = useState('')
   const [regError, setRegError] = useState<string | null>(null)
+  const [password, setPassword] = useState('')
+  const [loginError, setLoginError] = useState<string | null>(null)
 
   // Search handler
   const handleSearch = () => {
     if (!budgetId.trim()) return
     const englishId = toEnglishNumber(budgetId.trim())
+    setLoginError(null)
 
     startTransition(async () => {
       const result = await searchOffice(englishId)
@@ -66,10 +69,13 @@ export function LandingClient() {
   const handleConfirm = () => {
     if (!foundOffice) return
     const englishId = toEnglishNumber(budgetId.trim())
+    setLoginError(null)
     startTransition(async () => {
-      const result = await loginOffice(englishId)
+      const result = await loginOffice(englishId, password)
       if (result.success) {
         router.push('/dashboard')
+      } else if (result.error) {
+        setLoginError(result.error)
       }
     })
   }
@@ -151,7 +157,7 @@ export function LandingClient() {
       {/* Admin Login Button (top-right, subtle) */}
       <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-50">
         <Link
-          href="/superadmin/login"
+          href="/admin/login"
           title={strings.landing.adminLogin}
           className="group flex items-center justify-center w-12 h-12 rounded-full bg-white/20 backdrop-blur-md border border-white/40 hover:bg-white/40 hover:scale-110 transition-all duration-300 shadow-lg"
         >
@@ -241,7 +247,7 @@ export function LandingClient() {
               <div className="text-center bg-white/80 backdrop-blur-md border border-emerald-100 rounded-3xl p-8 shadow-lg relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-teal-400" />
 
-                <div className="flex flex-row items-center justify-center gap-4 mb-8 bg-blue-50/50 p-4 rounded-2xl border border-blue-100/50">
+                <div className="flex flex-row items-center justify-center gap-4 mb-6 bg-blue-50/50 p-4 rounded-2xl border border-blue-100/50">
                   <div className="w-12 h-12 shrink-0 bg-white text-blue-600 rounded-full flex items-center justify-center shadow-sm border border-blue-100">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -252,9 +258,43 @@ export function LandingClient() {
                   </h3>
                 </div>
 
-                <p className="text-slate-500 font-semibold mb-6 text-lg">
+                <p className="text-slate-600 font-semibold mb-4 text-base">
                   {strings.landing.foundOffice}
                 </p>
+
+                {/* Password field with tooltip */}
+                <div className="mb-6 text-left">
+                  <div className="flex items-center justify-between mb-2">
+                    <label htmlFor="office_password" className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                      <Lock className="h-4 w-4 text-slate-400" />
+                      {strings.login.password}
+                    </label>
+                    <div 
+                      className="group/tip relative flex items-center gap-1 text-xs text-blue-600 cursor-pointer"
+                      title={strings.login.passwordTooltip}
+                    >
+                      <span className="underline decoration-dotted">পাসওয়ার্ড ভুলে গেছেন?</span>
+                      <div className="absolute right-0 bottom-full mb-2 hidden group-hover/tip:block w-64 p-2.5 bg-slate-900 text-white text-xs rounded-xl shadow-xl z-50 pointer-events-none">
+                        {strings.login.passwordTooltip}
+                      </div>
+                    </div>
+                  </div>
+
+                  <input
+                    type="password"
+                    id="office_password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="পাসওয়ার্ড দিন (ডিফল্ট: budget26)"
+                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all"
+                  />
+                  
+                  {loginError && (
+                    <p className="text-xs text-rose-600 font-semibold mt-2">
+                      {loginError}
+                    </p>
+                  )}
+                </div>
 
                 <div className="flex gap-4">
                   <button

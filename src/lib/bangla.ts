@@ -15,6 +15,11 @@ export function toEnglishNumber(str: string | null | undefined): string {
   return String(str).replace(/[০-৯]/g, (d) => String(BANGLA_DIGITS.indexOf(d as typeof BANGLA_DIGITS[number])));
 }
 
+export function cleanTypeName(raw: string | null | undefined): string {
+  if (!raw) return '';
+  return raw.split(':::')[0].trim();
+}
+
 export function toBanglaCurrency(number: number | string | null | undefined, showUnit = true): string {
   if (number === null || number === undefined || number === '') return '—';
   const n = Math.round(Number(number));

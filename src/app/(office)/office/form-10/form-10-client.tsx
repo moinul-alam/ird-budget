@@ -105,9 +105,9 @@ export function Form10Client({ submissionId, initialData }: Form10ClientProps) {
 
   return (
     <FormShell
-      title={strings.forms.form10.title}
-      formNumber={10}
-      prevHref="/office/form-9"
+      title={strings.forms.form11.title}
+      formNumber={11}
+      prevHref="/office/form-8"
       nextHref="/office/budget-sheet"
     >
       <div className="p-6 lg:p-8 space-y-6 max-w-4xl mx-auto">

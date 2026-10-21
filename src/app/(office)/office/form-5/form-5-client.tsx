@@ -2,7 +2,7 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaAmount, toBanglaNumber, cleanTypeName } from '@/lib/bangla'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -61,8 +61,8 @@ export function Form5Client({
   const [rows, setRows] = useState<Form5VehicleRow[]>(() => {
     return (initialData || []).map((v) => {
       const cfg = v.vehicle_fuel_config || fuelConfigs.find((c) => c.id === v.vehicle_fuel_config_id)
-      const carName = cfg?.car_type?.name || ''
-      const fuelName = cfg?.fuel_type?.name || ''
+      const carName = cleanTypeName(cfg?.car_type?.name || '')
+      const fuelName = cleanTypeName(cfg?.fuel_type?.name || '')
       return {
         id: v.id,
         vehicle_fuel_config_id: v.vehicle_fuel_config_id,
@@ -165,8 +165,8 @@ export function Form5Client({
     const newRow: Form5VehicleRow = {
       id: existingRow?.id,
       vehicle_fuel_config_id: configId,
-      vehicle_type_name: carObj?.name || '',
-      fuel_type_name: fuelObj?.name || '',
+      vehicle_type_name: cleanTypeName(carObj?.name || ''),
+      fuel_type_name: cleanTypeName(fuelObj?.name || ''),
       count,
       maintenance_cost: maintenance,
       additional_expense: additional,
@@ -219,8 +219,8 @@ export function Form5Client({
 
   return (
     <FormShell
-      title={strings.forms.form5.title}
-      formNumber={5}
+      title={strings.forms.form6.title}
+      formNumber={6}
       prevHref="/office/form-4"
       nextHref="/office/form-6"
     >
@@ -347,12 +347,14 @@ export function Form5Client({
                 onValueChange={(val) => setSelectedCarTypeId(val ?? '')}
               >
                 <SelectTrigger id="car_type_select" className="w-full">
-                  <SelectValue placeholder={strings.form5.selectVehicleType} />
+                  <SelectValue placeholder={strings.form5.selectVehicleType}>
+                    {cleanTypeName(carTypes.find((c) => String(c.id) === selectedCarTypeId)?.name)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {carTypes.map((c) => (
                     <SelectItem key={c.id} value={String(c.id)}>
-                      {c.name}
+                      {cleanTypeName(c.name)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -367,12 +369,14 @@ export function Form5Client({
                 onValueChange={(val) => setSelectedFuelTypeId(val ?? '')}
               >
                 <SelectTrigger id="fuel_type_select" className="w-full">
-                  <SelectValue placeholder={strings.form5.selectFuelType} />
+                  <SelectValue placeholder={strings.form5.selectFuelType}>
+                    {cleanTypeName(fuelTypes.find((f) => String(f.id) === selectedFuelTypeId)?.name)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {fuelTypes.map((f) => (
                     <SelectItem key={f.id} value={String(f.id)}>
-                      {f.name}
+                      {cleanTypeName(f.name)}
                     </SelectItem>
                   ))}
                 </SelectContent>

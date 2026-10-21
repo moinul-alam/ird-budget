@@ -14,9 +14,25 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Only run expensive Supabase auth session refresh for admin routes
-  if (path.startsWith('/admin') || path.startsWith('/superadmin') || path.startsWith('/auth')) {
-    return updateSession(request)
+  // Admin routes protection
+  if (path.startsWith('/admin')) {
+    const isLogin = path === '/admin/login'
+    const adminSession = request.cookies.get('admin_session')
+
+    if (!adminSession && !isLogin) {
+      return NextResponse.redirect(new URL('/admin/login', request.url))
+    }
+
+    if (adminSession && isLogin) {
+      return NextResponse.redirect(new URL('/admin/dashboard', request.url))
+    }
+
+    return NextResponse.next()
+  }
+
+  // Redirect legacy /superadmin paths to /admin/login
+  if (path.startsWith('/superadmin')) {
+    return NextResponse.redirect(new URL('/admin/login', request.url))
   }
 
   // Public routes — no auth needed

@@ -2,7 +2,7 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaAmount, toBanglaNumber, cleanTypeName } from '@/lib/bangla'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -58,7 +58,7 @@ export function Form8Client({
         const typeObj = utilityTypes.find((t) => t.id === item.utility_type_id)
         return {
           utility_type_id: item.utility_type_id,
-          utility_type_name: typeObj?.name || `ইউটিলিটি #${item.utility_type_id}`,
+          utility_type_name: cleanTypeName(typeObj?.name || `ইউটিলিটি #${item.utility_type_id}`),
           annual_cost: Number(item.annual_cost || 0),
           due: Number(item.due || 0),
         }
@@ -124,7 +124,7 @@ export function Form8Client({
     if (!selectedTypeId) return
     const typeId = parseInt(selectedTypeId, 10)
     const typeObj = utilityTypes.find((t) => t.id === typeId)
-    const name = typeObj?.name || `ইউটিলিটি #${typeId}`
+    const name = cleanTypeName(typeObj?.name || `ইউটিলিটি #${typeId}`)
 
     const annualCost = parseInt(annualCostInput, 10) || 0
     const due = parseInt(dueInput, 10) || 0
@@ -176,10 +176,10 @@ export function Form8Client({
 
   return (
     <FormShell
-      title={strings.forms.form8.title}
-      formNumber={8}
+      title={strings.forms.form10.title}
+      formNumber={10}
       prevHref="/office/form-7"
-      nextHref="/office/form-9"
+      nextHref="/office/form-10"
     >
       <div className="p-6 lg:p-8 space-y-6 max-w-5xl mx-auto">
         {/* Top Header & Action (Form 5 style) */}
@@ -324,12 +324,14 @@ export function Form8Client({
                 disabled={editingIndex !== null}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder={strings.form8.selectUtilityType} />
+                  <SelectValue placeholder={strings.form8.selectUtilityType}>
+                    {cleanTypeName(utilityTypes.find((t) => String(t.id) === selectedTypeId)?.name)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {availableUtilityTypes.map((type) => (
                     <SelectItem key={type.id} value={type.id.toString()}>
-                      {type.name}
+                      {cleanTypeName(type.name)}
                     </SelectItem>
                   ))}
                 </SelectContent>

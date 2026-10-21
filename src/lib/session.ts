@@ -4,6 +4,8 @@ import { cookies } from 'next/headers'
 
 export interface OfficeSession {
   id: string
+  office_id?: number
+  budget_id?: string
   name: string
   submission_id?: number
 }
