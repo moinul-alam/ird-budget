@@ -226,11 +226,16 @@ export async function getOfficeTypesHierarchy(): Promise<OfficeTypeHierarchyItem
       order = parseInt(parts[1], 10) || ot.id
     }
 
+    let deptName = ot.departments?.name || ''
+    if (deptName.includes(':::min=')) {
+      deptName = deptName.split(':::min=')[0]
+    }
+
     return {
       id: ot.id,
       name,
       department_id: ot.department_id,
-      department_name: ot.departments?.name || '',
+      department_name: deptName,
       hierarchy_order: order,
       is_group_budget: ot.is_group_budget || false,
       created_at: ot.created_at,

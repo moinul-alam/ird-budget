@@ -118,9 +118,13 @@ export default async function AdminDashboardPage() {
 
   // Initialize department stats
   departmentList.forEach((d: any) => {
+    let rawName = d.name || ''
+    if (rawName.includes(':::min=')) {
+      rawName = rawName.split(':::min=')[0]
+    }
     departmentStatsMap.set(d.id, {
       id: d.id,
-      name: d.name,
+      name: rawName,
       totalOffices: 0,
       submittedOffices: 0,
       draftOffices: 0,
@@ -143,7 +147,10 @@ export default async function AdminDashboardPage() {
         : 'not_started'
 
     const deptId = off.office_types?.department_id || off.office_types?.departments?.id || 0
-    const deptName = off.office_types?.departments?.name || 'অনির্ধারিত বিভাগ'
+    let deptName = off.office_types?.departments?.name || 'অনির্ধারিত বিভাগ'
+    if (deptName.includes(':::min=')) {
+      deptName = deptName.split(':::min=')[0]
+    }
     const isGroup = off.office_types?.is_group_budget || false
     const subBudget = sub?.total || 0
 

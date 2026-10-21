@@ -81,11 +81,16 @@ export default async function IndividualReportPage() {
     const isSubmitted = sub?.status === 'submitted'
     const isDraft = sub?.status === 'draft'
 
+    let deptName = off.office_types?.departments?.name || 'সাধারণ'
+    if (deptName.includes(':::min=')) {
+      deptName = deptName.split(':::min=')[0]
+    }
+
     return {
       id: off.id,
       budget_id: off.budget_id,
       name: off.name,
-      department_name: off.office_types?.departments?.name || 'সাধারণ',
+      department_name: deptName,
       office_type_name: off.office_types?.name || 'অফিস',
       is_group_budget: off.office_types?.is_group_budget || false,
       status: (isSubmitted ? 'submitted' : isDraft ? 'draft' : 'not_started') as 'submitted' | 'draft' | 'not_started',

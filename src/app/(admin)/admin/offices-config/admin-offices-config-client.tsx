@@ -807,22 +807,23 @@ export function AdminOfficesConfigClient({
               <CardTitle className="text-lg font-bold text-slate-900">
                 অফিসের ধরণের তালিকা (Office Types)
               </CardTitle>
-              <CardDescription className="text-xs text-slate-500 mt-0.5">
-                ২ নম্বর ট্যাবের দপ্তর/সংস্থার অধীনস্থ বিভিন্ন অফিসের ধরণ (যেমনঃ আয়কর অফিস, কাস্টম্স ও ভ্যাট অফিস)
-              </CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {departments.length > 0 && (
-                <div className="w-48">
+                <div className="w-64 sm:w-72">
                   <Select value={filterDeptForTypes} onValueChange={(val) => setFilterDeptForTypes(val || 'all')}>
-                    <SelectTrigger className="h-8 rounded-xl border-slate-200 text-xs">
-                      <SelectValue placeholder="সব দপ্তর / সংস্থা" />
+                    <SelectTrigger className="h-9 w-full rounded-xl border-slate-200 text-xs">
+                      <SelectValue placeholder="সব">
+                        {filterDeptForTypes === 'all'
+                          ? 'সব'
+                          : departments.find((d) => String(d.id) === filterDeptForTypes)?.name || 'সব'}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent className="rounded-xl text-xs">
-                      <SelectItem value="all">সব দপ্তর / সংস্থা</SelectItem>
+                      <SelectItem value="all">সব</SelectItem>
                       {departments.map((d) => (
                         <SelectItem key={d.id} value={String(d.id)}>
-                          {d.name}
+                          {d.name} {d.ministry_name ? `(${d.ministry_name})` : ''}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -900,7 +901,7 @@ export function AdminOfficesConfigClient({
                     <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
                       <th className="py-3 px-4 w-20">ক্র.নং</th>
                       <th className="py-3 px-4">অফিসের ধরণের নাম</th>
-                      <th className="py-3 px-4">অধীনস্থ দপ্তর / সংস্থা</th>
+                      <th className="py-3 px-4">দপ্তর / সংস্থা</th>
                       <th className="py-3 px-4 text-center w-28">একশন</th>
                     </tr>
                   </thead>
