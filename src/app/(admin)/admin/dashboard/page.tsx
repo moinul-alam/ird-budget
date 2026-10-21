@@ -100,11 +100,33 @@ export default async function AdminDashboardPage() {
   const allOffices = offices || []
   const totalOfficesCount = allOffices.length
 
-  // Categorize by Tax vs VAT (Customs & VAT)
-  let taxTotal = 0
-  let taxSubmitted = 0
-  let vatTotal = 0
-  let vatSubmitted = 0
+  // 3. Fetch all active departments from DB
+  const { data: dbDepartments } = await supabase
+    .from('departments')
+    .select('id, name')
+    .order('id')
+
+  const departmentList = dbDepartments || []
+  const departmentStatsMap = new Map<number, {
+    id: number
+    name: string
+    totalOffices: number
+    submittedOffices: number
+    draftOffices: number
+    totalBudget: number
+  }>()
+
+  // Initialize department stats
+  departmentList.forEach((d: any) => {
+    departmentStatsMap.set(d.id, {
+      id: d.id,
+      name: d.name,
+      totalOffices: 0,
+      submittedOffices: 0,
+      draftOffices: 0,
+      totalBudget: 0,
+    })
+  })
 
   let groupBudgetOffices = 0
   let groupBudgetSubmitted = 0
@@ -117,19 +139,33 @@ export default async function AdminDashboardPage() {
     const status: 'submitted' | 'draft' | 'not_started' = isSubmitted
       ? 'submitted'
       : isDraft
-      ? 'draft'
-      : 'not_started'
+        ? 'draft'
+        : 'not_started'
 
-    const depName = off.office_types?.departments?.name || ''
-    const isTax = depName.includes('আয়কর') || off.office_types?.name?.toLowerCase().includes('tax')
+    const deptId = off.office_types?.department_id || off.office_types?.departments?.id || 0
+    const deptName = off.office_types?.departments?.name || 'অনির্ধারিত বিভাগ'
     const isGroup = off.office_types?.is_group_budget || false
+    const subBudget = sub?.total || 0
 
-    if (isTax) {
-      taxTotal++
-      if (isSubmitted) taxSubmitted++
-    } else {
-      vatTotal++
-      if (isSubmitted) vatSubmitted++
+    // Dynamic aggregation by department
+    if (departmentStatsMap.has(deptId)) {
+      const dStat = departmentStatsMap.get(deptId)!
+      dStat.totalOffices++
+      if (isSubmitted) {
+        dStat.submittedOffices++
+        dStat.totalBudget += subBudget
+      } else if (isDraft) {
+        dStat.draftOffices++
+      }
+    } else if (deptId) {
+      departmentStatsMap.set(deptId, {
+        id: deptId,
+        name: deptName,
+        totalOffices: 1,
+        submittedOffices: isSubmitted ? 1 : 0,
+        draftOffices: isDraft ? 1 : 0,
+        totalBudget: isSubmitted ? subBudget : 0,
+      })
     }
 
     if (isGroup) {
@@ -141,12 +177,12 @@ export default async function AdminDashboardPage() {
       id: off.id,
       name: off.name,
       budget_id: off.budget_id,
-      department: isTax ? 'আয়কর বিভাগ' : 'কাস্টম্‌স ও ভ্যাট',
+      department: deptName,
       office_type: off.office_types?.name || 'অফিস',
       isGroup,
       status,
       submitted_at: sub?.submitted_at,
-      totalBudget: sub?.total || 0,
+      totalBudget: subBudget,
     }
   })
 
@@ -155,12 +191,13 @@ export default async function AdminDashboardPage() {
   const notStartedOfficesCount = officeStats.filter((o: any) => o.status === 'not_started').length
 
   const submittedPercent = totalOfficesCount > 0 ? Math.round((submittedOfficesCount / totalOfficesCount) * 100) : 0
-  const taxPercent = taxTotal > 0 ? Math.round((taxSubmitted / taxTotal) * 100) : 0
-  const vatPercent = vatTotal > 0 ? Math.round((vatSubmitted / vatTotal) * 100) : 0
+  const departmentBreakdowns = Array.from(departmentStatsMap.values())
 
   // Format cycle title
-  let cycleTitle = '২০২৬-২৭ অর্থবছর'
-  let cycleTypeName = 'প্রাক্কলিত বাজেট'
+  let cycleTitle = ''
+  let cycleTypeName = ''
+  const hasActiveCycle = Boolean(activeCycle)
+
   if (activeCycle) {
     let fy = activeCycle.fiscal_year || '২০২৬-২৭'
     if (fy.includes(':::name=')) {
@@ -180,36 +217,52 @@ export default async function AdminDashboardPage() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/20 text-blue-300 border border-blue-400/30">
-                কেন্দ্রীয় প্রশাসন ড্যাশবোর্ড
-              </span>
-              <Badge className="bg-emerald-600 text-white text-xs font-bold">
-                {activeCycle?.status === 'open' ? 'বাজেট দাখিল উন্মুক্ত' : 'বাজেট দাখিল বন্ধ'}
-              </Badge>
+              {hasActiveCycle ? (
+                <Badge className={activeCycle.status === 'open' ? 'bg-emerald-600 text-white text-xs font-bold' : 'bg-rose-600 text-white text-xs font-bold'}>
+                  {activeCycle.status === 'open' ? 'বাজেট দাখিল উন্মুক্ত' : 'বাজেট দাখিল বন্ধ'}
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-amber-400 border-amber-500/50 bg-amber-950/40 text-xs font-bold">
+                  কোনো বাজেট চক্র সক্রিয় নেই
+                </Badge>
+              )}
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
-              {cycleTypeName} ({cycleTitle})
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight font-title">
+              {hasActiveCycle ? `${cycleTypeName} (${cycleTitle})` : 'কোনো সক্রিয় বাজেট চক্র পাওয়া যায়নি'}
             </h1>
             <p className="text-slate-400 text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed">
-              সারাদেশের সকল আয়কর অঞ্চল এবং কাস্টম্‌স ও ভ্যাট কমিশনারেটের দাখিলকৃত বাজেটের লাইভ মনিটরিং ও পরিসংখ্যান
+              {hasActiveCycle 
+                ? 'অভ্যন্তরীণ সম্পদ বিভাগের সকল দপ্তর ও আওতাধীন অফিসসমূহের বাজেট প্রস্তুতির ড্যাশবোর্ড'
+                : 'বাজেট দাখিল ও পর্যবেক্ষণ শুরু করতে বাজেট কনফিগারেশন থেকে নতুন বাজেট চক্র উন্মুক্ত করুন।'}
             </p>
           </div>
 
-          <div className="flex gap-2">
-            <Link
-              href="/admin/reports/individual"
-              className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-2"
-            >
-              <FileSpreadsheet className="h-4 w-4" />
-              <span>অফিসভিত্তিক প্রতিবেদন</span>
-            </Link>
-            <Link
-              href="/admin/reports/combined"
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all border border-slate-700 flex items-center gap-2"
-            >
-              <Layers className="h-4 w-4" />
-              <span>গ্রুপভিত্তিক প্রতিবেদন</span>
-            </Link>
+          <div className="flex flex-wrap gap-2">
+            {!hasActiveCycle ? (
+              <Link
+                href="/admin/budgets"
+                className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-2"
+              >
+                <span>বাজেট চক্র তৈরি করুন</span>
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/admin/reports/individual"
+                  className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-sm flex items-center gap-2"
+                >
+                  <FileSpreadsheet className="h-4 w-4" />
+                  <span>অফিসভিত্তিক প্রতিবেদন</span>
+                </Link>
+                <Link
+                  href="/admin/reports/combined"
+                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all border border-slate-700 flex items-center gap-2"
+                >
+                  <Layers className="h-4 w-4" />
+                  <span>সমন্বিত প্রতিবেদন</span>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -330,103 +383,80 @@ export default async function AdminDashboardPage() {
         </Card>
       </div>
 
-      {/* Graphs / Two Department Comparison Section (Tax vs VAT) */}
+      {/* Dynamic Department Comparison Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Tax Department Breakdown */}
-        <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-blue-50/80 to-white border-b border-slate-100 pb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold">
-                  <Building2 className="h-5 w-5" />
-                </div>
-                <div>
-                  <CardTitle className="text-base font-bold text-slate-900">
-                    আয়কর বিভাগ (Income Tax)
-                  </CardTitle>
-                  <CardDescription className="text-xs text-slate-500">
-                    কর অঞ্চল ও আপীল অঞ্চলের বাজেট অগ্রগতি
-                  </CardDescription>
-                </div>
-              </div>
-              <Badge variant="outline" className="font-mono text-xs font-bold text-blue-700 bg-blue-50 border-blue-200">
-                {toBanglaNumber(taxPercent)}% সম্পন্ন
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="p-6 space-y-4">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-600 font-semibold">দাখিলকৃত আয়কর অফিস:</span>
-              <span className="font-bold text-slate-900 font-mono">
-                {toBanglaNumber(taxSubmitted)} / {toBanglaNumber(taxTotal)} টি
-              </span>
-            </div>
-            <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-              <div
-                className="bg-blue-600 h-3 rounded-full transition-all duration-500"
-                style={{ width: `${taxPercent}%` }}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3 pt-2 text-center">
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <p className="text-[11px] text-slate-500 font-medium">মোট আয়কর অফিস</p>
-                <p className="text-lg font-bold text-slate-800 font-mono mt-0.5">{toBanglaNumber(taxTotal)}</p>
-              </div>
-              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
-                <p className="text-[11px] text-emerald-700 font-medium">দাখিলকৃত</p>
-                <p className="text-lg font-bold text-emerald-800 font-mono mt-0.5">{toBanglaNumber(taxSubmitted)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {departmentBreakdowns.length === 0 ? (
+          <Card className="col-span-full border-slate-200 shadow-sm rounded-2xl p-8 text-center text-slate-400">
+            কোনো বিভাগ কনফিগার করা হয়নি। অফিস কনফিগারেশন থেকে বিভাগ যুক্ত করুন।
+          </Card>
+        ) : (
+          departmentBreakdowns.map((dept, dIdx) => {
+            const percent = dept.totalOffices > 0 ? Math.round((dept.submittedOffices / dept.totalOffices) * 100) : 0
+            const isFirst = dIdx % 2 === 0
+            const colorClass = isFirst
+              ? {
+                badge: 'text-blue-700 bg-blue-50 border-blue-200',
+                iconBg: 'bg-blue-600',
+                bar: 'bg-blue-600',
+                gradient: 'from-blue-50/80 to-white',
+              }
+              : {
+                badge: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+                iconBg: 'bg-emerald-600',
+                bar: 'bg-emerald-600',
+                gradient: 'from-emerald-50/80 to-white',
+              }
 
-        {/* Customs & VAT Department Breakdown */}
-        <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
-          <CardHeader className="bg-gradient-to-r from-emerald-50/80 to-white border-b border-slate-100 pb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
-                  <Landmark className="h-5 w-5" />
-                </div>
-                <div>
-                  <CardTitle className="text-base font-bold text-slate-900">
-                    কাস্টম্‌স ও ভ্যাট বিভাগ (Customs & VAT)
-                  </CardTitle>
-                  <CardDescription className="text-xs text-slate-500">
-                    কাস্টম হাউস, ভ্যাট কমিশনারেটের বাজেট অগ্রগতি
-                  </CardDescription>
-                </div>
-              </div>
-              <Badge variant="outline" className="font-mono text-xs font-bold text-emerald-700 bg-emerald-50 border-emerald-200">
-                {toBanglaNumber(vatPercent)}% সম্পন্ন
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="p-6 space-y-4">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-600 font-semibold">দাখিলকৃত কাস্টমস ও ভ্যাট অফিস:</span>
-              <span className="font-bold text-slate-900 font-mono">
-                {toBanglaNumber(vatSubmitted)} / {toBanglaNumber(vatTotal)} টি
-              </span>
-            </div>
-            <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-              <div
-                className="bg-emerald-600 h-3 rounded-full transition-all duration-500"
-                style={{ width: `${vatPercent}%` }}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3 pt-2 text-center">
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                <p className="text-[11px] text-slate-500 font-medium">মোট কাস্টমস ও ভ্যাট অফিস</p>
-                <p className="text-lg font-bold text-slate-800 font-mono mt-0.5">{toBanglaNumber(vatTotal)}</p>
-              </div>
-              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
-                <p className="text-[11px] text-emerald-700 font-medium">দাখিলকৃত</p>
-                <p className="text-lg font-bold text-emerald-800 font-mono mt-0.5">{toBanglaNumber(vatSubmitted)}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            return (
+              <Card key={dept.id} className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+                <CardHeader className={`bg-gradient-to-r ${colorClass.gradient} border-b border-slate-100 pb-4`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`h-10 w-10 rounded-xl ${colorClass.iconBg} text-white flex items-center justify-center font-bold shadow-xs`}>
+                        <Building2 className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-base font-bold text-slate-900 font-title">
+                          {dept.name}
+                        </CardTitle>
+                        <CardDescription className="text-xs text-slate-500 font-medium">
+                          বিভাগভিত্তিক বাজেট প্রস্তুতি ও দাখিল অগ্রগতি
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className={`font-mono text-xs font-bold ${colorClass.badge}`}>
+                      {toBanglaNumber(percent)}% সম্পন্ন
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-600 font-semibold">দাখিলকৃত {dept.name} অফিস:</span>
+                    <span className="font-bold text-slate-900 font-mono">
+                      {toBanglaNumber(dept.submittedOffices)} / {toBanglaNumber(dept.totalOffices)} টি
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+                    <div
+                      className={`${colorClass.bar} h-3 rounded-full transition-all duration-500`}
+                      style={{ width: `${percent}%` }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 pt-2 text-center">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <p className="text-[11px] text-slate-500 font-medium">মোট অফিস</p>
+                      <p className="text-lg font-bold text-slate-800 font-mono mt-0.5">{toBanglaNumber(dept.totalOffices)}</p>
+                    </div>
+                    <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                      <p className="text-[11px] text-emerald-700 font-medium">দাখিলকৃত</p>
+                      <p className="text-lg font-bold text-emerald-800 font-mono mt-0.5">{toBanglaNumber(dept.submittedOffices)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })
+        )}
       </div>
 
       {/* Recent Submissions Live Table */}
@@ -481,11 +511,7 @@ export default async function AdminDashboardPage() {
                         {off.name}
                       </td>
                       <td className="py-3 px-4 font-medium text-slate-600">
-                        <span className={`px-2 py-0.5 rounded-lg text-[11px] font-bold ${
-                          off.department === 'আয়কর বিভাগ'
-                            ? 'bg-blue-50 text-blue-700'
-                            : 'bg-emerald-50 text-emerald-700'
-                        }`}>
+                        <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-100">
                           {off.department}
                         </span>
                       </td>
@@ -495,13 +521,12 @@ export default async function AdminDashboardPage() {
                       <td className="py-3 px-4 text-center">
                         <Badge
                           variant="outline"
-                          className={`text-xs font-bold gap-1 rounded-full px-2.5 py-0.5 ${
-                            off.status === 'submitted'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                              : off.status === 'draft'
+                          className={`text-xs font-bold gap-1 rounded-full px-2.5 py-0.5 ${off.status === 'submitted'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                            : off.status === 'draft'
                               ? 'bg-amber-50 text-amber-700 border-amber-300'
                               : 'bg-slate-100 text-slate-500 border-slate-300'
-                          }`}
+                            }`}
                         >
                           {off.status === 'submitted' ? (
                             <>
