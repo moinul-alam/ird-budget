@@ -438,8 +438,8 @@ export const strings = {
     signIn: 'লগইন করুন',
     signingIn: 'লগইন হচ্ছে...',
     adminAccess: 'অ্যাডমিন প্যানেল',
-    adminLoginTitle: 'প্রশাসনিক লগইন',
-    adminLoginSubtitle: 'অ্যাডমিন অথবা সুপারঅ্যাডমিন ইউজারনেম ও পাসওয়ার্ড দিয়ে প্রবেশ করুন',
+    adminLoginTitle: 'এডমিন লগিন',
+    adminLoginSubtitle: '',
   },
 
   errors: {

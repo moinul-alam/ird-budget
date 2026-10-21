@@ -11,13 +11,22 @@ import { Loader2, ShieldCheck, Lock, User, ArrowLeft } from 'lucide-react'
 import { strings } from '@/lib/strings'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 export function AdminLoginClient() {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [username, setUsername] = useState('superadmin')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [forgotModalOpen, setForgotModalOpen] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -61,16 +70,13 @@ export function AdminLoginClient() {
       <Card className="w-full max-w-md shadow-2xl border-0 ring-1 ring-slate-200/60 rounded-3xl bg-white/95 backdrop-blur-xl relative z-10 overflow-hidden">
         <div className="h-2 bg-gradient-to-r from-emerald-600 via-teal-600 to-blue-600 w-full" />
         
-        <CardHeader className="space-y-2 pb-6 pt-8 text-center">
+        <CardHeader className="space-y-2 pb-4 pt-8 text-center">
           <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20 mb-2">
             <ShieldCheck className="h-9 w-9" />
           </div>
-          <CardTitle className="text-2xl font-extrabold text-slate-800 tracking-tight">
+          <CardTitle className="text-2xl font-extrabold text-slate-800 tracking-tight font-title">
             {strings.login.adminLoginTitle}
           </CardTitle>
-          <CardDescription className="text-slate-500 font-medium text-sm">
-            {strings.login.adminLoginSubtitle}
-          </CardDescription>
         </CardHeader>
 
         <CardContent className="px-8 pb-8 pt-0">
@@ -92,7 +98,7 @@ export function AdminLoginClient() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder={strings.login.usernamePlaceholder}
+                placeholder="ইউজারনেম লিখুন"
                 required
                 disabled={loading}
                 className="h-12 px-4 rounded-xl border-slate-200 bg-slate-50/50 font-medium focus:bg-white transition-colors"
@@ -105,6 +111,13 @@ export function AdminLoginClient() {
                   <Lock className="h-4 w-4 text-slate-400" />
                   {strings.login.password}
                 </Label>
+                <button
+                  type="button"
+                  onClick={() => setForgotModalOpen(true)}
+                  className="text-xs text-emerald-700 hover:text-emerald-800 hover:underline font-semibold cursor-pointer"
+                >
+                  পাসওয়ার্ড ভুলে গেছেন?
+                </button>
               </div>
               <Input
                 id="password"
@@ -117,12 +130,11 @@ export function AdminLoginClient() {
                 disabled={loading}
                 className="h-12 px-4 rounded-xl border-slate-200 bg-slate-50/50 font-medium focus:bg-white transition-colors"
               />
-              <p className="text-xs text-slate-400 mt-1">ডিফল্ট পাসওয়ার্ড: <span className="font-mono font-semibold text-slate-600">123456</span></p>
             </div>
 
             <Button 
               type="submit" 
-              className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 font-bold text-white shadow-lg shadow-emerald-600/25 transition-all active:scale-[0.98] mt-2" 
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 font-bold text-white shadow-lg shadow-emerald-600/25 transition-all active:scale-[0.98] mt-2 cursor-pointer" 
               disabled={loading}
             >
               {loading ? (
@@ -137,6 +149,32 @@ export function AdminLoginClient() {
           </form>
         </CardContent>
       </Card>
+
+      {/* Forgot Password Modal */}
+      <Dialog open={forgotModalOpen} onOpenChange={setForgotModalOpen}>
+        <DialogContent className="sm:max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+          <DialogHeader className="text-center space-y-2">
+            <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-200 shadow-xs mb-1">
+              <Lock className="h-6 w-6" />
+            </div>
+            <DialogTitle className="text-lg font-bold text-slate-900 font-title">
+              পাসওয়ার্ড পুনরুদ্ধার
+            </DialogTitle>
+            <DialogDescription className="text-sm font-medium text-slate-600 pt-2">
+              সিস্টেম এডমিনের সাথে যোগাযোগ করুন
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="pt-4 flex justify-center sm:justify-center">
+            <Button
+              type="button"
+              onClick={() => setForgotModalOpen(false)}
+              className="rounded-xl px-6 bg-slate-900 hover:bg-slate-800 text-white font-bold cursor-pointer"
+            >
+              ঠিক আছে
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

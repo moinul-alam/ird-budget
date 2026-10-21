@@ -46,6 +46,7 @@ export function LandingClient() {
   const [regError, setRegError] = useState<string | null>(null)
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState<string | null>(null)
+  const [showForgotModal, setShowForgotModal] = useState(false)
 
   // Search handler
   const handleSearch = () => {
@@ -262,22 +263,20 @@ export function LandingClient() {
                   {strings.landing.foundOffice}
                 </p>
 
-                {/* Password field with tooltip */}
+                {/* Password field with forgot modal trigger */}
                 <div className="mb-6 text-left">
                   <div className="flex items-center justify-between mb-2">
                     <label htmlFor="office_password" className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
                       <Lock className="h-4 w-4 text-slate-400" />
                       {strings.login.password}
                     </label>
-                    <div 
-                      className="group/tip relative flex items-center gap-1 text-xs text-blue-600 cursor-pointer"
-                      title={strings.login.passwordTooltip}
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotModal(true)}
+                      className="text-xs text-blue-600 hover:text-blue-700 hover:underline font-semibold cursor-pointer"
                     >
-                      <span className="underline decoration-dotted">পাসওয়ার্ড ভুলে গেছেন?</span>
-                      <div className="absolute right-0 bottom-full mb-2 hidden group-hover/tip:block w-64 p-2.5 bg-slate-900 text-white text-xs rounded-xl shadow-xl z-50 pointer-events-none">
-                        {strings.login.passwordTooltip}
-                      </div>
-                    </div>
+                      পাসওয়ার্ড ভুলে গেছেন?
+                    </button>
                   </div>
 
                   <input
@@ -285,7 +284,7 @@ export function LandingClient() {
                     id="office_password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="পাসওয়ার্ড দিন (ডিফল্ট: budget26)"
+                    placeholder="পাসওয়ার্ড লিখুন"
                     className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all"
                   />
                   
@@ -533,6 +532,34 @@ export function LandingClient() {
                   {strings.confirm}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Forgot Password Modal */}
+      {showForgotModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 text-center space-y-4">
+            <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-200 shadow-xs">
+              <Lock className="h-6 w-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 font-title">
+                পাসওয়ার্ড পুনরুদ্ধার
+              </h3>
+              <p className="text-sm font-medium text-slate-600 mt-2">
+                সিস্টেম এডমিনের সাথে যোগাযোগ করুন
+              </p>
+            </div>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowForgotModal(false)}
+                className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm transition-colors cursor-pointer"
+              >
+                ঠিক আছে
+              </button>
             </div>
           </div>
         </div>
