@@ -1,0 +1,156 @@
+'use client'
+
+import { toBanglaNumber } from '@/lib/bangla'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Zap, Plus, Edit2, Trash2, Loader2 } from 'lucide-react'
+import { UtilityTypeItem } from '@/app/actions/admin-settings'
+import { UtilityModalState } from '../_types/settings'
+
+interface TabUtilityProps {
+  utilityTypes: UtilityTypeItem[]
+  utilityModal: UtilityModalState
+  setUtilityModal: React.Dispatch<React.SetStateAction<UtilityModalState>>
+  onSaveUtility: () => Promise<void>
+  onDeleteUtility: (id: number) => Promise<void>
+  saving: boolean
+}
+
+export function TabUtility({
+  utilityTypes,
+  utilityModal,
+  setUtilityModal,
+  onSaveUtility,
+  onDeleteUtility,
+  saving,
+}: TabUtilityProps) {
+  return (
+    <>
+      <Card className="rounded-2xl border-slate-200/80 bg-white shadow-sm overflow-hidden">
+        <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-lg font-bold text-slate-800 flex items-center gap-2">
+              <Zap className="h-5 w-5 text-amber-500" />
+              ইউটিলিটির তালিকা
+            </CardTitle>
+            <CardDescription className="text-xs text-slate-500">
+              অফিসসমূহের বাজেট তৈরির জন্য ইউটিলিটি সেবাসমূহ ও তাদের প্রদর্শন ক্রম নির্ধারণ করুন
+            </CardDescription>
+          </div>
+          <Button
+            onClick={() => setUtilityModal({ open: true, name: '', order: utilityTypes.length + 1 })}
+            className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
+          >
+            <Plus className="h-4 w-4" />
+            নতুন ইউটিলিটি যোগ করুন
+          </Button>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-600">
+              <thead className="bg-slate-50/80 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100">
+                <tr>
+                  <th className="px-6 py-4 w-24">ক্রম</th>
+                  <th className="px-6 py-4">ইউটিলিটির নাম</th>
+                  <th className="px-6 py-4 text-right">অ্যাকশন</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {utilityTypes.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="text-center py-10 text-slate-400">
+                      কোনো ইউটিলিটি নেই। &quot;নতুন ইউটিলিটি যোগ করুন&quot; বাটনে ক্লিক করে যোগ করুন।
+                    </td>
+                  </tr>
+                ) : (
+                  utilityTypes.map((u, idx) => (
+                    <tr key={u.id} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="px-6 py-4 font-mono font-bold text-slate-500">
+                        {toBanglaNumber(u.order || idx + 1)}
+                      </td>
+                      <td className="px-6 py-4 font-bold text-slate-800">
+                        {u.name}
+                      </td>
+                      <td className="px-6 py-4 text-right space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setUtilityModal({ open: true, id: u.id, name: u.name, order: u.order })}
+                          className="rounded-xl border-slate-200 text-xs font-semibold"
+                        >
+                          <Edit2 className="h-3 w-3 mr-1" />
+                          সম্পাদনা
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onDeleteUtility(u.id)}
+                          className="rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-semibold"
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          মুছুন
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Utility Type Modal */}
+      {utilityModal.open && (
+        <Dialog open={utilityModal.open} onOpenChange={(open) => !open && setUtilityModal(prev => ({ ...prev, open: false }))}>
+          <DialogContent className="sm:max-w-md rounded-3xl p-6">
+            <DialogHeader className="pb-3 border-b border-slate-100">
+              <DialogTitle className="text-xl font-extrabold text-slate-800">
+                {utilityModal.id ? 'ইউটিলিটির নাম সম্পাদনা' : 'নতুন ইউটিলিটির নাম যোগ করুন'}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-3">
+              <div className="space-y-2">
+                <Label className="text-sm font-bold text-slate-700">ইউটিলিটির নাম</Label>
+                <Input
+                  type="text"
+                  placeholder="যেমন: ইন্টারনেট বিল, টেলিফোন বিল"
+                  value={utilityModal.name}
+                  onChange={(e) => setUtilityModal(prev => ({ ...prev, name: e.target.value }))}
+                  className="rounded-xl border-slate-200 font-medium"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-bold text-slate-700">প্রদর্শন ক্রম</Label>
+                <Input
+                  type="number"
+                  value={utilityModal.order}
+                  onChange={(e) => setUtilityModal(prev => ({ ...prev, order: parseInt(e.target.value, 10) || 1 }))}
+                  className="rounded-xl border-slate-200 font-mono"
+                />
+              </div>
+            </div>
+            <DialogFooter className="pt-3 border-t border-slate-100 flex gap-2 sm:justify-end">
+              <Button variant="outline" onClick={() => setUtilityModal(prev => ({ ...prev, open: false }))} className="rounded-xl">
+                বাতিল
+              </Button>
+              <Button onClick={onSaveUtility} disabled={saving} className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+                সংরক্ষণ করুন
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    </>
+  )
+}
