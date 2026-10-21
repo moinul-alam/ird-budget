@@ -75,11 +75,20 @@ export async function loginOffice(budgetId: string, passwordInput?: string) {
     
     // Check if a custom password is stored in office name format 'Actual Name:::pwd$password'
     let storedPassword = DEFAULT_OFFICE_PASSWORD
-    let cleanName = office.name
-    if (office.name && office.name.includes(':::pwd$')) {
-      const parts = office.name.split(':::pwd$')
+    let cleanName = office.name || ''
+    if (cleanName.includes(':::pwd$')) {
+      const parts = cleanName.split(':::pwd$')
       cleanName = parts[0]
       storedPassword = parts[1] || DEFAULT_OFFICE_PASSWORD
+    }
+    if (cleanName.includes(':::mid=')) {
+      cleanName = cleanName.split(':::mid=')[0]
+    }
+    if (cleanName.includes(':::did=')) {
+      cleanName = cleanName.split(':::did=')[0]
+    }
+    if (cleanName.includes(':::poid=')) {
+      cleanName = cleanName.split(':::poid=')[0]
     }
 
     if (passwordInput !== undefined && passwordInput !== null) {

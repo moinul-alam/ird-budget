@@ -7,18 +7,18 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogFooter 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
 } from '@/components/ui/dialog'
-import { 
+import {
   Users,
-  KeyRound, 
-  Search, 
-  CheckCircle2, 
+  KeyRound,
+  Search,
+  CheckCircle2,
   Loader2,
   Lock,
   Layers,
@@ -47,7 +47,7 @@ export function OfficeUsersClient({
   const [savingPwd, setSavingPwd] = useState(false)
   const [pwdError, setPwdError] = useState<string | null>(null)
 
-  const filteredOffices = offices.filter(o => 
+  const filteredOffices = offices.filter(o =>
     o.budgetId.toLowerCase().includes(searchQuery.toLowerCase()) ||
     o.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     o.officeType.toLowerCase().includes(searchQuery.toLowerCase())
@@ -153,9 +153,6 @@ export function OfficeUsersClient({
               <CardTitle className="text-lg font-bold text-slate-800">
                 সকল অফিস ইউজার ও পাসওয়ার্ড ব্যবস্থাপনা
               </CardTitle>
-              <CardDescription className="text-xs text-slate-500">
-                মাঠপর্যায়ের অফিস আইডি (ইউজার আইডি) পর্যবেক্ষণ এবং পাসওয়ার্ড পরিবর্তন/রিসেট করুন
-              </CardDescription>
             </div>
 
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
@@ -188,10 +185,9 @@ export function OfficeUsersClient({
               <table className="w-full text-left text-sm text-slate-600">
                 <thead className="bg-slate-50/80 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100">
                   <tr>
-                    <th className="px-6 py-4">ইউজার আইডি (Login)</th>
+                    <th className="px-6 py-4 w-16">ক্র. নং</th>
                     <th className="px-6 py-4">অফিসের নাম</th>
-                    <th className="px-6 py-4">অফিসের ধরন</th>
-                    <th className="px-6 py-4">হেড অফিস</th>
+                    <th className="px-6 py-4">বাজেট আইডি (লগিন আইডি)</th>
                     <th className="px-6 py-4">বর্তমান পাসওয়ার্ড</th>
                     <th className="px-6 py-4 text-right">একশন</th>
                   </tr>
@@ -199,34 +195,28 @@ export function OfficeUsersClient({
                 <tbody className="divide-y divide-slate-100">
                   {filteredOffices.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-12 text-slate-400">
+                      <td colSpan={5} className="text-center py-12 text-slate-400">
                         অনুসন্ধানে কোনো অফিস ইউজার পাওয়া যায়নি
                       </td>
                     </tr>
                   ) : (
-                    filteredOffices.map((office) => (
+                    filteredOffices.map((office, idx) => (
                       <tr key={office.id} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="px-6 py-4 font-mono font-bold text-blue-700">
-                          {office.budgetId}
+                        <td className="px-6 py-4 font-mono font-semibold text-slate-600">
+                          {toBanglaNumber(idx + 1)}
                         </td>
                         <td className="px-6 py-4 font-semibold text-slate-800">
                           {office.name}
                         </td>
-                        <td className="px-6 py-4 text-xs font-medium text-slate-600">
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700">
-                            <Layers className="h-3 w-3 text-slate-400" />
-                            {office.officeType}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-xs text-slate-500">
-                          {office.parentOffice}
+                        <td className="px-6 py-4 font-mono font-bold text-blue-700">
+                          {office.budgetId}
                         </td>
                         <td className="px-6 py-4 font-mono text-xs">
-                          <span className={`px-2 py-1 rounded-md font-semibold ${
-                            office.hasCustomPassword
-                              ? 'bg-purple-50 text-purple-700 border border-purple-200' 
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-semibold ${office.hasCustomPassword
+                              ? 'bg-purple-50 text-purple-700 border border-purple-200'
                               : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          }`}>
+                            }`}>
+                            <KeyRound className="h-3 w-3 text-emerald-600" />
                             {office.currentPasswordHint}
                           </span>
                         </td>

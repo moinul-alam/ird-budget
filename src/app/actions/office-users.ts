@@ -49,8 +49,8 @@ export async function getAllOfficeUsersList(): Promise<{ offices: OfficeUserItem
     }
   })
 
-  // Whichever password is most frequent or extracted from first office
-  let extractedDefault = '—'
+  // Default password across offices (as was showing in field offices: 12345)
+  let extractedDefault = '12345'
   if (pwdCounts.size > 0) {
     let maxCount = -1
     for (const [pwd, count] of pwdCounts.entries()) {
@@ -63,7 +63,7 @@ export async function getAllOfficeUsersList(): Promise<{ offices: OfficeUserItem
 
   const list = offices.map((o: any) => {
     let cleanName = o.name || ''
-    let password = extractedDefault !== '—' ? extractedDefault : '—'
+    let password = extractedDefault
     let hasCustomPassword = false
 
     if (cleanName.includes(':::pwd$')) {
@@ -74,13 +74,20 @@ export async function getAllOfficeUsersList(): Promise<{ offices: OfficeUserItem
         hasCustomPassword = true
       }
     }
+    if (cleanName.includes(':::mid=')) cleanName = cleanName.split(':::mid=')[0]
+    if (cleanName.includes(':::did=')) cleanName = cleanName.split(':::did=')[0]
+    if (cleanName.includes(':::poid=')) cleanName = cleanName.split(':::poid=')[0]
+
+    let parentOfficeName = o.parent_office?.name || '—'
+    if (parentOfficeName.includes(':::type=')) parentOfficeName = parentOfficeName.split(':::type=')[0]
+    if (parentOfficeName.includes(':::poid=')) parentOfficeName = parentOfficeName.split(':::poid=')[0]
 
     return {
       id: o.id,
       budgetId: o.budget_id,
       name: cleanName,
       officeType: o.office_type?.name || 'N/A',
-      parentOffice: o.parent_office?.name || '—',
+      parentOffice: parentOfficeName,
       hasCustomPassword,
       currentPasswordHint: password,
       created_at: o.created_at,

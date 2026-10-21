@@ -27,16 +27,14 @@ export default async function AdminUsersPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-5">
         <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">
-          ইউজার ও অ্যাক্সেস কন্ট্রোল (ACL)
+          এডমিন ইউজার ব্যবস্থাপনা
         </h1>
-        <p className="text-slate-500 text-sm mt-1">
-          অ্যাডমিন ইউজারদের রোল পরিবর্তন, পাসওয়ার্ড আপডেট এবং অ্যাক্সেস পারমিশন নিয়ন্ত্রণ করুন
-        </p>
+
       </div>
 
-      <UsersClient 
-        initialUsers={users} 
-        officeTypes={officeTypes || []} 
+      <UsersClient
+        initialUsers={users}
+        officeTypes={officeTypes || []}
         currentUserId={session.id}
       />
     </div>

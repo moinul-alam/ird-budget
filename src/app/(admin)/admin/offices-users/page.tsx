@@ -27,11 +27,8 @@ export default async function AdminOfficesUsersPage() {
     <div className="space-y-6">
       <div className="border-b border-slate-200 pb-5">
         <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">
-          অফিস ইউজার ব্যবস্থাপনা (Offices & Passwords)
+          অফিস ইউজার ব্যবস্থাপনা
         </h1>
-        <p className="text-slate-500 text-sm mt-1">
-          সিস্টেমের সমস্ত অফিসের বাজেট আইডি (যেমন: ১০১, ১০২), বর্তমান পাসওয়ার্ড পর্যবেক্ষণ এবং যেকোনো অফিসের পাসওয়ার্ড রিসেট করুন
-        </p>
       </div>
 
       <OfficeUsersClient
