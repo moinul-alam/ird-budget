@@ -300,12 +300,12 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Card 2: খসড়া ও অপ্রস্তুত অফিস */}
+        {/* Card 2: খসড়া */}
         <Card className="border-slate-200 shadow-xs bg-white rounded-2xl">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                অপেক্ষমাণ / খসড়া
+                খসড়া
               </span>
               <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
                 <Clock className="h-5 w-5" />
@@ -316,7 +316,7 @@ export default async function AdminDashboardPage() {
                 {toBanglaNumber(draftOfficesCount)}
               </span>
               <span className="text-slate-400 font-bold text-xs">
-                টি খসড়া, {toBanglaNumber(notStartedOfficesCount)} টি শুরু করেনি
+                টি খসড়া
               </span>
             </div>
             <div className="mt-3 w-full bg-slate-100 rounded-full h-2 overflow-hidden">
@@ -351,12 +351,12 @@ export default async function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Card 4: গ্রুপ বাজেটের আওতাধীন */}
+        {/* Card 4: গ্রুপ বাজেট দাখিলের স্ট্যাটাস */}
         <Card className="border-slate-200 shadow-xs bg-white rounded-2xl">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                গ্রুপ বাজেটের সার্কেল
+                গ্রুপ বাজেট দাখিলের স্ট্যাটাস
               </span>
               <div className="p-2 rounded-xl bg-purple-50 text-purple-600">
                 <Landmark className="h-5 w-5" />
@@ -366,8 +366,8 @@ export default async function AdminDashboardPage() {
               <span className="text-3xl font-black text-purple-700 font-mono">
                 {toBanglaNumber(groupBudgetSubmitted)}
               </span>
-              <span className="text-slate-400 font-bold text-xs">
-                / {toBanglaNumber(groupBudgetOffices)} টি সার্কেল দাখিল
+              <span className="text-slate-500 font-bold text-xs">
+                / {toBanglaNumber(groupBudgetOffices)} টি অফিস
               </span>
             </div>
             <div className="mt-3 w-full bg-slate-100 rounded-full h-2 overflow-hidden">
@@ -376,9 +376,12 @@ export default async function AdminDashboardPage() {
                 style={{ width: `${groupBudgetOffices > 0 ? (groupBudgetSubmitted / groupBudgetOffices) * 100 : 0}%` }}
               />
             </div>
-            <p className="text-[11px] text-slate-400 mt-2 font-medium">
-              উর্ধ্বতন রেঞ্জ/অঞ্চলের সমন্বিত বাজেটের জন্য
-            </p>
+            <div className="flex items-center justify-between mt-2 text-[11px] text-slate-500 font-medium">
+              <span>অগ্রগতি:</span>
+              <span className="font-mono font-bold text-purple-700">
+                {toBanglaNumber(groupBudgetOffices > 0 ? Math.round((groupBudgetSubmitted / groupBudgetOffices) * 100) : 0)}% সম্পন্ন
+              </span>
+            </div>
           </CardContent>
         </Card>
       </div>

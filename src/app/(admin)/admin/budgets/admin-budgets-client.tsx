@@ -61,7 +61,9 @@ export function AdminBudgetsClient({
   initialFiscalYears,
   initialCycles,
 }: AdminBudgetsClientProps) {
-  const [activeTab, setActiveTab] = useState<'budget_types' | 'fiscal_years' | 'cycles'>('cycles')
+  const [activeTab, setActiveTab] = useState<'budget_types' | 'fiscal_years' | 'cycles'>(
+    initialBudgetTypes.length > 0 && initialFiscalYears.length > 0 ? 'cycles' : 'budget_types'
+  )
   const [isPending, startTransition] = useTransition()
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
@@ -91,8 +93,8 @@ export function AdminBudgetsClient({
     status: 'open' | 'closed'
   }>({
     open: false,
-    fiscal_year: fiscalYears[0]?.year || '২০২৬-২৭',
-    budget_type_name: budgetTypes[0]?.name || 'প্রাক্কলিত',
+    fiscal_year: fiscalYears[0]?.year || '',
+    budget_type_name: budgetTypes[0]?.name || '',
     status: 'open',
   })
 
@@ -194,8 +196,8 @@ export function AdminBudgetsClient({
         showStatus('বাজেট সাইকেল সফলভাবে সংরক্ষিত হয়েছে')
         setCycleModal({
           open: false,
-          fiscal_year: fiscalYears[0]?.year || '২০২৬-২৭',
-          budget_type_name: budgetTypes[0]?.name || 'প্রাক্কলিত',
+          fiscal_year: fiscalYears[0]?.year || '',
+          budget_type_name: budgetTypes[0]?.name || '',
           status: 'open',
         })
         // Update local cycles list
@@ -296,15 +298,61 @@ export function AdminBudgetsClient({
     }
   }
 
+  const canCreateCycle = budgetTypes.length > 0 && fiscalYears.length > 0
+
+  // Delete Budget Type Confirmation
+  const confirmDeleteBudgetType = (b: BudgetTypeItem) => {
+    setConfirmModal({
+      open: true,
+      title: 'বাজেটের ধরণ মুছুন',
+      description: `আপনি কি নিশ্চিতভাবে "${b.name}" বাজেটের ধরণটি মুছে ফেলতে চান?`,
+      isArchive: false,
+      onConfirm: () => {
+        startTransition(async () => {
+          const res = await deleteBudgetType(b.id)
+          setConfirmModal((prev) => ({ ...prev, open: false }))
+          if (res.error) {
+            showStatus(res.error, 'error')
+          } else {
+            showStatus('বাজেটের ধরণ সফলভাবে মুছে ফেলা হয়েছে')
+            setBudgetTypes((prev) => prev.filter((item) => item.id !== b.id))
+          }
+        })
+      },
+    })
+  }
+
+  // Delete Fiscal Year Confirmation
+  const confirmDeleteFiscalYear = (f: FiscalYearItem) => {
+    setConfirmModal({
+      open: true,
+      title: 'অর্থবছর মুছুন',
+      description: `আপনি কি নিশ্চিতভাবে "${f.year}" অর্থবছরটি মুছে ফেলতে চান?`,
+      isArchive: false,
+      onConfirm: () => {
+        startTransition(async () => {
+          const res = await deleteFiscalYear(f.id)
+          setConfirmModal((prev) => ({ ...prev, open: false }))
+          if (res.error) {
+            showStatus(res.error, 'error')
+          } else {
+            showStatus('অর্থবছর সফলভাবে মুছে ফেলা হয়েছে')
+            setFiscalYears((prev) => prev.filter((item) => item.id !== f.id))
+          }
+        })
+      },
+    })
+  }
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-title">
             বাজেট কনফিগারেশন
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-slate-500 mt-1 font-medium">
             বাজেটের ধরণ, অর্থবছর এবং সার্বিক বাজেট সাইকেল নির্ধারণ ও নিয়ন্ত্রণ
           </p>
         </div>
@@ -327,21 +375,9 @@ export function AdminBudgetsClient({
         )}
       </div>
 
-      {/* 3 Tabs Container */}
+      {/* 3 Tabs Container (Ordered: Tab 1, Tab 2, Tab 3) */}
       <div className="border-b border-slate-200">
         <nav className="flex space-x-2 sm:space-x-4" aria-label="Tabs">
-          <button
-            onClick={() => setActiveTab('cycles')}
-            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
-              activeTab === 'cycles'
-                ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
-            }`}
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-            <span>ট্যাব ৩: বাজেট নির্ধারণ (সাইকেল)</span>
-          </button>
-
           <button
             onClick={() => setActiveTab('budget_types')}
             className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
@@ -352,6 +388,9 @@ export function AdminBudgetsClient({
           >
             <Layers className="h-4 w-4" />
             <span>ট্যাব ১: বাজেটের ধরণ</span>
+            <span className="ml-1 text-[11px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-mono">
+              {toBanglaNumber(budgetTypes.length)}
+            </span>
           </button>
 
           <button
@@ -364,165 +403,37 @@ export function AdminBudgetsClient({
           >
             <Calendar className="h-4 w-4" />
             <span>ট্যাব ২: অর্থবছর</span>
+            <span className="ml-1 text-[11px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-mono">
+              {toBanglaNumber(fiscalYears.length)}
+            </span>
+          </button>
+
+          <button
+            onClick={() => {
+              if (!canCreateCycle) {
+                showStatus('ট্যাব ৩ ব্যবহারের পূর্বে ট্যাব ১ (বাজেটের ধরণ) এবং ট্যাব ২ (অর্থবছর) পূরণ আবশ্যক', 'error')
+                return
+              }
+              setActiveTab('cycles')
+            }}
+            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
+              activeTab === 'cycles'
+                ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
+                : !canCreateCycle
+                ? 'border-transparent text-slate-400 opacity-60 cursor-not-allowed'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+            }`}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            <span>ট্যাব ৩: বাজেট নির্ধারণ (সাইকেল)</span>
+            {!canCreateCycle && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold">
+                লকড
+              </span>
+            )}
           </button>
         </nav>
       </div>
-
-      {/* ============================================================ */}
-      {/* TAB 3: বাজেট নির্ধারণ (সাইকেল ও ওপেন/ক্লোজ নিয়ন্ত্রণ) */}
-      {/* ============================================================ */}
-      {activeTab === 'cycles' && (
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader className="border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4">
-            <div>
-              <CardTitle className="text-lg font-bold text-slate-900">
-                বাজেট সাইকেলসমূহ
-              </CardTitle>
-              <CardDescription className="text-xs text-slate-500 mt-0.5">
-                অর্থবছর ও বাজেটের ধরণ অনুযায়ী বাজেট দাখিল কার্যক্রম উন্মুক্ত বা বন্ধ করুন
-              </CardDescription>
-            </div>
-            <Button
-              onClick={() =>
-                setCycleModal({
-                  open: true,
-                  fiscal_year: fiscalYears[0]?.year || '২০২৬-২৭',
-                  budget_type_name: budgetTypes[0]?.name || 'প্রাক্কলিত',
-                  status: 'open',
-                })
-              }
-              className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5 shadow-xs"
-            >
-              <Plus className="h-4 w-4" />
-              নতুন বাজেট সাইকেল নির্ধারণ
-            </Button>
-          </CardHeader>
-
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                    <th className="py-3 px-4">ক্র.নং</th>
-                    <th className="py-3 px-4">অর্থবছর</th>
-                    <th className="py-3 px-4">বাজেটের ধরণ</th>
-                    <th className="py-3 px-4">দাখিলকৃত অফিসের সংখ্যা</th>
-                    <th className="py-3 px-4">স্ট্যাটাস</th>
-                    <th className="py-3 px-4 text-center">একশন</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {cycles.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-400">
-                        কোনো বাজেট সাইকেল পাওয়া যায়নি। নতুন সাইকেল যোগ করুন।
-                      </td>
-                    </tr>
-                  ) : (
-                    cycles.map((c, idx) => (
-                      <tr key={c.id} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="py-3.5 px-4 font-mono font-semibold text-slate-600">
-                          {toBanglaNumber(idx + 1)}
-                        </td>
-                        <td className="py-3.5 px-4 font-bold text-slate-900 text-sm">
-                          {toBanglaNumber(c.fiscal_year)}
-                        </td>
-                        <td className="py-3.5 px-4 font-medium text-slate-700">
-                          <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-bold border border-blue-200/60">
-                            {c.budget_type_name}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 font-medium text-slate-600">
-                          {c.has_data ? (
-                            <span className="font-bold text-slate-800">
-                              {toBanglaNumber(c.submission_count || 0)} টি অফিস
-                            </span>
-                          ) : (
-                            <span className="text-slate-400">০ (কোনো ডাটা নেই)</span>
-                          )}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleStatus(c)}
-                            className="cursor-pointer group flex items-center gap-1.5"
-                            title="স্ট্যাটাস পরিবর্তন করতে ক্লিক করুন"
-                          >
-                            <Badge
-                              variant="outline"
-                              className={`text-xs font-bold gap-1 rounded-full px-2.5 py-0.5 transition-all ${
-                                c.status === 'open'
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300 group-hover:bg-emerald-100'
-                                  : 'bg-slate-100 text-slate-600 border-slate-300 group-hover:bg-slate-200'
-                              }`}
-                            >
-                              {c.status === 'open' ? (
-                                <>
-                                  <Unlock className="h-3 w-3 text-emerald-600" />
-                                  <span>উন্মুক্ত (Open)</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Lock className="h-3 w-3 text-slate-500" />
-                                  <span>বন্ধ (Closed)</span>
-                                </>
-                              )}
-                            </Badge>
-                          </button>
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                setCycleModal({
-                                  open: true,
-                                  id: c.id,
-                                  fiscal_year: c.fiscal_year,
-                                  budget_type_name: c.budget_type_name,
-                                  status: c.status,
-                                })
-                              }
-                              className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
-                              title="সম্পাদনা করুন"
-                            >
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </Button>
-
-                            {c.has_data ? (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteCycle(c)}
-                                className="h-8 px-2 text-amber-700 hover:text-amber-800 hover:bg-amber-50 rounded-lg text-xs font-bold gap-1"
-                                title="ডাটা থাকায় মুছে ফেলার পরিবর্তে আর্কাইভ করা হবে"
-                              >
-                                <Archive className="h-3.5 w-3.5" />
-                                <span>আর্কাইভ</span>
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteCycle(c)}
-                                className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg"
-                                title="মুছে ফেলুন"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* ============================================================ */}
       {/* TAB 1: বাজেটের ধরণ (Budget Types) */}
@@ -548,66 +459,73 @@ export function AdminBudgetsClient({
           </CardHeader>
 
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                    <th className="py-3 px-4 w-20">ক্র.নং</th>
-                    <th className="py-3 px-4">বাজেটের ধরণ</th>
-                    <th className="py-3 px-4">কোড ক্যাটাগরি</th>
-                    <th className="py-3 px-4 text-center w-28">একশন</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {budgetTypes.map((b, idx) => (
-                    <tr key={b.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-semibold text-slate-600">
-                        {toBanglaNumber(idx + 1)}
-                      </td>
-                      <td className="py-3.5 px-4 font-bold text-slate-800 text-sm">
-                        {b.name}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <Badge variant="outline" className="text-xs font-mono">
-                          {b.code === 'revised' ? 'সংশোধিত (revised)' : 'প্রাক্কলিত (new)'}
-                        </Badge>
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setTypeModal({ open: true, id: b.id, name: b.name })}
-                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
-                            title="সম্পাদনা"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              startTransition(async () => {
-                                const res = await deleteBudgetType(b.id)
-                                if (res.error) showStatus(res.error, 'error')
-                                else {
-                                  showStatus('বাজেটের ধরণ মুছে ফেলা হয়েছে')
-                                  setBudgetTypes((prev) => prev.filter((item) => item.id !== b.id))
-                                }
-                              })
-                            }}
-                            className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg"
-                            title="মুছে ফেলুন"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </td>
+            {budgetTypes.length === 0 ? (
+              <div className="py-12 px-6 text-center">
+                <Layers className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-slate-700">
+                  কোনো বাজেটের ধরণ পাওয়া যায়নি
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  বাজেট কার্যক্রম শুরুর পূর্বে &quot;নতুন বাজেটের ধরণ&quot; বাটনে ক্লিক করে ধরণ যোগ করুন (যেমন: প্রাক্কলিত, সংশোধিত)।
+                </p>
+                <div className="mt-4">
+                  <Button
+                    size="sm"
+                    onClick={() => setTypeModal({ open: true, name: '' })}
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    নতুন বাজেটের ধরণ যোগ করুন
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+                      <th className="py-3 px-4 w-20">ক্র.নং</th>
+                      <th className="py-3 px-4">বাজেটের ধরণ</th>
+                      <th className="py-3 px-4 text-center w-28">একশন</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {budgetTypes.map((b, idx) => (
+                      <tr key={b.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3.5 px-4 font-mono font-semibold text-slate-600">
+                          {toBanglaNumber(idx + 1)}
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-800 text-sm">
+                          {b.name}
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setTypeModal({ open: true, id: b.id, name: b.name })}
+                              className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
+                              title="সম্পাদনা"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => confirmDeleteBudgetType(b)}
+                              className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg"
+                              title="মুছে ফেলুন"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -636,60 +554,284 @@ export function AdminBudgetsClient({
           </CardHeader>
 
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                    <th className="py-3 px-4 w-20">ক্র.নং</th>
-                    <th className="py-3 px-4">অর্থবছর</th>
-                    <th className="py-3 px-4 text-center w-28">একশন</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {fiscalYears.map((f, idx) => (
-                    <tr key={f.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-semibold text-slate-600">
-                        {toBanglaNumber(idx + 1)}
-                      </td>
-                      <td className="py-3.5 px-4 font-bold text-slate-800 text-sm">
-                        {f.year}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setFyModal({ open: true, id: f.id, year: f.year })}
-                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
-                            title="সম্পাদনা"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              startTransition(async () => {
-                                const res = await deleteFiscalYear(f.id)
-                                if (res.error) showStatus(res.error, 'error')
-                                else {
-                                  showStatus('অর্থবছর মুছে ফেলা হয়েছে')
-                                  setFiscalYears((prev) => prev.filter((item) => item.id !== f.id))
-                                }
-                              })
-                            }}
-                            className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg"
-                            title="মুছে ফেলুন"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </td>
+            {fiscalYears.length === 0 ? (
+              <div className="py-12 px-6 text-center">
+                <Calendar className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-slate-700">
+                  কোনো অর্থবছর পাওয়া যায়নি
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  বাজেট কার্যক্রম শুরুর পূর্বে &quot;নতুন অর্থবছর&quot; বাটনে ক্লিক করে অর্থবছর যোগ করুন (যেমন: ২০২৬-২৭)।
+                </p>
+                <div className="mt-4">
+                  <Button
+                    size="sm"
+                    onClick={() => setFyModal({ open: true, year: '' })}
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    নতুন অর্থবছর যোগ করুন
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+                      <th className="py-3 px-4 w-20">ক্র.নং</th>
+                      <th className="py-3 px-4">অর্থবছর</th>
+                      <th className="py-3 px-4 text-center w-28">একশন</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {fiscalYears.map((f, idx) => (
+                      <tr key={f.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3.5 px-4 font-mono font-semibold text-slate-600">
+                          {toBanglaNumber(idx + 1)}
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-800 text-sm">
+                          {f.year}
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setFyModal({ open: true, id: f.id, year: f.year })}
+                              className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
+                              title="সম্পাদনা"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => confirmDeleteFiscalYear(f)}
+                              className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg"
+                              title="মুছে ফেলুন"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ============================================================ */}
+      {/* TAB 3: বাজেট নির্ধারণ (সাইকেল ও ওপেন/ক্লোজ নিয়ন্ত্রণ) */}
+      {/* ============================================================ */}
+      {activeTab === 'cycles' && (
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4">
+            <div>
+              <CardTitle className="text-lg font-bold text-slate-900">
+                বাজেট সাইকেলসমূহ
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-500 mt-0.5">
+                অর্থবছর ও বাজেটের ধরণ অনুযায়ী বাজেট দাখিল কার্যক্রম উন্মুক্ত বা বন্ধ করুন
+              </CardDescription>
             </div>
+            <Button
+              disabled={!canCreateCycle}
+              onClick={() => {
+                if (!canCreateCycle) {
+                  showStatus('ট্যাব ১ (বাজেটের ধরণ) এবং ট্যাব ২ (অর্থবছর) পূরণ ব্যতীত নতুন সাইকেল যোগ করা সম্ভব নয়', 'error')
+                  return
+                }
+                setCycleModal({
+                  open: true,
+                  fiscal_year: fiscalYears[0]?.year || '',
+                  budget_type_name: budgetTypes[0]?.name || '',
+                  status: 'open',
+                })
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Plus className="h-4 w-4" />
+              নতুন বাজেট সাইকেল নির্ধারণ
+            </Button>
+          </CardHeader>
+
+          <CardContent className="p-0">
+            {!canCreateCycle ? (
+              <div className="py-12 px-6 text-center">
+                <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-slate-800">
+                  ট্যাব ১ এবং ট্যাব ২ এর তথ্য প্রয়োজন
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                  বাজেট সাইকেল নির্ধারণ করার পূর্বে অনুগ্রহ করে ট্যাব ১-এ বাজেটের ধরণ এবং ট্যাব ২-এ অর্থবছর এন্ট্রি করুন।
+                </p>
+                <div className="mt-4 flex items-center justify-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setActiveTab('budget_types')}
+                    className="text-xs font-bold"
+                  >
+                    ট্যাব ১-এ যান
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setActiveTab('fiscal_years')}
+                    className="text-xs font-bold"
+                  >
+                    ট্যাব ২-এ যান
+                  </Button>
+                </div>
+              </div>
+            ) : cycles.length === 0 ? (
+              <div className="py-12 px-6 text-center">
+                <SlidersHorizontal className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-slate-700">
+                  কোনো বাজেট সাইকেল পাওয়া যায়নি
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  নতুন সাইকেল নির্ধারণ করতে &quot;নতুন বাজেট সাইকেল নির্ধারণ&quot; বাটনে ক্লিক করুন।
+                </p>
+                <div className="mt-4">
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      setCycleModal({
+                        open: true,
+                        fiscal_year: fiscalYears[0]?.year || '',
+                        budget_type_name: budgetTypes[0]?.name || '',
+                        status: 'open',
+                      })
+                    }
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    নতুন বাজেট সাইকেল নির্ধারণ করুন
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+                      <th className="py-3 px-4">ক্র.নং</th>
+                      <th className="py-3 px-4">অর্থবছর</th>
+                      <th className="py-3 px-4">বাজেটের ধরণ</th>
+                      <th className="py-3 px-4">দাখিলকৃত অফিসের সংখ্যা</th>
+                      <th className="py-3 px-4">স্ট্যাটাস</th>
+                      <th className="py-3 px-4 text-center">একশন</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {cycles.map((c, idx) => (
+                        <tr key={c.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-3.5 px-4 font-mono font-semibold text-slate-600">
+                            {toBanglaNumber(idx + 1)}
+                          </td>
+                          <td className="py-3.5 px-4 font-bold text-slate-900 text-sm">
+                            {toBanglaNumber(c.fiscal_year)}
+                          </td>
+                          <td className="py-3.5 px-4 font-medium text-slate-700">
+                            <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-bold border border-blue-200/60">
+                              {c.budget_type_name}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 font-medium text-slate-600">
+                            {c.has_data ? (
+                              <span className="font-bold text-slate-800">
+                                {toBanglaNumber(c.submission_count || 0)} টি অফিস
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">০ (কোনো ডাটা নেই)</span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleStatus(c)}
+                              className="cursor-pointer group flex items-center gap-1.5"
+                              title="স্ট্যাটাস পরিবর্তন করতে ক্লিক করুন"
+                            >
+                              <Badge
+                                variant="outline"
+                                className={`text-xs font-bold gap-1 rounded-full px-2.5 py-0.5 transition-all ${
+                                  c.status === 'open'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300 group-hover:bg-emerald-100'
+                                    : 'bg-slate-100 text-slate-600 border-slate-300 group-hover:bg-slate-200'
+                                }`}
+                              >
+                                {c.status === 'open' ? (
+                                  <>
+                                    <Unlock className="h-3 w-3 text-emerald-600" />
+                                    <span>উন্মুক্ত (Open)</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Lock className="h-3 w-3 text-slate-500" />
+                                    <span>বন্ধ (Closed)</span>
+                                  </>
+                                )}
+                              </Badge>
+                            </button>
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  setCycleModal({
+                                    open: true,
+                                    id: c.id,
+                                    fiscal_year: c.fiscal_year,
+                                    budget_type_name: c.budget_type_name,
+                                    status: c.status,
+                                  })
+                                }
+                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
+                                title="সম্পাদনা করুন"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </Button>
+
+                              {c.has_data ? (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteCycle(c)}
+                                  className="h-8 px-2 text-amber-700 hover:text-amber-800 hover:bg-amber-50 rounded-lg text-xs font-bold gap-1"
+                                  title="ডাটা থাকায় মুছে ফেলার পরিবর্তে আর্কাইভ করা হবে"
+                                >
+                                  <Archive className="h-3.5 w-3.5" />
+                                  <span>আর্কাইভ</span>
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteCycle(c)}
+                                  className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg"
+                                  title="মুছে ফেলুন"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    }
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -801,7 +943,7 @@ export function AdminBudgetsClient({
               {cycleModal.id ? 'বাজেট সাইকেল সম্পাদনা' : 'নতুন বাজেট নির্ধারণ'}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="space-y-4 py-3">
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-700">বাজেটের ধরণ</Label>
               <Select
@@ -812,7 +954,7 @@ export function AdminBudgetsClient({
                   }
                 }}
               >
-                <SelectTrigger className="rounded-xl border-slate-200 text-xs">
+                <SelectTrigger className="w-full rounded-xl border-slate-200 text-xs h-10">
                   <SelectValue placeholder="বাজেটের ধরণ নির্বাচন করুন" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl text-xs">
@@ -835,37 +977,54 @@ export function AdminBudgetsClient({
                   }
                 }}
               >
-                <SelectTrigger className="rounded-xl border-slate-200 text-xs">
-                  <SelectValue placeholder="অর্থবছর নির্বাচন করুন" />
+                <SelectTrigger className="w-full rounded-xl border-slate-200 text-xs h-10">
+                  <SelectValue placeholder="অর্থবছর নির্বাচন করুন">
+                    {toBanglaNumber(cycleModal.fiscal_year)}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="rounded-xl text-xs">
                   {fiscalYears.map((f) => (
                     <SelectItem key={f.id} value={f.year}>
-                      {f.year}
+                      {toBanglaNumber(f.year)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 pt-1">
               <Label className="text-xs font-bold text-slate-700">স্ট্যাটাস</Label>
-              <Select
-                value={cycleModal.status}
-                onValueChange={(val) => {
-                  if (val === 'open' || val === 'closed') {
-                    setCycleModal((prev) => ({ ...prev, status: val }))
-                  }
-                }}
-              >
-                <SelectTrigger className="rounded-xl border-slate-200 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl text-xs">
-                  <SelectItem value="open">উন্মুক্ত (Open) - ইউজাররা বাজেট এন্ট্রি করতে পারবে</SelectItem>
-                  <SelectItem value="closed">বন্ধ (Closed) - বাজেট এন্ট্রি বন্ধ থাকবে</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setCycleModal((prev) => ({ ...prev, status: 'open' }))}
+                  className={`py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    cycleModal.status === 'open'
+                      ? 'bg-emerald-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                  }`}
+                >
+                  <Unlock className="h-3.5 w-3.5" />
+                  <span>ওপেন</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCycleModal((prev) => ({ ...prev, status: 'closed' }))}
+                  className={`py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                    cycleModal.status === 'closed'
+                      ? 'bg-rose-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                  }`}
+                >
+                  <Lock className="h-3.5 w-3.5" />
+                  <span>ক্লোজ্ড</span>
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                {cycleModal.status === 'open'
+                  ? '• ওপেন থাকা অবস্থায় ইউজাররা বাজেট তৈরি ও দাখিল করতে পারবে।'
+                  : '• ক্লোজ্ড অবস্থায় কোনো অফিস বাজেট ডাটা এন্ট্রি বা পরিবর্তন করতে পারবে না।'}
+              </p>
             </div>
           </div>
           <DialogFooter className="pt-2">

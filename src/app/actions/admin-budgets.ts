@@ -65,15 +65,15 @@ async function getStoredBudgetConfig(): Promise<BudgetConfigStorage> {
       const encoded = root.username.split(':::bcfg=')[1].split(':::')[0]
       const parsed = JSON.parse(decodeURIComponent(encoded))
       return {
-        budget_types: parsed.budget_types || DEFAULT_BUDGET_CONFIG.budget_types,
-        fiscal_years: parsed.fiscal_years || DEFAULT_BUDGET_CONFIG.fiscal_years,
+        budget_types: Array.isArray(parsed.budget_types) ? parsed.budget_types : [],
+        fiscal_years: Array.isArray(parsed.fiscal_years) ? parsed.fiscal_years : [],
       }
     } catch {
-      return DEFAULT_BUDGET_CONFIG
+      return { budget_types: [], fiscal_years: [] }
     }
   }
 
-  return DEFAULT_BUDGET_CONFIG
+  return { budget_types: [], fiscal_years: [] }
 }
 
 async function saveStoredBudgetConfig(config: BudgetConfigStorage) {
@@ -285,8 +285,17 @@ export async function saveCycle(data: {
   budget_type_name: string
   status: 'open' | 'closed'
 }) {
-  const session = await getAdminSession()
-  if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
+  if (!data.fiscal_year?.trim() || !data.budget_type_name?.trim()) {
+    return { error: 'অর্থবছর ও বাজেটের ধরণ আবশ্যক' }
+  }
+
+  const cfg = await getStoredBudgetConfig()
+  if (!cfg.budget_types || cfg.budget_types.length === 0) {
+    return { error: 'ট্যাব ১ (বাজেটের ধরণ)-এ কোনো তথ্য নেই। প্রথমে কমপক্ষে একটি বাজেটের ধরণ যোগ করুন।' }
+  }
+  if (!cfg.fiscal_years || cfg.fiscal_years.length === 0) {
+    return { error: 'ট্যাব ২ (অর্থবছর)-এ কোনো তথ্য নেই। প্রথমে কমপক্ষে একটি অর্থবছর যোগ করুন।' }
+  }
 
   const supabase = createOfficeClient()
   const isRevised =

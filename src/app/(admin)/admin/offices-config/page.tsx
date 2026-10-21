@@ -1,11 +1,11 @@
 import { getAdminSession } from '@/lib/auth-admin'
 import { redirect } from 'next/navigation'
-import { getDepartments, getOfficeTypesHierarchy } from '@/app/actions/admin-offices-config'
+import { getDepartments, getOfficeTypesHierarchy, getMinistries } from '@/app/actions/admin-offices-config'
 import { AdminOfficesConfigClient } from './admin-offices-config-client'
 
 export const metadata = {
   title: 'অফিস কনফিগারেশন | আইআরডি বাজেট ব্যবস্থাপনা',
-  description: 'বিভাগ, অফিস পদক্রম (হায়ারার্কি) এবং গ্রুপ বাজেট সেটিংস',
+  description: 'মন্ত্রণালয়/বিভাগ, দপ্তর/সংস্থা, মাঠ অফিসের স্তর এবং গ্রুপ বাজেট সেটিংস',
 }
 
 export default async function AdminOfficesConfigPage() {
@@ -15,7 +15,8 @@ export default async function AdminOfficesConfigPage() {
     redirect('/admin/login')
   }
 
-  const [departments, officeTypes] = await Promise.all([
+  const [ministries, departments, officeTypes] = await Promise.all([
+    getMinistries(),
     getDepartments(),
     getOfficeTypesHierarchy(),
   ])
@@ -23,6 +24,7 @@ export default async function AdminOfficesConfigPage() {
   return (
     <div className="space-y-6">
       <AdminOfficesConfigClient
+        initialMinistries={ministries}
         initialDepartments={departments}
         initialOfficeTypes={officeTypes}
       />

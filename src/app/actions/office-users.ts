@@ -15,7 +15,7 @@ export interface OfficeUserItem {
   created_at: string
 }
 
-export async function getAllOfficeUsersList(): Promise<OfficeUserItem[]> {
+export async function getAllOfficeUsersList(): Promise<{ offices: OfficeUserItem[]; defaultPassword: string }> {
   const session = await getAdminSession()
   if (!session || session.role !== 'superadmin') {
     throw new Error('অননুমোদিত প্রবেশাধিকার')
@@ -35,20 +35,44 @@ export async function getAllOfficeUsersList(): Promise<OfficeUserItem[]> {
     `)
     .order('id', { ascending: true })
 
-  if (error || !offices) {
-    return []
+  if (error || !offices || offices.length === 0) {
+    return { offices: [], defaultPassword: '—' }
   }
 
-  return offices.map((o: any) => {
+  // Find most common password among offices to determine the extracted default
+  const pwdCounts = new Map<string, number>()
+  offices.forEach((o: any) => {
+    const raw = o.name || ''
+    if (raw.includes(':::pwd$')) {
+      const p = raw.split(':::pwd$')[1]
+      if (p) pwdCounts.set(p, (pwdCounts.get(p) || 0) + 1)
+    }
+  })
+
+  // Whichever password is most frequent or extracted from first office
+  let extractedDefault = '—'
+  if (pwdCounts.size > 0) {
+    let maxCount = -1
+    for (const [pwd, count] of pwdCounts.entries()) {
+      if (count > maxCount) {
+        maxCount = count
+        extractedDefault = pwd
+      }
+    }
+  }
+
+  const list = offices.map((o: any) => {
     let cleanName = o.name || ''
-    let password = 'budget26'
+    let password = extractedDefault !== '—' ? extractedDefault : '—'
     let hasCustomPassword = false
 
     if (cleanName.includes(':::pwd$')) {
       const parts = cleanName.split(':::pwd$')
       cleanName = parts[0]
-      password = parts[1] || 'budget26'
-      hasCustomPassword = true
+      password = parts[1] || password
+      if (extractedDefault !== '—' && password !== extractedDefault) {
+        hasCustomPassword = true
+      }
     }
 
     return {
@@ -62,6 +86,8 @@ export async function getAllOfficeUsersList(): Promise<OfficeUserItem[]> {
       created_at: o.created_at,
     }
   })
+
+  return { offices: list, defaultPassword: extractedDefault }
 }
 
 export async function updateOfficePassword(

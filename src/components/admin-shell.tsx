@@ -18,6 +18,7 @@ import {
   ChevronDown,
   UserCheck,
   Building,
+  Building2,
   BarChart3,
   SlidersHorizontal
 } from 'lucide-react'
@@ -40,8 +41,9 @@ export function AdminShell({
   // Drawer collapsible state (default expanded)
   const [drawerOpen, setDrawerOpen] = useState(true)
 
-  // 3 Collapsible menu groups: default collapsed (false)
+  // 4 Collapsible menu groups: default collapsed (false)
   const [budgetGroupOpen, setBudgetGroupOpen] = useState(false)
+  const [officeGroupOpen, setOfficeGroupOpen] = useState(false)
   const [reportsGroupOpen, setReportsGroupOpen] = useState(false)
   const [usersGroupOpen, setUsersGroupOpen] = useState(false)
 
@@ -237,33 +239,78 @@ export function AdminShell({
             <nav className="flex-1 p-3.5 space-y-2 overflow-y-auto">
               {/* গ্রুপ ১: বাজেট সেটিংস (Collapsible) */}
               <div className="space-y-1">
+                 <button
+                   type="button"
+                   onClick={() => setBudgetGroupOpen((prev) => !prev)}
+                   className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                 >
+                   <div className="flex items-center gap-2.5">
+                     <SlidersHorizontal className="h-4 w-4 text-blue-400" />
+                     <span>বাজেট সেটিংস</span>
+                   </div>
+                   <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${budgetGroupOpen ? 'rotate-180' : ''}`} />
+                 </button>
+
+                 {budgetGroupOpen && (
+                   <div className="pl-3 space-y-1 pt-0.5 border-l-2 border-slate-700/60 ml-3">
+                     <Link 
+                       href="/admin/budgets" 
+                       onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
+                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${
+                         pathname.startsWith('/admin/budgets')
+                           ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
+                           : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                       }`}
+                     >
+                       <SlidersHorizontal className="h-3.5 w-3.5 shrink-0" />
+                       <span>বাজেট কনফিগারেশন</span>
+                     </Link>
+
+                     <Link 
+                       href="/admin/codes" 
+                       onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
+                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${
+                         pathname.startsWith('/admin/codes')
+                           ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
+                           : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                       }`}
+                     >
+                       <FileText className="h-3.5 w-3.5 shrink-0" />
+                       <span>অর্থনৈতিক কোড কনফিগারেশন</span>
+                     </Link>
+
+                     <Link 
+                       href="/admin/settings" 
+                       onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
+                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${
+                         pathname.startsWith('/admin/settings')
+                           ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
+                           : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                       }`}
+                     >
+                       <Settings className="h-3.5 w-3.5 shrink-0" />
+                       <span>ডিফল্ট ভ্যালু সেটিংস</span>
+                     </Link>
+                   </div>
+                 )}
+               </div>
+
+              {/* গ্রুপ ২: অফিস ব্যবস্থাপনা (Collapsible - After Budget Settings, Before Reports) */}
+              <div className="space-y-1 pt-1">
                 <button
                   type="button"
-                  onClick={() => setBudgetGroupOpen((prev) => !prev)}
+                  onClick={() => setOfficeGroupOpen((prev) => !prev)}
                   className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   <div className="flex items-center gap-2.5">
-                    <SlidersHorizontal className="h-4 w-4 text-blue-400" />
-                    <span>বাজেট সেটিংস</span>
+                    <Building className="h-4 w-4 text-purple-400" />
+                    <span>অফিস ব্যবস্থাপনা</span>
                   </div>
-                  <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${budgetGroupOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${officeGroupOpen ? 'rotate-180' : ''}`} />
                 </button>
 
-                {budgetGroupOpen && (
+                {officeGroupOpen && (
                   <div className="pl-3 space-y-1 pt-0.5 border-l-2 border-slate-700/60 ml-3">
-                    <Link 
-                      href="/admin/budgets" 
-                      onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
-                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${
-                        pathname.startsWith('/admin/budgets')
-                          ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                      }`}
-                    >
-                      <SlidersHorizontal className="h-3.5 w-3.5 shrink-0" />
-                      <span>বাজেট কনফিগারেশন</span>
-                    </Link>
-
                     <Link 
                       href="/admin/offices-config" 
                       onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
@@ -278,29 +325,29 @@ export function AdminShell({
                     </Link>
 
                     <Link 
-                      href="/admin/codes" 
+                      href="/admin/offices-management/head-offices" 
                       onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${
-                        pathname.startsWith('/admin/codes')
+                        pathname.startsWith('/admin/offices-management/head-offices')
                           ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
                           : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                       }`}
                     >
-                      <FileText className="h-3.5 w-3.5 shrink-0" />
-                      <span>অর্থনৈতিক কোড কনফিগারেশন</span>
+                      <Building className="h-3.5 w-3.5 shrink-0" />
+                      <span>হেড অফিসসমূহ</span>
                     </Link>
 
                     <Link 
-                      href="/admin/settings" 
+                      href="/admin/offices-management/field-offices" 
                       onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${
-                        pathname.startsWith('/admin/settings')
+                        pathname.startsWith('/admin/offices-management/field-offices')
                           ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
                           : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                       }`}
                     >
-                      <Settings className="h-3.5 w-3.5 shrink-0" />
-                      <span>ডিফল্ট ভ্যালু সেটিংস</span>
+                      <Building2 className="h-3.5 w-3.5 shrink-0" />
+                      <span>মাঠ পর্যায়ের সকল অফিস</span>
                     </Link>
                   </div>
                 )}

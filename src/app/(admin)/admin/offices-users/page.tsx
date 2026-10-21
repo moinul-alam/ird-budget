@@ -15,7 +15,7 @@ export default async function AdminOfficesUsersPage() {
     redirect('/admin/dashboard')
   }
 
-  const offices = await getAllOfficeUsersList()
+  const { offices, defaultPassword } = await getAllOfficeUsersList()
 
   const supabase = createOfficeClient()
   const [{ data: officeTypes }, { data: parentOffices }] = await Promise.all([
@@ -36,6 +36,7 @@ export default async function AdminOfficesUsersPage() {
 
       <OfficeUsersClient
         initialOffices={offices}
+        defaultPassword={defaultPassword}
         officeTypes={officeTypes || []}
         parentOffices={parentOffices || []}
       />

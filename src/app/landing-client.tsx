@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { strings } from '@/lib/strings'
 import { toEnglishNumber } from '@/lib/bangla'
-import { searchOffice, getDepartments, getParentOffices, getOfficeTypes } from '@/app/actions/office'
+import { searchOffice, getDepartments, getParentOffices, getOfficeTypes, getMinistriesList } from '@/app/actions/office'
 import { loginOffice, registerOffice } from '@/app/actions/auth'
 import { Search, Plus, Check, X, ArrowRight, Lock, Loader2 } from 'lucide-react'
 import Link from 'next/link'
@@ -34,12 +34,14 @@ export function LandingClient() {
   const [showRegModal, setShowRegModal] = useState(false)
   const [showPreviewModal, setShowPreviewModal] = useState(false)
 
-  // Registration form
+  // Registration form (matching মাঠ পর্যায়ের সকল অফিস)
   const [regName, setRegName] = useState('')
   const [regBudgetId, setRegBudgetId] = useState('')
-  const [departments, setDepartments] = useState<SelectOption[]>([])
+  const [ministries, setMinistries] = useState<SelectOption[]>([])
+  const [departments, setDepartments] = useState<(SelectOption & { ministry_id?: string })[]>([])
   const [parentOffices, setParentOffices] = useState<SelectOption[]>([])
   const [officeTypes, setOfficeTypes] = useState<SelectOption[]>([])
+  const [selectedMinistry, setSelectedMinistry] = useState('')
   const [selectedDept, setSelectedDept] = useState('')
   const [selectedParent, setSelectedParent] = useState('')
   const [selectedType, setSelectedType] = useState('')
@@ -92,12 +94,28 @@ export function LandingClient() {
   const handleOpenRegModal = async () => {
     setRegBudgetId(budgetId.trim())
     setShowRegModal(true)
-    // Load departments
-    const deps = await getDepartments()
+    const [mins, deps] = await Promise.all([
+      getMinistriesList(),
+      getDepartments(),
+    ])
+    setMinistries(mins)
     setDepartments(deps)
+    if (mins.length > 0) {
+      setSelectedMinistry(mins[0].id)
+    }
   }
 
-  // Department change → load parent offices + office types
+  // Ministry change
+  const handleMinistryChange = (minId: string) => {
+    setSelectedMinistry(minId)
+    setSelectedDept('')
+    setSelectedParent('')
+    setSelectedType('')
+    setParentOffices([])
+    setOfficeTypes([])
+  }
+
+  // Department change → load parent offices (head offices) + office types
   const handleDeptChange = async (deptId: string) => {
     setSelectedDept(deptId)
     setSelectedParent('')
@@ -115,9 +133,14 @@ export function LandingClient() {
     setOfficeTypes(types)
   }
 
+  // Filtered departments for selected ministry
+  const filteredDepartments = selectedMinistry
+    ? departments.filter((d) => d.ministry_id === selectedMinistry)
+    : departments
+
   // Preview
   const handlePreview = () => {
-    if (!regName.trim() || !regBudgetId.trim() || !selectedType) return
+    if (!regName.trim() || !regBudgetId.trim() || !selectedType || !selectedParent) return
     setShowPreviewModal(true)
   }
 
@@ -129,7 +152,8 @@ export function LandingClient() {
       formData.set('name', regName.trim())
       formData.set('budget_id', toEnglishNumber(regBudgetId.trim()))
       formData.set('type_id', selectedType)
-      if (selectedParent) formData.set('parent_id', selectedParent)
+      formData.set('parent_id', selectedParent)
+      formData.set('password', '12345') // Default 12345 password
 
       const result = await registerOffice(formData)
       if (result.error) {
@@ -144,6 +168,7 @@ export function LandingClient() {
   }
 
   // Helper to get selected option text
+  const getMinistryName = () => ministries.find(m => m.id === selectedMinistry)?.name || ''
   const getDeptName = () => departments.find(d => d.id === selectedDept)?.name || ''
   const getParentName = () => parentOffices.find(p => p.id === selectedParent)?.name || strings.na
   const getTypeName = () => officeTypes.find(t => t.id === selectedType)?.name || ''
@@ -384,37 +409,26 @@ export function LandingClient() {
                 )}
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Office Name */}
-                    <div className="md:col-span-2">
-                      <label htmlFor="reg_name" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
-                        {strings.registration.officeName} <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        id="reg_name"
-                        value={regName}
-                        onChange={(e) => setRegName(e.target.value)}
-                        placeholder={strings.registration.officeNamePlaceholder}
-                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all"
-                        required
-                      />
-                    </div>
-                    {/* Budget ID */}
+                    {/* 1. Ministry */}
                     <div>
-                      <label htmlFor="reg_budget_id" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
-                        {strings.registration.budgetId} <span className="text-red-500">*</span>
+                      <label htmlFor="reg_ministry" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
+                        মন্ত্রণালয় / বিভাগ <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="text"
-                        id="reg_budget_id"
-                        value={regBudgetId}
-                        onChange={(e) => setRegBudgetId(e.target.value)}
-                        placeholder={strings.registration.budgetIdPlaceholder}
-                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all"
+                      <select
+                        id="reg_ministry"
+                        value={selectedMinistry}
+                        onChange={(e) => handleMinistryChange(e.target.value)}
+                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all text-sm"
                         required
-                      />
+                      >
+                        <option value="" disabled>মন্ত্রণালয়/বিভাগ নির্বাচন করুন</option>
+                        {ministries.map((m) => (
+                          <option key={m.id} value={m.id}>{m.name}</option>
+                        ))}
+                      </select>
                     </div>
-                    {/* Department */}
+
+                    {/* 2. Department */}
                     <div>
                       <label htmlFor="department" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
                         {strings.registration.department} <span className="text-red-500">*</span>
@@ -423,30 +437,15 @@ export function LandingClient() {
                         id="department"
                         value={selectedDept}
                         onChange={(e) => handleDeptChange(e.target.value)}
-                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all"
+                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all text-sm"
                         required
                       >
                         <option value="" disabled>{strings.registration.departmentPlaceholder}</option>
-                        {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                        {filteredDepartments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                       </select>
                     </div>
-                    {/* Parent Office */}
-                    <div>
-                      <label htmlFor="parent_office" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
-                        {strings.registration.parentOffice}
-                      </label>
-                      <select
-                        id="parent_office"
-                        value={selectedParent}
-                        onChange={(e) => setSelectedParent(e.target.value)}
-                        disabled={!selectedDept}
-                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all disabled:opacity-50"
-                      >
-                        <option value="">{strings.registration.parentOfficePlaceholder}</option>
-                        {parentOffices.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </select>
-                    </div>
-                    {/* Office Type */}
+
+                    {/* 3. Office Type */}
                     <div>
                       <label htmlFor="office_type" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
                         {strings.registration.officeType} <span className="text-red-500">*</span>
@@ -456,12 +455,64 @@ export function LandingClient() {
                         value={selectedType}
                         onChange={(e) => setSelectedType(e.target.value)}
                         disabled={!selectedDept}
-                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all disabled:opacity-50"
+                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all disabled:opacity-50 text-sm"
                         required
                       >
                         <option value="" disabled>{strings.registration.officeTypePlaceholder}</option>
                         {officeTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                       </select>
+                    </div>
+
+                    {/* 4. Head Office (Parent Office) */}
+                    <div>
+                      <label htmlFor="parent_office" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
+                        হেড অফিসের নাম <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        id="parent_office"
+                        value={selectedParent}
+                        onChange={(e) => setSelectedParent(e.target.value)}
+                        disabled={!selectedDept}
+                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all disabled:opacity-50 text-sm"
+                        required
+                      >
+                        <option value="" disabled>হেড অফিস নির্বাচন করুন</option>
+                        {parentOffices.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                    </div>
+
+                    {/* 5. Field Office Name & 6. Budget ID (In the same row) */}
+                    <div>
+                      <label htmlFor="reg_name" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
+                        মাঠ পর্যায়ের অফিসের নাম <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="reg_name"
+                        value={regName}
+                        onChange={(e) => setRegName(e.target.value)}
+                        placeholder="যেমন: সার্কেল-১ (কোতোয়ালী), সার্কেল-২ (মতিঝিল)..."
+                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all text-sm"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label htmlFor="reg_budget_id" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
+                        অফিসের বাজেট আইডি <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="reg_budget_id"
+                        value={regBudgetId}
+                        onChange={(e) => setRegBudgetId(e.target.value)}
+                        placeholder={strings.registration.budgetIdPlaceholder}
+                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all font-mono text-sm"
+                        required
+                      />
+                      <p className="text-xs text-slate-400 mt-2 ml-1">
+                        সিস্টেমে প্রাথমিক লগইন পাসওয়ার্ড হিসেবে <span className="font-bold text-slate-700">12345</span> নির্ধারিত থাকবে।
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -508,11 +559,12 @@ export function LandingClient() {
                   {strings.registration.previewPrompt}
                 </p>
                 <div className="space-y-6">
-                  <PreviewItem label={strings.registration.officeName} value={regName} />
-                  <PreviewItem label={strings.registration.budgetId} value={regBudgetId} />
+                  <PreviewItem label="মন্ত্রণালয় / বিভাগ" value={getMinistryName()} />
                   <PreviewItem label={strings.registration.department} value={getDeptName()} />
-                  <PreviewItem label={strings.registration.parentOffice} value={getParentName()} />
                   <PreviewItem label={strings.registration.officeType} value={getTypeName()} />
+                  <PreviewItem label="হেড অফিস" value={getParentName()} />
+                  <PreviewItem label="মাঠ পর্যায়ের অফিসের নাম" value={regName} />
+                  <PreviewItem label="অফিসের বাজেট আইডি" value={regBudgetId} />
                 </div>
               </div>
               {/* Footer */}

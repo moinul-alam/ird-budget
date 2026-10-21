@@ -22,7 +22,9 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import {
+  Landmark,
   Building2,
+  Briefcase,
   GitBranch,
   Layers,
   Plus,
@@ -31,55 +33,85 @@ import {
   Loader2,
   CheckCircle2,
   AlertTriangle,
-  FolderTree
+  ArrowRight,
 } from 'lucide-react'
 import {
+  MinistryItem,
   DepartmentItem,
   OfficeTypeHierarchyItem,
+  saveMinistry,
+  deleteMinistry,
   saveDepartment,
   deleteDepartment,
-  saveOfficeTypeHierarchy,
+  saveOfficeTypeOnly,
+  updateOfficeTypeHierarchyOrder,
   updateGroupBudgetStatus,
   deleteOfficeType,
 } from '@/app/actions/admin-offices-config'
 
 interface AdminOfficesConfigClientProps {
+  initialMinistries: MinistryItem[]
   initialDepartments: DepartmentItem[]
   initialOfficeTypes: OfficeTypeHierarchyItem[]
 }
 
 export function AdminOfficesConfigClient({
+  initialMinistries,
   initialDepartments,
   initialOfficeTypes,
 }: AdminOfficesConfigClientProps) {
-  const [activeTab, setActiveTab] = useState<'departments' | 'hierarchy' | 'groups'>('departments')
+  const [activeTab, setActiveTab] = useState<'ministries' | 'departments' | 'office_types' | 'hierarchy' | 'groups'>('ministries')
   const [isPending, startTransition] = useTransition()
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
+  const [ministries, setMinistries] = useState<MinistryItem[]>(initialMinistries)
   const [departments, setDepartments] = useState<DepartmentItem[]>(initialDepartments)
   const [officeTypes, setOfficeTypes] = useState<OfficeTypeHierarchyItem[]>(initialOfficeTypes)
 
-  // Tab 1 Modal
-  const [depModal, setDepModal] = useState<{ open: boolean; id?: number; name: string }>({
+  // Filtering dropdowns for relational views
+  const [filterDeptForTypes, setFilterDeptForTypes] = useState<string>('all')
+  const [filterDeptForHierarchy, setFilterDeptForHierarchy] = useState<string>('all')
+  const [filterDeptForGroups, setFilterDeptForGroups] = useState<string>('all')
+
+  // Modal 1: Ministry
+  const [minModal, setMinModal] = useState<{ open: boolean; id?: string; name: string }>({
     open: false,
     name: '',
   })
 
-  // Tab 2 Modal (Hierarchy)
-  const [typeModal, setTypeModal] = useState<{
+  // Modal 2: Subordinate Office / Department
+  const [depModal, setDepModal] = useState<{ open: boolean; id?: number; name: string; ministry_id: string }>({
+    open: false,
+    name: '',
+    ministry_id: '',
+  })
+
+  // Modal 3: Office Type of Subordinate Office
+  const [officeTypeModal, setOfficeTypeModal] = useState<{
     open: boolean
     id?: number
     name: string
     department_id: number
-    hierarchy_order: number
   }>({
     open: false,
     name: '',
-    department_id: departments[0]?.id || 1,
+    department_id: 0,
+  })
+
+  // Modal 4: Hierarchy Level / Order
+  const [hierarchyModal, setHierarchyModal] = useState<{
+    open: boolean
+    id: number
+    name: string
+    hierarchy_order: number
+  }>({
+    open: false,
+    id: 0,
+    name: '',
     hierarchy_order: 1,
   })
 
-  // Tab 3 Modal (Group settings)
+  // Modal 5: Group Budget Setting
   const [groupModal, setGroupModal] = useState<{
     open: boolean
     department_id: number
@@ -87,9 +119,22 @@ export function AdminOfficesConfigClient({
     is_group_budget: boolean
   }>({
     open: false,
-    department_id: departments[0]?.id || 1,
-    office_type_id: officeTypes[0]?.id || 1,
+    department_id: 0,
+    office_type_id: 0,
     is_group_budget: true,
+  })
+
+  // Confirmation Modal
+  const [confirmModal, setConfirmModal] = useState<{
+    open: boolean
+    title: string
+    description: string
+    onConfirm: () => void
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    onConfirm: () => {},
   })
 
   const showStatus = (text: string, type: 'success' | 'error' = 'success') => {
@@ -97,82 +142,136 @@ export function AdminOfficesConfigClient({
     setTimeout(() => setStatusMessage(null), 3000)
   }
 
-  // Handle Tab 1 Save
-  const handleSaveDepartment = () => {
-    if (!depModal.name.trim()) {
-      showStatus('বিভাগের নাম আবশ্যক', 'error')
+  // Handle Tab 1 Save (Ministry)
+  const handleSaveMinistry = () => {
+    if (!minModal.name.trim()) {
+      showStatus('মন্ত্রণালয়/বিভাগের নাম আবশ্যক', 'error')
       return
     }
 
     startTransition(async () => {
-      const res = await saveDepartment({ id: depModal.id, name: depModal.name })
+      const res = await saveMinistry({ id: minModal.id, name: minModal.name })
       if (res.error) {
         showStatus(res.error, 'error')
       } else {
-        showStatus('বিভাগ সফলভাবে সংরক্ষিত হয়েছে')
-        setDepModal({ open: false, name: '' })
-        const trimmed = depModal.name.trim()
-        if (depModal.id) {
-          setDepartments((prev) =>
-            prev.map((d) => (d.id === depModal.id ? { ...d, name: trimmed } : d))
+        showStatus('মন্ত্রণালয়/বিভাগ সফলভাবে সংরক্ষিত হয়েছে')
+        setMinModal({ open: false, name: '' })
+        const trimmed = minModal.name.trim()
+        if (minModal.id) {
+          setMinistries((prev) =>
+            prev.map((m) => (m.id === minModal.id ? { ...m, name: trimmed } : m))
           )
         } else {
-          setDepartments((prev) => [...prev, { id: Date.now(), name: trimmed }])
+          setMinistries((prev) => [...prev, { id: `min-${Date.now()}`, name: trimmed }])
         }
       }
     })
   }
 
-  // Handle Tab 2 Save (Hierarchy)
-  const handleSaveOfficeType = () => {
-    if (!typeModal.name.trim()) {
-      showStatus('অফিসের ধরণ আবশ্যক', 'error')
+  // Handle Tab 2 Save (Subordinate Office / Department)
+  const handleSaveDepartment = () => {
+    if (!depModal.name.trim()) {
+      showStatus('দপ্তর/সংস্থার নাম আবশ্যক', 'error')
+      return
+    }
+    if (!depModal.ministry_id) {
+      showStatus('মন্ত্রণালয়/বিভাগ নির্বাচন আবশ্যক', 'error')
       return
     }
 
     startTransition(async () => {
-      const res = await saveOfficeTypeHierarchy({
-        id: typeModal.id,
-        name: typeModal.name,
-        department_id: typeModal.department_id,
-        hierarchy_order: typeModal.hierarchy_order,
+      const res = await saveDepartment({
+        id: depModal.id,
+        name: depModal.name,
+        ministry_id: depModal.ministry_id,
+      })
+      if (res.error) {
+        showStatus(res.error, 'error')
+      } else {
+        showStatus('দপ্তর/সংস্থা সফলভাবে সংরক্ষিত হয়েছে')
+        setDepModal({ open: false, name: '', ministry_id: '' })
+        const trimmed = depModal.name.trim()
+        const selectedMin = ministries.find((m) => m.id === depModal.ministry_id)
+        if (depModal.id) {
+          setDepartments((prev) =>
+            prev.map((d) =>
+              d.id === depModal.id
+                ? {
+                    ...d,
+                    name: trimmed,
+                    ministry_id: depModal.ministry_id,
+                    ministry_name: selectedMin?.name || '',
+                  }
+                : d
+            )
+          )
+        } else {
+          setDepartments((prev) => [
+            ...prev,
+            {
+              id: Date.now(),
+              name: trimmed,
+              ministry_id: depModal.ministry_id,
+              ministry_name: selectedMin?.name || '',
+            },
+          ])
+        }
+      }
+    })
+  }
+
+  // Handle Tab 3 Save (Office Type of Subordinate Office)
+  const handleSaveOfficeTypeOnly = () => {
+    if (!officeTypeModal.name.trim()) {
+      showStatus('অফিসের ধরণ আবশ্যক', 'error')
+      return
+    }
+    if (!officeTypeModal.department_id) {
+      showStatus('অধীনস্থ দপ্তর/সংস্থা নির্বাচন আবশ্যক', 'error')
+      return
+    }
+
+    startTransition(async () => {
+      const res = await saveOfficeTypeOnly({
+        id: officeTypeModal.id,
+        name: officeTypeModal.name,
+        department_id: officeTypeModal.department_id,
       })
 
       if (res.error) {
         showStatus(res.error, 'error')
       } else {
-        showStatus('অফিসের ধরণ ও হায়ারার্কি সফলভাবে সংরক্ষিত হয়েছে')
-        setTypeModal({
+        showStatus('অফিসের ধরণ সফলভাবে সংরক্ষিত হয়েছে')
+        setOfficeTypeModal({
           open: false,
           name: '',
-          department_id: departments[0]?.id || 1,
-          hierarchy_order: 1,
+          department_id: departments[0]?.id || 0,
         })
 
-        const dep = departments.find((d) => d.id === typeModal.department_id)
-        if (typeModal.id) {
+        const dep = departments.find((d) => d.id === officeTypeModal.department_id)
+        if (officeTypeModal.id) {
           setOfficeTypes((prev) =>
             prev.map((ot) =>
-              ot.id === typeModal.id
+              ot.id === officeTypeModal.id
                 ? {
                     ...ot,
-                    name: typeModal.name.trim(),
-                    department_id: typeModal.department_id,
+                    name: officeTypeModal.name.trim(),
+                    department_id: officeTypeModal.department_id,
                     department_name: dep?.name || '',
-                    hierarchy_order: typeModal.hierarchy_order,
                   }
                 : ot
-            ).sort((a, b) => a.hierarchy_order - b.hierarchy_order)
+            )
           )
         } else {
+          const newOrder = officeTypes.length + 1
           setOfficeTypes((prev) => [
             ...prev,
             {
               id: Date.now(),
-              name: typeModal.name.trim(),
-              department_id: typeModal.department_id,
+              name: officeTypeModal.name.trim(),
+              department_id: officeTypeModal.department_id,
               department_name: dep?.name || '',
-              hierarchy_order: typeModal.hierarchy_order,
+              hierarchy_order: newOrder,
               is_group_budget: false,
             },
           ].sort((a, b) => a.hierarchy_order - b.hierarchy_order))
@@ -181,8 +280,35 @@ export function AdminOfficesConfigClient({
     })
   }
 
-  // Handle Tab 3 Save (Group setting)
+  // Handle Tab 4 Save (Hierarchy Order)
+  const handleSaveHierarchyOrder = () => {
+    startTransition(async () => {
+      const res = await updateOfficeTypeHierarchyOrder(hierarchyModal.id, hierarchyModal.hierarchy_order)
+      if (res.error) {
+        showStatus(res.error, 'error')
+      } else {
+        showStatus('হায়ারার্কি ক্রম সফলভাবে আপডেট হয়েছে')
+        setHierarchyModal({ open: false, id: 0, name: '', hierarchy_order: 1 })
+        setOfficeTypes((prev) =>
+          prev
+            .map((ot) =>
+              ot.id === hierarchyModal.id
+                ? { ...ot, hierarchy_order: hierarchyModal.hierarchy_order }
+                : ot
+            )
+            .sort((a, b) => a.hierarchy_order - b.hierarchy_order)
+        )
+      }
+    })
+  }
+
+  // Handle Tab 5 Save (Group setting)
   const handleSaveGroupSetting = () => {
+    if (!groupModal.office_type_id) {
+      showStatus('অফিসের ধরণ নির্বাচন আবশ্যক', 'error')
+      return
+    }
+
     startTransition(async () => {
       const res = await updateGroupBudgetStatus(groupModal.office_type_id, groupModal.is_group_budget)
       if (res.error) {
@@ -201,16 +327,113 @@ export function AdminOfficesConfigClient({
     })
   }
 
+  // Confirmation helpers
+  const confirmDeleteMinistry = (m: MinistryItem) => {
+    // Relational check: whether subordinate offices exist
+    const linkedDepts = departments.filter((d) => d.ministry_id === m.id)
+    if (linkedDepts.length > 0) {
+      setConfirmModal({
+        open: true,
+        title: 'মন্ত্রণালয়/বিভাগ মোছা সম্ভব নয়',
+        description: `"${m.name}" এর অধীনে ${toBanglaNumber(linkedDepts.length)}টি দপ্তর/সংস্থা বিদ্যমান রয়েছে। প্রথমে সংশ্লিষ্ট দপ্তরসমূহ অপসারণ করুন।`,
+        onConfirm: () => setConfirmModal((prev) => ({ ...prev, open: false })),
+      })
+      return
+    }
+
+    setConfirmModal({
+      open: true,
+      title: 'মন্ত্রণালয়/বিভাগ মুছুন',
+      description: `আপনি কি নিশ্চিতভাবে "${m.name}" মন্ত্রণালয়/বিভাগটি মুছে ফেলতে চান?`,
+      onConfirm: () => {
+        startTransition(async () => {
+          const res = await deleteMinistry(m.id)
+          setConfirmModal((prev) => ({ ...prev, open: false }))
+          if (res.error) showStatus(res.error, 'error')
+          else {
+            showStatus('মন্ত্রণালয়/বিভাগ সফলভাবে মুছে ফেলা হয়েছে')
+            setMinistries((prev) => prev.filter((item) => item.id !== m.id))
+          }
+        })
+      },
+    })
+  }
+
+  const confirmDeleteDepartment = (d: DepartmentItem) => {
+    // Relational check: whether office types exist under this department
+    const linkedTypes = officeTypes.filter((ot) => ot.department_id === d.id)
+    if (linkedTypes.length > 0) {
+      setConfirmModal({
+        open: true,
+        title: 'দপ্তর/সংস্থা মোছা সম্ভব নয়',
+        description: `"${d.name}" এর অধীনে ${toBanglaNumber(linkedTypes.length)}টি অফিসের ধরণ বিদ্যমান রয়েছে। প্রথমে সম্পর্কিত অফিসের ধরণসমূহ অপসারণ করুন।`,
+        onConfirm: () => setConfirmModal((prev) => ({ ...prev, open: false })),
+      })
+      return
+    }
+
+    setConfirmModal({
+      open: true,
+      title: 'দপ্তর/সংস্থা মুছুন',
+      description: `আপনি কি নিশ্চিতভাবে "${d.name}" দপ্তর/সংস্থাটি মুছে ফেলতে চান?`,
+      onConfirm: () => {
+        startTransition(async () => {
+          const res = await deleteDepartment(d.id)
+          setConfirmModal((prev) => ({ ...prev, open: false }))
+          if (res.error) showStatus(res.error, 'error')
+          else {
+            showStatus('দপ্তর/সংস্থা সফলভাবে মুছে ফেলা হয়েছে')
+            setDepartments((prev) => prev.filter((item) => item.id !== d.id))
+          }
+        })
+      },
+    })
+  }
+
+  const confirmDeleteOfficeType = (ot: OfficeTypeHierarchyItem) => {
+    setConfirmModal({
+      open: true,
+      title: 'অফিসের ধরণ মুছুন',
+      description: `আপনি কি নিশ্চিতভাবে "${ot.name}" অফিসের ধরণটি মুছে ফেলতে চান? হায়ারার্কি ও গ্রুপ সেটিংস থেকেও এটি অপসারিত হবে।`,
+      onConfirm: () => {
+        startTransition(async () => {
+          const res = await deleteOfficeType(ot.id)
+          setConfirmModal((prev) => ({ ...prev, open: false }))
+          if (res.error) showStatus(res.error, 'error')
+          else {
+            showStatus('অফিসের ধরণ সফলভাবে মুছে ফেলা হয়েছে')
+            setOfficeTypes((prev) => prev.filter((item) => item.id !== ot.id))
+          }
+        })
+      },
+    })
+  }
+
+  // Filtered lists for Tab 3, 4, 5
+  const filteredOfficeTypesForTab3 =
+    filterDeptForTypes === 'all'
+      ? officeTypes
+      : officeTypes.filter((ot) => String(ot.department_id) === filterDeptForTypes)
+
+  const filteredOfficeTypesForTab4 =
+    filterDeptForHierarchy === 'all'
+      ? officeTypes
+      : officeTypes.filter((ot) => String(ot.department_id) === filterDeptForHierarchy)
+
+  const filteredOfficeTypesForTab5 = officeTypes
+    .filter((ot) => ot.is_group_budget)
+    .filter((ot) => (filterDeptForGroups === 'all' ? true : String(ot.department_id) === filterDeptForGroups))
+
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-title">
             অফিস কনফিগারেশন
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            বিভাগ, অফিস পদক্রম (Hierarchy) এবং গ্রুপ বাজেট সেটিংস পরিচালনা
+          <p className="text-sm text-slate-500 mt-1 font-medium">
+            মন্ত্রণালয়, দপ্তর/সংস্থা, অফিসের ধরণ, হায়ারার্কি এবং গ্রুপ বাজেট সেটিংস
           </p>
         </div>
 
@@ -232,362 +455,887 @@ export function AdminOfficesConfigClient({
         )}
       </div>
 
-      {/* Tabs */}
+      {/* Tabs - Relational without "ট্যাব" prefix */}
       <div className="border-b border-slate-200">
-        <nav className="flex space-x-2 sm:space-x-4" aria-label="Tabs">
+        <nav className="flex space-x-1 sm:space-x-3 overflow-x-auto" aria-label="Tabs">
+          {/* Tab 1 */}
+          <button
+            onClick={() => setActiveTab('ministries')}
+            className={`py-3 px-3.5 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeTab === 'ministries'
+                ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+            }`}
+          >
+            <Landmark className="h-4 w-4" />
+            <span>১. মন্ত্রণালয় / বিভাগ</span>
+            <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-mono">
+              {toBanglaNumber(ministries.length)}
+            </span>
+          </button>
+
+          {/* Tab 2 */}
           <button
             onClick={() => setActiveTab('departments')}
-            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
+            className={`py-3 px-3.5 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
               activeTab === 'departments'
                 ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
             }`}
           >
             <Building2 className="h-4 w-4" />
-            <span>ট্যাব ১: বিভাগ (Office Type)</span>
+            <span>২. দপ্তর / সংস্থা</span>
+            <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-mono">
+              {toBanglaNumber(departments.length)}
+            </span>
           </button>
 
+          {/* Tab 3 */}
+          <button
+            onClick={() => setActiveTab('office_types')}
+            className={`py-3 px-3.5 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
+              activeTab === 'office_types'
+                ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+            }`}
+          >
+            <Briefcase className="h-4 w-4" />
+            <span>৩. অফিসের ধরণ</span>
+            <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-mono">
+              {toBanglaNumber(officeTypes.length)}
+            </span>
+          </button>
+
+          {/* Tab 4 */}
           <button
             onClick={() => setActiveTab('hierarchy')}
-            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
+            className={`py-3 px-3.5 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
               activeTab === 'hierarchy'
                 ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
             }`}
           >
             <GitBranch className="h-4 w-4" />
-            <span>ট্যাব ২: হায়ারার্কি (Hierarchy)</span>
+            <span>৪. মাঠ অফিসের স্তর</span>
+            <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-mono">
+              {toBanglaNumber(officeTypes.length)}
+            </span>
           </button>
 
+          {/* Tab 5 */}
           <button
             onClick={() => setActiveTab('groups')}
-            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
+            className={`py-3 px-3.5 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
               activeTab === 'groups'
                 ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
             }`}
           >
             <Layers className="h-4 w-4" />
-            <span>ট্যাব ৩: গ্রুপ সেটিংস (Group Settings)</span>
+            <span>৫. গ্রুপ বাজেট নির্ধারণ</span>
+            <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-mono">
+              {toBanglaNumber(officeTypes.filter((ot) => ot.is_group_budget).length)}
+            </span>
           </button>
         </nav>
       </div>
 
-      {/* TAB 1: বিভাগ */}
-      {activeTab === 'departments' && (
+      {/* ============================================================ */}
+      {/* 1. MINISTRY */}
+      {/* ============================================================ */}
+      {activeTab === 'ministries' && (
         <Card className="border-slate-200 shadow-sm">
           <CardHeader className="border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4">
             <div>
               <CardTitle className="text-lg font-bold text-slate-900">
-                শীর্ষ বিভাগ তালিকা (Top Level Department)
+                মন্ত্রণালয় / বিভাগ তালিকা
               </CardTitle>
               <CardDescription className="text-xs text-slate-500 mt-0.5">
-                যেমন: আয়কর বিভাগ, কাস্টম্স ও ভ্যাট বিভাগ
+                যেমন: অর্থ মন্ত্রণালয়, অভ্যন্তরীণ সম্পদ বিভাগ (আইআরডি)
               </CardDescription>
             </div>
             <Button
-              onClick={() => setDepModal({ open: true, name: '' })}
+              onClick={() => setMinModal({ open: true, name: '' })}
               className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5 shadow-xs"
             >
               <Plus className="h-4 w-4" />
-              নতুন বিভাগ যোগ করুন
+              নতুন মন্ত্রণালয়/বিভাগ যোগ করুন
             </Button>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                    <th className="py-3 px-4 w-20">ক্র.নং</th>
-                    <th className="py-3 px-4">বিভাগের নাম</th>
-                    <th className="py-3 px-4 text-center w-28">একশন</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {departments.map((d, idx) => (
-                    <tr key={d.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-semibold text-slate-600">
-                        {toBanglaNumber(idx + 1)}
-                      </td>
-                      <td className="py-3.5 px-4 font-bold text-slate-900 text-sm">
-                        {d.name}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setDepModal({ open: true, id: d.id, name: d.name })}
-                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
-                            title="সম্পাদনা"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              startTransition(async () => {
-                                const res = await deleteDepartment(d.id)
-                                if (res.error) showStatus(res.error, 'error')
-                                else {
-                                  showStatus('বিভাগ মুছে ফেলা হয়েছে')
-                                  setDepartments((prev) => prev.filter((item) => item.id !== d.id))
-                                }
-                              })
-                            }}
-                            className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg"
-                            title="মুছে ফেলুন"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </td>
+            {ministries.length === 0 ? (
+              <div className="py-12 px-6 text-center">
+                <Landmark className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-slate-700">
+                  কোনো মন্ত্রণালয় বা বিভাগ পাওয়া যায়নি
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  দপ্তর বা সংস্থা নির্ধারণের পূর্বে &quot;নতুন মন্ত্রণালয়/বিভাগ যোগ করুন&quot; বাটনে চাপুন।
+                </p>
+                <div className="mt-4">
+                  <Button
+                    size="sm"
+                    onClick={() => setMinModal({ open: true, name: '' })}
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    নতুন মন্ত্রণালয়/বিভাগ যোগ করুন
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+                      <th className="py-3 px-4 w-20">ক্র.নং</th>
+                      <th className="py-3 px-4">মন্ত্রণালয় / বিভাগের নাম</th>
+                      <th className="py-3 px-4">অধীনস্থ দপ্তর সংখ্যা</th>
+                      <th className="py-3 px-4 text-center w-28">একশন</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* TAB 2: হায়ারার্কি (Hierarchy) */}
-      {activeTab === 'hierarchy' && (
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader className="border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4">
-            <div>
-              <CardTitle className="text-lg font-bold text-slate-900">
-                অফিসের ধরণ ও হায়ারার্কি ক্রম
-              </CardTitle>
-              <CardDescription className="text-xs text-slate-500 mt-0.5">
-                অফিস রেজিস্ট্রেশন ড্রপডাউনে এই ক্রম অনুযায়ী পদবীসমূহ প্রদর্শিত হবে
-              </CardDescription>
-            </div>
-            <Button
-              onClick={() =>
-                setTypeModal({
-                  open: true,
-                  name: '',
-                  department_id: departments[0]?.id || 1,
-                  hierarchy_order: officeTypes.length + 1,
-                })
-              }
-              className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5 shadow-xs"
-            >
-              <Plus className="h-4 w-4" />
-              নতুন অফিসের ধরণ যোগ করুন
-            </Button>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                    <th className="py-3 px-4 w-28">হায়ারার্কি ক্রম</th>
-                    <th className="py-3 px-4">অফিসের ধরণ</th>
-                    <th className="py-3 px-4">অধীনস্থ বিভাগ</th>
-                    <th className="py-3 px-4 text-center w-28">একশন</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {officeTypes.map((ot) => (
-                    <tr key={ot.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-bold text-blue-700">
-                        লেভেল {toBanglaNumber(ot.hierarchy_order)}
-                      </td>
-                      <td className="py-3.5 px-4 font-bold text-slate-900 text-sm">
-                        {ot.name}
-                      </td>
-                      <td className="py-3.5 px-4 font-medium text-slate-600">
-                        <span className="px-2.5 py-0.5 bg-slate-100 text-slate-700 rounded-lg font-bold">
-                          {ot.department_name || 'সাধারণ'}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              setTypeModal({
-                                open: true,
-                                id: ot.id,
-                                name: ot.name,
-                                department_id: ot.department_id,
-                                hierarchy_order: ot.hierarchy_order,
-                              })
-                            }
-                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
-                            title="সম্পাদনা"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              startTransition(async () => {
-                                const res = await deleteOfficeType(ot.id)
-                                if (res.error) showStatus(res.error, 'error')
-                                else {
-                                  showStatus('অফিসের ধরণ মুছে ফেলা হয়েছে')
-                                  setOfficeTypes((prev) => prev.filter((item) => item.id !== ot.id))
-                                }
-                              })
-                            }}
-                            className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg"
-                            title="মুছে ফেলুন"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* TAB 3: গ্রুপ সেটিংস (Group Settings) */}
-      {activeTab === 'groups' && (
-        <Card className="border-slate-200 shadow-sm">
-          <CardHeader className="border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4">
-            <div>
-              <CardTitle className="text-lg font-bold text-slate-900">
-                গ্রুপ বাজেট সেটিংস
-              </CardTitle>
-              <CardDescription className="text-xs text-slate-500 mt-0.5">
-                গ্রুপ বাজেটে অন্তর্ভূক্ত অফিসের ধরণসমূহ ও কনফিগারেশন
-              </CardDescription>
-            </div>
-            <Button
-              onClick={() => {
-                const firstDep = departments[0]?.id || 1
-                const matchingOt = officeTypes.find((ot) => ot.department_id === firstDep)
-                setGroupModal({
-                  open: true,
-                  department_id: firstDep,
-                  office_type_id: matchingOt?.id || officeTypes[0]?.id || 1,
-                  is_group_budget: true,
-                })
-              }}
-              className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5 shadow-xs"
-            >
-              <Plus className="h-4 w-4" />
-              নতুন গ্রুপ সেটিং যুক্ত করুন
-            </Button>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                    <th className="py-3 px-4 w-20">ক্র. নং.</th>
-                    <th className="py-3 px-4">বিভাগ</th>
-                    <th className="py-3 px-4">অফিসের ধরণ</th>
-                    <th className="py-3 px-4 text-center">গ্রুপ বাজেটে অন্তর্ভূক্ত</th>
-                    <th className="py-3 px-4 text-center w-32">একশন</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {officeTypes.filter((ot) => ot.is_group_budget).length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="py-10 text-center text-slate-400">
-                        কোনো গ্রুপ সেটিং তৈরি করা হয়নি। নতুন গ্রুপ সেটিং যুক্ত করতে উপরের বাটনে চাপুন।
-                      </td>
-                    </tr>
-                  ) : (
-                    officeTypes
-                      .filter((ot) => ot.is_group_budget)
-                      .map((ot, idx) => (
-                        <tr key={ot.id} className="hover:bg-slate-50/60 transition-colors">
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {ministries.map((m, idx) => {
+                      const deptCount = departments.filter((d) => d.ministry_id === m.id).length
+                      return (
+                        <tr key={m.id} className="hover:bg-slate-50/60 transition-colors">
                           <td className="py-3.5 px-4 font-mono font-semibold text-slate-600">
                             {toBanglaNumber(idx + 1)}
                           </td>
-                          <td className="py-3.5 px-4 font-bold text-slate-700">
-                            {ot.department_name || 'সাধারণ'}
-                          </td>
                           <td className="py-3.5 px-4 font-bold text-slate-900 text-sm">
-                            {ot.name}
+                            {m.name}
                           </td>
-                          <td className="py-3.5 px-4 text-center">
-                            <Badge
-                              variant="outline"
-                              className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border-purple-300"
-                            >
-                              হ্যাঁ (গ্রুপ বাজেট)
-                            </Badge>
+                          <td className="py-3.5 px-4">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
+                              {toBanglaNumber(deptCount)} টি দপ্তর
+                            </span>
                           </td>
                           <td className="py-3.5 px-4 text-center">
                             <div className="flex items-center justify-center gap-1.5">
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => {
-                                  setGroupModal({
-                                    open: true,
-                                    department_id: ot.department_id,
-                                    office_type_id: ot.id,
-                                    is_group_budget: ot.is_group_budget,
-                                  })
-                                }}
+                                onClick={() => setMinModal({ open: true, id: m.id, name: m.name })}
                                 className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
                                 title="সম্পাদনা"
                               >
                                 <Edit2 className="h-3.5 w-3.5" />
                               </Button>
-
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => {
-                                  startTransition(async () => {
-                                    await updateGroupBudgetStatus(ot.id, false)
-                                    setOfficeTypes((prev) =>
-                                      prev.map((item) =>
-                                        item.id === ot.id ? { ...item, is_group_budget: false } : item
-                                      )
-                                    )
-                                    showStatus('গ্রুপ সেটিং থেকে অপসারণ করা হয়েছে')
-                                  })
-                                }}
+                                onClick={() => confirmDeleteMinistry(m)}
                                 className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg"
-                                title="অপসারণ করুন"
+                                title="মুছে ফেলুন"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>
                             </div>
                           </td>
                         </tr>
-                      ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
 
-      {/* MODAL 1: বিভাগ */}
-      <Dialog open={depModal.open} onOpenChange={(open) => !open && setDepModal((prev) => ({ ...prev, open: false }))}>
+      {/* ============================================================ */}
+      {/* 2. SUBORDINATE OFFICE / DEPARTMENT */}
+      {/* ============================================================ */}
+      {activeTab === 'departments' && (
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4">
+            <div>
+              <CardTitle className="text-lg font-bold text-slate-900">
+                দপ্তর / সংস্থা তালিকা (Subordinate Offices)
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-500 mt-0.5">
+                মন্ত্রণালয়ের অধীনস্থ দপ্তর/সংস্থা (যেমন: জাতীয় রাজস্ব বোর্ড, সঞ্চয় অধিদপ্তর)
+              </CardDescription>
+            </div>
+            {ministries.length > 0 && (
+              <Button
+                onClick={() =>
+                  setDepModal({
+                    open: true,
+                    name: '',
+                    ministry_id: ministries[0]?.id || '',
+                  })
+                }
+                className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5 shadow-xs"
+              >
+                <Plus className="h-4 w-4" />
+                নতুন দপ্তর/সংস্থা যোগ করুন
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent className="p-0">
+            {ministries.length === 0 ? (
+              <div className="py-12 px-6 text-center">
+                <Landmark className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-slate-700">
+                  পূর্বে কোনো মন্ত্রণালয়/বিভাগ যুক্ত করা হয়নি
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  দপ্তর বা সংস্থা নির্ধারণ করতে প্রথমে ১ নম্বর ট্যাবে গিয়ে মন্ত্রণালয়/বিভাগ যোগ করুন।
+                </p>
+                <div className="mt-4">
+                  <Button
+                    size="sm"
+                    onClick={() => setActiveTab('ministries')}
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5"
+                  >
+                    ১. মন্ত্রণালয় / বিভাগে যান
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ) : departments.length === 0 ? (
+              <div className="py-12 px-6 text-center">
+                <Building2 className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-slate-700">
+                  কোনো দপ্তর বা সংস্থা পাওয়া যায়নি
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  মাঠ পর্যায়ের অফিসের ধরণ কনফিগার করার পূর্বে &quot;নতুন দপ্তর/সংস্থা যোগ করুন&quot; বাটনে চাপুন।
+                </p>
+                <div className="mt-4">
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      setDepModal({
+                        open: true,
+                        name: '',
+                        ministry_id: ministries[0]?.id || '',
+                      })
+                    }
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    নতুন দপ্তর/সংস্থা যোগ করুন
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+                      <th className="py-3 px-4 w-20">ক্র.নং</th>
+                      <th className="py-3 px-4">দপ্তর / সংস্থার নাম</th>
+                      <th className="py-3 px-4">মূল মন্ত্রণালয় / বিভাগ</th>
+                      <th className="py-3 px-4">অফিসের ধরণ সংখ্যা</th>
+                      <th className="py-3 px-4 text-center w-28">একশন</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {departments.map((d, idx) => {
+                      const typeCount = officeTypes.filter((ot) => ot.department_id === d.id).length
+                      return (
+                        <tr key={d.id} className="hover:bg-slate-50/60 transition-colors">
+                          <td className="py-3.5 px-4 font-mono font-semibold text-slate-600">
+                            {toBanglaNumber(idx + 1)}
+                          </td>
+                          <td className="py-3.5 px-4 font-bold text-slate-900 text-sm">
+                            {d.name}
+                          </td>
+                          <td className="py-3.5 px-4 font-medium text-slate-700">
+                            {d.ministry_name ? (
+                              <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-lg font-bold border border-blue-200/60">
+                                {d.ministry_name}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">সাধারণ</span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4">
+                            <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
+                              {toBanglaNumber(typeCount)} টি ধরণ
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  setDepModal({
+                                    open: true,
+                                    id: d.id,
+                                    name: d.name,
+                                    ministry_id: d.ministry_id || ministries[0]?.id || '',
+                                  })
+                                }
+                                className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
+                                title="সম্পাদনা"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => confirmDeleteDepartment(d)}
+                                className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg"
+                                title="মুছে ফেলুন"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ============================================================ */}
+      {/* 3. OFFICE TYPE OF SUBORDINATE OFFICE (TAB 2'S DATA) */}
+      {/* ============================================================ */}
+      {activeTab === 'office_types' && (
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4">
+            <div>
+              <CardTitle className="text-lg font-bold text-slate-900">
+                অফিসের ধরণের তালিকা (Office Types)
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-500 mt-0.5">
+                ২ নম্বর ট্যাবের দপ্তর/সংস্থার অধীনস্থ বিভিন্ন অফিসের ধরণ (যেমনঃ আয়কর অফিস, কাস্টম্স ও ভ্যাট অফিস)
+              </CardDescription>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {departments.length > 0 && (
+                <div className="w-48">
+                  <Select value={filterDeptForTypes} onValueChange={(val) => setFilterDeptForTypes(val || 'all')}>
+                    <SelectTrigger className="h-8 rounded-xl border-slate-200 text-xs">
+                      <SelectValue placeholder="সব দপ্তর / সংস্থা" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl text-xs">
+                      <SelectItem value="all">সব দপ্তর / সংস্থা</SelectItem>
+                      {departments.map((d) => (
+                        <SelectItem key={d.id} value={String(d.id)}>
+                          {d.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {departments.length > 0 && (
+                <Button
+                  onClick={() =>
+                    setOfficeTypeModal({
+                      open: true,
+                      name: '',
+                      department_id: departments[0]?.id || 0,
+                    })
+                  }
+                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5 shadow-xs"
+                >
+                  <Plus className="h-4 w-4" />
+                  নতুন অফিসের ধরণ যোগ করুন
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            {departments.length === 0 ? (
+              <div className="py-12 px-6 text-center">
+                <Building2 className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-slate-700">
+                  পূর্বে কোনো দপ্তর বা সংস্থা যুক্ত করা হয়নি
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  অফিসের ধরণ নির্ধারণ করতে প্রথমে ২ নম্বর ট্যাবে গিয়ে দপ্তর/সংস্থা তৈরি করুন।
+                </p>
+                <div className="mt-4">
+                  <Button
+                    size="sm"
+                    onClick={() => setActiveTab('departments')}
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5"
+                  >
+                    ২. দপ্তর / সংস্থায় যান
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ) : filteredOfficeTypesForTab3.length === 0 ? (
+              <div className="py-12 px-6 text-center">
+                <Briefcase className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-slate-700">
+                  কোনো অফিসের ধরণ পাওয়া যায়নি
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  নতুন অফিসের ধরণ যোগ করতে &quot;নতুন অফিসের ধরণ যোগ করুন&quot; বাটনে চাপুন।
+                </p>
+                <div className="mt-4">
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      setOfficeTypeModal({
+                        open: true,
+                        name: '',
+                        department_id: departments[0]?.id || 0,
+                      })
+                    }
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    নতুন অফিসের ধরণ যোগ করুন
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+                      <th className="py-3 px-4 w-20">ক্র.নং</th>
+                      <th className="py-3 px-4">অফিসের ধরণের নাম</th>
+                      <th className="py-3 px-4">অধীনস্থ দপ্তর / সংস্থা</th>
+                      <th className="py-3 px-4 text-center w-28">একশন</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredOfficeTypesForTab3.map((ot, idx) => (
+                      <tr key={ot.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3.5 px-4 font-mono font-semibold text-slate-600">
+                          {toBanglaNumber(idx + 1)}
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-900 text-sm">
+                          {ot.name}
+                        </td>
+                        <td className="py-3.5 px-4 font-medium text-slate-700">
+                          <span className="px-2.5 py-0.5 bg-slate-100 text-slate-700 rounded-lg font-bold">
+                            {ot.department_name || 'সাধারণ'}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                setOfficeTypeModal({
+                                  open: true,
+                                  id: ot.id,
+                                  name: ot.name,
+                                  department_id: ot.department_id,
+                                })
+                              }
+                              className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
+                              title="সম্পাদনা"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => confirmDeleteOfficeType(ot)}
+                              className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg"
+                              title="মুছে ফেলুন"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ============================================================ */}
+      {/* 4. HIERARCHY OF TAB 3 */}
+      {/* ============================================================ */}
+      {activeTab === 'hierarchy' && (
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4">
+            <div>
+              <CardTitle className="text-lg font-bold text-slate-900">
+                মাঠ অফিসের স্তর (Hierarchy / Levels of Office Types)
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-500 mt-0.5">
+                ৩ নম্বর ট্যাবের অফিসের ধরণসমূহের প্রশাসনিক পদক্রম বা লেভেল নির্ধারণ (লেভেল ১ = শীর্ষ আঞ্চলিক অফিস, লেভেল ২ = মধ্যম অফিস)
+              </CardDescription>
+            </div>
+            {officeTypes.length > 0 && (
+              <div className="w-48">
+                <Select value={filterDeptForHierarchy} onValueChange={(val) => setFilterDeptForHierarchy(val || 'all')}>
+                  <SelectTrigger className="h-8 rounded-xl border-slate-200 text-xs">
+                    <SelectValue placeholder="সব দপ্তর / সংস্থা" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl text-xs">
+                    <SelectItem value="all">সব দপ্তর / সংস্থা</SelectItem>
+                    {departments.map((d) => (
+                      <SelectItem key={d.id} value={String(d.id)}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </CardHeader>
+          <CardContent className="p-0">
+            {officeTypes.length === 0 ? (
+              <div className="py-12 px-6 text-center">
+                <GitBranch className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-slate-700">
+                  কোনো অফিসের ধরণ বিদ্যমান নেই
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  হায়ারার্কি নির্ধারণ করতে প্রথমে ৩ নম্বর ট্যাবে অফিসের ধরণ যুক্ত করুন।
+                </p>
+                <div className="mt-4">
+                  <Button
+                    size="sm"
+                    onClick={() => setActiveTab('office_types')}
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5"
+                  >
+                    ৩. অফিসের ধরণের ট্যাবে যান
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ) : filteredOfficeTypesForTab4.length === 0 ? (
+              <div className="py-12 px-6 text-center">
+                <p className="text-xs text-slate-500">নির্বাচিত দপ্তরের অধীনে কোনো অফিসের ধরণ নেই।</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+                      <th className="py-3 px-4 w-32">হায়ারার্কি ক্রম</th>
+                      <th className="py-3 px-4">অফিসের ধরণ</th>
+                      <th className="py-3 px-4">অধীনস্থ দপ্তর / সংস্থা</th>
+                      <th className="py-3 px-4 text-center w-36">পদক্রম পরিবর্তন</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredOfficeTypesForTab4.map((ot) => (
+                      <tr key={ot.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3.5 px-4">
+                          <span className="px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 font-bold text-xs border border-blue-200 font-mono">
+                            লেভেল {toBanglaNumber(ot.hierarchy_order)}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-900 text-sm">
+                          {ot.name}
+                        </td>
+                        <td className="py-3.5 px-4 font-medium text-slate-700">
+                          <span className="px-2.5 py-0.5 bg-slate-100 text-slate-700 rounded-lg font-bold">
+                            {ot.department_name || 'সাধারণ'}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setHierarchyModal({
+                                open: true,
+                                id: ot.id,
+                                name: ot.name,
+                                hierarchy_order: ot.hierarchy_order,
+                              })
+                            }
+                            className="rounded-lg text-xs font-semibold h-8 gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                            পদক্রম পরিবর্তন
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ============================================================ */}
+      {/* 5. MARKING OFFICE TYPE AS GROUP OR NOT */}
+      {/* ============================================================ */}
+      {activeTab === 'groups' && (
+        <Card className="border-slate-200 shadow-sm">
+          <CardHeader className="border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4">
+            <div>
+              <CardTitle className="text-lg font-bold text-slate-900">
+                গ্রুপ বাজেট নির্ধারণ (Group Budget Flagging)
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-500 mt-0.5">
+                ৩ নম্বর ট্যাবের অফিসের ধরণসমূহ এককভাবে নাকি গ্রুপ বাজেট হিসেবে সাবমিট করবে তা চিহ্নিত করুন
+              </CardDescription>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {departments.length > 0 && (
+                <div className="w-48">
+                  <Select value={filterDeptForGroups} onValueChange={(val) => setFilterDeptForGroups(val || 'all')}>
+                    <SelectTrigger className="h-8 rounded-xl border-slate-200 text-xs">
+                      <SelectValue placeholder="সব দপ্তর / সংস্থা" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl text-xs">
+                      <SelectItem value="all">সব দপ্তর / সংস্থা</SelectItem>
+                      {departments.map((d) => (
+                        <SelectItem key={d.id} value={String(d.id)}>
+                          {d.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {officeTypes.length > 0 && (
+                <Button
+                  onClick={() => {
+                    const firstDep = departments[0]?.id || 0
+                    const matchingOt = officeTypes.find((ot) => ot.department_id === firstDep)
+                    setGroupModal({
+                      open: true,
+                      department_id: firstDep,
+                      office_type_id: matchingOt?.id || officeTypes[0]?.id || 0,
+                      is_group_budget: true,
+                    })
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5 shadow-xs"
+                >
+                  <Plus className="h-4 w-4" />
+                  নতুন গ্রুপ সেটিং যুক্ত করুন
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            {officeTypes.length === 0 ? (
+              <div className="py-12 px-6 text-center">
+                <Layers className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-slate-700">
+                  কোনো অফিসের ধরণ বিদ্যমান নেই
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  গ্রুপ বাজেট চিহ্নিত করতে প্রথমে ৩ নম্বর ট্যাবে অফিসের ধরণ যুক্ত করুন।
+                </p>
+                <div className="mt-4">
+                  <Button
+                    size="sm"
+                    onClick={() => setActiveTab('office_types')}
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5"
+                  >
+                    ৩. অফিসের ধরণের ট্যাবে যান
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            ) : filteredOfficeTypesForTab5.length === 0 ? (
+              <div className="py-12 px-6 text-center">
+                <Layers className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-slate-700">
+                  কোনো গ্রুপ সেটিং তৈরি করা হয়নি
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  নতুন গ্রুপ বাজেট অফিস চিহ্নিত করতে &quot;নতুন গ্রুপ সেটিং যুক্ত করুন&quot; বাটনে চাপুন।
+                </p>
+                <div className="mt-4">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const firstDep = departments[0]?.id || 0
+                      const matchingOt = officeTypes.find((ot) => ot.department_id === firstDep)
+                      setGroupModal({
+                        open: true,
+                        department_id: firstDep,
+                        office_type_id: matchingOt?.id || officeTypes[0]?.id || 0,
+                        is_group_budget: true,
+                      })
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    নতুন গ্রুপ সেটিং যুক্ত করুন
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+                      <th className="py-3 px-4 w-20">ক্র. নং.</th>
+                      <th className="py-3 px-4">দপ্তর / সংস্থা</th>
+                      <th className="py-3 px-4">অফিসের ধরণ</th>
+                      <th className="py-3 px-4 text-center">বাজেট মোড</th>
+                      <th className="py-3 px-4 text-center w-32">একশন</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredOfficeTypesForTab5.map((ot, idx) => (
+                      <tr key={ot.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3.5 px-4 font-mono font-semibold text-slate-600">
+                          {toBanglaNumber(idx + 1)}
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-700">
+                          {ot.department_name || 'সাধারণ'}
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-900 text-sm">
+                          {ot.name}
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <Badge
+                            variant="outline"
+                            className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border-purple-300"
+                          >
+                            গ্রুপ বাজেট
+                          </Badge>
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setGroupModal({
+                                  open: true,
+                                  department_id: ot.department_id,
+                                  office_type_id: ot.id,
+                                  is_group_budget: ot.is_group_budget,
+                                })
+                              }}
+                              className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
+                              title="সম্পাদনা"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setConfirmModal({
+                                  open: true,
+                                  title: 'গ্রুপ বাজেট থেকে অপসারণ',
+                                  description: `আপনি কি "${ot.name}" কে গ্রুপ বাজেট কনফিগারেশন থেকে একক বাজেটে রূপান্তর করতে চান?`,
+                                  onConfirm: () => {
+                                    startTransition(async () => {
+                                      await updateGroupBudgetStatus(ot.id, false)
+                                      setConfirmModal((prev) => ({ ...prev, open: false }))
+                                      setOfficeTypes((prev) =>
+                                        prev.map((item) =>
+                                          item.id === ot.id ? { ...item, is_group_budget: false } : item
+                                        )
+                                      )
+                                      showStatus('গ্রুপ সেটিং থেকে একক বাজেটে রূপান্তরিত হয়েছে')
+                                    })
+                                  },
+                                })
+                              }}
+                              className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg"
+                              title="অপসারণ করুন"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ============================================================ */}
+      {/* MODAL 1: MINISTRY */}
+      {/* ============================================================ */}
+      <Dialog open={minModal.open} onOpenChange={(open) => !open && setMinModal((prev) => ({ ...prev, open: false }))}>
         <DialogContent className="sm:max-w-md rounded-2xl p-6">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900">
-              {depModal.id ? 'বিভাগ সম্পাদনা' : 'নতুন শীর্ষ বিভাগ যোগ করুন'}
+              {minModal.id ? 'মন্ত্রণালয়/বিভাগ সম্পাদনা' : 'নতুন মন্ত্রণালয়/বিভাগ যোগ করুন'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">বিভাগের নাম (যেমন: আয়কর, কাস্টম্স, ভ্যাট)</Label>
+              <Label className="text-xs font-bold text-slate-700">মন্ত্রণালয় / বিভাগের নাম</Label>
+              <Input
+                type="text"
+                value={minModal.name}
+                onChange={(e) => setMinModal((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="যেমন: অর্থ মন্ত্রণালয়, অভ্যন্তরীণ সম্পদ বিভাগ..."
+                className="rounded-xl border-slate-200"
+              />
+            </div>
+          </div>
+          <DialogFooter className="pt-2">
+            <Button type="button" variant="outline" onClick={() => setMinModal((prev) => ({ ...prev, open: false }))} className="rounded-xl text-xs font-semibold">
+              বাতিল
+            </Button>
+            <Button type="button" onClick={handleSaveMinistry} disabled={isPending} className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs">
+              {isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              সংরক্ষণ করুন
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================ */}
+      {/* MODAL 2: SUBORDINATE OFFICE / DEPARTMENT */}
+      {/* ============================================================ */}
+      <Dialog open={depModal.open} onOpenChange={(open) => !open && setDepModal((prev) => ({ ...prev, open: false }))}>
+        <DialogContent className="sm:max-w-md rounded-2xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900">
+              {depModal.id ? 'দপ্তর/সংস্থা সম্পাদনা' : 'নতুন দপ্তর/সংস্থা যোগ করুন'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700">মূল মন্ত্রণালয় / বিভাগ নির্বাচন করুন</Label>
+              <Select
+                value={depModal.ministry_id}
+                onValueChange={(val) => {
+                  if (val) setDepModal((prev) => ({ ...prev, ministry_id: val }))
+                }}
+              >
+                <SelectTrigger className="w-full rounded-xl border-slate-200 text-xs h-10">
+                  <SelectValue placeholder="মন্ত্রণালয়/বিভাগ নির্বাচন করুন">
+                    {ministries.find((m) => m.id === depModal.ministry_id)?.name || 'মন্ত্রণালয়/বিভাগ নির্বাচন করুন'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="rounded-xl text-xs">
+                  {ministries.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700">দপ্তর / সংস্থার নাম</Label>
               <Input
                 type="text"
                 value={depModal.name}
                 onChange={(e) => setDepModal((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="বিভাগের নাম লিখুন..."
+                placeholder="যেমন: জাতীয় রাজস্ব বোর্ড, কাস্টম্স বিভাগ..."
                 className="rounded-xl border-slate-200"
               />
             </div>
@@ -604,30 +1352,34 @@ export function AdminOfficesConfigClient({
         </DialogContent>
       </Dialog>
 
-      {/* MODAL 2: হায়ারার্কি */}
-      <Dialog open={typeModal.open} onOpenChange={(open) => !open && setTypeModal((prev) => ({ ...prev, open: false }))}>
+      {/* ============================================================ */}
+      {/* MODAL 3: OFFICE TYPE OF SUBORDINATE OFFICE */}
+      {/* ============================================================ */}
+      <Dialog open={officeTypeModal.open} onOpenChange={(open) => !open && setOfficeTypeModal((prev) => ({ ...prev, open: false }))}>
         <DialogContent className="sm:max-w-md rounded-2xl p-6">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900">
-              {typeModal.id ? 'অফিসের ধরণ সম্পাদনা' : 'নতুন অফিসের ধরণ ও হায়ারার্কি নির্ধারণ'}
+              {officeTypeModal.id ? 'অফিসের ধরণ সম্পাদনা' : 'নতুন অফিসের ধরণ যোগ করুন'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">বিভাগ নির্বাচন করুন</Label>
+              <Label className="text-xs font-bold text-slate-700">অধীনস্থ দপ্তর / সংস্থা নির্বাচন করুন</Label>
               <Select
-                value={String(typeModal.department_id)}
+                value={String(officeTypeModal.department_id || '')}
                 onValueChange={(val) => {
-                  if (val) setTypeModal((prev) => ({ ...prev, department_id: parseInt(val, 10) }))
+                  if (val) setOfficeTypeModal((prev) => ({ ...prev, department_id: parseInt(val, 10) }))
                 }}
               >
-                <SelectTrigger className="rounded-xl border-slate-200 text-xs">
-                  <SelectValue />
+                <SelectTrigger className="w-full rounded-xl border-slate-200 text-xs h-10">
+                  <SelectValue placeholder="দপ্তর/সংস্থা নির্বাচন করুন">
+                    {departments.find((d) => d.id === officeTypeModal.department_id)?.name || 'দপ্তর/সংস্থা নির্বাচন করুন'}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="rounded-xl text-xs">
                   {departments.map((d) => (
                     <SelectItem key={d.id} value={String(d.id)}>
-                      {d.name}
+                      {d.name} {d.ministry_name ? `(${d.ministry_name})` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -635,35 +1387,21 @@ export function AdminOfficesConfigClient({
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">অফিসের ধরণ (যেমন: কর অঞ্চল, কর আপীল অঞ্চল, সার্কেল)</Label>
+              <Label className="text-xs font-bold text-slate-700">অফিসের ধরণ (যেমনঃ আয়কর অফিস, কাস্টম্স ও ভ্যাট অফিস)</Label>
               <Input
                 type="text"
-                value={typeModal.name}
-                onChange={(e) => setTypeModal((prev) => ({ ...prev, name: e.target.value }))}
+                value={officeTypeModal.name}
+                onChange={(e) => setOfficeTypeModal((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="অফিসের ধরণ লিখুন..."
                 className="rounded-xl border-slate-200"
               />
             </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">হায়ারার্কি ক্রম (Hierarchy Serial: 1, 2, 3...)</Label>
-              <Input
-                type="number"
-                min={1}
-                value={typeModal.hierarchy_order}
-                onChange={(e) => setTypeModal((prev) => ({ ...prev, hierarchy_order: parseInt(e.target.value, 10) || 1 }))}
-                className="rounded-xl border-slate-200 font-mono"
-              />
-              <p className="text-[11px] text-slate-400">
-                শীর্ষ অফিস ১, তার অধীনস্থ ২, ৩ এভাবে ক্রম নির্ধারণ করুন
-              </p>
-            </div>
           </div>
           <DialogFooter className="pt-2">
-            <Button type="button" variant="outline" onClick={() => setTypeModal((prev) => ({ ...prev, open: false }))} className="rounded-xl text-xs font-semibold">
+            <Button type="button" variant="outline" onClick={() => setOfficeTypeModal((prev) => ({ ...prev, open: false }))} className="rounded-xl text-xs font-semibold">
               বাতিল
             </Button>
-            <Button type="button" onClick={handleSaveOfficeType} disabled={isPending} className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs">
+            <Button type="button" onClick={handleSaveOfficeTypeOnly} disabled={isPending} className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs">
               {isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
               সংরক্ষণ করুন
             </Button>
@@ -671,7 +1409,46 @@ export function AdminOfficesConfigClient({
         </DialogContent>
       </Dialog>
 
-      {/* MODAL 3: গ্রুপ সেটিংস */}
+      {/* ============================================================ */}
+      {/* MODAL 4: HIERARCHY LEVEL */}
+      {/* ============================================================ */}
+      <Dialog open={hierarchyModal.open} onOpenChange={(open) => !open && setHierarchyModal((prev) => ({ ...prev, open: false }))}>
+        <DialogContent className="sm:max-w-md rounded-2xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900">
+              পদক্রম নির্ধারণ: {hierarchyModal.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700">হায়ারার্কি ক্রম / লেভেল (1, 2, 3...)</Label>
+              <Input
+                type="number"
+                min={1}
+                value={hierarchyModal.hierarchy_order}
+                onChange={(e) => setHierarchyModal((prev) => ({ ...prev, hierarchy_order: parseInt(e.target.value, 10) || 1 }))}
+                className="rounded-xl border-slate-200 font-mono"
+              />
+              <p className="text-[11px] text-slate-500">
+                ১ = শীর্ষ আঞ্চলিক অফিস (যেমন: কর অঞ্চল / কমিশনারেট), ২ = সার্কেল অফিস বা পরবর্তী ধাপ
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="pt-2">
+            <Button type="button" variant="outline" onClick={() => setHierarchyModal((prev) => ({ ...prev, open: false }))} className="rounded-xl text-xs font-semibold">
+              বাতিল
+            </Button>
+            <Button type="button" onClick={handleSaveHierarchyOrder} disabled={isPending} className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs">
+              {isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              হায়ারার্কি আপডেট করুন
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================ */}
+      {/* MODAL 5: GROUP BUDGET SETTING */}
+      {/* ============================================================ */}
       <Dialog open={groupModal.open} onOpenChange={(open) => !open && setGroupModal((prev) => ({ ...prev, open: false }))}>
         <DialogContent className="sm:max-w-md rounded-2xl p-6">
           <DialogHeader>
@@ -681,9 +1458,9 @@ export function AdminOfficesConfigClient({
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">বিভাগ</Label>
+              <Label className="text-xs font-bold text-slate-700">দপ্তর / সংস্থা</Label>
               <Select
-                value={String(groupModal.department_id)}
+                value={String(groupModal.department_id || '')}
                 onValueChange={(val) => {
                   if (val) {
                     const depId = parseInt(val, 10)
@@ -691,14 +1468,14 @@ export function AdminOfficesConfigClient({
                     setGroupModal((prev) => ({
                       ...prev,
                       department_id: depId,
-                      office_type_id: matchingOt?.id || prev.office_type_id,
+                      office_type_id: matchingOt?.id || 0,
                     }))
                   }
                 }}
               >
                 <SelectTrigger className="rounded-xl border-slate-200 text-xs">
                   <span className="truncate font-semibold text-slate-900">
-                    {departments.find((d) => d.id === groupModal.department_id)?.name || 'বিভাগ নির্বাচন করুন'}
+                    {departments.find((d) => d.id === groupModal.department_id)?.name || 'দপ্তর/সংস্থা নির্বাচন করুন'}
                   </span>
                 </SelectTrigger>
                 <SelectContent className="rounded-xl text-xs">
@@ -714,7 +1491,7 @@ export function AdminOfficesConfigClient({
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-700">অফিসের ধরণ</Label>
               <Select
-                value={String(groupModal.office_type_id)}
+                value={String(groupModal.office_type_id || '')}
                 onValueChange={(val) => {
                   if (val) setGroupModal((prev) => ({ ...prev, office_type_id: parseInt(val, 10) }))
                 }}
@@ -761,6 +1538,47 @@ export function AdminOfficesConfigClient({
             <Button type="button" onClick={handleSaveGroupSetting} disabled={isPending} className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs">
               {isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
               সংরক্ষণ করুন
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================ */}
+      {/* CONFIRMATION MODAL */}
+      {/* ============================================================ */}
+      <Dialog
+        open={confirmModal.open}
+        onOpenChange={(open) => !open && setConfirmModal((prev) => ({ ...prev, open: false }))}
+      >
+        <DialogContent className="sm:max-w-md rounded-2xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-rose-600" />
+              <span>{confirmModal.title}</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {confirmModal.description}
+            </p>
+          </div>
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConfirmModal((prev) => ({ ...prev, open: false }))}
+              className="rounded-xl text-xs font-semibold"
+            >
+              বাতিল
+            </Button>
+            <Button
+              type="button"
+              onClick={confirmModal.onConfirm}
+              disabled={isPending}
+              className="rounded-xl text-white font-bold text-xs bg-rose-600 hover:bg-rose-700"
+            >
+              {isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              মুছে ফেলা নিশ্চিত করুন
             </Button>
           </DialogFooter>
         </DialogContent>

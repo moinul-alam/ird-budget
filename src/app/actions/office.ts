@@ -22,14 +22,55 @@ export async function searchOffice(budgetId: string): Promise<{ found: boolean; 
   return { found: true, office: data }
 }
 
-export async function getDepartments(): Promise<SelectOption[]> {
+export async function getMinistriesList(): Promise<SelectOption[]> {
+  const supabase = createOfficeClient()
+  const { data: profiles } = await supabase.from('admin_profiles').select('id, username').limit(1)
+  if (!profiles || profiles.length === 0) return []
+
+  const root = profiles[0]
+  if (root.username.includes(':::ocfg=')) {
+    try {
+      const encoded = root.username.split(':::ocfg=')[1].split(':::')[0]
+      const parsed = JSON.parse(decodeURIComponent(encoded))
+      if (Array.isArray(parsed.ministries)) {
+        return parsed.ministries.map((m: any) => ({ id: m.id, name: m.name }))
+      }
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
+export async function getDepartments(ministryId?: string): Promise<(SelectOption & { ministry_id?: string })[]> {
   const supabase = createOfficeClient()
   const { data } = await supabase
     .from('departments')
     .select('id, name')
-    .order('name')
+    .order('id')
 
-  return data || []
+  if (!data) return []
+
+  const list: (SelectOption & { ministry_id?: string })[] = data.map((d: any) => {
+    let cleanName = d.name || ''
+    let minId = ''
+    if (cleanName.includes(':::min=')) {
+      const parts = cleanName.split(':::min=')
+      cleanName = parts[0]
+      minId = parts[1] || ''
+    }
+    return {
+      id: String(d.id),
+      name: cleanName,
+      ministry_id: minId,
+    }
+  })
+
+  if (ministryId) {
+    return list.filter((d: SelectOption & { ministry_id?: string }) => d.ministry_id === ministryId)
+  }
+
+  return list
 }
 
 export async function getParentOffices(departmentId: string): Promise<SelectOption[]> {
@@ -38,9 +79,20 @@ export async function getParentOffices(departmentId: string): Promise<SelectOpti
     .from('parent_offices')
     .select('id, name')
     .eq('department_id', departmentId)
-    .order('name')
+    .order('id')
 
-  return data || []
+  if (!data) return []
+
+  return data.map((p: any) => {
+    let cleanName = p.name || ''
+    if (cleanName.includes(':::type=')) {
+      cleanName = cleanName.split(':::type=')[0]
+    }
+    return {
+      id: String(p.id),
+      name: cleanName,
+    }
+  })
 }
 
 export async function getOfficeTypes(departmentId: string): Promise<SelectOption[]> {
@@ -49,9 +101,20 @@ export async function getOfficeTypes(departmentId: string): Promise<SelectOption
     .from('office_types')
     .select('id, name')
     .eq('department_id', departmentId)
-    .order('name')
+    .order('id')
 
-  return data || []
+  if (!data) return []
+
+  return data.map((t: any) => {
+    let cleanName = t.name || ''
+    if (cleanName.includes(':::order=')) {
+      cleanName = cleanName.split(':::order=')[0]
+    }
+    return {
+      id: String(t.id),
+      name: cleanName,
+    }
+  })
 }
 
 export async function getOfficeProfile(officeId: number) {
