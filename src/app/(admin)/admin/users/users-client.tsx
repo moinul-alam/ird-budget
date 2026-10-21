@@ -1,33 +1,34 @@
 'use client'
 
 import { useState } from 'react'
+import { toBanglaNumber } from '@/lib/bangla'
 import { AdminUserItem, updateAdminUserRole, createAdminUser } from '@/app/actions/admin-users'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogFooter 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
 } from '@/components/ui/dialog'
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui/select'
-import { 
-  ShieldCheck, 
-  Shield, 
-  CheckCircle2, 
-  XCircle, 
-  Edit3, 
-  Loader2, 
-  KeyRound, 
+import {
+  ShieldCheck,
+  Shield,
+  CheckCircle2,
+  XCircle,
+  Edit3,
+  Loader2,
+  KeyRound,
   UserCheck,
   UserPlus
 } from 'lucide-react'
@@ -40,7 +41,7 @@ interface UsersClientProps {
 
 export function UsersClient({ initialUsers, officeTypes, currentUserId }: UsersClientProps) {
   const [users, setUsers] = useState<AdminUserItem[]>(initialUsers)
-  
+
   // Edit Modal State
   const [editingUser, setEditingUser] = useState<AdminUserItem | null>(null)
   const [role, setRole] = useState<'admin' | 'superadmin'>('admin')
@@ -72,9 +73,9 @@ export function UsersClient({ initialUsers, officeTypes, currentUserId }: UsersC
     setErrorMsg(null)
 
     const res = await updateAdminUserRole(
-      editingUser.id, 
-      role, 
-      active, 
+      editingUser.id,
+      role,
+      active,
       newPassword.trim() || undefined
     )
 
@@ -160,15 +161,15 @@ export function UsersClient({ initialUsers, officeTypes, currentUserId }: UsersC
               <span className="p-2 rounded-xl bg-purple-50 text-purple-700">
                 <ShieldCheck className="h-5 w-5" />
               </span>
-              <CardTitle className="text-base font-bold">সুপার অ্যাডমিন (SuperAdmin)</CardTitle>
+              <CardTitle className="text-base font-bold">সুপার অ্যাডমিন</CardTitle>
             </div>
-            <CardDescription className="text-xs">সর্বোচ্চ প্রশাসনিক ক্ষমতা</CardDescription>
           </CardHeader>
           <CardContent className="text-xs text-slate-600 space-y-1.5">
             <p>✓ সকল অফিসের বাজেট দেখা ও সংশোধন</p>
-            <p>✓ গ্লোবাল রেট ও কনফিগারেশন পরিবর্তন</p>
-            <p>✓ নতুন অ্যাডমিন / সুপারঅ্যাডমিন ইউজার তৈরি ও রোল নির্ধারণ</p>
-            <p>✓ সাবমিশন সাইকেল ওপেন/ক্লোজ</p>
+            <p>✓ সকল সেটিংস ও কনফিগারেশন পরিবর্তন</p>
+            <p>✓ নতুন অ্যাডমিন / সুপারঅ্যাডমিন ইউজার তৈরি</p>
+            <p>✓ সকল ইউজারের পাসওয়ার্ড রিসেট</p>
+            <p>✓ বাজেট চক্র ওপেন/ক্লোজ</p>
           </CardContent>
         </Card>
 
@@ -178,15 +179,13 @@ export function UsersClient({ initialUsers, officeTypes, currentUserId }: UsersC
               <span className="p-2 rounded-xl bg-blue-50 text-blue-700">
                 <Shield className="h-5 w-5" />
               </span>
-              <CardTitle className="text-base font-bold">অ্যাডমিন (Admin)</CardTitle>
+              <CardTitle className="text-base font-bold">অ্যাডমিন</CardTitle>
             </div>
-            <CardDescription className="text-xs">বিভাগীয় ও পরিবীক্ষণ স্তর</CardDescription>
           </CardHeader>
           <CardContent className="text-xs text-slate-600 space-y-1.5">
-            <p>✓ নির্ধারিত অফিসের বাজেট পর্যালোচনা ও রিপোর্ট</p>
-            <p>✓ দাখিলকৃত বাজেট পরিমার্জন/রি-সাবমিট অনুমোদন</p>
-            <p>✓ কনফিগারেশন সেটিংস পর্যবেক্ষণ</p>
-            <p className="text-slate-400">✗ ইউজার তৈরি ও সিস্টেম সাইকেল পরিবর্তন নয়</p>
+            <p>✓ সকল অফিসের বাজেট রিপোর্ট পর্যবেক্ষণ</p>
+            <p>✓ দাখিলকৃত বাজেট সংশোধন/পরিবর্তন</p>
+            <p>✓ বাজেট কনফিগারেশন পরিবর্তন</p>
           </CardContent>
         </Card>
 
@@ -196,15 +195,12 @@ export function UsersClient({ initialUsers, officeTypes, currentUserId }: UsersC
               <span className="p-2 rounded-xl bg-emerald-50 text-emerald-700">
                 <UserCheck className="h-5 w-5" />
               </span>
-              <CardTitle className="text-base font-bold">সাধারণ ইউজার (Office)</CardTitle>
+              <CardTitle className="text-base font-bold">সাধারণ ইউজার</CardTitle>
             </div>
-            <CardDescription className="text-xs">মাঠপর্যায়ের অফিসসমূহ</CardDescription>
           </CardHeader>
           <CardContent className="text-xs text-slate-600 space-y-1.5">
-            <p>✓ বাজেট ফরম ১-১০ পূরণ ও সংরক্ষণ</p>
-            <p>✓ নিজ অফিসের স্বয়ংক্রিয় বাজেট প্রাক্কলন</p>
-            <p>✓ বাজেট শীট পর্যালোচনা ও চূড়ান্ত সাবমিশন</p>
-            <p className="text-slate-400">✗ অন্য অফিসের তথ্য দেখা নয়</p>
+            <p>✓ বাজেট ফরম পূরণ ও সংরক্ষণ</p>
+            <p>✓ নিজ অফিসের বাজেট প্রস্তুতকরণ</p>
           </CardContent>
         </Card>
       </div>
@@ -213,8 +209,7 @@ export function UsersClient({ initialUsers, officeTypes, currentUserId }: UsersC
       <Card className="rounded-2xl border-slate-200/80 bg-white shadow-sm overflow-hidden">
         <CardHeader className="border-b border-slate-100 bg-slate-50/50 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <CardTitle className="text-lg font-bold text-slate-800">অ্যাডমিন ইউজার তালিকা ({users.length})</CardTitle>
-            <CardDescription className="text-xs text-slate-500">সিস্টেমের সমস্ত অ্যাডমিন এবং সুপারঅ্যাডমিন অ্যাকাউন্টের তালিকা</CardDescription>
+            <CardTitle className="text-lg font-bold text-slate-800">অ্যাডমিন ইউজার তালিকা ({toBanglaNumber(users.length)})</CardTitle>
           </div>
           <Button
             onClick={() => {

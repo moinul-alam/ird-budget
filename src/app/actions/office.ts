@@ -19,7 +19,13 @@ export async function searchOffice(budgetId: string): Promise<{ found: boolean; 
     return { found: false }
   }
 
-  return { found: true, office: data }
+  let cleanName = data.name || ''
+  if (cleanName.includes(':::pwd$')) cleanName = cleanName.split(':::pwd$')[0]
+  if (cleanName.includes(':::mid=')) cleanName = cleanName.split(':::mid=')[0]
+  if (cleanName.includes(':::did=')) cleanName = cleanName.split(':::did=')[0]
+  if (cleanName.includes(':::poid=')) cleanName = cleanName.split(':::poid=')[0]
+
+  return { found: true, office: { ...data, name: cleanName } }
 }
 
 export async function getMinistriesList(): Promise<SelectOption[]> {

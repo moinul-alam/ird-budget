@@ -125,6 +125,7 @@ export function TabDepartments({
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
                     <th className="py-3 px-4 w-20">ক্র.নং</th>
                     <th className="py-3 px-4">দপ্তর / সংস্থার নাম</th>
+                    <th className="py-3 px-4">বাজেট আইডি (Login ID)</th>
                     <th className="py-3 px-4">মূল মন্ত্রণালয় / বিভাগ</th>
                     <th className="py-3 px-4">অফিসের ধরণ সংখ্যা</th>
                     <th className="py-3 px-4 text-center w-28">একশন</th>
@@ -140,6 +141,15 @@ export function TabDepartments({
                         </td>
                         <td className="py-3.5 px-4 font-bold text-slate-900 text-sm">
                           {d.name}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {d.budget_id ? (
+                            <span className="font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200/80 px-2.5 py-0.5 rounded-lg text-xs">
+                              {d.budget_id}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-xs italic">নির্ধারিত নেই</span>
+                          )}
                         </td>
                         <td className="py-3.5 px-4 font-medium text-slate-700">
                           {d.ministry_name ? (
@@ -165,6 +175,7 @@ export function TabDepartments({
                                   open: true,
                                   id: d.id,
                                   name: d.name,
+                                  budget_id: d.budget_id || '',
                                   ministry_id: d.ministry_id || ministries[0]?.id || '',
                                 })
                               }
@@ -234,6 +245,20 @@ export function TabDepartments({
                 onChange={(e) => setDepModal((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="যেমন: জাতীয় রাজস্ব বোর্ড, কাস্টম্স বিভাগ..."
                 className="rounded-xl border-slate-200"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-slate-700">বাজেট আইডি (Login ID)</Label>
+                <span className="text-[11px] text-blue-600 font-medium">লগইন করার জন্য ব্যবহৃত হবে</span>
+              </div>
+              <Input
+                type="text"
+                value={depModal.budget_id || ''}
+                onChange={(e) => setDepModal((prev) => ({ ...prev, budget_id: e.target.value }))}
+                placeholder="যেমন: 11001, 11002..."
+                className="rounded-xl border-slate-200 font-mono font-semibold"
               />
             </div>
           </div>

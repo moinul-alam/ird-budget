@@ -124,19 +124,29 @@ export function AdminOfficesConfigClient({
     }
 
     startTransition(async () => {
-      const res = await saveMinistry({ id: minModal.id, name: minModal.name })
+      const res = await saveMinistry({
+        id: minModal.id,
+        name: minModal.name,
+        budget_id: minModal.budget_id?.trim() || undefined,
+      })
       if (res.error) {
         showStatus(res.error, 'error')
       } else {
         showStatus('মন্ত্রণালয়/বিভাগ সফলভাবে সংরক্ষিত হয়েছে')
-        setMinModal({ open: false, name: '' })
         const trimmed = minModal.name.trim()
+        const trimmedBudget = minModal.budget_id?.trim() || undefined
+        setMinModal({ open: false, name: '', budget_id: '' })
         if (minModal.id) {
           setMinistries((prev) =>
-            prev.map((m) => (m.id === minModal.id ? { ...m, name: trimmed } : m))
+            prev.map((m) =>
+              m.id === minModal.id ? { ...m, name: trimmed, budget_id: trimmedBudget } : m
+            )
           )
         } else {
-          setMinistries((prev) => [...prev, { id: `min-${Date.now()}`, name: trimmed }])
+          setMinistries((prev) => [
+            ...prev,
+            { id: `min-${Date.now()}`, name: trimmed, budget_id: trimmedBudget },
+          ])
         }
       }
     })
@@ -158,14 +168,16 @@ export function AdminOfficesConfigClient({
         id: depModal.id,
         name: depModal.name,
         ministry_id: depModal.ministry_id,
+        budget_id: depModal.budget_id?.trim() || undefined,
       })
       if (res.error) {
         showStatus(res.error, 'error')
       } else {
         showStatus('দপ্তর/সংস্থা সফলভাবে সংরক্ষিত হয়েছে')
-        setDepModal({ open: false, name: '', ministry_id: '' })
         const trimmed = depModal.name.trim()
+        const trimmedBudget = depModal.budget_id?.trim() || undefined
         const selectedMin = ministries.find((m) => m.id === depModal.ministry_id)
+        setDepModal({ open: false, name: '', ministry_id: '', budget_id: '' })
         if (depModal.id) {
           setDepartments((prev) =>
             prev.map((d) =>
@@ -173,6 +185,7 @@ export function AdminOfficesConfigClient({
                 ? {
                     ...d,
                     name: trimmed,
+                    budget_id: trimmedBudget,
                     ministry_id: depModal.ministry_id,
                     ministry_name: selectedMin?.name || '',
                   }
@@ -185,6 +198,7 @@ export function AdminOfficesConfigClient({
             {
               id: Date.now(),
               name: trimmed,
+              budget_id: trimmedBudget,
               ministry_id: depModal.ministry_id,
               ministry_name: selectedMin?.name || '',
             },

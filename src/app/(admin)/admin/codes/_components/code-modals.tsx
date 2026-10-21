@@ -213,3 +213,70 @@ export function CodeModal({
     </Dialog>
   )
 }
+
+interface ConfirmToggleAllDialogProps {
+  modal: {
+    open: boolean
+    enableAll: boolean
+    title: string
+    description: string
+  }
+  setModal: React.Dispatch<React.SetStateAction<{
+    open: boolean
+    enableAll: boolean
+    title: string
+    description: string
+  }>>
+  onConfirm: () => void
+  isPending: boolean
+}
+
+export function ConfirmToggleAllDialog({
+  modal,
+  setModal,
+  onConfirm,
+  isPending,
+}: ConfirmToggleAllDialogProps) {
+  return (
+    <Dialog open={modal.open} onOpenChange={(open) => !open && setModal((prev) => ({ ...prev, open: false }))}>
+      <DialogContent className="sm:max-w-md rounded-2xl p-6">
+        <DialogHeader>
+          <DialogTitle className="text-base font-bold text-slate-900">
+            {modal.title}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="py-2">
+          <p className="text-xs text-slate-600 leading-relaxed">
+            {modal.description}
+          </p>
+        </div>
+        <DialogFooter className="pt-2 gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setModal((prev) => ({ ...prev, open: false }))}
+            className="rounded-xl text-xs font-semibold"
+          >
+            বাতিল
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              onConfirm()
+              setModal((prev) => ({ ...prev, open: false }))
+            }}
+            disabled={isPending}
+            className={`rounded-xl text-white font-bold text-xs ${
+              modal.enableAll
+                ? 'bg-emerald-600 hover:bg-emerald-700'
+                : 'bg-rose-600 hover:bg-rose-700'
+            }`}
+          >
+            {isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+            {modal.enableAll ? 'হ্যাঁ, সকল চালু করুন' : 'হ্যাঁ, সকল বন্ধ করুন'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}

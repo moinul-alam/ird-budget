@@ -7,12 +7,14 @@ import { revalidatePath } from 'next/cache'
 export interface MinistryItem {
   id: string
   name: string
+  budget_id?: string
   created_at?: string
 }
 
 export interface DepartmentItem {
   id: number
   name: string
+  budget_id?: string
   ministry_id?: string
   ministry_name?: string
   created_at?: string
@@ -118,31 +120,101 @@ export async function getMinistries(): Promise<MinistryItem[]> {
   return cfg.ministries
 }
 
-export async function saveMinistry(data: { id?: string; name: string }) {
+export async function saveMinistry(data: { id?: string; name: string; budget_id?: string }) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
   const trimmed = data.name.trim()
   if (!trimmed) return { error: 'মন্ত্রণালয়/বিভাগের নাম আবশ্যক' }
+  const trimmedBudget = data.budget_id ? data.budget_id.trim() : ''
+
+  const supabase = createOfficeClient()
+
+  // If budget_id provided, verify uniqueness in offices table
+  if (trimmedBudget) {
+    const { data: existing } = await supabase
+      .from('offices')
+      .select('id, name')
+      .eq('budget_id', trimmedBudget)
+      .maybeSingle()
+
+    // If an office exists with this budget_id, check if it's not our ministry office
+    if (existing) {
+      const isOurOffice = existing.name.includes(`:::mid=${data.id || ''}`)
+      if (!isOurOffice) {
+        return { error: 'এই বাজেট আইডিটি ইতিমধ্যে অন্য অফিসের জন্য ব্যবহৃত হচ্ছে।' }
+      }
+    }
+  }
 
   const cfg = await getStoredOfficeConfig()
   const list = [...cfg.ministries]
+  let minId = data.id
 
   if (data.id) {
     const idx = list.findIndex((m) => m.id === data.id)
-    if (idx !== -1) list[idx] = { ...list[idx], name: trimmed }
+    if (idx !== -1) {
+      const oldItem = list[idx]
+      // If budget_id was removed or changed, handle old office
+      if (oldItem.budget_id && oldItem.budget_id !== trimmedBudget) {
+        await supabase
+          .from('offices')
+          .delete()
+          .eq('budget_id', oldItem.budget_id)
+      }
+      list[idx] = { ...list[idx], name: trimmed, budget_id: trimmedBudget || undefined }
+    }
   } else {
+    minId = `min-${Date.now()}`
     list.push({
-      id: `min-${Date.now()}`,
+      id: minId,
       name: trimmed,
+      budget_id: trimmedBudget || undefined,
       created_at: new Date().toISOString(),
     })
+  }
+
+  // If budget_id is provided, sync to offices table so they can log in
+  if (trimmedBudget && minId) {
+    // Get a valid office_type_id (fallback to first available type if needed)
+    const { data: otData } = await supabase.from('office_types').select('id').limit(1)
+    const defaultTypeId = otData && otData.length > 0 ? otData[0].id : 1
+
+    const officeName = `${trimmed}:::mid=${minId}`
+
+    // Check if office exists with this budget_id
+    const { data: existingOffice } = await supabase
+      .from('offices')
+      .select('id')
+      .eq('budget_id', trimmedBudget)
+      .maybeSingle()
+
+    if (existingOffice) {
+      await supabase
+        .from('offices')
+        .update({
+          name: officeName,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingOffice.id)
+    } else {
+      await supabase
+        .from('offices')
+        .insert({
+          name: officeName,
+          budget_id: trimmedBudget,
+          office_type_id: defaultTypeId,
+          parent_office_id: null,
+        })
+    }
   }
 
   const res = await saveStoredOfficeConfig({ ministries: list })
   if (res.error) return { error: res.error }
 
   revalidatePath('/admin/offices-config')
+  revalidatePath('/admin/offices-management/field-offices')
+  revalidatePath('/')
   return { success: true }
 }
 
@@ -151,12 +223,20 @@ export async function deleteMinistry(id: string) {
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
   const cfg = await getStoredOfficeConfig()
+  const target = cfg.ministries.find((m) => m.id === id)
   const list = cfg.ministries.filter((m) => m.id !== id)
+
+  const supabase = createOfficeClient()
+  if (target?.budget_id) {
+    await supabase.from('offices').delete().eq('budget_id', target.budget_id)
+  }
 
   const res = await saveStoredOfficeConfig({ ministries: list })
   if (res.error) return { error: res.error }
 
   revalidatePath('/admin/offices-config')
+  revalidatePath('/admin/offices-management/field-offices')
+  revalidatePath('/')
   return { success: true }
 }
 
@@ -175,6 +255,18 @@ export async function getDepartments(): Promise<DepartmentItem[]> {
     let name = d.name || ''
     let ministry_id = ''
     let ministry_name = ''
+    let budget_id = ''
+
+    if (name.includes(':::budget=')) {
+      const bParts = name.split(':::budget=')
+      name = bParts[0]
+      const bRest = bParts[1] || ''
+      if (bRest.includes(':::')) {
+        budget_id = bRest.split(':::')[0]
+      } else {
+        budget_id = bRest
+      }
+    }
 
     if (name.includes(':::min=')) {
       const parts = name.split(':::min=')
@@ -186,6 +278,7 @@ export async function getDepartments(): Promise<DepartmentItem[]> {
     return {
       id: d.id,
       name,
+      budget_id,
       ministry_id,
       ministry_name,
       created_at: d.created_at,
@@ -193,15 +286,53 @@ export async function getDepartments(): Promise<DepartmentItem[]> {
   })
 }
 
-export async function saveDepartment(data: { id?: number; name: string; ministry_id?: string }) {
+export async function saveDepartment(data: { id?: number; name: string; ministry_id?: string; budget_id?: string }) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
   const trimmed = data.name.trim()
   if (!trimmed) return { error: 'দপ্তর/সংস্থার নাম আবশ্যক' }
+  const trimmedBudget = data.budget_id ? data.budget_id.trim() : ''
 
   const supabase = createOfficeClient()
-  const storedName = data.ministry_id ? `${trimmed}:::min=${data.ministry_id}` : trimmed
+
+  // If budget_id provided, verify uniqueness in offices table
+  if (trimmedBudget) {
+    const { data: existing } = await supabase
+      .from('offices')
+      .select('id, name')
+      .eq('budget_id', trimmedBudget)
+      .maybeSingle()
+
+    if (existing) {
+      const isOurOffice = existing.name.includes(`:::did=${data.id || ''}`)
+      if (!isOurOffice) {
+        return { error: 'এই বাজেট আইডিটি ইতিমধ্যে অন্য অফিসের জন্য ব্যবহৃত হচ্ছে।' }
+      }
+    }
+  }
+
+  // Handle old budget_id if department being updated
+  if (data.id) {
+    const { data: oldDept } = await supabase
+      .from('departments')
+      .select('name')
+      .eq('id', data.id)
+      .maybeSingle()
+
+    if (oldDept?.name && oldDept.name.includes(':::budget=')) {
+      const oldB = oldDept.name.split(':::budget=')[1]?.split(':::')[0]
+      if (oldB && oldB !== trimmedBudget) {
+        await supabase.from('offices').delete().eq('budget_id', oldB)
+      }
+    }
+  }
+
+  let storedName = trimmed
+  if (data.ministry_id) storedName += `:::min=${data.ministry_id}`
+  if (trimmedBudget) storedName += `:::budget=${trimmedBudget}`
+
+  let deptId = data.id
 
   if (data.id) {
     const { error } = await supabase
@@ -210,13 +341,62 @@ export async function saveDepartment(data: { id?: number; name: string; ministry
       .eq('id', data.id)
     if (error) return { error: error.message }
   } else {
-    const { error } = await supabase
+    const { data: inserted, error } = await supabase
       .from('departments')
       .insert({ name: storedName })
+      .select('id')
+      .single()
     if (error) return { error: error.message }
+    deptId = inserted.id
+  }
+
+  // Sync to offices table if budget_id provided
+  if (trimmedBudget && deptId) {
+    // Find office type belonging to this department, or fallback
+    const { data: otData } = await supabase
+      .from('office_types')
+      .select('id')
+      .eq('department_id', deptId)
+      .limit(1)
+
+    let officeTypeId = otData && otData.length > 0 ? otData[0].id : null
+    if (!officeTypeId) {
+      const { data: anyOt } = await supabase.from('office_types').select('id').limit(1)
+      officeTypeId = anyOt && anyOt.length > 0 ? anyOt[0].id : 1
+    }
+
+    const officeName = `${trimmed}:::did=${deptId}`
+
+    const { data: existingOffice } = await supabase
+      .from('offices')
+      .select('id')
+      .eq('budget_id', trimmedBudget)
+      .maybeSingle()
+
+    if (existingOffice) {
+      await supabase
+        .from('offices')
+        .update({
+          name: officeName,
+          office_type_id: officeTypeId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingOffice.id)
+    } else {
+      await supabase
+        .from('offices')
+        .insert({
+          name: officeName,
+          budget_id: trimmedBudget,
+          office_type_id: officeTypeId,
+          parent_office_id: null,
+        })
+    }
   }
 
   revalidatePath('/admin/offices-config')
+  revalidatePath('/admin/offices-management/field-offices')
+  revalidatePath('/')
   return { success: true }
 }
 
@@ -225,10 +405,27 @@ export async function deleteDepartment(id: number) {
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
   const supabase = createOfficeClient()
+
+  // Clean up linked office if any
+  const { data: oldDept } = await supabase
+    .from('departments')
+    .select('name')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (oldDept?.name && oldDept.name.includes(':::budget=')) {
+    const oldB = oldDept.name.split(':::budget=')[1]?.split(':::')[0]
+    if (oldB) {
+      await supabase.from('offices').delete().eq('budget_id', oldB)
+    }
+  }
+
   const { error } = await supabase.from('departments').delete().eq('id', id)
   if (error) return { error: error.message }
 
   revalidatePath('/admin/offices-config')
+  revalidatePath('/admin/offices-management/field-offices')
+  revalidatePath('/')
   return { success: true }
 }
 

@@ -63,12 +63,14 @@ export function HeadOfficesClient({
     open: boolean
     id?: number
     name: string
+    budget_id?: string
     ministry_id: string
     department_id: number
     office_type_id: number
   }>({
     open: false,
     name: '',
+    budget_id: '',
     ministry_id: '',
     department_id: 0,
     office_type_id: 0,
@@ -132,6 +134,7 @@ export function HeadOfficesClient({
     setModal({
       open: true,
       name: '',
+      budget_id: '',
       ministry_id: defaultMin,
       department_id: defaultDeptId,
       office_type_id: defaultTypeId,
@@ -144,6 +147,7 @@ export function HeadOfficesClient({
       open: true,
       id: item.id,
       name: item.name,
+      budget_id: item.budget_id || '',
       ministry_id: item.ministry_id || ministries[0]?.id || '',
       department_id: item.department_id,
       office_type_id: item.office_type_id,
@@ -156,11 +160,12 @@ export function HeadOfficesClient({
       open: true,
       id: undefined, // Create new record
       name: '', // User has to type the name
+      budget_id: '',
       ministry_id: item.ministry_id || ministries[0]?.id || '',
       department_id: item.department_id,
       office_type_id: item.office_type_id,
     })
-    showStatus(`"${item.name}" থেকে অনুলিপি করা হচ্ছে। অনুগ্রহ করে নতুন হেড অফিসের নাম লিখুন।`, 'success')
+    showStatus(`"${item.name}" থেকে অনুলিপি করা হচ্ছে। অনুগ্রহ করে নতুন হেড অফিসের নাম ও বাজেট আইডি লিখুন।`, 'success')
   }
 
   // Handle Save
@@ -182,6 +187,7 @@ export function HeadOfficesClient({
       const res = await saveHeadOffice({
         id: modal.id,
         name: modal.name,
+        budget_id: modal.budget_id?.trim() || undefined,
         department_id: modal.department_id,
         office_type_id: modal.office_type_id,
         office_level: computedOfficeLevel,
@@ -191,7 +197,8 @@ export function HeadOfficesClient({
         showStatus(res.error, 'error')
       } else {
         showStatus(modal.id ? 'হেড অফিস সফলভাবে আপডেট হয়েছে' : 'নতুন হেড অফিস সফলভাবে সংরক্ষিত হয়েছে')
-        setModal((prev) => ({ ...prev, open: false }))
+        const trimmedBudget = modal.budget_id?.trim() || undefined
+        setModal((prev) => ({ ...prev, open: false, budget_id: '' }))
 
         const dept = departments.find((d) => d.id === modal.department_id)
         const typeObj = officeTypes.find((ot) => ot.id === modal.office_type_id)
@@ -204,6 +211,7 @@ export function HeadOfficesClient({
                 ? {
                     ...h,
                     name: modal.name.trim(),
+                    budget_id: trimmedBudget,
                     department_id: modal.department_id,
                     department_name: dept?.name || '',
                     ministry_id: modal.ministry_id,
@@ -220,6 +228,7 @@ export function HeadOfficesClient({
             {
               id: Date.now(),
               name: modal.name.trim(),
+              budget_id: trimmedBudget,
               department_id: modal.department_id,
               department_name: dept?.name || '',
               ministry_id: modal.ministry_id,
@@ -382,12 +391,10 @@ export function HeadOfficesClient({
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                    <th className="py-3 px-4 w-16">ক্র.নং</th>
+                    <th className="py-3 px-4 w-16">ক্র. নং</th>
                     <th className="py-3 px-4">হেড অফিসের নাম</th>
-                    <th className="py-3 px-4">মন্ত্রণালয় / বিভাগ</th>
+                    <th className="py-3 px-4">বাজেট আইডি</th>
                     <th className="py-3 px-4">দপ্তর / সংস্থা</th>
-                    <th className="py-3 px-4">অফিসের ধরণ</th>
-                    <th className="py-3 px-4 text-center">লেভেল</th>
                     <th className="py-3 px-4 text-center w-36">একশন</th>
                   </tr>
                 </thead>
@@ -400,27 +407,17 @@ export function HeadOfficesClient({
                       <td className="py-3.5 px-4 font-bold text-slate-900 text-sm">
                         {h.name}
                       </td>
-                      <td className="py-3.5 px-4 font-medium text-slate-600">
-                        {h.ministry_name ? (
-                          <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded-md font-bold text-[11px] border border-blue-100">
-                            {h.ministry_name}
+                      <td className="py-3.5 px-4">
+                        {h.budget_id ? (
+                          <span className="font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200/80 px-2.5 py-0.5 rounded-lg text-xs">
+                            {h.budget_id}
                           </span>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="text-slate-400 text-xs italic">নির্ধারিত নেই</span>
                         )}
                       </td>
                       <td className="py-3.5 px-4 font-semibold text-slate-700">
                         {h.department_name || '—'}
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-slate-700">
-                        <span className="px-2.5 py-0.5 bg-slate-100 text-slate-700 rounded-lg font-bold">
-                          {h.office_type_name || '—'}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-md font-bold text-[11px] border border-emerald-200 font-mono">
-                          লেভেল {toBanglaNumber(h.office_level)}
-                        </span>
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <div className="flex items-center justify-center gap-1">
@@ -588,6 +585,21 @@ export function HeadOfficesClient({
                 onChange={(e) => setModal((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="যেমন: কর অঞ্চল-১ ঢাকা, কাস্টমস হাউস চট্টগ্রাম..."
                 className="rounded-xl border-slate-200 text-xs h-10"
+              />
+            </div>
+
+            {/* ৬. বাজেট আইডি (Typed field) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-slate-700">বাজেট আইডি (Login ID)</Label>
+                <span className="text-[11px] text-blue-600 font-medium">লগইন করার জন্য ব্যবহৃত হবে</span>
+              </div>
+              <Input
+                type="text"
+                value={modal.budget_id || ''}
+                onChange={(e) => setModal((prev) => ({ ...prev, budget_id: e.target.value }))}
+                placeholder="যেমন: 11201, 11202..."
+                className="rounded-xl border-slate-200 text-xs h-10 font-mono font-semibold"
               />
             </div>
           </div>

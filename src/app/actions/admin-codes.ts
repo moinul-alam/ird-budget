@@ -164,22 +164,88 @@ export async function deleteBudgetCategory(id: string) {
 // -------------------------------------------------------------------
 // ECONOMIC CODES (Right side of Tab 1) & Tab 2 (Enabling/Disabling)
 // -------------------------------------------------------------------
-export async function getExpenseCodesWithCategoryAndMapping(officeTypeId: number) {
+interface StoredLevelMapping {
+  [levelId: string]: number[] // array of code_ids enabled for this level
+}
+
+async function getStoredLevelMappings(): Promise<StoredLevelMapping> {
+  const supabase = createOfficeClient()
+  const { data: profiles } = await supabase.from('admin_profiles').select('id, username').limit(1)
+  if (!profiles || profiles.length === 0) return {}
+
+  const root = profiles[0]
+  if (root.username.includes(':::clmap=')) {
+    try {
+      const encoded = root.username.split(':::clmap=')[1].split(':::')[0]
+      const parsed = JSON.parse(decodeURIComponent(encoded))
+      if (parsed && typeof parsed === 'object') return parsed
+    } catch {
+      return {}
+    }
+  }
+  return {}
+}
+
+async function saveStoredLevelMappings(map: StoredLevelMapping) {
+  const supabase = createOfficeClient()
+  const { data: profiles } = await supabase.from('admin_profiles').select('*').limit(1)
+  if (!profiles || profiles.length === 0) return { error: 'অ্যাডমিন প্রোফাইল পাওয়া যায়নি' }
+
+  const root = profiles[0]
+  let rawUsername = root.username
+  if (rawUsername.includes(':::clmap=')) {
+    const parts = rawUsername.split(':::clmap=')
+    const before = parts[0]
+    const afterSegments = parts[1].split(':::').slice(1).join(':::')
+    rawUsername = afterSegments ? `${before}:::${afterSegments}` : before
+  }
+
+  const encoded = encodeURIComponent(JSON.stringify(map))
+  const newUsername = `${rawUsername}:::clmap=${encoded}`
+
+  const { error } = await supabase
+    .from('admin_profiles')
+    .update({ username: newUsername })
+    .eq('id', root.id)
+
+  if (error) return { error: error.message }
+  return { success: true }
+}
+
+export async function getExpenseCodesWithCategoryAndMapping(
+  officeTypeId: number,
+  officeLevelId?: string
+) {
   const supabase = createOfficeClient()
 
   // 1. Fetch all expense codes
-  const { data: codes, error: e1 } = await supabase
+  const { data: codes } = await supabase
     .from('expense_codes')
     .select('id, code, name, parent_code, parent_title, sort_order, formula_key, is_manual')
     .order('sort_order', { ascending: true })
 
-  // 2. Fetch enabled mappings for this officeTypeId
-  const { data: mappings, error: e2 } = await supabase
-    .from('code_type_mapping')
-    .select('code_id')
-    .eq('office_type_id', officeTypeId)
+  let enabledCodeIds = new Set<number>()
 
-  const enabledCodeIds = new Set<number>((mappings || []).map((m: any) => m.code_id))
+  if (officeLevelId) {
+    const levelMap = await getStoredLevelMappings()
+    if (levelMap[officeLevelId]) {
+      enabledCodeIds = new Set<number>(levelMap[officeLevelId])
+    } else {
+      // Fallback to office_type_mapping initially if level not explicitly customized
+      const { data: mappings } = await supabase
+        .from('code_type_mapping')
+        .select('code_id')
+        .eq('office_type_id', officeTypeId)
+      enabledCodeIds = new Set<number>((mappings || []).map((m: any) => m.code_id))
+    }
+  } else {
+    // 2. Fetch enabled mappings for this officeTypeId
+    const { data: mappings } = await supabase
+      .from('code_type_mapping')
+      .select('code_id')
+      .eq('office_type_id', officeTypeId)
+    enabledCodeIds = new Set<number>((mappings || []).map((m: any) => m.code_id))
+  }
 
   const list: ExpenseCodeFullItem[] = (codes || []).map((c: any) => ({
     id: c.id,
@@ -262,27 +328,56 @@ export async function deleteEconomicCode(id: number) {
   return { success: true }
 }
 
-export async function toggleCodeForOfficeType(officeTypeId: number, codeId: number, enable: boolean) {
+export async function toggleCodeForOfficeType(
+  officeTypeId: number,
+  codeId: number,
+  enable: boolean,
+  officeLevelId?: string
+) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
   const supabase = createOfficeClient()
 
-  if (enable) {
-    const { error } = await supabase.from('code_type_mapping').insert({
-      office_type_id: officeTypeId,
-      code_id: codeId,
-    })
-    if (error && !error.message.includes('duplicate')) {
-      return { error: error.message }
+  if (officeLevelId) {
+    const levelMap = await getStoredLevelMappings()
+    let currentCodes = levelMap[officeLevelId]
+    if (!currentCodes) {
+      // Initialize with office type codes
+      const { data: mappings } = await supabase
+        .from('code_type_mapping')
+        .select('code_id')
+        .eq('office_type_id', officeTypeId)
+      currentCodes = (mappings || []).map((m: any) => m.code_id)
     }
+
+    const codeSet = new Set<number>(currentCodes)
+    if (enable) {
+      codeSet.add(codeId)
+    } else {
+      codeSet.delete(codeId)
+    }
+
+    levelMap[officeLevelId] = Array.from(codeSet)
+    const saveRes = await saveStoredLevelMappings(levelMap)
+    if (saveRes.error) return { error: saveRes.error }
   } else {
-    const { error } = await supabase
-      .from('code_type_mapping')
-      .delete()
-      .eq('office_type_id', officeTypeId)
-      .eq('code_id', codeId)
-    if (error) return { error: error.message }
+    if (enable) {
+      const { error } = await supabase.from('code_type_mapping').insert({
+        office_type_id: officeTypeId,
+        code_id: codeId,
+      })
+      if (error && !error.message.includes('duplicate')) {
+        return { error: error.message }
+      }
+    } else {
+      const { error } = await supabase
+        .from('code_type_mapping')
+        .delete()
+        .eq('office_type_id', officeTypeId)
+        .eq('code_id', codeId)
+      if (error) return { error: error.message }
+    }
   }
 
   revalidatePath('/admin/codes')
@@ -290,26 +385,60 @@ export async function toggleCodeForOfficeType(officeTypeId: number, codeId: numb
   return { success: true }
 }
 
-export async function toggleAllCodesForOfficeType(officeTypeId: number, enableAll: boolean) {
+export async function toggleBulkCodesForOfficeType(
+  officeTypeId: number,
+  codeIds: number[],
+  enable: boolean,
+  officeLevelId?: string
+) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
+  if (!codeIds || codeIds.length === 0) return { error: 'কোনো কোড নির্বাচন করা হয়নি' }
 
   const supabase = createOfficeClient()
 
-  if (enableAll) {
-    const { data: allCodes } = await supabase.from('expense_codes').select('id')
-    if (allCodes) {
-      const rows = allCodes.map((c: any) => ({
+  if (officeLevelId) {
+    const levelMap = await getStoredLevelMappings()
+    let currentCodes = levelMap[officeLevelId]
+    if (!currentCodes) {
+      // Initialize from office_type mappings if not yet set
+      const { data: mappings } = await supabase
+        .from('code_type_mapping')
+        .select('code_id')
+        .eq('office_type_id', officeTypeId)
+      currentCodes = (mappings || []).map((m: any) => m.code_id)
+    }
+
+    const codeSet = new Set<number>(currentCodes)
+    for (const id of codeIds) {
+      if (enable) {
+        codeSet.add(id)
+      } else {
+        codeSet.delete(id)
+      }
+    }
+
+    levelMap[officeLevelId] = Array.from(codeSet)
+    const saveRes = await saveStoredLevelMappings(levelMap)
+    if (saveRes.error) return { error: saveRes.error }
+  } else {
+    if (enable) {
+      const rows = codeIds.map((cid) => ({
         office_type_id: officeTypeId,
-        code_id: c.id,
+        code_id: cid,
       }))
-      await supabase.from('code_type_mapping').delete().eq('office_type_id', officeTypeId)
-      const { error } = await supabase.from('code_type_mapping').insert(rows)
+      const { error } = await supabase.from('code_type_mapping').upsert(rows, { onConflict: 'code_id,office_type_id' })
+      if (error && !error.message.includes('duplicate')) {
+        return { error: error.message }
+      }
+    } else {
+      const { error } = await supabase
+        .from('code_type_mapping')
+        .delete()
+        .eq('office_type_id', officeTypeId)
+        .in('code_id', codeIds)
       if (error) return { error: error.message }
     }
-  } else {
-    const { error } = await supabase.from('code_type_mapping').delete().eq('office_type_id', officeTypeId)
-    if (error) return { error: error.message }
   }
 
   revalidatePath('/admin/codes')

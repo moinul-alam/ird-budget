@@ -76,7 +76,7 @@ export function AdminBudgetsClient({
     title: '',
     description: '',
     isArchive: false,
-    onConfirm: () => {},
+    onConfirm: () => { },
   })
 
   const showStatus = (text: string, type: 'success' | 'error' = 'success') => {
@@ -313,18 +313,14 @@ export function AdminBudgetsClient({
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-title">
             বাজেট কনফিগারেশন
           </h1>
-          <p className="text-sm text-slate-500 mt-1 font-medium">
-            বাজেটের ধরণ, অর্থবছর এবং সার্বিক বাজেট সাইকেল নির্ধারণ ও নিয়ন্ত্রণ
-          </p>
         </div>
 
         {statusMessage && (
           <div
-            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200 ${
-              statusMessage.type === 'success'
-                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                : 'bg-rose-50 text-rose-800 border border-rose-200'
-            }`}
+            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200 ${statusMessage.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              : 'bg-rose-50 text-rose-800 border border-rose-200'
+              }`}
           >
             {statusMessage.type === 'success' ? (
               <CheckCircle2 className="h-4 w-4 text-emerald-600" />
@@ -341,14 +337,13 @@ export function AdminBudgetsClient({
         <nav className="flex space-x-2 sm:space-x-4" aria-label="Tabs">
           <button
             onClick={() => setActiveTab('budget_types')}
-            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
-              activeTab === 'budget_types'
-                ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
-            }`}
+            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${activeTab === 'budget_types'
+              ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
+              : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+              }`}
           >
             <Layers className="h-4 w-4" />
-            <span>ট্যাব ১: বাজেটের ধরণ</span>
+            <span>বাজেটের ধরণ</span>
             <span className="ml-1 text-[11px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-mono">
               {toBanglaNumber(budgetTypes.length)}
             </span>
@@ -356,14 +351,13 @@ export function AdminBudgetsClient({
 
           <button
             onClick={() => setActiveTab('fiscal_years')}
-            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
-              activeTab === 'fiscal_years'
-                ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
-            }`}
+            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${activeTab === 'fiscal_years'
+              ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
+              : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+              }`}
           >
             <Calendar className="h-4 w-4" />
-            <span>ট্যাব ২: অর্থবছর</span>
+            <span>অর্থবছর</span>
             <span className="ml-1 text-[11px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-mono">
               {toBanglaNumber(fiscalYears.length)}
             </span>
@@ -377,16 +371,15 @@ export function AdminBudgetsClient({
               }
               setActiveTab('cycles')
             }}
-            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
-              activeTab === 'cycles'
-                ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
-                : !canCreateCycle
+            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${activeTab === 'cycles'
+              ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
+              : !canCreateCycle
                 ? 'border-transparent text-slate-400 opacity-60 cursor-not-allowed'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
-            }`}
+              }`}
           >
             <SlidersHorizontal className="h-4 w-4" />
-            <span>ট্যাব ৩: বাজেট নির্ধারণ (সাইকেল)</span>
+            <span>বাজেট চক্র নির্ধারণ</span>
             {!canCreateCycle && (
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold">
                 লকড

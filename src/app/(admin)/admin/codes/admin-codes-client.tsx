@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useEffect } from 'react'
+import { toBanglaNumber } from '@/lib/bangla'
 import {
   BudgetCategoryItem,
   ExpenseCodeFullItem,
@@ -9,7 +10,8 @@ import {
   saveEconomicCode,
   deleteEconomicCode,
   toggleCodeForOfficeType,
-  toggleAllCodesForOfficeType
+  toggleBulkCodesForOfficeType,
+  getExpenseCodesWithCategoryAndMapping,
 } from '@/app/actions/admin-codes'
 import { CheckCircle2, AlertTriangle, FolderTree, SlidersHorizontal } from 'lucide-react'
 import {
@@ -23,14 +25,32 @@ import { TabEnableCodes } from './_components/tab-enable-codes'
 
 export function AdminCodesClient({
   officeTypes,
+  departments,
+  officeLevels,
   initialCodes,
   initialCategories,
   initialOfficeTypeId,
+  initialDepartmentId,
+  initialOfficeLevelId,
 }: AdminCodesClientProps) {
   // Tabs: 'create_codes' | 'enable_codes'
   const [activeTab, setActiveTab] = useState<'create_codes' | 'enable_codes'>('create_codes')
 
   const [selectedOfficeTypeId, setSelectedOfficeTypeId] = useState<number>(initialOfficeTypeId)
+  const initialType = officeTypes.find((ot) => ot.id === initialOfficeTypeId) || officeTypes[0]
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<number | undefined>(
+    initialDepartmentId || initialType?.department_id || departments[0]?.id
+  )
+
+  // Office Levels for selected type
+  const matchingLevels = useMemo(
+    () => officeLevels.filter((lvl) => lvl.office_type_id === selectedOfficeTypeId),
+    [officeLevels, selectedOfficeTypeId]
+  )
+  const [selectedLevelId, setSelectedLevelId] = useState<string>(
+    initialOfficeLevelId || matchingLevels[0]?.id || ''
+  )
+
   const [categories, setCategories] = useState<BudgetCategoryItem[]>(initialCategories)
   const [codes, setCodes] = useState<ExpenseCodeFullItem[]>(initialCodes)
   const [searchQuery, setSearchQuery] = useState('')
@@ -38,6 +58,19 @@ export function AdminCodesClient({
 
   const [isPending, startTransition] = useTransition()
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  // Whenever selected office type or level changes in Tab 2, fetch corresponding enabled codes
+  useEffect(() => {
+    let isCancelled = false
+    getExpenseCodesWithCategoryAndMapping(selectedOfficeTypeId, selectedLevelId || undefined).then((res) => {
+      if (!isCancelled && res.codes) {
+        setCodes(res.codes)
+      }
+    })
+    return () => {
+      isCancelled = true
+    }
+  }, [selectedOfficeTypeId, selectedLevelId])
 
   // Tab 1 Left: Category Modal
   const [catModal, setCatModal] = useState<CategoryModalState>({
@@ -64,6 +97,8 @@ export function AdminCodesClient({
 
   const selectedOfficeType =
     officeTypes.find((ot) => ot.id === selectedOfficeTypeId) || officeTypes[0]
+  const selectedOfficeLevel =
+    officeLevels.find((lvl) => lvl.id === selectedLevelId) || matchingLevels[0]
 
   const enabledCount = useMemo(() => codes.filter((c) => c.enabled).length, [codes])
 
@@ -181,13 +216,13 @@ export function AdminCodesClient({
             prev.map((c) =>
               c.id === codeModal.id
                 ? {
-                    ...c,
-                    code: trimmedCode,
-                    name: trimmedName,
-                    parent_code: codeModal.parent_code,
-                    parent_title: cat?.title || codeModal.parent_title,
-                    hierarchy_order: codeModal.hierarchy_order,
-                  }
+                  ...c,
+                  code: trimmedCode,
+                  name: trimmedName,
+                  parent_code: codeModal.parent_code,
+                  parent_title: cat?.title || codeModal.parent_title,
+                  hierarchy_order: codeModal.hierarchy_order,
+                }
                 : c
             ).sort((a, b) => a.hierarchy_order - b.hierarchy_order)
           )
@@ -228,7 +263,12 @@ export function AdminCodesClient({
     setCodes((prev) => prev.map((c) => (c.id === code.id ? { ...c, enabled: nextVal } : c)))
 
     startTransition(async () => {
-      const res = await toggleCodeForOfficeType(selectedOfficeTypeId, code.id, nextVal)
+      const res = await toggleCodeForOfficeType(
+        selectedOfficeTypeId,
+        code.id,
+        nextVal,
+        selectedLevelId || undefined
+      )
       if (res.error) {
         showStatus(res.error, 'error')
         // revert
@@ -239,16 +279,30 @@ export function AdminCodesClient({
     })
   }
 
-  // Toggle All Codes
-  const handleToggleAll = (enableAll: boolean) => {
-    setCodes((prev) => prev.map((c) => ({ ...c, enabled: enableAll })))
+  // Toggle Bulk Codes (Enabled / Disabled)
+  const handleToggleBulk = (codeIds: number[], enable: boolean) => {
+    if (!codeIds || codeIds.length === 0) {
+      showStatus('কোনো কোড নির্বাচন করা হয়নি', 'error')
+      return
+    }
+
+    const idSet = new Set<number>(codeIds)
+    setCodes((prev) => prev.map((c) => (idSet.has(c.id) ? { ...c, enabled: enable } : c)))
 
     startTransition(async () => {
-      const res = await toggleAllCodesForOfficeType(selectedOfficeTypeId, enableAll)
+      const res = await toggleBulkCodesForOfficeType(
+        selectedOfficeTypeId,
+        codeIds,
+        enable,
+        selectedLevelId || undefined
+      )
       if (res.error) {
         showStatus(res.error, 'error')
+        // Re-sync on error
+        const refresh = await getExpenseCodesWithCategoryAndMapping(selectedOfficeTypeId, selectedLevelId || undefined)
+        if (refresh.codes) setCodes(refresh.codes)
       } else {
-        showStatus(`সকল কোড সফলভাবে ${enableAll ? 'সক্রিয়' : 'নিষ্ক্রিয়'} করা হয়েছে`)
+        showStatus(`${toBanglaNumber(codeIds.length)} টি কোড সফলভাবে ${enable ? 'চালু' : 'বন্ধ'} করা হয়েছে`)
       }
     })
   }
@@ -259,20 +313,17 @@ export function AdminCodesClient({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-            কোড কনফিগারেশন (Code Configuration)
+            ইকোনমিক কোড কনফিগারেশন
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            নতুন বাজেট কোড তৈরি, ক্যাটাগরি বিন্যাস এবং অফিসের ধরণ অনুযায়ী প্রদর্শন নিয়ন্ত্রণ
-          </p>
+
         </div>
 
         {statusMessage && (
           <div
-            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200 ${
-              statusMessage.type === 'success'
-                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                : 'bg-rose-50 text-rose-800 border border-rose-200'
-            }`}
+            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200 ${statusMessage.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              : 'bg-rose-50 text-rose-800 border border-rose-200'
+              }`}
           >
             {statusMessage.type === 'success' ? (
               <CheckCircle2 className="h-4 w-4 text-emerald-600" />
@@ -289,26 +340,24 @@ export function AdminCodesClient({
         <nav className="flex space-x-2 sm:space-x-4" aria-label="Tabs">
           <button
             onClick={() => setActiveTab('create_codes')}
-            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
-              activeTab === 'create_codes'
-                ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
-            }`}
+            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${activeTab === 'create_codes'
+              ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
+              : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+              }`}
           >
             <FolderTree className="h-4 w-4" />
-            <span>ট্যাব ১: কোড তৈরি ও ক্যাটাগরি (Code Creation)</span>
+            <span>ইকোনমিক কোড তৈরি </span>
           </button>
 
           <button
             onClick={() => setActiveTab('enable_codes')}
-            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
-              activeTab === 'enable_codes'
-                ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
-            }`}
+            className={`py-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${activeTab === 'enable_codes'
+              ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
+              : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+              }`}
           >
             <SlidersHorizontal className="h-4 w-4" />
-            <span>ট্যাব ২: কোড উন্মুক্তকরণ (Enable / Disable)</span>
+            <span>ইকোনমিক কোড উন্মুক্তকরণ</span>
           </button>
         </nav>
       </div>
@@ -328,10 +377,23 @@ export function AdminCodesClient({
       {/* Tab 2: কোড উন্মুক্তকরণ */}
       {activeTab === 'enable_codes' && (
         <TabEnableCodes
+          departments={departments}
+          selectedDepartmentId={selectedDepartmentId}
+          setSelectedDepartmentId={setSelectedDepartmentId}
           officeTypes={officeTypes}
           selectedOfficeTypeId={selectedOfficeTypeId}
-          setSelectedOfficeTypeId={setSelectedOfficeTypeId}
+          setSelectedOfficeTypeId={(id: number) => {
+            setSelectedOfficeTypeId(id)
+            const typeLevels = officeLevels.filter((lvl) => lvl.office_type_id === id)
+            if (typeLevels.length > 0) {
+              setSelectedLevelId(typeLevels[0].id)
+            }
+          }}
           selectedOfficeType={selectedOfficeType}
+          officeLevels={officeLevels}
+          selectedLevelId={selectedLevelId}
+          setSelectedLevelId={setSelectedLevelId}
+          selectedOfficeLevel={selectedOfficeLevel}
           enabledCount={enabledCount}
           totalCodesCount={codes.length}
           searchQuery={searchQuery}
@@ -340,7 +402,7 @@ export function AdminCodesClient({
           setSelectedCatFilter={setSelectedCatFilter}
           categories={categories}
           filteredCodes={filteredCodes}
-          handleToggleAll={handleToggleAll}
+          handleToggleBulk={handleToggleBulk}
           handleToggleCode={handleToggleCode}
           isPending={isPending}
         />

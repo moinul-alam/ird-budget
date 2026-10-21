@@ -8,6 +8,7 @@ import { getOfficeTypesHierarchy, getDepartments, getMinistries } from './admin-
 export interface HeadOfficeItem {
   id: number
   name: string
+  budget_id?: string
   department_id: number
   department_name: string
   ministry_id?: string
@@ -59,8 +60,20 @@ export async function getHeadOffices(): Promise<HeadOfficeItem[]> {
     let cleanName = po.name || ''
     let office_type_id = 0
     let office_level = 1
+    let budget_id = ''
 
-    // Check encoded metadata: "OfficeName:::type=12:::level=1"
+    // Check encoded metadata: "OfficeName:::type=12:::level=1:::budget=123"
+    if (cleanName.includes(':::budget=')) {
+      const bParts = cleanName.split(':::budget=')
+      cleanName = bParts[0]
+      const bRest = bParts[1] || ''
+      if (bRest.includes(':::')) {
+        budget_id = bRest.split(':::')[0]
+      } else {
+        budget_id = bRest
+      }
+    }
+
     if (cleanName.includes(':::type=')) {
       const parts = cleanName.split(':::type=')
       cleanName = parts[0]
@@ -93,6 +106,7 @@ export async function getHeadOffices(): Promise<HeadOfficeItem[]> {
     return {
       id: po.id,
       name: cleanName,
+      budget_id,
       department_id: po.department_id,
       department_name: deptName,
       ministry_id,
@@ -111,6 +125,7 @@ export async function saveHeadOffice(data: {
   department_id: number
   office_type_id: number
   office_level: number
+  budget_id?: string
 }) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
@@ -119,9 +134,48 @@ export async function saveHeadOffice(data: {
   if (!trimmed) return { error: 'হেড অফিসের নাম আবশ্যক' }
   if (!data.department_id) return { error: 'দপ্তর/সংস্থা নির্বাচন আবশ্যক' }
   if (!data.office_type_id) return { error: 'অফিসের ধরণ নির্বাচন আবশ্যক' }
+  const trimmedBudget = data.budget_id ? data.budget_id.trim() : ''
 
   const supabase = createOfficeClient()
-  const encodedName = `${trimmed}:::type=${data.office_type_id}:::level=${data.office_level}`
+
+  // Verify uniqueness of budget_id in offices table
+  if (trimmedBudget) {
+    const { data: existing } = await supabase
+      .from('offices')
+      .select('id, name')
+      .eq('budget_id', trimmedBudget)
+      .maybeSingle()
+
+    if (existing) {
+      const isOurOffice = existing.name.includes(`:::poid=${data.id || ''}`)
+      if (!isOurOffice) {
+        return { error: 'এই বাজেট আইডিটি ইতিমধ্যে অন্য অফিসের জন্য ব্যবহৃত হচ্ছে।' }
+      }
+    }
+  }
+
+  // Handle old budget_id if head office being updated
+  if (data.id) {
+    const { data: oldPo } = await supabase
+      .from('parent_offices')
+      .select('name')
+      .eq('id', data.id)
+      .maybeSingle()
+
+    if (oldPo?.name && oldPo.name.includes(':::budget=')) {
+      const oldB = oldPo.name.split(':::budget=')[1]?.split(':::')[0]
+      if (oldB && oldB !== trimmedBudget) {
+        await supabase.from('offices').delete().eq('budget_id', oldB)
+      }
+    }
+  }
+
+  let encodedName = `${trimmed}:::type=${data.office_type_id}:::level=${data.office_level}`
+  if (trimmedBudget) {
+    encodedName += `:::budget=${trimmedBudget}`
+  }
+
+  let headOfficeId = data.id
 
   if (data.id) {
     const { error } = await supabase
@@ -134,13 +188,48 @@ export async function saveHeadOffice(data: {
       .eq('id', data.id)
     if (error) return { error: error.message }
   } else {
-    const { error } = await supabase
+    const { data: inserted, error } = await supabase
       .from('parent_offices')
       .insert({
         name: encodedName,
         department_id: data.department_id,
       })
+      .select('id')
+      .single()
     if (error) return { error: error.message }
+    headOfficeId = inserted.id
+  }
+
+  // Sync to offices table if budget_id provided
+  if (trimmedBudget && headOfficeId) {
+    const officeName = `${trimmed}:::poid=${headOfficeId}`
+
+    const { data: existingOffice } = await supabase
+      .from('offices')
+      .select('id')
+      .eq('budget_id', trimmedBudget)
+      .maybeSingle()
+
+    if (existingOffice) {
+      await supabase
+        .from('offices')
+        .update({
+          name: officeName,
+          office_type_id: data.office_type_id,
+          parent_office_id: headOfficeId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingOffice.id)
+    } else {
+      await supabase
+        .from('offices')
+        .insert({
+          name: officeName,
+          budget_id: trimmedBudget,
+          office_type_id: data.office_type_id,
+          parent_office_id: headOfficeId,
+        })
+    }
   }
 
   revalidatePath('/admin/offices-management/head-offices')
@@ -156,14 +245,30 @@ export async function deleteHeadOffice(id: number) {
   const supabase = createOfficeClient()
 
   // Relational check: whether field offices exist under this head office
+  // Exclude self-synced head office entry (which has parent_office_id = id and :::poid=id)
   const { data: linked } = await supabase
     .from('offices')
     .select('id, name')
     .eq('parent_office_id', id)
-    .limit(1)
 
-  if (linked && linked.length > 0) {
+  const realFieldOffices = (linked || []).filter((o: any) => !o.name?.includes(`:::poid=${id}`))
+
+  if (realFieldOffices.length > 0) {
     return { error: 'এই হেড অফিসের অধীনে মাঠ পর্যায়ের অফিস বিদ্যমান রয়েছে। প্রথমে সংশ্লিষ্ট মাঠ পর্যায়ের অফিসসমূহ অপসারণ করুন।' }
+  }
+
+  // Clean up any synced office for this head office
+  const { data: oldPo } = await supabase
+    .from('parent_offices')
+    .select('name')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (oldPo?.name && oldPo.name.includes(':::budget=')) {
+    const oldB = oldPo.name.split(':::budget=')[1]?.split(':::')[0]
+    if (oldB) {
+      await supabase.from('offices').delete().eq('budget_id', oldB)
+    }
   }
 
   const { error } = await supabase.from('parent_offices').delete().eq('id', id)
@@ -204,7 +309,13 @@ export async function getFieldOffices(): Promise<FieldOfficeItem[]> {
 
   const minMap = new Map(ministries.map((m) => [m.id, m.name]))
 
-  return data.map((off: any) => {
+  // Filter out self-synced head offices (:::poid=), ministries (:::mid=), and departments (:::did=)
+  const fieldOfficeRows = data.filter((off: any) => {
+    const raw = off.name || ''
+    return !raw.includes(':::poid=') && !raw.includes(':::mid=') && !raw.includes(':::did=')
+  })
+
+  return fieldOfficeRows.map((off: any) => {
     let cleanName = off.name || ''
     let passwordHint = '12345'
 
@@ -213,6 +324,9 @@ export async function getFieldOffices(): Promise<FieldOfficeItem[]> {
       cleanName = parts[0]
       passwordHint = parts[1] || '12345'
     }
+    if (cleanName.includes(':::mid=')) cleanName = cleanName.split(':::mid=')[0]
+    if (cleanName.includes(':::did=')) cleanName = cleanName.split(':::did=')[0]
+    if (cleanName.includes(':::poid=')) cleanName = cleanName.split(':::poid=')[0]
 
     // Head office clean name
     let headOfficeName = off.parent_office?.name || '—'

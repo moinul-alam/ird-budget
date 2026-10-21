@@ -80,6 +80,7 @@ export function TabMinistries({
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
                     <th className="py-3 px-4 w-20">ক্র.নং</th>
                     <th className="py-3 px-4">মন্ত্রণালয় / বিভাগের নাম</th>
+                    <th className="py-3 px-4">বাজেট আইডি (Login ID)</th>
                     <th className="py-3 px-4">অধীনস্থ দপ্তর সংখ্যা</th>
                     <th className="py-3 px-4 text-center w-28">একশন</th>
                   </tr>
@@ -96,6 +97,15 @@ export function TabMinistries({
                           {m.name}
                         </td>
                         <td className="py-3.5 px-4">
+                          {m.budget_id ? (
+                            <span className="font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200/80 px-2.5 py-0.5 rounded-lg text-xs">
+                              {m.budget_id}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-xs italic">নির্ধারিত নেই</span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4">
                           <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
                             {toBanglaNumber(deptCount)} টি দপ্তর
                           </span>
@@ -105,7 +115,7 @@ export function TabMinistries({
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => setMinModal({ open: true, id: m.id, name: m.name })}
+                              onClick={() => setMinModal({ open: true, id: m.id, name: m.name, budget_id: m.budget_id || '' })}
                               className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
                               title="সম্পাদনা"
                             >
@@ -149,6 +159,20 @@ export function TabMinistries({
                 onChange={(e) => setMinModal((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="যেমন: অর্থ মন্ত্রণালয়, অভ্যন্তরীণ সম্পদ বিভাগ..."
                 className="rounded-xl border-slate-200"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-slate-700">বাজেট আইডি (Login ID)</Label>
+                <span className="text-[11px] text-blue-600 font-medium">লগইন করার জন্য ব্যবহৃত হবে</span>
+              </div>
+              <Input
+                type="text"
+                value={minModal.budget_id || ''}
+                onChange={(e) => setMinModal((prev) => ({ ...prev, budget_id: e.target.value }))}
+                placeholder="যেমন: 10901, 10902..."
+                className="rounded-xl border-slate-200 font-mono font-semibold"
               />
             </div>
           </div>

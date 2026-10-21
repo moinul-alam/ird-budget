@@ -20,6 +20,7 @@ export interface MinistryModalState {
   open: boolean
   id?: string
   name: string
+  budget_id?: string
 }
 
 export interface DepartmentModalState {
@@ -27,6 +28,7 @@ export interface DepartmentModalState {
   id?: number
   name: string
   ministry_id: string
+  budget_id?: string
 }
 
 export interface OfficeTypeModalState {

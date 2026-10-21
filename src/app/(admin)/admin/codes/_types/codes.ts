@@ -1,4 +1,5 @@
 import { BudgetCategoryItem, ExpenseCodeFullItem } from '@/app/actions/admin-codes'
+import { DepartmentItem, OfficeLevelItem } from '@/app/actions/admin-offices-config'
 
 export interface OfficeTypeItem {
   id: number
@@ -9,9 +10,13 @@ export interface OfficeTypeItem {
 
 export interface AdminCodesClientProps {
   officeTypes: OfficeTypeItem[]
+  departments: DepartmentItem[]
+  officeLevels: OfficeLevelItem[]
   initialCodes: ExpenseCodeFullItem[]
   initialCategories: BudgetCategoryItem[]
   initialOfficeTypeId: number
+  initialDepartmentId?: number
+  initialOfficeLevelId?: string
 }
 
 export interface CategoryModalState {
@@ -30,4 +35,11 @@ export interface CodeModalState {
   parent_code: string
   parent_title: string
   hierarchy_order: number
+}
+
+export interface ConfirmToggleAllModalState {
+  open: boolean
+  enableAll: boolean
+  title: string
+  description: string
 }
