@@ -23,7 +23,8 @@ export interface OfficeTypeHierarchyItem {
   name: string
   department_id: number
   department_name?: string
-  hierarchy_order: number // 1, 2, 3...
+  hierarchy_order?: number | null // 1, 2, 3... or null if unassigned
+  hierarchy_label?: string // Custom level name, e.g. "আঞ্চলিক শীর্ষ অফিস", "সার্কেল অফিস"
   is_group_budget: boolean
   created_at?: string
 }
@@ -217,13 +218,24 @@ export async function getOfficeTypesHierarchy(): Promise<OfficeTypeHierarchyItem
 
   return data.map((ot: any) => {
     let name = ot.name || ''
-    let order = ot.id
+    let order: number | null = null
+    let label = ''
+
+    // Check if hierarchy label encoded (e.g. ":::label=আঞ্চলিক শীর্ষ অফিস")
+    if (name.includes(':::label=')) {
+      const labelParts = name.split(':::label=')
+      name = labelParts[0]
+      label = labelParts[1] || ''
+    }
 
     // Check if hierarchy order encoded (e.g. "কর অঞ্চল:::order=1")
     if (name.includes(':::order=')) {
       const parts = name.split(':::order=')
       name = parts[0]
-      order = parseInt(parts[1], 10) || ot.id
+      const parsed = parseInt(parts[1], 10)
+      if (!isNaN(parsed) && parsed > 0) {
+        order = parsed
+      }
     }
 
     let deptName = ot.departments?.name || ''
@@ -237,10 +249,16 @@ export async function getOfficeTypesHierarchy(): Promise<OfficeTypeHierarchyItem
       department_id: ot.department_id,
       department_name: deptName,
       hierarchy_order: order,
+      hierarchy_label: label,
       is_group_budget: ot.is_group_budget || false,
       created_at: ot.created_at,
     }
-  }).sort((a: any, b: any) => a.hierarchy_order - b.hierarchy_order)
+  }).sort((a: any, b: any) => {
+    if (a.hierarchy_order && b.hierarchy_order) return a.hierarchy_order - b.hierarchy_order
+    if (a.hierarchy_order) return -1
+    if (b.hierarchy_order) return 1
+    return a.id - b.id
+  })
 }
 
 export async function saveOfficeTypeOnly(data: {
@@ -259,11 +277,13 @@ export async function saveOfficeTypeOnly(data: {
   if (data.id) {
     // Preserve existing order if already set
     const { data: existing } = await supabase.from('office_types').select('name').eq('id', data.id).maybeSingle()
-    let order = 1
+    let encodedName = trimmed
     if (existing?.name && existing.name.includes(':::order=')) {
-      order = parseInt(existing.name.split(':::order=')[1], 10) || 1
+      const order = parseInt(existing.name.split(':::order=')[1], 10)
+      if (order && !isNaN(order)) {
+        encodedName = `${trimmed}:::order=${order}`
+      }
     }
-    const encodedName = `${trimmed}:::order=${order}`
     const { error } = await supabase
       .from('office_types')
       .update({
@@ -274,14 +294,11 @@ export async function saveOfficeTypeOnly(data: {
       .eq('id', data.id)
     if (error) return { error: error.message }
   } else {
-    // Determine new order as last order + 1
-    const { data: list } = await supabase.from('office_types').select('name').eq('department_id', data.department_id)
-    const order = (list?.length || 0) + 1
-    const encodedName = `${trimmed}:::order=${order}`
+    // Create office type without automatic hierarchy order (hierarchy is assigned explicitly in Tab 4)
     const { error } = await supabase
       .from('office_types')
       .insert({
-        name: encodedName,
+        name: trimmed,
         department_id: data.department_id,
         is_group_budget: false,
       })
@@ -292,7 +309,7 @@ export async function saveOfficeTypeOnly(data: {
   return { success: true }
 }
 
-export async function updateOfficeTypeHierarchyOrder(id: number, hierarchy_order: number) {
+export async function updateOfficeTypeHierarchyOrder(id: number, hierarchy_order: number, hierarchy_label?: string) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
@@ -301,14 +318,48 @@ export async function updateOfficeTypeHierarchyOrder(id: number, hierarchy_order
   if (!existing) return { error: 'অফিসের ধরণ পাওয়া যায়নি' }
 
   let baseName = existing.name || ''
+  if (baseName.includes(':::label=')) {
+    baseName = baseName.split(':::label=')[0]
+  }
   if (baseName.includes(':::order=')) {
     baseName = baseName.split(':::order=')[0]
   }
 
-  const encodedName = `${baseName}:::order=${hierarchy_order}`
+  const cleanLabel = (hierarchy_label || '').trim()
+  const encodedName = cleanLabel
+    ? `${baseName}:::order=${hierarchy_order}:::label=${cleanLabel}`
+    : `${baseName}:::order=${hierarchy_order}`
+
   const { error } = await supabase
     .from('office_types')
     .update({ name: encodedName, updated_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin/offices-config')
+  return { success: true }
+}
+
+export async function removeOfficeTypeHierarchyOrder(id: number) {
+  const session = await getAdminSession()
+  if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
+
+  const supabase = createOfficeClient()
+  const { data: existing } = await supabase.from('office_types').select('name').eq('id', id).maybeSingle()
+  if (!existing) return { error: 'অফিসের ধরণ পাওয়া যায়নি' }
+
+  let baseName = existing.name || ''
+  if (baseName.includes(':::label=')) {
+    baseName = baseName.split(':::label=')[0]
+  }
+  if (baseName.includes(':::order=')) {
+    baseName = baseName.split(':::order=')[0]
+  }
+
+  const { error } = await supabase
+    .from('office_types')
+    .update({ name: baseName, updated_at: new Date().toISOString() })
     .eq('id', id)
 
   if (error) return { error: error.message }

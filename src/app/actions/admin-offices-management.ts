@@ -86,7 +86,7 @@ export async function getHeadOffices(): Promise<HeadOfficeItem[]> {
     }
 
     const matchedType = officeTypes.find((ot) => ot.id === office_type_id)
-    if (matchedType) {
+    if (matchedType && matchedType.hierarchy_order) {
       office_level = matchedType.hierarchy_order
     }
 

@@ -45,6 +45,7 @@ import {
   deleteDepartment,
   saveOfficeTypeOnly,
   updateOfficeTypeHierarchyOrder,
+  removeOfficeTypeHierarchyOrder,
   updateGroupBudgetStatus,
   deleteOfficeType,
 } from '@/app/actions/admin-offices-config'
@@ -103,11 +104,15 @@ export function AdminOfficesConfigClient({
     open: boolean
     id: number
     name: string
+    department_id: number
+    hierarchy_label: string
     hierarchy_order: number
   }>({
     open: false,
     id: 0,
     name: '',
+    department_id: 0,
+    hierarchy_label: '',
     hierarchy_order: 1,
   })
 
@@ -263,7 +268,6 @@ export function AdminOfficesConfigClient({
             )
           )
         } else {
-          const newOrder = officeTypes.length + 1
           setOfficeTypes((prev) => [
             ...prev,
             {
@@ -271,10 +275,10 @@ export function AdminOfficesConfigClient({
               name: officeTypeModal.name.trim(),
               department_id: officeTypeModal.department_id,
               department_name: dep?.name || '',
-              hierarchy_order: newOrder,
+              hierarchy_order: null,
               is_group_budget: false,
             },
-          ].sort((a, b) => a.hierarchy_order - b.hierarchy_order))
+          ])
         }
       }
     })
@@ -282,21 +286,48 @@ export function AdminOfficesConfigClient({
 
   // Handle Tab 4 Save (Hierarchy Order)
   const handleSaveHierarchyOrder = () => {
+    if (!hierarchyModal.id) {
+      showStatus('অফিসের ধরণ নির্বাচন আবশ্যক', 'error')
+      return
+    }
     startTransition(async () => {
-      const res = await updateOfficeTypeHierarchyOrder(hierarchyModal.id, hierarchyModal.hierarchy_order)
+      const res = await updateOfficeTypeHierarchyOrder(
+        hierarchyModal.id,
+        hierarchyModal.hierarchy_order,
+        hierarchyModal.hierarchy_label
+      )
       if (res.error) {
         showStatus(res.error, 'error')
       } else {
-        showStatus('হায়ারার্কি ক্রম সফলভাবে আপডেট হয়েছে')
-        setHierarchyModal({ open: false, id: 0, name: '', hierarchy_order: 1 })
+        showStatus('মাঠ অফিসের স্তর সফলভাবে নির্ধারণ করা হয়েছে')
+        setHierarchyModal({ open: false, id: 0, name: '', department_id: 0, hierarchy_label: '', hierarchy_order: 1 })
         setOfficeTypes((prev) =>
           prev
             .map((ot) =>
               ot.id === hierarchyModal.id
-                ? { ...ot, hierarchy_order: hierarchyModal.hierarchy_order }
+                ? {
+                    ...ot,
+                    hierarchy_order: hierarchyModal.hierarchy_order,
+                    hierarchy_label: hierarchyModal.hierarchy_label.trim(),
+                  }
                 : ot
             )
-            .sort((a, b) => a.hierarchy_order - b.hierarchy_order)
+            .sort((a, b) => (a.hierarchy_order || 999) - (b.hierarchy_order || 999))
+        )
+      }
+    })
+  }
+
+  // Handle Tab 4 Remove Hierarchy
+  const handleRemoveHierarchyOrder = (id: number) => {
+    startTransition(async () => {
+      const res = await removeOfficeTypeHierarchyOrder(id)
+      if (res.error) {
+        showStatus(res.error, 'error')
+      } else {
+        showStatus('স্তর সফলভাবে অপসারণ করা হয়েছে')
+        setOfficeTypes((prev) =>
+          prev.map((ot) => (ot.id === id ? { ...ot, hierarchy_order: null } : ot))
         )
       }
     })
@@ -415,10 +446,20 @@ export function AdminOfficesConfigClient({
       ? officeTypes
       : officeTypes.filter((ot) => String(ot.department_id) === filterDeptForTypes)
 
-  const filteredOfficeTypesForTab4 =
-    filterDeptForHierarchy === 'all'
-      ? officeTypes
-      : officeTypes.filter((ot) => String(ot.department_id) === filterDeptForHierarchy)
+  const filteredOfficeTypesForTab4 = officeTypes
+    .filter((ot) => ot.hierarchy_order && ot.hierarchy_order > 0)
+    .filter((ot) => (filterDeptForHierarchy === 'all' ? true : String(ot.department_id) === filterDeptForHierarchy))
+    .sort((a, b) => (a.hierarchy_order || 0) - (b.hierarchy_order || 0))
+
+  // Departments that have at least one office type with configured level
+  const departmentsWithHierarchy = departments.filter((d) =>
+    officeTypes.some((ot) => ot.department_id === d.id && ot.hierarchy_order && ot.hierarchy_order > 0)
+  )
+
+  // Departments that have at least one office type with group budget enabled
+  const departmentsWithGroupBudget = departments.filter((d) =>
+    officeTypes.some((ot) => ot.department_id === d.id && ot.is_group_budget)
+  )
 
   const filteredOfficeTypesForTab5 = officeTypes
     .filter((ot) => ot.is_group_budget)
@@ -518,7 +559,7 @@ export function AdminOfficesConfigClient({
             <GitBranch className="h-4 w-4" />
             <span>৪. মাঠ অফিসের স্তর</span>
             <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-mono">
-              {toBanglaNumber(officeTypes.length)}
+              {toBanglaNumber(officeTypes.filter((ot) => ot.hierarchy_order && ot.hierarchy_order > 0).length)}
             </span>
           </button>
 
@@ -823,7 +864,7 @@ export function AdminOfficesConfigClient({
                       <SelectItem value="all">সব</SelectItem>
                       {departments.map((d) => (
                         <SelectItem key={d.id} value={String(d.id)}>
-                          {d.name} {d.ministry_name ? `(${d.ministry_name})` : ''}
+                          {d.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -966,29 +1007,54 @@ export function AdminOfficesConfigClient({
           <CardHeader className="border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4">
             <div>
               <CardTitle className="text-lg font-bold text-slate-900">
-                মাঠ অফিসের স্তর (Hierarchy / Levels of Office Types)
+                মাঠ অফিসের স্তর
               </CardTitle>
-              <CardDescription className="text-xs text-slate-500 mt-0.5">
-                ৩ নম্বর ট্যাবের অফিসের ধরণসমূহের প্রশাসনিক পদক্রম বা লেভেল নির্ধারণ (লেভেল ১ = শীর্ষ আঞ্চলিক অফিস, লেভেল ২ = মধ্যম অফিস)
-              </CardDescription>
             </div>
-            {officeTypes.length > 0 && (
-              <div className="w-48">
-                <Select value={filterDeptForHierarchy} onValueChange={(val) => setFilterDeptForHierarchy(val || 'all')}>
-                  <SelectTrigger className="h-8 rounded-xl border-slate-200 text-xs">
-                    <SelectValue placeholder="সব দপ্তর / সংস্থা" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl text-xs">
-                    <SelectItem value="all">সব দপ্তর / সংস্থা</SelectItem>
-                    {departments.map((d) => (
-                      <SelectItem key={d.id} value={String(d.id)}>
-                        {d.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {departmentsWithHierarchy.length > 0 && (
+                <div className="w-64 sm:w-72">
+                  <Select value={filterDeptForHierarchy} onValueChange={(val) => setFilterDeptForHierarchy(val || 'all')}>
+                    <SelectTrigger className="h-9 w-full rounded-xl border-slate-200 text-xs">
+                      <SelectValue placeholder="সব">
+                        {filterDeptForHierarchy === 'all'
+                          ? 'সব'
+                          : departmentsWithHierarchy.find((d) => String(d.id) === filterDeptForHierarchy)?.name || 'সব'}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl text-xs">
+                      <SelectItem value="all">সব</SelectItem>
+                      {departmentsWithHierarchy.map((d) => (
+                        <SelectItem key={d.id} value={String(d.id)}>
+                          {d.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {officeTypes.length > 0 && (
+                <Button
+                  onClick={() => {
+                    const defaultDepId = filterDeptForHierarchy !== 'all' ? parseInt(filterDeptForHierarchy, 10) : (departmentsWithHierarchy[0]?.id || departments[0]?.id || 0)
+                    const unassignedTypes = officeTypes.filter((ot) => (!ot.hierarchy_order || ot.hierarchy_order <= 0) && (defaultDepId ? ot.department_id === defaultDepId : true))
+                    const targetType = unassignedTypes[0] || officeTypes[0]
+                    const nextOrder = (officeTypes.filter((ot) => ot.hierarchy_order && ot.hierarchy_order > 0).length) + 1
+                    setHierarchyModal({
+                      open: true,
+                      id: targetType?.id || 0,
+                      name: targetType?.name || '',
+                      department_id: targetType?.department_id || defaultDepId,
+                      hierarchy_label: '',
+                      hierarchy_order: nextOrder,
+                    })
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5 shadow-xs"
+                >
+                  <Plus className="h-4 w-4" />
+                  নতুন স্তর নির্ধারণ করুন
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             {officeTypes.length === 0 ? (
@@ -998,7 +1064,7 @@ export function AdminOfficesConfigClient({
                   কোনো অফিসের ধরণ বিদ্যমান নেই
                 </h3>
                 <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                  হায়ারার্কি নির্ধারণ করতে প্রথমে ৩ নম্বর ট্যাবে অফিসের ধরণ যুক্ত করুন।
+                  স্তর নির্ধারণ করতে প্রথমে ৩ নম্বর ট্যাবে অফিসের ধরণ যুক্ত করুন।
                 </p>
                 <div className="mt-4">
                   <Button
@@ -1013,17 +1079,46 @@ export function AdminOfficesConfigClient({
               </div>
             ) : filteredOfficeTypesForTab4.length === 0 ? (
               <div className="py-12 px-6 text-center">
-                <p className="text-xs text-slate-500">নির্বাচিত দপ্তরের অধীনে কোনো অফিসের ধরণ নেই।</p>
+                <GitBranch className="h-10 w-10 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-sm font-bold text-slate-700">
+                  এখনো কোনো অফিসের স্তর নির্ধারণ করা হয়নি
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  মাঠ অফিসের স্তর নির্ধারণ করতে &quot;নতুন স্তর নির্ধারণ করুন&quot; বাটনে চাপুন।
+                </p>
+                <div className="mt-4">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const defaultDepId = filterDeptForHierarchy !== 'all' ? parseInt(filterDeptForHierarchy, 10) : (departmentsWithHierarchy[0]?.id || departments[0]?.id || 0)
+                      const unassignedTypes = officeTypes.filter((ot) => (!ot.hierarchy_order || ot.hierarchy_order <= 0) && (defaultDepId ? ot.department_id === defaultDepId : true))
+                      const targetType = unassignedTypes[0] || officeTypes[0]
+                      setHierarchyModal({
+                        open: true,
+                        id: targetType?.id || 0,
+                        name: targetType?.name || '',
+                        department_id: targetType?.department_id || defaultDepId,
+                        hierarchy_label: '',
+                        hierarchy_order: 1,
+                      })
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    নতুন স্তর নির্ধারণ করুন
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                      <th className="py-3 px-4 w-32">হায়ারার্কি ক্রম</th>
+                      <th className="py-3 px-4 w-28">স্তরের ক্রম</th>
+                      <th className="py-3 px-4">স্তরের নাম</th>
                       <th className="py-3 px-4">অফিসের ধরণ</th>
-                      <th className="py-3 px-4">অধীনস্থ দপ্তর / সংস্থা</th>
-                      <th className="py-3 px-4 text-center w-36">পদক্রম পরিবর্তন</th>
+                      <th className="py-3 px-4">দপ্তর / সংস্থা</th>
+                      <th className="py-3 px-4 text-center w-36">একশন</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1034,6 +1129,9 @@ export function AdminOfficesConfigClient({
                             লেভেল {toBanglaNumber(ot.hierarchy_order)}
                           </span>
                         </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-800 text-sm">
+                          {ot.hierarchy_label || '—'}
+                        </td>
                         <td className="py-3.5 px-4 font-bold text-slate-900 text-sm">
                           {ot.name}
                         </td>
@@ -1043,22 +1141,36 @@ export function AdminOfficesConfigClient({
                           </span>
                         </td>
                         <td className="py-3.5 px-4 text-center">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              setHierarchyModal({
-                                open: true,
-                                id: ot.id,
-                                name: ot.name,
-                                hierarchy_order: ot.hierarchy_order,
-                              })
-                            }
-                            className="rounded-lg text-xs font-semibold h-8 gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                            পদক্রম পরিবর্তন
-                          </Button>
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setHierarchyModal({
+                                  open: true,
+                                  id: ot.id,
+                                  name: ot.name,
+                                  department_id: ot.department_id,
+                                  hierarchy_label: ot.hierarchy_label || '',
+                                  hierarchy_order: ot.hierarchy_order || 1,
+                                })
+                              }
+                              className="rounded-lg text-xs font-semibold h-8 gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50"
+                              title="স্তর পরিবর্তন"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                              পরিবর্তন
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveHierarchyOrder(ot.id)}
+                              className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg"
+                              title="স্তর অপসারণ করুন"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1078,22 +1190,23 @@ export function AdminOfficesConfigClient({
           <CardHeader className="border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4">
             <div>
               <CardTitle className="text-lg font-bold text-slate-900">
-                গ্রুপ বাজেট নির্ধারণ (Group Budget Flagging)
+                গ্রুপ বাজেট নির্ধারণ
               </CardTitle>
-              <CardDescription className="text-xs text-slate-500 mt-0.5">
-                ৩ নম্বর ট্যাবের অফিসের ধরণসমূহ এককভাবে নাকি গ্রুপ বাজেট হিসেবে সাবমিট করবে তা চিহ্নিত করুন
-              </CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {departments.length > 0 && (
-                <div className="w-48">
+              {departmentsWithGroupBudget.length > 0 && (
+                <div className="w-64 sm:w-72">
                   <Select value={filterDeptForGroups} onValueChange={(val) => setFilterDeptForGroups(val || 'all')}>
-                    <SelectTrigger className="h-8 rounded-xl border-slate-200 text-xs">
-                      <SelectValue placeholder="সব দপ্তর / সংস্থা" />
+                    <SelectTrigger className="h-9 w-full rounded-xl border-slate-200 text-xs">
+                      <SelectValue placeholder="সব">
+                        {filterDeptForGroups === 'all'
+                          ? 'সব'
+                          : departmentsWithGroupBudget.find((d) => String(d.id) === filterDeptForGroups)?.name || 'সব'}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent className="rounded-xl text-xs">
-                      <SelectItem value="all">সব দপ্তর / সংস্থা</SelectItem>
-                      {departments.map((d) => (
+                      <SelectItem value="all">সব</SelectItem>
+                      {departmentsWithGroupBudget.map((d) => (
                         <SelectItem key={d.id} value={String(d.id)}>
                           {d.name}
                         </SelectItem>
@@ -1105,7 +1218,7 @@ export function AdminOfficesConfigClient({
               {officeTypes.length > 0 && (
                 <Button
                   onClick={() => {
-                    const firstDep = departments[0]?.id || 0
+                    const firstDep = departmentsWithGroupBudget[0]?.id || departments[0]?.id || 0
                     const matchingOt = officeTypes.find((ot) => ot.department_id === firstDep)
                     setGroupModal({
                       open: true,
@@ -1417,22 +1530,67 @@ export function AdminOfficesConfigClient({
         <DialogContent className="sm:max-w-md rounded-2xl p-6">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900">
-              পদক্রম নির্ধারণ: {hierarchyModal.name}
+              মাঠ অফিসের স্তর নির্ধারণ
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {/* ১. অফিসের ধরণ dropdown */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">হায়ারার্কি ক্রম / লেভেল (1, 2, 3...)</Label>
+              <Label className="text-xs font-bold text-slate-700">অফিসের ধরণ</Label>
+              <Select
+                value={String(hierarchyModal.id || '')}
+                onValueChange={(val) => {
+                  if (val) {
+                    const otId = parseInt(val, 10)
+                    const target = officeTypes.find((ot) => ot.id === otId)
+                    setHierarchyModal((prev) => ({
+                      ...prev,
+                      id: otId,
+                      name: target?.name || '',
+                      department_id: target?.department_id || prev.department_id,
+                      hierarchy_label: target?.hierarchy_label || prev.hierarchy_label || '',
+                      hierarchy_order: target?.hierarchy_order || prev.hierarchy_order || 1,
+                    }))
+                  }
+                }}
+              >
+                <SelectTrigger className="w-full rounded-xl border-slate-200 text-xs h-10">
+                  <SelectValue placeholder="অফিসের ধরণ নির্বাচন করুন">
+                    {officeTypes.find((ot) => ot.id === hierarchyModal.id)?.name || 'অফিসের ধরণ নির্বাচন করুন'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="rounded-xl text-xs max-h-60">
+                  {officeTypes.map((ot) => (
+                    <SelectItem key={ot.id} value={String(ot.id)}>
+                      {ot.name} {ot.department_name ? `(${ot.department_name})` : ''} {ot.hierarchy_order ? `[লেভেল ${toBanglaNumber(ot.hierarchy_order)}]` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* ২. স্তরের নাম (type field) */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700">স্তরের নাম</Label>
+              <Input
+                type="text"
+                placeholder="যেমন: শীর্ষ আঞ্চলিক অফিস, মধ্যম অফিস, সার্কেল অফিস ইত্যাদি"
+                value={hierarchyModal.hierarchy_label}
+                onChange={(e) => setHierarchyModal((prev) => ({ ...prev, hierarchy_label: e.target.value }))}
+                className="rounded-xl border-slate-200 text-xs"
+              />
+            </div>
+
+            {/* ৩. স্তরের ক্রম type field, number */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700">স্তরের ক্রম</Label>
               <Input
                 type="number"
                 min={1}
                 value={hierarchyModal.hierarchy_order}
                 onChange={(e) => setHierarchyModal((prev) => ({ ...prev, hierarchy_order: parseInt(e.target.value, 10) || 1 }))}
-                className="rounded-xl border-slate-200 font-mono"
+                className="rounded-xl border-slate-200 font-mono text-xs"
               />
-              <p className="text-[11px] text-slate-500">
-                ১ = শীর্ষ আঞ্চলিক অফিস (যেমন: কর অঞ্চল / কমিশনারেট), ২ = সার্কেল অফিস বা পরবর্তী ধাপ
-              </p>
             </div>
           </div>
           <DialogFooter className="pt-2">
@@ -1441,7 +1599,7 @@ export function AdminOfficesConfigClient({
             </Button>
             <Button type="button" onClick={handleSaveHierarchyOrder} disabled={isPending} className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs">
               {isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-              হায়ারার্কি আপডেট করুন
+              সংরক্ষণ করুন
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1458,75 +1616,93 @@ export function AdminOfficesConfigClient({
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {/* ১. অফিসের ধরণ dropdown */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">দপ্তর / সংস্থা</Label>
+              <Label className="text-xs font-bold text-slate-700">অফিসের ধরণ</Label>
               <Select
-                value={String(groupModal.department_id || '')}
+                value={String(groupModal.office_type_id || '')}
                 onValueChange={(val) => {
                   if (val) {
-                    const depId = parseInt(val, 10)
-                    const matchingOt = officeTypes.find((ot) => ot.department_id === depId)
+                    const otId = parseInt(val, 10)
+                    const selectedOt = officeTypes.find((ot) => ot.id === otId)
                     setGroupModal((prev) => ({
                       ...prev,
-                      department_id: depId,
-                      office_type_id: matchingOt?.id || 0,
+                      office_type_id: otId,
+                      department_id: selectedOt?.department_id || prev.department_id,
                     }))
                   }
                 }}
               >
-                <SelectTrigger className="rounded-xl border-slate-200 text-xs">
-                  <span className="truncate font-semibold text-slate-900">
-                    {departments.find((d) => d.id === groupModal.department_id)?.name || 'দপ্তর/সংস্থা নির্বাচন করুন'}
-                  </span>
+                <SelectTrigger className="w-full rounded-xl border-slate-200 text-xs h-10">
+                  <SelectValue placeholder="অফিসের ধরণ নির্বাচন করুন">
+                    {officeTypes.find((ot) => ot.id === groupModal.office_type_id)?.name || 'অফিসের ধরণ নির্বাচন করুন'}
+                  </SelectValue>
                 </SelectTrigger>
-                <SelectContent className="rounded-xl text-xs">
-                  {departments.map((d) => (
-                    <SelectItem key={d.id} value={String(d.id)}>
-                      {d.name}
+                <SelectContent className="rounded-xl text-xs max-h-60">
+                  {officeTypes.map((ot) => (
+                    <SelectItem key={ot.id} value={String(ot.id)}>
+                      {ot.name} {ot.department_name ? `(${ot.department_name})` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
+            {/* ২. অফিসের স্তর dropdown */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">অফিসের ধরণ</Label>
-              <Select
-                value={String(groupModal.office_type_id || '')}
-                onValueChange={(val) => {
-                  if (val) setGroupModal((prev) => ({ ...prev, office_type_id: parseInt(val, 10) }))
-                }}
-              >
-                <SelectTrigger className="rounded-xl border-slate-200 text-xs">
-                  <span className="truncate font-semibold text-slate-900">
-                    {officeTypes.find((ot) => ot.id === groupModal.office_type_id)?.name || 'অফিসের ধরণ নির্বাচন করুন'}
-                  </span>
-                </SelectTrigger>
-                <SelectContent className="rounded-xl text-xs">
-                  {officeTypes
-                    .filter((ot) => ot.department_id === groupModal.department_id)
-                    .map((ot) => (
-                      <SelectItem key={ot.id} value={String(ot.id)}>
-                        {ot.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-xs font-bold text-slate-700">অফিসের স্তর</Label>
+              {(() => {
+                const currentOt = officeTypes.find((ot) => ot.id === groupModal.office_type_id)
+                // Filter office types that have hierarchy levels
+                const typesWithLevel = officeTypes.filter((ot) => ot.hierarchy_order && ot.hierarchy_order > 0)
+                return (
+                  <Select
+                    value={String(groupModal.office_type_id || '')}
+                    onValueChange={(val) => {
+                      if (val) {
+                        const otId = parseInt(val, 10)
+                        const selectedOt = officeTypes.find((ot) => ot.id === otId)
+                        setGroupModal((prev) => ({
+                          ...prev,
+                          office_type_id: otId,
+                          department_id: selectedOt?.department_id || prev.department_id,
+                        }))
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-full rounded-xl border-slate-200 text-xs h-10">
+                      <SelectValue placeholder="অফিসের স্তর নির্বাচন করুন">
+                        {currentOt?.hierarchy_order
+                          ? `লেভেল ${toBanglaNumber(currentOt.hierarchy_order)}${currentOt.hierarchy_label ? ` - ${currentOt.hierarchy_label}` : ''}`
+                          : 'কোনো স্তর নির্ধারিত নেই'}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl text-xs max-h-60">
+                      {typesWithLevel.map((ot) => (
+                        <SelectItem key={ot.id} value={String(ot.id)}>
+                          লেভেল {toBanglaNumber(ot.hierarchy_order)}: {ot.hierarchy_label ? `${ot.hierarchy_label} ` : ''}({ot.name})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )
+              })()}
             </div>
 
+            {/* ৩. গ্রুপ বাজেটে অন্তর্ভূক্ত কি না (option) */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">গ্রুপ বাজেটে অর্ন্তর্ভূক্ত</Label>
+              <Label className="text-xs font-bold text-slate-700">গ্রুপ বাজেটে অন্তর্ভূক্ত কি না</Label>
               <Select
                 value={groupModal.is_group_budget ? 'yes' : 'no'}
                 onValueChange={(val) => setGroupModal((prev) => ({ ...prev, is_group_budget: val === 'yes' }))}
               >
-                <SelectTrigger className="rounded-xl border-slate-200 text-xs">
-                  <span className="truncate font-semibold text-slate-900">
-                    {groupModal.is_group_budget ? 'হ্যাঁ (গ্রুপ বাজেটে অর্ন্তর্ভূক্ত)' : 'না (একক বাজেট)'}
-                  </span>
+                <SelectTrigger className="w-full rounded-xl border-slate-200 text-xs h-10">
+                  <SelectValue placeholder="নির্বাচন করুন">
+                    {groupModal.is_group_budget ? 'হ্যাঁ (গ্রুপ বাজেটে অন্তর্ভূক্ত)' : 'না (একক বাজেট)'}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="rounded-xl text-xs">
-                  <SelectItem value="yes">হ্যাঁ (গ্রুপ বাজেটে অর্ন্তর্ভূক্ত)</SelectItem>
+                  <SelectItem value="yes">হ্যাঁ (গ্রুপ বাজেটে অন্তর্ভূক্ত)</SelectItem>
                   <SelectItem value="no">না (একক বাজেট)</SelectItem>
                 </SelectContent>
               </Select>
