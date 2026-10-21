@@ -48,15 +48,15 @@ import { useState, useRef, useEffect, useTransition } from 'react'
 export const FORM_NAV_ITEMS = [
   { href: '/office/form-1', num: 1, label: '১. ' + strings.forms.form1.short, title: strings.forms.form1.title, icon: FileText },
   { href: '/office/form-2', num: 2, label: '২. ' + strings.forms.form2.short, title: strings.forms.form2.title, icon: Users },
-  { href: '/office/form-2b', num: 3, label: '৩. ' + strings.forms.form3.short, title: strings.forms.form3.title, icon: Users },
-  { href: '/office/form-3', num: 4, label: '৪. ' + strings.forms.form4.short, title: strings.forms.form4.title, icon: Gift },
-  { href: '/office/form-4', num: 5, label: '৫. ' + strings.forms.form5.short, title: strings.forms.form5.title, icon: CalendarDays },
-  { href: '/office/form-5', num: 6, label: '৬. ' + strings.forms.form6.short, title: strings.forms.form6.title, icon: Car },
-  { href: '/office/form-6', num: 7, label: '৭. ' + strings.forms.form7.short, title: strings.forms.form7.title, icon: CarFront },
-  { href: '/office/form-9', num: 8, label: '৮. ' + strings.forms.form8.short, title: strings.forms.form8.title, icon: Building2 },
-  { href: '/office/form-7', num: 9, label: '৯. ' + strings.forms.form9.short, title: strings.forms.form9.title, icon: Monitor },
-  { href: '/office/form-8', num: 10, label: '১০. ' + strings.forms.form10.short, title: strings.forms.form10.title, icon: Zap },
-  { href: '/office/form-10', num: 11, label: '১১. ' + strings.forms.form11.short, title: strings.forms.form11.title, icon: Mail },
+  { href: '/office/form-3', num: 3, label: '৩. ' + strings.forms.form3.short, title: strings.forms.form3.title, icon: Users },
+  { href: '/office/form-4', num: 4, label: '৪. ' + strings.forms.form4.short, title: strings.forms.form4.title, icon: Gift },
+  { href: '/office/form-5', num: 5, label: '৫. ' + strings.forms.form5.short, title: strings.forms.form5.title, icon: CalendarDays },
+  { href: '/office/form-6', num: 6, label: '৬. ' + strings.forms.form6.short, title: strings.forms.form6.title, icon: Car },
+  { href: '/office/form-7', num: 7, label: '৭. ' + strings.forms.form7.short, title: strings.forms.form7.title, icon: CarFront },
+  { href: '/office/form-8', num: 8, label: '৮. ' + strings.forms.form8.short, title: strings.forms.form8.title, icon: Building2 },
+  { href: '/office/form-9', num: 9, label: '৯. ' + strings.forms.form9.short, title: strings.forms.form9.title, icon: Monitor },
+  { href: '/office/form-10', num: 10, label: '১০. ' + strings.forms.form10.short, title: strings.forms.form10.title, icon: Zap },
+  { href: '/office/form-11', num: 11, label: '১১. ' + strings.forms.form11.short, title: strings.forms.form11.title, icon: Mail },
 ] as const
 
 export function AppShell({
@@ -176,7 +176,7 @@ export function AppShell({
           <div className="h-7 w-7 rounded-lg bg-blue-600 flex items-center justify-center shrink-0 shadow-xs">
             <BarChart3 className="h-4 w-4 text-white" />
           </div>
-          <span className="font-extrabold text-sm sm:text-base tracking-tight text-slate-100 truncate max-w-[200px] sm:max-w-none">
+          <span className="font-extrabold text-sm sm:text-base tracking-tight text-slate-100 truncate max-w-[200px] sm:max-w-none font-title">
             {strings.appName}
           </span>
         </div>

@@ -220,7 +220,7 @@ export function Form2Client({ initialData, submissionId }: Form2ClientProps) {
       title={strings.form2.title}
       formNumber={2}
       prevHref="/office/form-1"
-      nextHref="/office/form-2b"
+      nextHref="/office/form-3"
       onSave={submissionId ? handleSaveAll : undefined}
     >
       <div className="p-6 lg:p-8 space-y-6">

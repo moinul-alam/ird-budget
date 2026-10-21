@@ -697,7 +697,9 @@ export function AdminOfficesConfigClient({
                 }}
               >
                 <SelectTrigger className="rounded-xl border-slate-200 text-xs">
-                  <SelectValue />
+                  <span className="truncate font-semibold text-slate-900">
+                    {departments.find((d) => d.id === groupModal.department_id)?.name || 'বিভাগ নির্বাচন করুন'}
+                  </span>
                 </SelectTrigger>
                 <SelectContent className="rounded-xl text-xs">
                   {departments.map((d) => (
@@ -718,7 +720,9 @@ export function AdminOfficesConfigClient({
                 }}
               >
                 <SelectTrigger className="rounded-xl border-slate-200 text-xs">
-                  <SelectValue />
+                  <span className="truncate font-semibold text-slate-900">
+                    {officeTypes.find((ot) => ot.id === groupModal.office_type_id)?.name || 'অফিসের ধরণ নির্বাচন করুন'}
+                  </span>
                 </SelectTrigger>
                 <SelectContent className="rounded-xl text-xs">
                   {officeTypes
@@ -739,7 +743,9 @@ export function AdminOfficesConfigClient({
                 onValueChange={(val) => setGroupModal((prev) => ({ ...prev, is_group_budget: val === 'yes' }))}
               >
                 <SelectTrigger className="rounded-xl border-slate-200 text-xs">
-                  <SelectValue />
+                  <span className="truncate font-semibold text-slate-900">
+                    {groupModal.is_group_budget ? 'হ্যাঁ (গ্রুপ বাজেটে অর্ন্তর্ভূক্ত)' : 'না (একক বাজেট)'}
+                  </span>
                 </SelectTrigger>
                 <SelectContent className="rounded-xl text-xs">
                   <SelectItem value="yes">হ্যাঁ (গ্রুপ বাজেটে অর্ন্তর্ভূক্ত)</SelectItem>

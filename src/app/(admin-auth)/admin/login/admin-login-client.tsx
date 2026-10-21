@@ -10,8 +10,10 @@ import { loginAdmin } from '@/app/actions/auth'
 import { Loader2, ShieldCheck, Lock, User, ArrowLeft } from 'lucide-react'
 import { strings } from '@/lib/strings'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 export function AdminLoginClient() {
+  const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [username, setUsername] = useState('superadmin')
@@ -28,10 +30,13 @@ export function AdminLoginClient() {
       const result = await loginAdmin(formData)
       if (result?.error) {
         setError(result.error)
+        setLoading(false)
+      } else if (result?.success) {
+        router.push('/admin/dashboard')
+        router.refresh()
       }
     } catch {
       setError(strings.errors.general)
-    } finally {
       setLoading(false)
     }
   }

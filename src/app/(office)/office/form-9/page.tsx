@@ -1,33 +1,25 @@
 import { createOfficeClient } from '@/lib/supabase/server'
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import { Form9Client } from './form-9-client'
+import { Form7Client } from './form-7-client'
 
-export default async function Form9Page() {
+export default async function Form7Page() {
   const supabase = createOfficeClient()
   const session = await getOfficeSession()
   if (!session) redirect('/')
 
   const submissionId = session.submission_id || null
 
-  let initialData = null
-  let vatPercentage = 15 // Standard default fallback
-  if (submissionId) {
-    const [houseRes, rateRes] = await Promise.all([
-      supabase.from('form_house_rent').select('*').eq('submission_id', submissionId).maybeSingle(),
-      supabase.from('rates').select('value').eq('key', 'vat_percentage').maybeSingle(),
-    ])
-    initialData = houseRes.data
-    if (rateRes.data && rateRes.data.value != null) {
-      vatPercentage = Number(rateRes.data.value)
-    }
-  }
+  const [typesRes, dataRes] = await Promise.all([
+    supabase.from('equipment_types').select('*').order('id'),
+    submissionId ? supabase.from('form_it_equipment').select('*').eq('submission_id', submissionId) : Promise.resolve({ data: [] })
+  ])
 
   return (
-    <Form9Client
-      submissionId={submissionId}
-      initialData={initialData}
-      vatPercentage={vatPercentage}
+    <Form7Client 
+      submissionId={submissionId} 
+      equipmentTypes={typesRes.data || []}
+      initialData={dataRes.data || []}
     />
   )
 }

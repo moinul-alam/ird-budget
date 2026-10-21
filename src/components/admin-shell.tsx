@@ -40,6 +40,11 @@ export function AdminShell({
   // Drawer collapsible state (default expanded)
   const [drawerOpen, setDrawerOpen] = useState(true)
 
+  // 3 Collapsible menu groups: default collapsed (false)
+  const [budgetGroupOpen, setBudgetGroupOpen] = useState(false)
+  const [reportsGroupOpen, setReportsGroupOpen] = useState(false)
+  const [usersGroupOpen, setUsersGroupOpen] = useState(false)
+
   // Profile dropdown menu
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const profileDropdownRef = useRef<HTMLDivElement>(null)
@@ -99,7 +104,7 @@ export function AdminShell({
           }`}>
             <BarChart3 className="h-4 w-4 text-white" />
           </div>
-          <span className="font-extrabold text-sm sm:text-base tracking-tight text-slate-100 truncate max-w-[200px] sm:max-w-none">
+          <span className="font-extrabold text-sm sm:text-base tracking-tight text-slate-100 truncate max-w-[200px] sm:max-w-none font-title">
             {strings.appName}
             <span className="ml-2 text-xs font-normal text-slate-400 hidden md:inline">
               ({isSuperAdmin ? 'সুপার অ্যাডমিন প্যানেল' : 'অ্যাডমিন প্যানেল'})
@@ -229,150 +234,182 @@ export function AdminShell({
           `}
         >
           <div className="w-64 flex flex-col h-full">
-            <nav className="flex-1 p-3.5 space-y-1.5 overflow-y-auto">
-              <Link 
-                href="/admin/dashboard" 
-                onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-colors text-xs font-bold ${
-                  pathname === '/admin/dashboard'
-                    ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <LayoutDashboard className="h-4 w-4 text-slate-400" />
-                {strings.dashboard.title}
-              </Link>
+            <nav className="flex-1 p-3.5 space-y-2 overflow-y-auto">
+              {/* গ্রুপ ১: বাজেট সেটিংস (Collapsible) */}
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={() => setBudgetGroupOpen((prev) => !prev)}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <SlidersHorizontal className="h-4 w-4 text-blue-400" />
+                    <span>বাজেট সেটিংস</span>
+                  </div>
+                  <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${budgetGroupOpen ? 'rotate-180' : ''}`} />
+                </button>
 
-              <Link 
-                href="/admin/budgets" 
-                onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-colors text-xs font-bold ${
-                  pathname.startsWith('/admin/budgets')
-                    ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <SlidersHorizontal className="h-4 w-4 text-slate-400" />
-                <span>বাজেট কনফিগারেশন</span>
-              </Link>
+                {budgetGroupOpen && (
+                  <div className="pl-3 space-y-1 pt-0.5 border-l-2 border-slate-700/60 ml-3">
+                    <Link 
+                      href="/admin/budgets" 
+                      onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${
+                        pathname.startsWith('/admin/budgets')
+                          ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
+                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <SlidersHorizontal className="h-3.5 w-3.5 shrink-0" />
+                      <span>বাজেট কনফিগারেশন</span>
+                    </Link>
 
-              <Link 
-                href="/admin/offices-config" 
-                onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-colors text-xs font-bold ${
-                  pathname.startsWith('/admin/offices-config')
-                    ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <Building className="h-4 w-4 text-slate-400" />
-                <span>অফিস কনফিগারেশন</span>
-              </Link>
+                    <Link 
+                      href="/admin/offices-config" 
+                      onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${
+                        pathname.startsWith('/admin/offices-config')
+                          ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
+                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <Building className="h-3.5 w-3.5 shrink-0" />
+                      <span>অফিস কনফিগারেশন</span>
+                    </Link>
 
-              <Link 
-                href="/admin/codes" 
-                onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-colors text-xs font-bold ${
-                  pathname.startsWith('/admin/codes')
-                    ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <FileText className="h-4 w-4 text-slate-400" />
-                <span>কোড কনফিগারেশন</span>
-              </Link>
+                    <Link 
+                      href="/admin/codes" 
+                      onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${
+                        pathname.startsWith('/admin/codes')
+                          ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
+                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <FileText className="h-3.5 w-3.5 shrink-0" />
+                      <span>অর্থনৈতিক কোড কনফিগারেশন</span>
+                    </Link>
 
-              <Link 
-                href="/admin/settings" 
-                onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-colors text-xs font-bold ${
-                  pathname.startsWith('/admin/settings')
-                    ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <Settings className="h-4 w-4 text-slate-400" />
-                <span>ডিফল্ট ভ্যালু কনফিগারেশন</span>
-              </Link>
-
-              <div className="pt-3 pb-1">
-                <span className="px-3.5 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
-                  প্রতিবেদনসমূহ
-                </span>
+                    <Link 
+                      href="/admin/settings" 
+                      onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${
+                        pathname.startsWith('/admin/settings')
+                          ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
+                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <Settings className="h-3.5 w-3.5 shrink-0" />
+                      <span>ডিফল্ট ভ্যালু সেটিংস</span>
+                    </Link>
+                  </div>
+                )}
               </div>
 
-              <Link 
-                href="/admin/reports/combined" 
-                onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-colors text-xs font-bold ${
-                  pathname === '/admin/reports/combined'
-                    ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <Layers className="h-4 w-4 text-slate-400" />
-                {strings.reports.groupReport}
-              </Link>
-
-              <Link 
-                href="/admin/reports/individual" 
-                onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-colors text-xs font-bold ${
-                  pathname === '/admin/reports/individual'
-                    ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <FileText className="h-4 w-4 text-slate-400" />
-                {strings.reports.officeReport}
-              </Link>
-
-              <Link 
-                href="/admin/reports/summary" 
-                onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
-                className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-colors text-xs font-bold ${
-                  pathname === '/admin/reports/summary'
-                    ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <FileSpreadsheet className="h-4 w-4 text-slate-400" />
-                {strings.reports.codeWiseReport}
-              </Link>
-
-              {isSuperAdmin && (
-                <>
-                  <div className="pt-3 pb-1">
-                    <span className="px-3.5 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
-                      অ্যাক্সেস কন্ট্রোল (ACL)
-                    </span>
+              {/* গ্রুপ ২: প্রতিবেদনসমূহ (Collapsible) */}
+              <div className="space-y-1 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setReportsGroupOpen((prev) => !prev)}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <FileSpreadsheet className="h-4 w-4 text-emerald-400" />
+                    <span>প্রতিবেদনসমূহ</span>
                   </div>
-                  <Link 
-                    href="/admin/users" 
-                    onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
-                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-colors text-xs font-bold ${
-                      pathname === '/admin/users'
-                        ? 'bg-purple-600 text-white'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                    }`}
-                  >
-                    <ShieldCheck className="h-4 w-4 text-purple-400" />
-                    অ্যাক্সেস রোল (Admin Roles)
-                  </Link>
-                  <Link 
-                    href="/admin/offices-users" 
-                    onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
-                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-colors text-xs font-bold ${
-                      pathname === '/admin/offices-users'
-                        ? 'bg-emerald-600 text-white'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                    }`}
-                  >
-                    <Users className="h-4 w-4 text-emerald-400" />
-                    অফিস ইউজারসমূহ (Office Users)
-                  </Link>
-                </>
-              )}
+                  <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${reportsGroupOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {reportsGroupOpen && (
+                  <div className="pl-3 space-y-1 pt-0.5 border-l-2 border-slate-700/60 ml-3">
+                    <Link 
+                      href="/admin/reports/combined" 
+                      onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${
+                        pathname === '/admin/reports/combined'
+                          ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
+                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <Layers className="h-3.5 w-3.5 shrink-0" />
+                      <span>সমন্বিত রিপোর্ট</span>
+                    </Link>
+
+                    <Link 
+                      href="/admin/reports/individual" 
+                      onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${
+                        pathname === '/admin/reports/individual'
+                          ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
+                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <FileText className="h-3.5 w-3.5 shrink-0" />
+                      <span>অফিসভিত্তিক রিপোর্ট</span>
+                    </Link>
+
+                    <Link 
+                      href="/admin/reports/summary" 
+                      onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${
+                        pathname === '/admin/reports/summary'
+                          ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
+                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" />
+                      <span>কোডভিত্তিক সারসংক্ষেপ রিপোর্ট</span>
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              {/* গ্রুপ ৩: ইউজার সেটিংস (Collapsible) */}
+              <div className="space-y-1 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setUsersGroupOpen((prev) => !prev)}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Users className="h-4 w-4 text-purple-400" />
+                    <span>ইউজার সেটিংস</span>
+                  </div>
+                  <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform duration-200 ${usersGroupOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {usersGroupOpen && (
+                  <div className="pl-3 space-y-1 pt-0.5 border-l-2 border-slate-700/60 ml-3">
+                    <Link 
+                      href="/admin/offices-users" 
+                      onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${
+                        pathname === '/admin/offices-users'
+                          ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
+                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <Users className="h-3.5 w-3.5 shrink-0" />
+                      <span>অফিস ইউজারসমূহ</span>
+                    </Link>
+
+                    {isSuperAdmin && (
+                      <Link 
+                        href="/admin/users" 
+                        onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${
+                          pathname === '/admin/users'
+                            ? 'bg-purple-600 text-white'
+                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                        }`}
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-purple-400" />
+                        <span>এডমিন ইউজার সেটিংস</span>
+                      </Link>
+                    )}
+                  </div>
+                )}
+              </div>
             </nav>
 
             <div className="p-3.5 border-t border-slate-800 bg-slate-950/40">

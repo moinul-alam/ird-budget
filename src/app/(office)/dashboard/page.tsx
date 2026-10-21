@@ -13,15 +13,15 @@ import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
 const FORM_LIST = [
   { key: 'form1' as const, num: 1, href: '/office/form-1' },
   { key: 'form2' as const, num: 2, href: '/office/form-2' },
-  { key: 'form3' as const, num: 3, href: '/office/form-2b' },
-  { key: 'form4' as const, num: 4, href: '/office/form-3' },
-  { key: 'form5' as const, num: 5, href: '/office/form-4' },
-  { key: 'form6' as const, num: 6, href: '/office/form-5' },
-  { key: 'form7' as const, num: 7, href: '/office/form-6' },
-  { key: 'form8' as const, num: 8, href: '/office/form-9' },
-  { key: 'form9' as const, num: 9, href: '/office/form-7' },
-  { key: 'form10' as const, num: 10, href: '/office/form-8' },
-  { key: 'form11' as const, num: 11, href: '/office/form-10' },
+  { key: 'form3' as const, num: 3, href: '/office/form-3' },
+  { key: 'form4' as const, num: 4, href: '/office/form-4' },
+  { key: 'form5' as const, num: 5, href: '/office/form-5' },
+  { key: 'form6' as const, num: 6, href: '/office/form-6' },
+  { key: 'form7' as const, num: 7, href: '/office/form-7' },
+  { key: 'form8' as const, num: 8, href: '/office/form-8' },
+  { key: 'form9' as const, num: 9, href: '/office/form-9' },
+  { key: 'form10' as const, num: 10, href: '/office/form-10' },
+  { key: 'form11' as const, num: 11, href: '/office/form-11' },
 ] as const
 
 export default async function DashboardPage() {
@@ -89,7 +89,7 @@ export default async function DashboardPage() {
         typeName = `${typeName} বাজেট`
       }
       cycleInfo = {
-        fiscal_year: fy,
+        fiscal_year: toBanglaNumber(fy),
         budget_type_name: typeName,
         status: cy.status || 'open',
       }

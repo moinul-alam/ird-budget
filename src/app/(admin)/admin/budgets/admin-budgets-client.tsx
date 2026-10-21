@@ -425,7 +425,7 @@ export function AdminBudgetsClient({
                           {toBanglaNumber(idx + 1)}
                         </td>
                         <td className="py-3.5 px-4 font-bold text-slate-900 text-sm">
-                          {c.fiscal_year}
+                          {toBanglaNumber(c.fiscal_year)}
                         </td>
                         <td className="py-3.5 px-4 font-medium text-slate-700">
                           <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-bold border border-blue-200/60">

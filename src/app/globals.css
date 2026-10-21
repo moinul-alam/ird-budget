@@ -7,9 +7,10 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-noto-bengali), var(--font-inter), var(--font-kalpurush), system-ui, sans-serif;
-  --font-mono: var(--font-mono), var(--font-inter), monospace;
-  --font-heading: var(--font-noto-bengali), var(--font-inter), sans-serif;
+  --font-sans: 'Tiro Bangla', serif, sans-serif;
+  --font-heading: 'Anek Bangla', sans-serif;
+  --font-title: 'Anek Bangla', sans-serif;
+  --font-mono: 'Tiro Bangla', monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -126,10 +127,12 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "kern" 1, "liga" 1;
+    font-family: 'Tiro Bangla', serif, sans-serif !important;
+  }
+  h1, h2, h3, h4, h5, h6, .font-heading, .font-title {
+    font-family: 'Anek Bangla', sans-serif !important;
   }
 }

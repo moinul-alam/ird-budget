@@ -178,8 +178,8 @@ export function Form8Client({
     <FormShell
       title={strings.forms.form10.title}
       formNumber={10}
-      prevHref="/office/form-7"
-      nextHref="/office/form-10"
+      prevHref="/office/form-9"
+      nextHref="/office/form-11"
     >
       <div className="p-6 lg:p-8 space-y-6 max-w-5xl mx-auto">
         {/* Top Header & Action (Form 5 style) */}

@@ -289,7 +289,7 @@ export async function loginAdmin(formData: FormData) {
     role: matchedUser.role,
   })
 
-  redirect('/admin/dashboard')
+  return { success: true }
 }
 
 export async function logoutAdmin() {

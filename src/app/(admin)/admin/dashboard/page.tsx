@@ -165,10 +165,10 @@ export default async function AdminDashboardPage() {
     let fy = activeCycle.fiscal_year || '২০২৬-২৭'
     if (fy.includes(':::name=')) {
       const parts = fy.split(':::name=')
-      cycleTitle = `${parts[0]} অর্থবছর`
+      cycleTitle = `${toBanglaNumber(parts[0])} অর্থবছর`
       cycleTypeName = parts[1] || cycleTypeName
     } else {
-      cycleTitle = `${fy} অর্থবছর`
+      cycleTitle = `${toBanglaNumber(fy)} অর্থবছর`
       cycleTypeName = activeCycle.budget_type === 'revised' ? 'সংশোধিত বাজেট' : 'প্রাক্কলিত বাজেট'
     }
   }

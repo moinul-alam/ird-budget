@@ -1,29 +1,26 @@
 import { createOfficeClient } from '@/lib/supabase/server'
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import { Form2bClient } from './form-2b-client'
+import { Form10Client } from './form-10-client'
 
-export default async function Form2bPage() {
+export default async function Form10Page() {
   const supabase = createOfficeClient()
   const session = await getOfficeSession()
   if (!session) redirect('/')
 
   const submissionId = session.submission_id || null
 
-  let initialData: any[] = []
+  let initialData = null
   if (submissionId) {
     const { data } = await supabase
-      .from('form_staff')
+      .from('form_return_info')
       .select('*')
       .eq('submission_id', submissionId)
-      .order('grade_id')
-    initialData = data || []
+      .maybeSingle()
+    initialData = data
   }
 
-  return (
-    <Form2bClient
-      initialData={initialData}
-      submissionId={submissionId}
-    />
-  )
+  return <Form10Client submissionId={submissionId} initialData={initialData} />
 }
+
+

@@ -1,29 +1,29 @@
 import { createOfficeClient } from '@/lib/supabase/server'
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import { Form3Client } from './form-3-client'
+import { Form2bClient } from './form-2b-client'
 
-export default async function Form3Page() {
+export default async function Form2bPage() {
   const supabase = createOfficeClient()
   const session = await getOfficeSession()
   if (!session) redirect('/')
 
   const submissionId = session.submission_id || null
 
-  const [typesRes, dataRes, leaveRes] = await Promise.all([
-    supabase.from('allowance_types').select('*').order('id'),
-    submissionId ? supabase.from('form_allowances').select('*').eq('submission_id', submissionId) : Promise.resolve({ data: [] }),
-    submissionId ? supabase.from('form_leave').select('rest_recreation_amount, rest_recreation_due').eq('submission_id', submissionId).maybeSingle() : Promise.resolve({ data: null })
-  ])
+  let initialData: any[] = []
+  if (submissionId) {
+    const { data } = await supabase
+      .from('form_staff')
+      .select('*')
+      .eq('submission_id', submissionId)
+      .order('grade_id')
+    initialData = data || []
+  }
 
   return (
-    <Form3Client 
-      submissionId={submissionId} 
-      allowanceTypes={typesRes.data || []}
-      initialData={dataRes.data || []}
-      initialLeaveData={leaveRes.data || null}
+    <Form2bClient
+      initialData={initialData}
+      submissionId={submissionId}
     />
   )
 }
-
-
