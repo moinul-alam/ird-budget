@@ -164,52 +164,29 @@ export async function deleteBudgetCategory(id: string) {
 // -------------------------------------------------------------------
 // ECONOMIC CODES (Right side of Tab 1) & Tab 2 (Enabling/Disabling)
 // -------------------------------------------------------------------
-interface StoredLevelMapping {
-  [levelId: string]: number[] // array of code_ids enabled for this level
-}
 
-async function getStoredLevelMappings(): Promise<StoredLevelMapping> {
+/**
+ * Get enabled code IDs for a specific office level from admin_code_level_mapping.
+ * Returns null if no custom mapping exists (meaning "use defaults / all enabled").
+ */
+async function getLevelEnabledCodeIds(
+  officeTypeId: number,
+  officeLevelId: string
+): Promise<number[] | null> {
   const supabase = createOfficeClient()
-  const { data: profiles } = await supabase.from('admin_profiles').select('id, username').limit(1)
-  if (!profiles || profiles.length === 0) return {}
+  const { data, error } = await supabase
+    .from('admin_code_level_mapping')
+    .select('code_id, is_enabled')
+    .eq('office_type_id', officeTypeId)
+    .eq('office_level_id', parseInt(officeLevelId, 10))
 
-  const root = profiles[0]
-  if (root.username.includes(':::clmap=')) {
-    try {
-      const encoded = root.username.split(':::clmap=')[1].split(':::')[0]
-      const parsed = JSON.parse(decodeURIComponent(encoded))
-      if (parsed && typeof parsed === 'object') return parsed
-    } catch {
-      return {}
-    }
+  if (error) {
+    console.error('[getLevelEnabledCodeIds] error:', error.message)
+    return null
   }
-  return {}
-}
+  if (!data || data.length === 0) return null
 
-async function saveStoredLevelMappings(map: StoredLevelMapping) {
-  const supabase = createOfficeClient()
-  const { data: profiles } = await supabase.from('admin_profiles').select('*').limit(1)
-  if (!profiles || profiles.length === 0) return { error: 'অ্যাডমিন প্রোফাইল পাওয়া যায়নি' }
-
-  const root = profiles[0]
-  let rawUsername = root.username
-  if (rawUsername.includes(':::clmap=')) {
-    const parts = rawUsername.split(':::clmap=')
-    const before = parts[0]
-    const afterSegments = parts[1].split(':::').slice(1).join(':::')
-    rawUsername = afterSegments ? `${before}:::${afterSegments}` : before
-  }
-
-  const encoded = encodeURIComponent(JSON.stringify(map))
-  const newUsername = `${rawUsername}:::clmap=${encoded}`
-
-  const { error } = await supabase
-    .from('admin_profiles')
-    .update({ username: newUsername })
-    .eq('id', root.id)
-
-  if (error) return { error: error.message }
-  return { success: true }
+  return data.filter((r: any) => r.is_enabled).map((r: any) => r.code_id)
 }
 
 export async function getExpenseCodesWithCategoryAndMapping(
@@ -235,16 +212,33 @@ export async function getExpenseCodesWithCategoryAndMapping(
   let enabledCodeIds = new Set<number>()
 
   if (officeLevelId) {
-    const levelMap = await getStoredLevelMappings()
-    if (levelMap[officeLevelId]) {
-      enabledCodeIds = new Set<number>(levelMap[officeLevelId])
+    const levelCodes = await getLevelEnabledCodeIds(officeTypeId, officeLevelId)
+    if (levelCodes !== null) {
+      // Custom mapping exists — use it
+      enabledCodeIds = new Set<number>(levelCodes)
     } else {
-      // Fallback: enabled by default for all office types if not customized
-      enabledCodeIds = new Set<number>((codes || []).map((c: any) => c.id))
+      // No custom mapping yet — fall back to code_type_mapping or all enabled
+      const { data: typeMappings } = await supabase
+        .from('code_type_mapping')
+        .select('code_id')
+        .eq('office_type_id', officeTypeId)
+      if (typeMappings && typeMappings.length > 0) {
+        enabledCodeIds = new Set<number>(typeMappings.map((m: any) => m.code_id))
+      } else {
+        enabledCodeIds = new Set<number>((codes || []).map((c: any) => c.id))
+      }
     }
   } else {
-    // Enabled by default if level mapping not customized
-    enabledCodeIds = new Set<number>((codes || []).map((c: any) => c.id))
+    // No level selected — use code_type_mapping or all enabled
+    const { data: typeMappings } = await supabase
+      .from('code_type_mapping')
+      .select('code_id')
+      .eq('office_type_id', officeTypeId)
+    if (typeMappings && typeMappings.length > 0) {
+      enabledCodeIds = new Set<number>(typeMappings.map((m: any) => m.code_id))
+    } else {
+      enabledCodeIds = new Set<number>((codes || []).map((c: any) => c.id))
+    }
   }
 
   const categoryNameMap: Record<string, string> = {
@@ -395,27 +389,23 @@ export async function toggleCodeForOfficeType(
   const supabase = createOfficeClient()
 
   if (officeLevelId) {
-    const levelMap = await getStoredLevelMappings()
-    let currentCodes = levelMap[officeLevelId]
-    if (!currentCodes) {
-      // Initialize with office type codes
-      const { data: mappings } = await supabase
-        .from('code_type_mapping')
-        .select('code_id')
-        .eq('office_type_id', officeTypeId)
-      currentCodes = (mappings || []).map((m: any) => m.code_id)
+    const lvlIdNum = parseInt(officeLevelId, 10)
+    // Upsert into admin_code_level_mapping
+    const { error } = await supabase
+      .from('admin_code_level_mapping')
+      .upsert(
+        {
+          office_type_id: officeTypeId,
+          office_level_id: lvlIdNum,
+          code_id: codeId,
+          is_enabled: enable,
+        },
+        { onConflict: 'office_type_id,office_level_id,code_id' }
+      )
+    if (error) {
+      console.error('[toggleCodeForOfficeType] level upsert error:', error)
+      return { error: error.message }
     }
-
-    const codeSet = new Set<number>(currentCodes)
-    if (enable) {
-      codeSet.add(codeId)
-    } else {
-      codeSet.delete(codeId)
-    }
-
-    levelMap[officeLevelId] = Array.from(codeSet)
-    const saveRes = await saveStoredLevelMappings(levelMap)
-    if (saveRes.error) return { error: saveRes.error }
   } else {
     if (enable) {
       const { error } = await supabase.from('code_type_mapping').insert({
@@ -453,29 +443,21 @@ export async function toggleBulkCodesForOfficeType(
   const supabase = createOfficeClient()
 
   if (officeLevelId) {
-    const levelMap = await getStoredLevelMappings()
-    let currentCodes = levelMap[officeLevelId]
-    if (!currentCodes) {
-      // Initialize from office_type mappings if not yet set
-      const { data: mappings } = await supabase
-        .from('code_type_mapping')
-        .select('code_id')
-        .eq('office_type_id', officeTypeId)
-      currentCodes = (mappings || []).map((m: any) => m.code_id)
+    const lvlIdNum = parseInt(officeLevelId, 10)
+    // Upsert all codes into admin_code_level_mapping
+    const rows = codeIds.map((cid) => ({
+      office_type_id: officeTypeId,
+      office_level_id: lvlIdNum,
+      code_id: cid,
+      is_enabled: enable,
+    }))
+    const { error } = await supabase
+      .from('admin_code_level_mapping')
+      .upsert(rows, { onConflict: 'office_type_id,office_level_id,code_id' })
+    if (error) {
+      console.error('[toggleBulkCodesForOfficeType] level upsert error:', error)
+      return { error: `ডাটাবেস ত্রুটি: ${error.message}` }
     }
-
-    const codeSet = new Set<number>(currentCodes)
-    for (const id of codeIds) {
-      if (enable) {
-        codeSet.add(id)
-      } else {
-        codeSet.delete(id)
-      }
-    }
-
-    levelMap[officeLevelId] = Array.from(codeSet)
-    const saveRes = await saveStoredLevelMappings(levelMap)
-    if (saveRes.error) return { error: saveRes.error }
   } else {
     if (enable) {
       const rows = codeIds.map((cid) => ({

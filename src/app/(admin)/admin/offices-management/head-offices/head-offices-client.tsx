@@ -556,26 +556,14 @@ export function HeadOfficesClient({
                 <SelectContent className="rounded-xl text-xs">
                   {modalOfficeTypes.map((ot) => (
                     <SelectItem key={ot.id} value={String(ot.id)}>
-                      {ot.name} (লেভেল {toBanglaNumber(ot.hierarchy_order)})
+                      {ot.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* ৪. অফিসের লেভেল (automatically selected from top level of hierarchy tab) */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">অফিসের লেভেল (স্বয়ংক্রিয়)</Label>
-              <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl">
-                <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-mono font-bold text-xs">
-                  লেভেল {toBanglaNumber(computedOfficeLevel)}
-                </span>
-                <span className="text-[11px] text-slate-500">
-                  (হায়ারার্কি কনফিগারেশন থেকে স্বয়ংক্রিয়ভাবে নির্ধারিত)
-                </span>
-              </div>
-            </div>
-
+            
             {/* ৫. হেড অফিসের নাম (Typed field) */}
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-700">হেড অফিসের নাম</Label>

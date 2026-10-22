@@ -69,7 +69,7 @@ export function AdminOfficesConfigClient({
   // Filtering dropdowns for relational views
   const [filterDeptForTypes, setFilterDeptForTypes] = useState<string>('all')
   const [filterTypeForHierarchy, setFilterTypeForHierarchy] = useState<string>('all')
-  const [filterDeptForGroups, setFilterDeptForGroups] = useState<string>('all')
+  const [filterTypeForGroups, setFilterTypeForGroups] = useState<string>('all')
 
   // Modals state
   const [minModal, setMinModal] = useState<MinistryModalState>({
@@ -347,6 +347,8 @@ export function AdminOfficesConfigClient({
       const res = await saveGroupBudgetSetting({
         id: groupModal.id,
         office_type_id: groupModal.office_type_id,
+        office_level_id: groupModal.office_level_id,
+        department_id: groupModal.department_id,
         is_group_budget: groupModal.is_group_budget,
       })
       if (res.error) {
@@ -522,12 +524,12 @@ export function AdminOfficesConfigClient({
     return list
   })()
 
-  const departmentsWithGroupBudget = departments.filter((d) =>
-    displayGroupItems.some((g) => g.department_id === d.id)
+  const officeTypesWithGroupBudget = officeTypes.filter((ot) =>
+    displayGroupItems.some((g) => g.office_type_id === ot.id)
   )
 
   const filteredGroupItemsForTab5 = displayGroupItems
-    .filter((g) => (filterDeptForGroups === 'all' ? true : String(g.department_id) === filterDeptForGroups))
+    .filter((g) => (filterTypeForGroups === 'all' ? true : String(g.office_type_id) === filterTypeForGroups))
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -706,11 +708,11 @@ export function AdminOfficesConfigClient({
           displayGroupItems={displayGroupItems}
           filteredGroupItems={filteredGroupItemsForTab5}
           departments={departments}
-          departmentsWithGroupBudget={departmentsWithGroupBudget}
           officeTypes={officeTypes}
+          officeTypesWithGroupBudget={officeTypesWithGroupBudget}
           officeLevels={officeLevels}
-          filterDeptForGroups={filterDeptForGroups}
-          setFilterDeptForGroups={setFilterDeptForGroups}
+          filterTypeForGroups={filterTypeForGroups}
+          setFilterTypeForGroups={setFilterTypeForGroups}
           groupModal={groupModal}
           setGroupModal={setGroupModal}
           onSaveGroupSetting={handleSaveGroupSetting}

@@ -42,79 +42,44 @@ export interface FieldOfficeItem {
 
 export async function getHeadOffices(): Promise<HeadOfficeItem[]> {
   const supabase = createOfficeClient()
+
+  // Head offices = core_offices where parent_office_id IS NULL
   const { data, error } = await supabase
-    .from('parent_offices')
-    .select('*, departments(id, name)')
+    .from('core_offices')
+    .select('*')
+    .is('parent_office_id', null)
     .order('id', { ascending: false })
 
-  if (error || !data) return []
+  if (error || !data) {
+    console.error('[getHeadOffices] error:', error?.message)
+    return []
+  }
 
-  const [ministries, officeTypes] = await Promise.all([
-    getMinistries(),
+  // Fetch departments and office types for display names
+  const [departments, officeTypes] = await Promise.all([
+    getDepartments(),
     getOfficeTypesHierarchy(),
   ])
 
-  const minMap = new Map(ministries.map((m) => [m.id, m.name]))
+  const deptMap = new Map(departments.map((d) => [d.id, d]))
+  const otMap = new Map(officeTypes.map((ot) => [ot.id, ot]))
 
-  return data.map((po: any) => {
-    let cleanName = po.name || ''
-    let office_type_id = 0
-    let office_level = 1
-    let budget_id = ''
-
-    // Check encoded metadata: "OfficeName:::type=12:::level=1:::budget=123"
-    if (cleanName.includes(':::budget=')) {
-      const bParts = cleanName.split(':::budget=')
-      cleanName = bParts[0]
-      const bRest = bParts[1] || ''
-      if (bRest.includes(':::')) {
-        budget_id = bRest.split(':::')[0]
-      } else {
-        budget_id = bRest
-      }
-    }
-
-    if (cleanName.includes(':::type=')) {
-      const parts = cleanName.split(':::type=')
-      cleanName = parts[0]
-      const rest = parts[1] || ''
-      if (rest.includes(':::level=')) {
-        const segs = rest.split(':::level=')
-        office_type_id = parseInt(segs[0], 10) || 0
-        office_level = parseInt(segs[1], 10) || 1
-      } else {
-        office_type_id = parseInt(rest, 10) || 0
-      }
-    }
-
-    // Resolve department and ministry
-    let deptName = po.departments?.name || ''
-    let ministry_id = ''
-    let ministry_name = ''
-    if (deptName.includes(':::min=')) {
-      const minParts = deptName.split(':::min=')
-      deptName = minParts[0]
-      ministry_id = minParts[1] || ''
-      ministry_name = minMap.get(ministry_id) || ''
-    }
-
-    const matchedType = officeTypes.find((ot) => ot.id === office_type_id)
-    if (matchedType && matchedType.hierarchy_order) {
-      office_level = matchedType.hierarchy_order
-    }
+  return data.map((o: any) => {
+    const dept = deptMap.get(o.department_id)
+    const ot = otMap.get(o.office_type_id)
 
     return {
-      id: po.id,
-      name: cleanName,
-      budget_id,
-      department_id: po.department_id,
-      department_name: deptName,
-      ministry_id,
-      ministry_name,
-      office_type_id,
-      office_type_name: matchedType?.name || '—',
-      office_level,
-      created_at: po.created_at,
+      id: o.id,
+      name: o.name,
+      budget_id: o.budget_id || '',
+      department_id: o.department_id,
+      department_name: dept?.name || '—',
+      ministry_id: dept?.ministry_id || '',
+      ministry_name: '',
+      office_type_id: o.office_type_id,
+      office_type_name: ot?.name || '—',
+      office_level: o.office_level_id || 1,
+      created_at: o.created_at,
     }
   })
 }
@@ -138,98 +103,54 @@ export async function saveHeadOffice(data: {
 
   const supabase = createOfficeClient()
 
-  // Verify uniqueness of budget_id in offices table
+  // Auto-assign office_level_id: first level of the selected office type
+  const { data: levels } = await supabase
+    .from('admin_office_levels')
+    .select('id')
+    .eq('office_type_id', data.office_type_id)
+    .order('level_order', { ascending: true })
+    .limit(1)
+  const officeLevelId = levels?.[0]?.id || null
+
+  // Verify budget_id uniqueness
   if (trimmedBudget) {
-    const { data: existing } = await supabase
-      .from('offices')
-      .select('id, name')
+    const query = supabase
+      .from('core_offices')
+      .select('id')
       .eq('budget_id', trimmedBudget)
-      .maybeSingle()
-
+    if (data.id) query.neq('id', data.id)
+    const { data: existing } = await query.maybeSingle()
     if (existing) {
-      const isOurOffice = existing.name.includes(`:::poid=${data.id || ''}`)
-      if (!isOurOffice) {
-        return { error: 'এই বাজেট আইডিটি ইতিমধ্যে অন্য অফিসের জন্য ব্যবহৃত হচ্ছে।' }
-      }
+      return { error: 'এই বাজেট আইডিটি ইতিমধ্যে অন্য অফিসের জন্য ব্যবহৃত হচ্ছে।' }
     }
   }
-
-  // Handle old budget_id if head office being updated
-  if (data.id) {
-    const { data: oldPo } = await supabase
-      .from('parent_offices')
-      .select('name')
-      .eq('id', data.id)
-      .maybeSingle()
-
-    if (oldPo?.name && oldPo.name.includes(':::budget=')) {
-      const oldB = oldPo.name.split(':::budget=')[1]?.split(':::')[0]
-      if (oldB && oldB !== trimmedBudget) {
-        await supabase.from('offices').delete().eq('budget_id', oldB)
-      }
-    }
-  }
-
-  let encodedName = `${trimmed}:::type=${data.office_type_id}:::level=${data.office_level}`
-  if (trimmedBudget) {
-    encodedName += `:::budget=${trimmedBudget}`
-  }
-
-  let headOfficeId = data.id
 
   if (data.id) {
     const { error } = await supabase
-      .from('parent_offices')
+      .from('core_offices')
       .update({
-        name: encodedName,
+        name: trimmed,
+        budget_id: trimmedBudget || undefined,
         department_id: data.department_id,
+        office_type_id: data.office_type_id,
+        office_level_id: officeLevelId,
         updated_at: new Date().toISOString(),
       })
       .eq('id', data.id)
     if (error) return { error: error.message }
   } else {
-    const { data: inserted, error } = await supabase
-      .from('parent_offices')
+    if (!trimmedBudget) return { error: 'বাজেট আইডি আবশ্যক' }
+    const { error } = await supabase
+      .from('core_offices')
       .insert({
-        name: encodedName,
+        name: trimmed,
+        budget_id: trimmedBudget,
         department_id: data.department_id,
+        office_type_id: data.office_type_id,
+        office_level_id: officeLevelId,
+        is_active: true,
       })
-      .select('id')
-      .single()
     if (error) return { error: error.message }
-    headOfficeId = inserted.id
-  }
-
-  // Sync to offices table if budget_id provided
-  if (trimmedBudget && headOfficeId) {
-    const officeName = `${trimmed}:::poid=${headOfficeId}`
-
-    const { data: existingOffice } = await supabase
-      .from('offices')
-      .select('id')
-      .eq('budget_id', trimmedBudget)
-      .maybeSingle()
-
-    if (existingOffice) {
-      await supabase
-        .from('offices')
-        .update({
-          name: officeName,
-          office_type_id: data.office_type_id,
-          parent_office_id: headOfficeId,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', existingOffice.id)
-    } else {
-      await supabase
-        .from('offices')
-        .insert({
-          name: officeName,
-          budget_id: trimmedBudget,
-          office_type_id: data.office_type_id,
-          parent_office_id: headOfficeId,
-        })
-    }
   }
 
   revalidatePath('/admin/offices-management/head-offices')
@@ -244,34 +165,18 @@ export async function deleteHeadOffice(id: number) {
 
   const supabase = createOfficeClient()
 
-  // Relational check: whether field offices exist under this head office
-  // Exclude self-synced head office entry (which has parent_office_id = id and :::poid=id)
-  const { data: linked } = await supabase
-    .from('offices')
-    .select('id, name')
+  // Check for child offices
+  const { data: children } = await supabase
+    .from('core_offices')
+    .select('id')
     .eq('parent_office_id', id)
+    .limit(1)
 
-  const realFieldOffices = (linked || []).filter((o: any) => !o.name?.includes(`:::poid=${id}`))
-
-  if (realFieldOffices.length > 0) {
-    return { error: 'এই হেড অফিসের অধীনে মাঠ পর্যায়ের অফিস বিদ্যমান রয়েছে। প্রথমে সংশ্লিষ্ট মাঠ পর্যায়ের অফিসসমূহ অপসারণ করুন।' }
+  if (children && children.length > 0) {
+    return { error: 'এই হেড অফিসের অধীনে মাঠ পর্যায়ের অফিস বিদ্যমান রয়েছে। প্রথমে সংশ্লিষ্ট মাঠ পর্যায়ের অফিসসমূহ অপসারণ করুন।' }
   }
 
-  // Clean up any synced office for this head office
-  const { data: oldPo } = await supabase
-    .from('parent_offices')
-    .select('name')
-    .eq('id', id)
-    .maybeSingle()
-
-  if (oldPo?.name && oldPo.name.includes(':::budget=')) {
-    const oldB = oldPo.name.split(':::budget=')[1]?.split(':::')[0]
-    if (oldB) {
-      await supabase.from('offices').delete().eq('budget_id', oldB)
-    }
-  }
-
-  const { error } = await supabase.from('parent_offices').delete().eq('id', id)
+  const { error } = await supabase.from('core_offices').delete().eq('id', id)
   if (error) return { error: error.message }
 
   revalidatePath('/admin/offices-management/head-offices')

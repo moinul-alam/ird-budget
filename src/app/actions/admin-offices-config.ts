@@ -427,46 +427,153 @@ export async function deleteOfficeLevel(id: string) {
 }
 
 // -------------------------------------------------------------------
-// TAB 5: গ্রুপ বাজেট সেটিংস (core_office_types.is_group_budget)
+// TAB 5: গ্রুপ বাজেট সেটিংস (admin_group_budget_rules / core_office_types)
 // -------------------------------------------------------------------
 export async function getGroupBudgetSettings(): Promise<GroupBudgetSettingItem[]> {
-  const types = await getOfficeTypesHierarchy()
-  return types.map((t) => ({
-    id: String(t.id),
-    department_id: t.department_id,
-    department_name: t.department_name,
-    office_type_id: t.id,
-    office_type_name: t.name,
-    is_group_budget: t.is_group_budget,
-    created_at: t.created_at,
-  }))
+  const supabase = createOfficeClient()
+  const [types, levels] = await Promise.all([
+    getOfficeTypesHierarchy(),
+    getOfficeLevels(),
+  ])
+
+  const levelMap = new Map(levels.map((l) => [l.id, l]))
+  const typeMap = new Map(types.map((t) => [t.id, t]))
+
+  // Attempt to fetch from admin_group_budget_rules table
+  const { data: rules } = await supabase
+    .from('admin_group_budget_rules')
+    .select('*')
+    .order('id', { ascending: true })
+
+  if (rules && rules.length > 0) {
+    return rules.map((r: any) => {
+      const matchedOt = typeMap.get(r.office_type_id)
+      const matchedLvl = r.office_level_id ? levelMap.get(String(r.office_level_id)) : undefined
+
+      return {
+        id: String(r.id),
+        department_id: matchedOt?.department_id || r.department_id || 0,
+        department_name: matchedOt?.department_name || '',
+        office_type_id: r.office_type_id,
+        office_type_name: matchedOt?.name || '',
+        office_level_id: r.office_level_id ? String(r.office_level_id) : undefined,
+        office_level_name: matchedLvl?.level_name || (r.office_level_name || ''),
+        office_level_order: matchedLvl?.level_order,
+        is_group_budget: Boolean(r.is_group_budget),
+        created_at: r.created_at,
+      }
+    })
+  }
+
+  // Fallback to office types with is_group_budget = true
+  return types
+    .filter((t) => t.is_group_budget)
+    .map((t) => ({
+      id: String(t.id),
+      department_id: t.department_id,
+      department_name: t.department_name,
+      office_type_id: t.id,
+      office_type_name: t.name,
+      is_group_budget: t.is_group_budget,
+      created_at: t.created_at,
+    }))
 }
 
 export async function saveGroupBudgetSetting(data: {
   id?: string
   office_type_id: number
+  office_level_id?: string
+  department_id?: number
   is_group_budget: boolean
 }): Promise<{ success?: boolean; error?: string; setting?: GroupBudgetSettingItem }> {
-  const res = await updateGroupBudgetStatus(data.office_type_id, data.is_group_budget)
-  if (res.error) return { error: res.error }
+  const supabase = createOfficeClient()
 
-  const types = await getOfficeTypesHierarchy()
-  const matched = types.find((t) => t.id === data.office_type_id)
+  // 1. Keep core_office_types.is_group_budget in sync
+  await updateGroupBudgetStatus(data.office_type_id, data.is_group_budget)
 
-  const settingItem: GroupBudgetSettingItem = {
-    id: String(data.office_type_id),
-    department_id: matched?.department_id || 0,
-    department_name: matched?.department_name || '',
-    office_type_id: data.office_type_id,
-    office_type_name: matched?.name || '',
-    is_group_budget: data.is_group_budget,
-    created_at: matched?.created_at,
+  const [types, levels] = await Promise.all([
+    getOfficeTypesHierarchy(),
+    getOfficeLevels(),
+  ])
+
+  const matchedOt = types.find((t) => t.id === data.office_type_id)
+  const matchedLvl = data.office_level_id ? levels.find((l) => l.id === data.office_level_id) : undefined
+
+  const deptId = data.department_id || matchedOt?.department_id || 0
+  const lvlIdNum = data.office_level_id ? parseInt(data.office_level_id, 10) : null
+
+  let savedId = data.id || `rule-${Date.now()}`
+
+  // Store in admin_group_budget_rules table
+  const idNum = data.id && !data.id.startsWith('legacy-') && !data.id.startsWith('rule-') ? parseInt(data.id, 10) : undefined
+
+  if (idNum) {
+    const { error: updErr } = await supabase
+      .from('admin_group_budget_rules')
+      .update({
+        office_type_id: data.office_type_id,
+        office_level_id: isNaN(lvlIdNum as any) ? null : lvlIdNum,
+        department_id: deptId,
+        is_group_budget: data.is_group_budget,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', idNum)
+
+    if (updErr) {
+      console.error('[saveGroupBudgetSetting] update error:', updErr)
+      return { error: `ডাটাবেস আপডেট ত্রুটি: ${updErr.message}` }
+    }
+    savedId = String(idNum)
+  } else {
+    const { data: insData, error: insErr } = await supabase
+      .from('admin_group_budget_rules')
+      .insert({
+        office_type_id: data.office_type_id,
+        office_level_id: isNaN(lvlIdNum as any) ? null : lvlIdNum,
+        department_id: deptId,
+        is_group_budget: data.is_group_budget,
+      })
+      .select('id')
+      .single()
+
+    if (insErr) {
+      console.error('[saveGroupBudgetSetting] insert error:', insErr)
+      return { error: `ডাটাবেস সংরক্ষণ ত্রুটি: ${insErr.message}` }
+    }
+    if (insData?.id) savedId = String(insData.id)
   }
 
+  const settingItem: GroupBudgetSettingItem = {
+    id: String(savedId),
+    department_id: deptId,
+    department_name: matchedOt?.department_name || '',
+    office_type_id: data.office_type_id,
+    office_type_name: matchedOt?.name || '',
+    office_level_id: data.office_level_id || undefined,
+    office_level_name: matchedLvl?.level_name || '',
+    office_level_order: matchedLvl?.level_order,
+    is_group_budget: data.is_group_budget,
+    created_at: new Date().toISOString(),
+  }
+
+  revalidatePath('/admin/offices-config')
   return { success: true, setting: settingItem }
 }
 
 export async function deleteGroupBudgetSetting(id: string) {
-  const typeId = parseInt(id, 10)
-  return updateGroupBudgetStatus(typeId, false)
+  const session = await getAdminSession()
+  if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
+
+  const supabase = createOfficeClient()
+
+  const idNum = parseInt(id, 10)
+  if (!isNaN(idNum)) {
+    // Try delete from admin_group_budget_rules
+    await supabase.from('admin_group_budget_rules').delete().eq('id', idNum)
+    // Also try update office type
+    await updateGroupBudgetStatus(idNum, false)
+  }
+
+  revalidatePath('/admin/offices-config')
+  return { success: true }
 }

@@ -33,11 +33,11 @@ interface TabGroupBudgetProps {
   displayGroupItems: GroupBudgetSettingItem[]
   filteredGroupItems: GroupBudgetSettingItem[]
   departments: DepartmentItem[]
-  departmentsWithGroupBudget: DepartmentItem[]
   officeTypes: OfficeTypeHierarchyItem[]
+  officeTypesWithGroupBudget: OfficeTypeHierarchyItem[]
   officeLevels: OfficeLevelItem[]
-  filterDeptForGroups: string
-  setFilterDeptForGroups: (val: string) => void
+  filterTypeForGroups: string
+  setFilterTypeForGroups: (val: string) => void
   groupModal: GroupModalState
   setGroupModal: React.Dispatch<React.SetStateAction<GroupModalState>>
   onSaveGroupSetting: () => void
@@ -50,11 +50,11 @@ export function TabGroupBudget({
   displayGroupItems,
   filteredGroupItems,
   departments,
-  departmentsWithGroupBudget,
   officeTypes,
+  officeTypesWithGroupBudget,
   officeLevels,
-  filterDeptForGroups,
-  setFilterDeptForGroups,
+  filterTypeForGroups,
+  setFilterTypeForGroups,
   groupModal,
   setGroupModal,
   onSaveGroupSetting,
@@ -72,21 +72,21 @@ export function TabGroupBudget({
             </CardTitle>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {departmentsWithGroupBudget.length > 0 && (
+            {officeTypesWithGroupBudget.length > 0 && (
               <div className="w-64 sm:w-72">
-                <Select value={filterDeptForGroups} onValueChange={(val) => setFilterDeptForGroups(val || 'all')}>
+                <Select value={filterTypeForGroups} onValueChange={(val) => setFilterTypeForGroups(val || 'all')}>
                   <SelectTrigger className="h-9 w-full rounded-xl border-slate-200 text-xs">
                     <SelectValue placeholder="সব">
-                      {filterDeptForGroups === 'all'
-                        ? 'সব'
-                        : departmentsWithGroupBudget.find((d) => String(d.id) === filterDeptForGroups)?.name || 'সব'}
+                      {filterTypeForGroups === 'all'
+                        ? 'সব অফিসের ধরণ'
+                        : officeTypesWithGroupBudget.find((ot) => String(ot.id) === filterTypeForGroups)?.name || 'সব'}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent className="rounded-xl text-xs">
-                    <SelectItem value="all">সব</SelectItem>
-                    {departmentsWithGroupBudget.map((d) => (
-                      <SelectItem key={d.id} value={String(d.id)}>
-                        {d.name}
+                    <SelectItem value="all">সব অফিসের ধরণ</SelectItem>
+                    {officeTypesWithGroupBudget.map((ot) => (
+                      <SelectItem key={ot.id} value={String(ot.id)}>
+                        {ot.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -96,13 +96,12 @@ export function TabGroupBudget({
             {officeTypes.length > 0 && (
               <Button
                 onClick={() => {
-                  const firstDep = departmentsWithGroupBudget[0]?.id || departments[0]?.id || 0
-                  const matchingOt = officeTypes.find((ot) => ot.department_id === firstDep) || officeTypes[0]
-                  const firstLevel = officeLevels.filter((lvl) => lvl.office_type_id === matchingOt?.id).sort((a, b) => a.level_order - b.level_order)[0]
+                  const firstOt = officeTypesWithGroupBudget[0] || officeTypes[0]
+                  const firstLevel = officeLevels.filter((lvl) => lvl.office_type_id === firstOt?.id).sort((a, b) => a.level_order - b.level_order)[0]
                   setGroupModal({
                     open: true,
-                    department_id: firstDep,
-                    office_type_id: matchingOt?.id || 0,
+                    department_id: firstOt?.department_id || 0,
+                    office_type_id: firstOt?.id || 0,
                     office_level_id: firstLevel?.id || '',
                     is_group_budget: true,
                   })
@@ -149,14 +148,13 @@ export function TabGroupBudget({
                 <Button
                   size="sm"
                   onClick={() => {
-                    const firstDep = departments[0]?.id || 0
-                    const matchingOt = officeTypes.find((ot) => ot.department_id === firstDep) || officeTypes[0]
-                    const firstLevel = officeLevels.filter((lvl) => lvl.office_type_id === matchingOt?.id).sort((a, b) => a.level_order - b.level_order)[0]
+                    const firstOt = officeTypes[0]
+                    const firstLevel = officeLevels.filter((lvl) => lvl.office_type_id === firstOt?.id).sort((a, b) => a.level_order - b.level_order)[0]
                     setGroupModal({
                       open: true,
                       id: undefined,
-                      department_id: firstDep,
-                      office_type_id: matchingOt?.id || 0,
+                      department_id: firstOt?.department_id || 0,
+                      office_type_id: firstOt?.id || 0,
                       office_level_id: firstLevel?.id || '',
                       is_group_budget: true,
                     })
