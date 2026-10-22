@@ -191,12 +191,23 @@ export function Form6Client({
     }
   }
 
+  const handleSaveAll = async () => {
+    if (!submissionId) return
+    for (const row of rows) {
+      await saveFormVehicleRentRow(submissionId, {
+        vehicle_rent_config_id: row.vehicle_rent_config_id,
+        count: row.count,
+      })
+    }
+  }
+
   return (
     <FormShell
-      title={strings.forms.form7.title}
-      formNumber={7}
+      title={strings.forms.form8.title}
+      formNumber={8}
       prevHref="/office/form-7"
       nextHref="/office/form-9"
+      onSave={submissionId ? handleSaveAll : undefined}
     >
       <div className="p-6 lg:p-8 space-y-6">
         {/* Top Header & Action */}

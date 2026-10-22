@@ -346,9 +346,7 @@ export function AdminOfficesConfigClient({
     startTransition(async () => {
       const res = await saveGroupBudgetSetting({
         id: groupModal.id,
-        department_id: groupModal.department_id,
         office_type_id: groupModal.office_type_id,
-        office_level_id: groupModal.office_level_id,
         is_group_budget: groupModal.is_group_budget,
       })
       if (res.error) {

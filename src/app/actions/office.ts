@@ -10,151 +10,111 @@ interface SelectOption {
 export async function searchOffice(budgetId: string): Promise<{ found: boolean; office?: { id: string; name: string } }> {
   const supabase = createOfficeClient()
   const { data, error } = await supabase
-    .from('offices')
+    .from('core_offices')
     .select('id, name')
-    .eq('budget_id', budgetId)
+    .eq('budget_id', budgetId.trim())
     .maybeSingle()
 
   if (error || !data) {
     return { found: false }
   }
 
-  let cleanName = data.name || ''
-  if (cleanName.includes(':::pwd$')) cleanName = cleanName.split(':::pwd$')[0]
-  if (cleanName.includes(':::mid=')) cleanName = cleanName.split(':::mid=')[0]
-  if (cleanName.includes(':::did=')) cleanName = cleanName.split(':::did=')[0]
-  if (cleanName.includes(':::poid=')) cleanName = cleanName.split(':::poid=')[0]
-
-  return { found: true, office: { ...data, name: cleanName } }
+  return { found: true, office: { id: String(data.id), name: data.name } }
 }
 
 export async function getMinistriesList(): Promise<SelectOption[]> {
   const supabase = createOfficeClient()
-  const { data: profiles } = await supabase.from('admin_profiles').select('id, username').limit(1)
-  if (!profiles || profiles.length === 0) return []
+  const { data, error } = await supabase
+    .from('core_ministries')
+    .select('id, name')
+    .order('id')
 
-  const root = profiles[0]
-  if (root.username.includes(':::ocfg=')) {
-    try {
-      const encoded = root.username.split(':::ocfg=')[1].split(':::')[0]
-      const parsed = JSON.parse(decodeURIComponent(encoded))
-      if (Array.isArray(parsed.ministries)) {
-        return parsed.ministries.map((m: any) => ({ id: m.id, name: m.name }))
-      }
-    } catch {
-      return []
-    }
-  }
-  return []
+  if (error || !data) return []
+  return data.map((m: any) => ({ id: String(m.id), name: m.name }))
 }
 
 export async function getDepartments(ministryId?: string): Promise<(SelectOption & { ministry_id?: string })[]> {
   const supabase = createOfficeClient()
-  const { data } = await supabase
-    .from('departments')
-    .select('id, name')
-    .order('id')
-
-  if (!data) return []
-
-  const list: (SelectOption & { ministry_id?: string })[] = data.map((d: any) => {
-    let cleanName = d.name || ''
-    let minId = ''
-    if (cleanName.includes(':::min=')) {
-      const parts = cleanName.split(':::min=')
-      cleanName = parts[0]
-      minId = parts[1] || ''
-    }
-    return {
-      id: String(d.id),
-      name: cleanName,
-      ministry_id: minId,
-    }
-  })
+  let query = supabase.from('core_departments').select('id, name, ministry_id').order('id')
 
   if (ministryId) {
-    return list.filter((d: SelectOption & { ministry_id?: string }) => d.ministry_id === ministryId)
+    query = query.eq('ministry_id', parseInt(ministryId, 10))
   }
 
-  return list
+  const { data, error } = await query
+  if (error || !data) return []
+
+  return data.map((d: any) => ({
+    id: String(d.id),
+    name: d.name,
+    ministry_id: String(d.ministry_id),
+  }))
 }
 
 export async function getParentOffices(departmentId: string): Promise<SelectOption[]> {
   const supabase = createOfficeClient()
-  const { data } = await supabase
-    .from('parent_offices')
+  const deptIdNum = parseInt(departmentId, 10)
+  if (isNaN(deptIdNum)) return []
+
+  const { data, error } = await supabase
+    .from('core_offices')
     .select('id, name')
-    .eq('department_id', departmentId)
+    .eq('department_id', deptIdNum)
     .order('id')
 
-  if (!data) return []
+  if (error || !data) return []
 
-  return data.map((p: any) => {
-    let cleanName = p.name || ''
-    if (cleanName.includes(':::type=')) {
-      cleanName = cleanName.split(':::type=')[0]
-    }
-    return {
-      id: String(p.id),
-      name: cleanName,
-    }
-  })
+  return data.map((p: any) => ({
+    id: String(p.id),
+    name: p.name,
+  }))
 }
 
 export async function getOfficeTypes(departmentId: string): Promise<SelectOption[]> {
   const supabase = createOfficeClient()
-  const { data } = await supabase
-    .from('office_types')
+  const deptIdNum = parseInt(departmentId, 10)
+  if (isNaN(deptIdNum)) return []
+
+  const { data, error } = await supabase
+    .from('core_office_types')
     .select('id, name')
-    .eq('department_id', departmentId)
-    .order('id')
+    .eq('department_id', deptIdNum)
+    .order('sort_order', { ascending: true })
 
-  if (!data) return []
+  if (error || !data) return []
 
-  return data.map((t: any) => {
-    let cleanName = t.name || ''
-    if (cleanName.includes(':::order=')) {
-      cleanName = cleanName.split(':::order=')[0]
-    }
-    return {
-      id: String(t.id),
-      name: cleanName,
-    }
-  })
+  return data.map((t: any) => ({
+    id: String(t.id),
+    name: t.name,
+  }))
 }
 
 export async function getOfficeProfile(officeId: number) {
   const supabase = createOfficeClient()
   const { data: office, error } = await supabase
-    .from('offices')
+    .from('core_offices')
     .select(`
       id,
       name,
       budget_id,
+      department_id,
       office_type_id,
       parent_office_id,
-      office_type:office_types(id, name, department_id, departments(id, name)),
-      parent_office:parent_offices(id, name)
+      office_type:core_office_types(id, name, department_id, departments:core_departments(id, name)),
+      parent_office:parent_office_id(id, name)
     `)
     .eq('id', officeId)
     .maybeSingle()
 
   if (error || !office) return null
 
-  let cleanName = office.name || ''
-  if (cleanName.includes(':::pwd$')) {
-    cleanName = cleanName.split(':::pwd$')[0]
-  }
-
-  const departmentId = (office as any).office_type?.department_id || null
-
   return {
     id: office.id,
-    name: cleanName,
+    name: office.name,
     budgetId: office.budget_id,
     officeTypeId: office.office_type_id,
     parentOfficeId: office.parent_office_id,
-    departmentId,
+    departmentId: office.department_id,
   }
 }
 
@@ -166,23 +126,9 @@ export async function updateOfficeProfile(data: {
 }) {
   const supabase = createOfficeClient()
   
-  // Fetch existing office record to preserve custom password if present
-  const { data: existing } = await supabase
-    .from('offices')
-    .select('name')
-    .eq('id', data.officeId)
-    .maybeSingle()
-
-  let finalName = data.name.trim()
-  if (existing?.name && existing.name.includes(':::pwd$')) {
-    const pwd = existing.name.split(':::pwd$')[1]
-    if (pwd) {
-      finalName = `${finalName}:::pwd$${pwd}`
-    }
-  }
-
   const updatePayload: any = {
-    name: finalName,
+    name: data.name.trim(),
+    updated_at: new Date().toISOString(),
   }
   if (data.officeTypeId) {
     updatePayload.office_type_id = data.officeTypeId
@@ -192,7 +138,7 @@ export async function updateOfficeProfile(data: {
   }
 
   const { error } = await supabase
-    .from('offices')
+    .from('core_offices')
     .update(updatePayload)
     .eq('id', data.officeId)
 

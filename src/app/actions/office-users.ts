@@ -3,6 +3,7 @@
 import { createOfficeClient } from '@/lib/supabase/server'
 import { getAdminSession } from '@/lib/auth-admin'
 import { revalidatePath } from 'next/cache'
+import crypto from 'crypto'
 
 export interface OfficeUserItem {
   id: number
@@ -15,6 +16,10 @@ export interface OfficeUserItem {
   created_at: string
 }
 
+function hashPassword(password: string): string {
+  return crypto.createHash('sha256').update(password).digest('hex')
+}
+
 export async function getAllOfficeUsersList(): Promise<{ offices: OfficeUserItem[]; defaultPassword: string }> {
   const session = await getAdminSession()
   if (!session || session.role !== 'superadmin') {
@@ -24,77 +29,41 @@ export async function getAllOfficeUsersList(): Promise<{ offices: OfficeUserItem
   const supabase = createOfficeClient()
 
   const { data: offices, error } = await supabase
-    .from('offices')
+    .from('core_offices')
     .select(`
       id,
       budget_id,
       name,
       created_at,
       office_type:office_type_id(name),
-      parent_office:parent_office_id(name)
+      parent_office:parent_office_id(name),
+      login:office_user_logins(password_hint)
     `)
     .order('id', { ascending: true })
 
   if (error || !offices || offices.length === 0) {
-    return { offices: [], defaultPassword: '—' }
+    return { offices: [], defaultPassword: '12345' }
   }
 
-  // Find most common password among offices to determine the extracted default
-  const pwdCounts = new Map<string, number>()
-  offices.forEach((o: any) => {
-    const raw = o.name || ''
-    if (raw.includes(':::pwd$')) {
-      const p = raw.split(':::pwd$')[1]
-      if (p) pwdCounts.set(p, (pwdCounts.get(p) || 0) + 1)
-    }
-  })
+  const defaultPassword = '12345'
 
-  // Default password across offices (as was showing in field offices: 12345)
-  let extractedDefault = '12345'
-  if (pwdCounts.size > 0) {
-    let maxCount = -1
-    for (const [pwd, count] of pwdCounts.entries()) {
-      if (count > maxCount) {
-        maxCount = count
-        extractedDefault = pwd
-      }
-    }
-  }
-
-  const list = offices.map((o: any) => {
-    let cleanName = o.name || ''
-    let password = extractedDefault
-    let hasCustomPassword = false
-
-    if (cleanName.includes(':::pwd$')) {
-      const parts = cleanName.split(':::pwd$')
-      cleanName = parts[0]
-      password = parts[1] || password
-      if (extractedDefault !== '—' && password !== extractedDefault) {
-        hasCustomPassword = true
-      }
-    }
-    if (cleanName.includes(':::mid=')) cleanName = cleanName.split(':::mid=')[0]
-    if (cleanName.includes(':::did=')) cleanName = cleanName.split(':::did=')[0]
-    if (cleanName.includes(':::poid=')) cleanName = cleanName.split(':::poid=')[0]
-
-    let parentOfficeName = o.parent_office?.name || '—'
-    if (parentOfficeName.includes(':::type=')) parentOfficeName = parentOfficeName.split(':::type=')[0]
-    if (parentOfficeName.includes(':::poid=')) parentOfficeName = parentOfficeName.split(':::poid=')[0]
+  const list: OfficeUserItem[] = offices.map((o: any) => {
+    const hint = (Array.isArray(o.login) ? o.login[0]?.password_hint : o.login?.password_hint) || defaultPassword
+    const hasCustomPassword = hint !== defaultPassword
 
     return {
       id: o.id,
       budgetId: o.budget_id,
-      name: cleanName,
+      name: o.name,
       officeType: o.office_type?.name || 'N/A',
-      parentOffice: parentOfficeName,
+      parentOffice: o.parent_office?.name || '—',
       hasCustomPassword,
-      currentPasswordHint: password,
+      currentPasswordHint: hint,
       created_at: o.created_at,
     }
   })
 
-  return { offices: list, defaultPassword: extractedDefault }
+  return { offices: list, defaultPassword }
 }
 
 export async function updateOfficePassword(
@@ -112,86 +81,51 @@ export async function updateOfficePassword(
   }
 
   const supabase = createOfficeClient()
+  const pwdHash = hashPassword(cleanPwd)
 
-  // Fetch current office name
-  const { data: office, error: getErr } = await supabase
-    .from('offices')
-    .select('name')
-    .eq('id', officeId)
-    .single()
+  const { error: upsertErr } = await supabase
+    .from('office_user_logins')
+    .upsert({
+      office_id: officeId,
+      password_hash: pwdHash,
+      password_hint: cleanPwd,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'office_id' })
 
-  if (getErr || !office) {
-    return { error: 'অফিস পাওয়া যায়নি।' }
-  }
-
-  let cleanName = office.name || ''
-  if (cleanName.includes(':::pwd$')) {
-    cleanName = cleanName.split(':::pwd$')[0]
-  }
-
-  const updatedName = cleanPwd === 'budget26' 
-    ? cleanName 
-    : `${cleanName}:::pwd$${cleanPwd}`
-
-  const { error: updErr } = await supabase
-    .from('offices')
-    .update({ name: updatedName })
-    .eq('id', officeId)
-
-  if (updErr) {
-    return { error: 'পাসওয়ার্ড পরিবর্তন ব্যর্থ হয়েছে: ' + updErr.message }
+  if (upsertErr) {
+    return { error: 'পাসওয়ার্ড পরিবর্তন ব্যর্থ হয়েছে: ' + upsertErr.message }
   }
 
   revalidatePath('/admin/offices-users')
   return { success: true }
 }
 
-export async function createNewOffice(formData: FormData) {
+export async function resetOfficePassword(officeId: number) {
+  return updateOfficePassword(officeId, '12345')
+}
+
+export async function resetAllOfficesPassword(targetPassword = '12345') {
   const session = await getAdminSession()
   if (!session || session.role !== 'superadmin') {
-    return { error: 'শুধুমাত্র সুপারঅ্যাডমিন নতুন অফিস তৈরি করতে পারেন।' }
+    return { error: 'অননুমোদিত প্রবেশাধিকার' }
   }
 
-  const name = (formData.get('name') as string)?.trim()
-  const budgetId = (formData.get('budget_id') as string)?.trim()
-  const typeId = formData.get('type_id') as string
-  const parentId = formData.get('parent_id') as string | null
-  const password = (formData.get('password') as string)?.trim() || 'budget26'
-
-  if (!name || !budgetId || !typeId) {
-    return { error: 'অফিসের নাম, বাজেট আইডি এবং ধরন আবশ্যক।' }
-  }
+  const cleanPwd = targetPassword.trim() || '12345'
+  const pwdHash = hashPassword(cleanPwd)
 
   const supabase = createOfficeClient()
 
-  // Check duplicate budget_id
-  const { data: existing } = await supabase
-    .from('offices')
-    .select('id')
-    .eq('budget_id', budgetId)
-    .maybeSingle()
-
-  if (existing) {
-    return { error: 'এই বাজেট কোডটি ইতিমধ্যেই নিবন্ধিত।' }
-  }
-
-  const savedName = password && password !== 'budget26' 
-    ? `${name}:::pwd$${password}` 
-    : name
-
-  const { data, error } = await supabase
-    .from('offices')
-    .insert({
-      name: savedName,
-      budget_id: budgetId,
-      office_type_id: parseInt(typeId),
-      parent_office_id: parentId ? parseInt(parentId) : null,
+  const { error } = await supabase
+    .from('office_user_logins')
+    .update({
+      password_hash: pwdHash,
+      password_hint: cleanPwd,
+      updated_at: new Date().toISOString(),
     })
-    .select('id')
-    .single()
+    .neq('id', 0)
 
-  if (error || !data) {
-    return { error: 'অফিস তৈরি ব্যর্থ হয়েছে: ' + error?.message }
+  if (error) {
+    return { error: 'সকল পাসওয়ার্ড রিসেট ব্যর্থ হয়েছে: ' + error.message }
   }
 
   revalidatePath('/admin/offices-users')

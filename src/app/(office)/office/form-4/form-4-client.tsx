@@ -256,7 +256,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear }: Form4Clie
     >
       <div className="p-6 lg:p-8 space-y-6">
         {/* Top Action */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-emerald-50/50 p-4 rounded-xl border border-emerald-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
           <div>
             <h2 className="text-base font-bold text-slate-800">
               বেতন বিবরণী (নবনিয়োগপ্রাপ্ত কর্মচারী)
@@ -268,7 +268,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear }: Form4Clie
           <Button
             type="button"
             onClick={openAddModal}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 gap-1.5 shadow-sm"
+            className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 gap-1.5"
           >
             <Plus className="h-4 w-4" />
             নতুন নিয়োগ যোগ করুন
@@ -277,17 +277,16 @@ export function Form4Client({ initialData, submissionId, fiscalYear }: Form4Clie
 
         {/* Empty State or Tables */}
         {rows.length === 0 ? (
-          <div className="text-center py-12 px-4 border-2 border-dashed border-emerald-200 rounded-2xl bg-emerald-50/20">
-            <UserPlus className="mx-auto h-12 w-12 text-emerald-400 mb-3" />
-            <h3 className="text-base font-semibold text-slate-700">কোনো নবনিয়োগ তথ্য যোগ করা হয়নি</h3>
-            <p className="text-sm text-slate-500 mt-1 max-w-sm mx-auto">
-              চলতি অর্থবছরে সম্ভাব্য কোনো নতুন কর্মচারী নিয়োগ থাকলে উপরে &quot;নতুন নিয়োগ যোগ করুন&quot; বাটনে ক্লিক করে যোগ করুন।
+          <div className="text-center py-12 px-4 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+            <UserPlus className="mx-auto h-12 w-12 text-slate-300 mb-3" />
+            <p className="text-slate-600 font-medium text-base mb-2">
+              কোনো নবনিয়োগ তথ্য যোগ করা হয়নি
             </p>
             <Button
               type="button"
-              onClick={openAddModal}
               variant="outline"
-              className="mt-4 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+              onClick={openAddModal}
+              className="mt-2 text-blue-600 border-blue-200 hover:bg-blue-50"
             >
               <Plus className="h-4 w-4 mr-1.5" />
               নিয়োগ তথ্য যোগ করুন
@@ -297,162 +296,194 @@ export function Form4Client({ initialData, submissionId, fiscalYear }: Form4Clie
           <div className="space-y-6">
             {/* Officers Table */}
             {officerRows.length > 0 && (
-              <Card className="border border-slate-200 shadow-sm overflow-hidden">
-                <div className="bg-emerald-50/70 border-b border-emerald-100 px-5 py-3 font-semibold text-emerald-900 text-sm flex items-center justify-between">
-                  <span>কর্মকর্তা (গ্রেড ১ - ১০)</span>
-                  <span className="text-xs font-normal text-emerald-700">
+              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
+                <div className="bg-slate-100/80 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
+                  <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                    কর্মকর্তা (গ্রেড ১ - ১০)
+                  </h3>
+                  <span className="text-xs font-semibold text-slate-500">
                     মোট পদ: {toBanglaNumber(totals.officers.count)} টি
                   </span>
                 </div>
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader className="bg-slate-50 text-xs">
-                      <TableRow>
-                        <TableHead className="w-12 text-center">ক্র. নং</TableHead>
-                        <TableHead>গ্রেড</TableHead>
-                        <TableHead className="text-right">পদের সংখ্যা</TableHead>
-                        <TableHead className="text-right">মাসিক মূল বেতন</TableHead>
-                        <TableHead className="text-center">সম্ভাব্য নিয়োগের তারিখ</TableHead>
-                        <TableHead className="text-center">অবশিষ্ট মাস</TableHead>
-                        <TableHead className="text-right">মোট সম্ভাব্য বেতন (টাকা)</TableHead>
-                        <TableHead className="w-24 text-center">অ্যাকশন</TableHead>
+                <Table>
+                  <TableHeader className="bg-slate-50">
+                    <TableRow>
+                      <TableHead className="w-16 text-center font-bold text-slate-700">ক্র. নং</TableHead>
+                      <TableHead className="w-28 font-bold text-slate-700">গ্রেড</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">পদের সংখ্যা</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">মাসিক মূল বেতন</TableHead>
+                      <TableHead className="text-center font-bold text-slate-700">সম্ভাব্য নিয়োগের তারিখ</TableHead>
+                      <TableHead className="text-center font-bold text-slate-700">অবশিষ্ট মাস</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">মোট সম্ভাব্য বেতন (টাকা)</TableHead>
+                      <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {officerRows.map((row, idx) => (
+                      <TableRow key={idx} className="hover:bg-slate-50/70">
+                        <TableCell className="text-center font-mono text-xs text-slate-500">{toBanglaNumber(idx + 1)}</TableCell>
+                        <TableCell className="font-bold font-mono text-slate-800">গ্রেড {toBanglaNumber(row.grade_id)}</TableCell>
+                        <TableCell className="text-right font-mono font-medium">{toBanglaNumber(row.count)}</TableCell>
+                        <TableCell className="text-right font-mono font-medium text-slate-800">{toBanglaAmount(row.monthly_basic)}</TableCell>
+                        <TableCell className="text-center font-mono text-xs">{row.expected_date ? toBanglaNumber(row.expected_date) : '—'}</TableCell>
+                        <TableCell className="text-center font-semibold text-blue-700 font-mono">
+                          {toBanglaNumber(row.remaining_months)} মাস
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-bold text-slate-900">
+                          {toBanglaAmount(row.total_salary)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 h-8 w-8 p-0"
+                              onClick={() => openEditModal(rows.indexOf(row))}
+                              title="সম্পাদনা করুন"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
+                              onClick={() => setDeleteIndex(rows.indexOf(row))}
+                              title="মুছে ফেলুন"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody className="text-sm">
-                      {officerRows.map((row, idx) => (
-                        <TableRow key={idx} className="hover:bg-slate-50/60">
-                          <TableCell className="text-center font-mono text-xs">{toBanglaNumber(idx + 1)}</TableCell>
-                          <TableCell className="font-medium text-slate-800">গ্রেড {toBanglaNumber(row.grade_id)}</TableCell>
-                          <TableCell className="text-right font-mono">{toBanglaNumber(row.count)}</TableCell>
-                          <TableCell className="text-right font-mono">{toBanglaAmount(row.monthly_basic)}</TableCell>
-                          <TableCell className="text-center font-mono text-xs">{row.expected_date ? toBanglaNumber(row.expected_date) : '—'}</TableCell>
-                          <TableCell className="text-center font-semibold text-emerald-700 font-mono">
-                            {toBanglaNumber(row.remaining_months)} মাস
-                          </TableCell>
-                          <TableCell className="text-right font-mono font-semibold text-slate-900">
-                            {toBanglaAmount(row.total_salary)}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8 text-slate-500 hover:text-emerald-600"
-                                onClick={() => openEditModal(rows.indexOf(row))}
-                              >
-                                <Edit2 className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8 text-slate-400 hover:text-red-600"
-                                onClick={() => setDeleteIndex(rows.indexOf(row))}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      <TableRow className="bg-slate-50 font-bold text-slate-800 border-t-2">
-                        <TableCell colSpan={2} className="text-right pr-4">উপমোট (কর্মকর্তা):</TableCell>
-                        <TableCell className="text-right font-mono">{toBanglaNumber(totals.officers.count)}</TableCell>
-                        <TableCell className="text-right font-mono">—</TableCell>
-                        <TableCell colSpan={2} className="text-center">—</TableCell>
-                        <TableCell className="text-right font-mono text-emerald-700">{toBanglaAmount(totals.officers.total_salary)}</TableCell>
-                        <TableCell></TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
+                    ))}
+                    <TableRow className="bg-slate-50/90 font-bold text-slate-800 border-t">
+                      <TableCell colSpan={2} className="text-right pr-4">উপমোট (কর্মকর্তা):</TableCell>
+                      <TableCell className="text-right font-mono">{toBanglaNumber(totals.officers.count)}</TableCell>
+                      <TableCell className="text-right font-mono">—</TableCell>
+                      <TableCell colSpan={2} className="text-center">—</TableCell>
+                      <TableCell className="text-right font-mono text-blue-700 font-extrabold">{toBanglaAmount(totals.officers.total_salary)}</TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
             )}
 
             {/* Staff Table */}
             {staffRows.length > 0 && (
-              <Card className="border border-slate-200 shadow-sm overflow-hidden">
-                <div className="bg-emerald-50/70 border-b border-emerald-100 px-5 py-3 font-semibold text-emerald-900 text-sm flex items-center justify-between">
-                  <span>কর্মচারী (গ্রেড ১১ - ২০)</span>
-                  <span className="text-xs font-normal text-emerald-700">
+              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
+                <div className="bg-slate-100/80 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
+                  <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                    কর্মচারী (গ্রেড ১১ - ২০)
+                  </h3>
+                  <span className="text-xs font-semibold text-slate-500">
                     মোট পদ: {toBanglaNumber(totals.staff.count)} টি
                   </span>
                 </div>
-                <CardContent className="p-0">
-                  <Table>
-                    <TableHeader className="bg-slate-50 text-xs">
-                      <TableRow>
-                        <TableHead className="w-12 text-center">ক্র. নং</TableHead>
-                        <TableHead>গ্রেড</TableHead>
-                        <TableHead className="text-right">পদের সংখ্যা</TableHead>
-                        <TableHead className="text-right">মাসিক মূল বেতন</TableHead>
-                        <TableHead className="text-center">সম্ভাব্য নিয়োগের তারিখ</TableHead>
-                        <TableHead className="text-center">অবশিষ্ট মাস</TableHead>
-                        <TableHead className="text-right">মোট সম্ভাব্য বেতন (টাকা)</TableHead>
-                        <TableHead className="w-24 text-center">অ্যাকশন</TableHead>
+                <Table>
+                  <TableHeader className="bg-slate-50">
+                    <TableRow>
+                      <TableHead className="w-16 text-center font-bold text-slate-700">ক্র. নং</TableHead>
+                      <TableHead className="w-28 font-bold text-slate-700">গ্রেড</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">পদের সংখ্যা</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">মাসিক মূল বেতন</TableHead>
+                      <TableHead className="text-center font-bold text-slate-700">সম্ভাব্য নিয়োগের তারিখ</TableHead>
+                      <TableHead className="text-center font-bold text-slate-700">অবশিষ্ট মাস</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">মোট সম্ভাব্য বেতন (টাকা)</TableHead>
+                      <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {staffRows.map((row, idx) => (
+                      <TableRow key={idx} className="hover:bg-slate-50/70">
+                        <TableCell className="text-center font-mono text-xs text-slate-500">{toBanglaNumber(idx + 1)}</TableCell>
+                        <TableCell className="font-bold font-mono text-slate-800">গ্রেড {toBanglaNumber(row.grade_id)}</TableCell>
+                        <TableCell className="text-right font-mono font-medium">{toBanglaNumber(row.count)}</TableCell>
+                        <TableCell className="text-right font-mono font-medium text-slate-800">{toBanglaAmount(row.monthly_basic)}</TableCell>
+                        <TableCell className="text-center font-mono text-xs">{row.expected_date ? toBanglaNumber(row.expected_date) : '—'}</TableCell>
+                        <TableCell className="text-center font-semibold text-blue-700 font-mono">
+                          {toBanglaNumber(row.remaining_months)} মাস
+                        </TableCell>
+                        <TableCell className="text-right font-mono font-bold text-slate-900">
+                          {toBanglaAmount(row.total_salary)}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 h-8 w-8 p-0"
+                              onClick={() => openEditModal(rows.indexOf(row))}
+                              title="সম্পাদনা করুন"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
+                              onClick={() => setDeleteIndex(rows.indexOf(row))}
+                              title="মুছে ফেলুন"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody className="text-sm">
-                      {staffRows.map((row, idx) => (
-                        <TableRow key={idx} className="hover:bg-slate-50/60">
-                          <TableCell className="text-center font-mono text-xs">{toBanglaNumber(idx + 1)}</TableCell>
-                          <TableCell className="font-medium text-slate-800">গ্রেড {toBanglaNumber(row.grade_id)}</TableCell>
-                          <TableCell className="text-right font-mono">{toBanglaNumber(row.count)}</TableCell>
-                          <TableCell className="text-right font-mono">{toBanglaAmount(row.monthly_basic)}</TableCell>
-                          <TableCell className="text-center font-mono text-xs">{row.expected_date ? toBanglaNumber(row.expected_date) : '—'}</TableCell>
-                          <TableCell className="text-center font-semibold text-emerald-700 font-mono">
-                            {toBanglaNumber(row.remaining_months)} মাস
-                          </TableCell>
-                          <TableCell className="text-right font-mono font-semibold text-slate-900">
-                            {toBanglaAmount(row.total_salary)}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8 text-slate-500 hover:text-emerald-600"
-                                onClick={() => openEditModal(rows.indexOf(row))}
-                              >
-                                <Edit2 className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8 text-slate-400 hover:text-red-600"
-                                onClick={() => setDeleteIndex(rows.indexOf(row))}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      <TableRow className="bg-slate-50 font-bold text-slate-800 border-t-2">
-                        <TableCell colSpan={2} className="text-right pr-4">উপমোট (কর্মচারী):</TableCell>
-                        <TableCell className="text-right font-mono">{toBanglaNumber(totals.staff.count)}</TableCell>
-                        <TableCell className="text-right font-mono">—</TableCell>
-                        <TableCell colSpan={2} className="text-center">—</TableCell>
-                        <TableCell className="text-right font-mono text-emerald-700">{toBanglaAmount(totals.staff.total_salary)}</TableCell>
-                        <TableCell></TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
+                    ))}
+                    <TableRow className="bg-slate-50/90 font-bold text-slate-800 border-t">
+                      <TableCell colSpan={2} className="text-right pr-4">উপমোট (কর্মচারী):</TableCell>
+                      <TableCell className="text-right font-mono">{toBanglaNumber(totals.staff.count)}</TableCell>
+                      <TableCell className="text-right font-mono">—</TableCell>
+                      <TableCell colSpan={2} className="text-center">—</TableCell>
+                      <TableCell className="text-right font-mono text-blue-700 font-extrabold">{toBanglaAmount(totals.staff.total_salary)}</TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
             )}
 
-            {/* Grand Summary */}
-            <div className="bg-slate-900 text-white rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <span className="font-semibold text-slate-200">সর্বমোট প্রাক্কলিত নবনিয়োগ বেতন:</span>
-              <div className="flex items-center gap-6">
-                <span className="text-xs text-slate-400">
-                  মোট পদ: <strong className="text-white font-mono">{toBanglaNumber(totals.grand.count)}</strong> টি
-                </span>
-                <span className="text-lg font-bold text-emerald-400 font-mono">
-                  {toBanglaAmount(totals.grand.total_salary)} টাকা
-                </span>
-              </div>
-            </div>
+            {/* Summary Card (Matching Form 2 & 3) */}
+            <Card className="bg-gradient-to-br from-slate-50 to-blue-50/30 border border-blue-100 shadow-xs">
+              <CardContent className="p-5">
+                <h3 className="text-sm font-bold text-slate-700 mb-3 uppercase tracking-wider">
+                  নবনিয়োগ তথ্যের সারসংক্ষেপ
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="p-3 bg-white rounded-xl border border-slate-200">
+                    <span className="text-xs text-slate-500 font-medium block">
+                      মোট সম্ভাব্য নিয়োগপ্রাপ্ত পদ:
+                    </span>
+                    <span className="text-xl font-bold text-slate-800 font-mono mt-0.5 block">
+                      {toBanglaNumber(totals.grand.count)} টি
+                    </span>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-slate-200">
+                    <span className="text-xs text-slate-500 font-medium block">
+                      কর্মকর্তা সম্ভাব্য বেতন:
+                    </span>
+                    <span className="text-xl font-bold text-blue-700 font-mono mt-0.5 block">
+                      {toBanglaAmount(totals.officers.total_salary)}
+                    </span>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-slate-200">
+                    <span className="text-xs text-slate-500 font-medium block">
+                      সর্বমোট প্রাক্কলিত নবনিয়োগ বেতন:
+                    </span>
+                    <span className="text-xl font-bold text-emerald-700 font-mono mt-0.5 block">
+                      {toBanglaAmount(totals.grand.total_salary)}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>
@@ -461,7 +492,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear }: Form4Clie
       <Dialog open={isModalOpen} onOpenChange={(open) => !open && handleRequestClose()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-emerald-800">
+            <DialogTitle className="text-slate-800">
               {editingIndex !== null ? 'নিয়োগ তথ্য সম্পাদন' : 'নতুন নিয়োগ যোগ করুন'}
             </DialogTitle>
           </DialogHeader>
@@ -531,7 +562,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear }: Form4Clie
 
             {/* Live Calculation preview */}
             {dateInput && (
-              <div className={`p-3 rounded-lg text-xs space-y-1 ${modalDateInfo.inRange ? 'bg-emerald-50 border border-emerald-200 text-emerald-900' : 'bg-amber-50 border border-amber-200 text-amber-900'}`}>
+              <div className={`p-3 rounded-lg text-xs space-y-1 ${modalDateInfo.inRange ? 'bg-blue-50 border border-blue-200 text-blue-900' : 'bg-amber-50 border border-amber-200 text-amber-900'}`}>
                 <div className="flex justify-between">
                   <span>অর্থবছরের অবস্থান:</span>
                   <span className="font-semibold">{modalDateInfo.inRange ? 'চলতি অর্থবছরে অন্তর্ভূক্ত' : 'অর্থবছরের বাইরে (০ মাস)'}</span>
@@ -540,7 +571,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear }: Form4Clie
                   <span>অবশিষ্ট মাস:</span>
                   <span className="font-bold font-mono">{toBanglaNumber(modalDateInfo.months)} মাস</span>
                 </div>
-                <div className="flex justify-between pt-1 border-t border-emerald-200">
+                <div className="flex justify-between pt-1 border-t border-blue-200">
                   <span className="font-bold">সম্ভাব্য মোট ব্যয়:</span>
                   <span className="font-bold font-mono">{toBanglaAmount(modalTotalSalary)} টাকা</span>
                 </div>
@@ -556,7 +587,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear }: Form4Clie
               type="button"
               onClick={handleSaveModalRow}
               disabled={!selectedGrade || !countInput || !basicInput || !dateInput || !modalDateInfo.inRange}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               সংরক্ষণ করুন
             </Button>

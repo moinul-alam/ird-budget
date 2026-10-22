@@ -57,28 +57,30 @@ export default async function DashboardPage() {
     const [
       subRes,
       budgetSheetRes,
-      f1, fStaff, f3, f4, f5, f6, f7, f8, f9, f10
+      f1, fStaff, fSuspended, fNewStaff, f5, f6, f7, f8, f9, f10, f11, f12
     ] = await Promise.all([
-      supabase.from('submissions').select('id, status, cycle_id, cycles(id, fiscal_year, budget_type, status)').eq('id', submissionId).maybeSingle(),
-      supabase.from('budget_sheet').select('auto_value, manual_value').eq('submission_id', submissionId),
-      supabase.from('form_basic').select('id').eq('submission_id', submissionId).maybeSingle(),
-      supabase.from('form_staff').select('id, count, total_basic, suspended_count, suspended_total_basic').eq('submission_id', submissionId),
-      supabase.from('form_allowances').select('id').eq('submission_id', submissionId).limit(1),
-      supabase.from('form_leave').select('id').eq('submission_id', submissionId).maybeSingle(),
-      supabase.from('form_vehicles').select('id').eq('submission_id', submissionId).limit(1),
-      supabase.from('form_vehicle_rent').select('id').eq('submission_id', submissionId).limit(1),
-      supabase.from('form_it_equipment').select('id').eq('submission_id', submissionId).limit(1),
-      supabase.from('form_utility').select('id').eq('submission_id', submissionId).limit(1),
-      supabase.from('form_house_rent').select('id').eq('submission_id', submissionId).maybeSingle(),
-      supabase.from('form_return_info').select('id').eq('submission_id', submissionId).maybeSingle(),
+      supabase.from('office_submissions').select('id, status, cycle_id, core_budget_cycles(id, fiscal_year, budget_type, status)').eq('id', submissionId).maybeSingle(),
+      supabase.from('office_budget_sheet').select('auto_value, manual_value').eq('submission_id', submissionId),
+      supabase.from('office_form_basic').select('id').eq('submission_id', submissionId).maybeSingle(),
+      supabase.from('office_form_staff_working').select('id').eq('submission_id', submissionId).limit(1),
+      supabase.from('office_form_staff_suspended').select('id').eq('submission_id', submissionId).limit(1),
+      supabase.from('office_form_staff_new_recruits').select('id').eq('submission_id', submissionId).limit(1),
+      supabase.from('office_form_allowances').select('id').eq('submission_id', submissionId).limit(1),
+      supabase.from('office_form_leave_encashment').select('id').eq('submission_id', submissionId).maybeSingle(),
+      supabase.from('office_form_vehicles_govt').select('id').eq('submission_id', submissionId).limit(1),
+      supabase.from('office_form_vehicles_rent').select('id').eq('submission_id', submissionId).limit(1),
+      supabase.from('office_form_house_rent').select('id').eq('submission_id', submissionId).maybeSingle(),
+      supabase.from('office_form_it_equipment').select('id').eq('submission_id', submissionId).limit(1),
+      supabase.from('office_form_utilities').select('id').eq('submission_id', submissionId).limit(1),
+      supabase.from('office_form_return_info').select('id').eq('submission_id', submissionId).maybeSingle(),
     ])
 
     if (subRes.data?.status) {
       submissionStatus = subRes.data.status as 'draft' | 'submitted'
     }
 
-    if (subRes.data?.cycles) {
-      const cy: any = subRes.data.cycles
+    if (subRes.data?.core_budget_cycles) {
+      const cy: any = subRes.data.core_budget_cycles
       let fy = cy.fiscal_year || '২০২৬-২৭'
       let typeName = cy.budget_type === 'revised' ? 'সংশোধিত বাজেট' : 'প্রাক্কলিত বাজেট'
       if (fy.includes(':::name=')) {
@@ -96,34 +98,38 @@ export default async function DashboardPage() {
       }
     }
 
-    if (budgetSheetRes.data) {
-      totalBudgetAmount = budgetSheetRes.data.reduce((sum: number, item: any) => {
-        const val = Number(item.manual_value ?? item.auto_value ?? 0)
-        return sum + (isNaN(val) ? 0 : val)
-      }, 0)
+    try {
+      const { getBudgetSheetData } = await import('@/app/actions/budget')
+      const sheetData = await getBudgetSheetData(submissionId)
+      if (sheetData.success) {
+        totalBudgetAmount = sheetData.totalManual || sheetData.totalAuto || 0
+      } else if (budgetSheetRes.data) {
+        totalBudgetAmount = budgetSheetRes.data.reduce((sum: number, item: any) => {
+          const val = Number(item.manual_value ?? item.auto_value ?? 0)
+          return sum + (isNaN(val) ? 0 : val)
+        }, 0)
+      }
+    } catch {
+      if (budgetSheetRes.data) {
+        totalBudgetAmount = budgetSheetRes.data.reduce((sum: number, item: any) => {
+          const val = Number(item.manual_value ?? item.auto_value ?? 0)
+          return sum + (isNaN(val) ? 0 : val)
+        }, 0)
+      }
     }
 
     if (f1.data) completedForms.add('form1')
-    
-    // Check if any active or suspended staff rows exist with values
-    const staffData = fStaff.data || []
-    const hasActiveStaff = staffData.some((s: any) => (s.count > 0 || s.total_basic > 0))
-    const hasSuspendedStaff = staffData.some((s: any) => (s.suspended_count > 0 || s.suspended_total_basic > 0))
-    if (hasActiveStaff) completedForms.add('form2')
-    if (hasSuspendedStaff) completedForms.add('form3') // mapped to 2b
-
-    // Check form completion
-    if (fStaff.data && fStaff.data.some((s: any) => s.new_recruit_count > 0 || s.new_recruit_total_basic > 0)) {
-      completedForms.add('form4')
-    }
-    if (f3.data && f3.data.length > 0) completedForms.add('form5')
-    if (f4.data) completedForms.add('form6')
-    if (f5.data && f5.data.length > 0) completedForms.add('form7')
-    if (f6.data && f6.data.length > 0) completedForms.add('form8')
-    if (f9.data) completedForms.add('form9') // office rent
-    if (f7.data && f7.data.length > 0) completedForms.add('form10') // computer
-    if (f8.data && f8.data.length > 0) completedForms.add('form11') // utility
-    if (f10.data) completedForms.add('form12') // tax return
+    if (fStaff.data && fStaff.data.length > 0) completedForms.add('form2')
+    if (fSuspended.data && fSuspended.data.length > 0) completedForms.add('form3')
+    if (fNewStaff.data && fNewStaff.data.length > 0) completedForms.add('form4')
+    if (f5.data && f5.data.length > 0) completedForms.add('form5')
+    if (f6.data) completedForms.add('form6')
+    if (f7.data && f7.data.length > 0) completedForms.add('form7')
+    if (f8.data && f8.data.length > 0) completedForms.add('form8')
+    if (f9.data) completedForms.add('form9')
+    if (f10.data && f10.data.length > 0) completedForms.add('form10')
+    if (f11.data && f11.data.length > 0) completedForms.add('form11')
+    if (f12.data) completedForms.add('form12')
   }
 
   const isSubmitted = submissionStatus === 'submitted'

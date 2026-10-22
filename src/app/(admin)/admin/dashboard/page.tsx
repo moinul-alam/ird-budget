@@ -27,7 +27,7 @@ export default async function AdminDashboardPage() {
 
   // 1. Fetch active cycle (or latest cycle)
   const { data: cycles } = await supabase
-    .from('cycles')
+    .from('core_budget_cycles')
     .select('*')
     .order('id', { ascending: false })
 
@@ -35,18 +35,18 @@ export default async function AdminDashboardPage() {
 
   // 2. Fetch all offices with department and office_types
   const { data: offices } = await supabase
-    .from('offices')
+    .from('core_offices')
     .select(`
       id,
       name,
       budget_id,
       office_type_id,
-      office_types (
+      core_office_types (
         id,
         name,
         is_group_budget,
         department_id,
-        departments (
+        core_departments (
           id,
           name
         )
@@ -57,14 +57,14 @@ export default async function AdminDashboardPage() {
   // 3. Fetch submissions for this cycle
   const cycleId = activeCycle?.id || 1
   const { data: submissions } = await supabase
-    .from('submissions')
+    .from('office_submissions')
     .select(`
       id,
       office_id,
       cycle_id,
       status,
       submitted_at,
-      budget_sheet (
+      office_budget_sheet (
         auto_value,
         manual_value
       )

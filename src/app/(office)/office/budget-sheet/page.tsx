@@ -1,6 +1,6 @@
-import { createOfficeClient } from '@/lib/supabase/server'
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
+import { getBudgetSheetData } from '@/app/actions/budget'
 import { BudgetSheetClient } from './budget-sheet-client'
 
 export default async function BudgetSheetPage() {
@@ -8,23 +8,35 @@ export default async function BudgetSheetPage() {
   if (!session) redirect('/')
 
   const submissionId = session.submission_id || null
-  const supabase = createOfficeClient()
 
   let initialRows: any[] = []
+  let initialTotalAuto = 0
+  let initialTotalManual = 0
+  let initialError: string | null = null
+  let initialMissingForms: string[] = []
+
   if (submissionId) {
-    const { data } = await supabase
-      .from('budget_sheet')
-      .select('*, expense_codes(code, name, is_manual, sort_order)')
-      .eq('submission_id', submissionId)
-      
-    // Sort by expense_codes.sort_order if available
-    initialRows = (data || []).sort((a: any, b: any) => {
-      const aOrder = a.expense_codes?.sort_order || 0
-      const bOrder = b.expense_codes?.sort_order || 0
-      return aOrder - bOrder
-    })
+    const result = await getBudgetSheetData(submissionId)
+    if (result.success) {
+      initialRows = result.rows
+      initialTotalAuto = result.totalAuto
+      initialTotalManual = result.totalManual
+      initialMissingForms = result.missingForms || []
+    } else {
+      initialError = result.error || 'বাজেট তথ্য লোড করা যায়নি।'
+    }
+  } else {
+    initialError = 'কোনো সক্রিয় বাজেট দাখিল (Submission) পাওয়া যায়নি। অনুগ্রহ করে অফিসে পুনরায় লগইন করুন।'
   }
 
-  return <BudgetSheetClient initialRows={initialRows} submissionId={submissionId} />
+  return (
+    <BudgetSheetClient
+      initialRows={initialRows}
+      submissionId={submissionId}
+      initialTotalAuto={initialTotalAuto}
+      initialTotalManual={initialTotalManual}
+      initialError={initialError}
+      initialMissingForms={initialMissingForms}
+    />
+  )
 }
-

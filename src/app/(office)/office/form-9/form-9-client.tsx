@@ -128,12 +128,23 @@ export function Form9Client({
     setShowDeleteConfirm(false)
   }
 
+  const handleSaveAll = async () => {
+    if (!submissionId || !data) return
+    await saveFormHouseRent(submissionId, {
+      monthly_bill: data.monthly_bill,
+      due: data.due,
+      contract_start_date: data.contract_start_date,
+      contract_end_date: data.contract_end_date,
+    })
+  }
+
   return (
     <FormShell
-      title={strings.forms.form8.title}
-      formNumber={8}
+      title={strings.forms.form9.title}
+      formNumber={9}
       prevHref="/office/form-8"
       nextHref="/office/form-10"
+      onSave={submissionId ? handleSaveAll : undefined}
     >
       <div className="p-6 lg:p-8 space-y-6 max-w-4xl mx-auto">
         {/* Top Disclaimer / Instruction Banner (Form 2B style: instructing only enter if applicable) */}

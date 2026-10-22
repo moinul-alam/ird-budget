@@ -103,12 +103,21 @@ export function Form10Client({ submissionId, initialData }: Form10ClientProps) {
     setShowDeleteConfirm(false)
   }
 
+  const handleSaveAll = async () => {
+    if (!submissionId || !data) return
+    await saveFormReturnInfo(submissionId, {
+      tin_count: data.tin_count,
+      return_submitted_count: data.return_submitted_count,
+    })
+  }
+
   return (
     <FormShell
-      title={strings.forms.form11.title}
-      formNumber={11}
+      title={strings.forms.form12.title}
+      formNumber={12}
       prevHref="/office/form-11"
       nextHref="/office/budget-sheet"
+      onSave={submissionId ? handleSaveAll : undefined}
     >
       <div className="p-6 lg:p-8 space-y-6 max-w-4xl mx-auto">
         {/* Top Disclaimer / Instruction Banner with emphatic TAX OFFICE emphasis (Form 2B style) */}

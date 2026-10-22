@@ -217,12 +217,25 @@ export function Form5Client({
     }
   }
 
+  const handleSaveAll = async () => {
+    if (!submissionId) return
+    for (const row of rows) {
+      await saveFormVehicleRow(submissionId, {
+        vehicle_fuel_config_id: row.vehicle_fuel_config_id,
+        count: row.count,
+        maintenance_cost: row.maintenance_cost,
+        additional_expense: row.additional_expense,
+      })
+    }
+  }
+
   return (
     <FormShell
-      title={strings.forms.form6.title}
-      formNumber={6}
+      title={strings.forms.form7.title}
+      formNumber={7}
       prevHref="/office/form-6"
       nextHref="/office/form-8"
+      onSave={submissionId ? handleSaveAll : undefined}
     >
       <div className="p-6 lg:p-8 space-y-6">
         {/* Top Header & Action */}

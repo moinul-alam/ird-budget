@@ -322,19 +322,19 @@ export function LandingClient() {
 
                 <div className="flex gap-4">
                   <button
-                    onClick={handleConfirm}
-                    disabled={isPending}
-                    className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-md shadow-emerald-500/30 hover:shadow-emerald-500/40 active:scale-[0.98] flex items-center justify-center gap-2"
-                  >
-                    {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
-                    {strings.yes}
-                  </button>
-                  <button
                     onClick={handleReset}
                     className="flex-1 bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-400 hover:to-rose-400 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-md shadow-red-500/30 hover:shadow-red-500/40 active:scale-[0.98] flex items-center justify-center gap-2"
                   >
                     <X className="h-5 w-5" />
                     {strings.no}
+                  </button>
+                  <button
+                    onClick={handleConfirm}
+                    disabled={isPending}
+                    className="flex-[2] bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-md shadow-emerald-500/30 hover:shadow-emerald-500/40 active:scale-[0.98] flex items-center justify-center gap-2"
+                  >
+                    {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
+                    {strings.yes}
                   </button>
                 </div>
               </div>

@@ -18,7 +18,7 @@ export default async function IndividualReportPage() {
 
   // 1. Get active cycle
   const { data: cycles } = await supabase
-    .from('cycles')
+    .from('core_budget_cycles')
     .select('*')
     .order('id', { ascending: false })
 
@@ -27,17 +27,17 @@ export default async function IndividualReportPage() {
 
   // 2. Fetch offices
   const { data: offices } = await supabase
-    .from('offices')
+    .from('core_offices')
     .select(`
       id,
       name,
       budget_id,
       office_type_id,
-      office_types (
+      core_office_types (
         id,
         name,
         is_group_budget,
-        departments (
+        core_departments (
           id,
           name
         )
@@ -47,13 +47,13 @@ export default async function IndividualReportPage() {
 
   // 3. Fetch submissions for this cycle
   const { data: submissions } = await supabase
-    .from('submissions')
+    .from('office_submissions')
     .select(`
       id,
       office_id,
       status,
       submitted_at,
-      budget_sheet (
+      office_budget_sheet (
         auto_value,
         manual_value
       )

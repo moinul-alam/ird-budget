@@ -14,8 +14,8 @@ export default async function Form9Page() {
   let vatPercentage = 15 // Standard default fallback
   if (submissionId) {
     const [houseRes, rateRes] = await Promise.all([
-      supabase.from('form_house_rent').select('*').eq('submission_id', submissionId).maybeSingle(),
-      supabase.from('rates').select('value').eq('key', 'vat_percentage').maybeSingle(),
+      supabase.from('office_form_house_rent').select('*').eq('submission_id', submissionId).maybeSingle(),
+      supabase.from('admin_rates').select('value').eq('key', 'vat_percentage').maybeSingle(),
     ])
     initialData = houseRes.data
     if (rateRes.data && rateRes.data.value != null) {

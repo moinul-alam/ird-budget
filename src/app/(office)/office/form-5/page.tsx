@@ -12,8 +12,8 @@ export default async function Form3Page() {
 
   const [typesRes, dataRes, leaveRes] = await Promise.all([
     supabase.from('allowance_types').select('*').order('id'),
-    submissionId ? supabase.from('form_allowances').select('*').eq('submission_id', submissionId) : Promise.resolve({ data: [] }),
-    submissionId ? supabase.from('form_leave').select('rest_recreation_amount, rest_recreation_due').eq('submission_id', submissionId).maybeSingle() : Promise.resolve({ data: null })
+    submissionId ? supabase.from('office_form_allowances').select('*').eq('submission_id', submissionId) : Promise.resolve({ data: [] }),
+    submissionId ? supabase.from('office_form_leave_encashment').select('rest_recreation_amount, rest_recreation_due').eq('submission_id', submissionId).maybeSingle() : Promise.resolve({ data: null })
   ])
 
   return (

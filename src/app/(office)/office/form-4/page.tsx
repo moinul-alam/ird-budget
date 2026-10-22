@@ -19,12 +19,12 @@ export default async function Form4Page() {
 
     // Retrieve fiscal year from cycle
     const { data: sub } = await supabase
-      .from('submissions')
-      .select('cycle_id, cycles(fiscal_year)')
+      .from('office_submissions')
+      .select('cycle_id, core_budget_cycles(fiscal_year)')
       .eq('id', submissionId)
       .maybeSingle()
     
-    const cy = (sub as any)?.cycles
+    const cy = (sub as any)?.core_budget_cycles
     if (cy?.fiscal_year) {
       fiscalYear = cy.fiscal_year.split(':::')[0]
     }

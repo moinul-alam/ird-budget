@@ -89,15 +89,12 @@ export function TabOfficeLevels({
                   const defaultOtId = filterTypeForHierarchy !== 'all'
                     ? parseInt(filterTypeForHierarchy, 10)
                     : (officeTypes[0]?.id || 0)
-                  const nextOrder = officeLevels.length > 0
-                    ? Math.max(...officeLevels.map((l) => l.level_order)) + 1
-                    : 1
                   setHierarchyModal({
                     open: true,
                     id: undefined,
                     office_type_id: defaultOtId,
                     level_name: '',
-                    level_order: nextOrder,
+                    level_order: 1,
                   })
                 }}
                 className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5 shadow-xs"

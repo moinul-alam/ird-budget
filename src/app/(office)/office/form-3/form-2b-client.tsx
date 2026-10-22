@@ -244,7 +244,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
           <Button
             type="button"
             onClick={openAddModal}
-            className="bg-amber-600 hover:bg-amber-700 text-white shrink-0 gap-1.5"
+            className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 gap-1.5"
             disabled={availableGrades.length === 0}
           >
             <Plus className="h-4 w-4" />
@@ -263,7 +263,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
               type="button"
               variant="outline"
               onClick={openAddModal}
-              className="mt-2 text-amber-700 border-amber-200 hover:bg-amber-50"
+              className="mt-2 text-blue-600 border-blue-200 hover:bg-blue-50"
             >
               <Plus className="h-4 w-4 mr-1.5" />
               {strings.form2b.addButton}
@@ -274,9 +274,9 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
             {/* Officer Table (Grade 1 - 10) */}
             {officerRows.length > 0 && (
               <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
-                <div className="bg-amber-50/60 px-4 py-2.5 border-b border-amber-100 flex items-center justify-between">
+                <div className="bg-slate-100/80 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
                   <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-amber-600"></span>
+                    <span className="w-2 h-2 rounded-full bg-blue-600"></span>
                     {strings.form2b.officerTableTitle}
                   </h3>
                   <span className="text-xs font-semibold text-slate-500">
@@ -574,7 +574,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
                 setShowConfirmClose(false)
                 handleSaveModalRow()
               }}
-              className="bg-amber-600 hover:bg-amber-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {strings.form2b.saveAndClose}
             </Button>

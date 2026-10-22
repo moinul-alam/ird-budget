@@ -13,7 +13,7 @@ export default async function Form4Page() {
   let initialData = null
   if (submissionId) {
     const { data } = await supabase
-      .from('form_leave')
+      .from('office_form_leave_encashment')
       .select('*')
       .eq('submission_id', submissionId)
       .maybeSingle()

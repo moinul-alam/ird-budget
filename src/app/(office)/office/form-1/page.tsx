@@ -13,7 +13,7 @@ export default async function Form1Page() {
   let initialData = null
   if (submissionId) {
     const { data } = await supabase
-      .from('form_basic')
+      .from('office_form_basic')
       .select('*')
       .eq('submission_id', submissionId)
       .maybeSingle()

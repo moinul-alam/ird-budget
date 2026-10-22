@@ -3,6 +3,7 @@
 import { createOfficeClient } from '@/lib/supabase/server'
 import { getAdminSession } from '@/lib/auth-admin'
 import { revalidatePath } from 'next/cache'
+import crypto from 'crypto'
 
 export interface AdminUserItem {
   id: number
@@ -13,62 +14,8 @@ export interface AdminUserItem {
   assignedOfficeTypeIds: number[]
 }
 
-interface StoredSubAdmin {
-  id: number
-  username: string
-  role: 'admin' | 'superadmin'
-  active: boolean
-  password?: string
-  created_at: string
-}
-
-// Helper to unpack sub-admins stored in the root superadmin profile
-function parseSubAdmins(storedString: string): { baseUsername: string; password?: string; subAdmins: StoredSubAdmin[] } {
-  let baseUsername = 'superadmin'
-  let password = '123456'
-  let subAdmins: StoredSubAdmin[] = []
-
-  let remainder = storedString
-
-  if (remainder.includes(':::pwd$')) {
-    const parts = remainder.split(':::pwd$')
-    baseUsername = parts[0]
-    const afterPwd = parts[1] || ''
-    if (afterPwd.includes(':::subadmins$')) {
-      const [pwd, subStr] = afterPwd.split(':::subadmins$')
-      password = pwd
-      try {
-        subAdmins = JSON.parse(decodeURIComponent(subStr))
-      } catch {
-        subAdmins = []
-      }
-    } else {
-      password = afterPwd
-    }
-  } else if (remainder.includes(':::subadmins$')) {
-    const [name, subStr] = remainder.split(':::subadmins$')
-    baseUsername = name
-    try {
-      subAdmins = JSON.parse(decodeURIComponent(subStr))
-    } catch {
-      subAdmins = []
-    }
-  } else {
-    baseUsername = storedString
-  }
-
-  return { baseUsername, password, subAdmins }
-}
-
-function packSubAdmins(baseUsername: string, password?: string, subAdmins?: StoredSubAdmin[]): string {
-  let result = baseUsername
-  if (password && password !== '123456') {
-    result += `:::pwd$${password}`
-  }
-  if (subAdmins && subAdmins.length > 0) {
-    result += `:::subadmins$${encodeURIComponent(JSON.stringify(subAdmins))}`
-  }
-  return result
+function hashPassword(password: string): string {
+  return crypto.createHash('sha256').update(password).digest('hex')
 }
 
 export async function getAdminUsersList(): Promise<AdminUserItem[]> {
@@ -79,43 +26,23 @@ export async function getAdminUsersList(): Promise<AdminUserItem[]> {
 
   const supabase = createOfficeClient()
 
-  // 1. Fetch main profile
-  const { data: profiles, error: pError } = await supabase
-    .from('admin_profiles')
-    .select('id, username, role, active, created_at')
-    .order('id')
+  const { data: users, error } = await supabase
+    .from('admin_users')
+    .select('id, username, role, is_active, created_at')
+    .order('id', { ascending: true })
 
-  if (pError || !profiles || profiles.length === 0) {
+  if (error || !users) {
     return []
   }
 
-  const rootUser = profiles[0]
-  const parsed = parseSubAdmins(rootUser.username)
-
-  const list: AdminUserItem[] = [
-    {
-      id: rootUser.id,
-      username: parsed.baseUsername,
-      role: rootUser.role as 'admin' | 'superadmin',
-      active: rootUser.active,
-      created_at: rootUser.created_at,
-      assignedOfficeTypeIds: [],
-    },
-  ]
-
-  // Add additional created admins
-  parsed.subAdmins.forEach((sa) => {
-    list.push({
-      id: sa.id,
-      username: sa.username,
-      role: sa.role,
-      active: sa.active,
-      created_at: sa.created_at,
-      assignedOfficeTypeIds: [],
-    })
-  })
-
-  return list
+  return users.map((u: any) => ({
+    id: u.id,
+    username: u.username,
+    role: u.role as 'admin' | 'superadmin',
+    active: Boolean(u.is_active),
+    created_at: u.created_at,
+    assignedOfficeTypeIds: [],
+  }))
 }
 
 export async function createAdminUser(
@@ -133,44 +60,34 @@ export async function createAdminUser(
     return { error: 'অনুগ্রহ করে একটি সঠিক ইউজারনেম দিন।' }
   }
 
-  const supabase = createOfficeClient()
-  const { data: profiles } = await supabase.from('admin_profiles').select('*').limit(1)
-  if (!profiles || profiles.length === 0) {
-    return { error: 'সিস্টেম অ্যাডমিন প্রোফাইল পাওয়া যায়নি।' }
-  }
+  const cleanPwd = (password || '123').trim()
+  const pwdHash = hashPassword(cleanPwd)
 
-  const root = profiles[0]
-  const parsed = parseSubAdmins(root.username)
+  const supabase = createOfficeClient()
 
   // Check duplicate username
-  const exists =
-    parsed.baseUsername.toLowerCase() === cleanUser.toLowerCase() ||
-    parsed.subAdmins.some((sa) => sa.username.toLowerCase() === cleanUser.toLowerCase())
+  const { data: existing } = await supabase
+    .from('admin_users')
+    .select('id')
+    .ilike('username', cleanUser)
+    .maybeSingle()
 
-  if (exists) {
-    return { error: 'এই ইউজারনেম দিয়ে ইতিমধ্যেই একটি অ্যাকাউন্ট রয়েছে।' }
+  if (existing) {
+    return { error: 'এই ইউজারনেমটি ইতিমধ্যেই ব্যবহার করা হয়েছে।' }
   }
 
-  const newAdmin: StoredSubAdmin = {
-    id: Date.now(),
-    username: cleanUser,
-    role,
-    active: true,
-    password: password?.trim() || '123456',
-    created_at: new Date().toISOString(),
-  }
+  const { error: insErr } = await supabase
+    .from('admin_users')
+    .insert({
+      username: cleanUser,
+      password_hash: pwdHash,
+      password_hint: cleanPwd,
+      role,
+      is_active: true,
+    })
 
-  parsed.subAdmins.push(newAdmin)
-
-  const updatedRaw = packSubAdmins(parsed.baseUsername, parsed.password, parsed.subAdmins)
-
-  const { error: updErr } = await supabase
-    .from('admin_profiles')
-    .update({ username: updatedRaw })
-    .eq('id', root.id)
-
-  if (updErr) {
-    return { error: 'সংরক্ষণ ব্যর্থ হয়েছে: ' + updErr.message }
+  if (insErr) {
+    return { error: 'সংরক্ষণ ব্যর্থ হয়েছে: ' + insErr.message }
   }
 
   revalidatePath('/admin/users')
@@ -189,44 +106,25 @@ export async function updateAdminUserRole(
   }
 
   const supabase = createOfficeClient()
-  const { data: profiles } = await supabase.from('admin_profiles').select('*').limit(1)
-  if (!profiles || profiles.length === 0) {
-    return { error: 'সিস্টেম অ্যাডমিন প্রোফাইল পাওয়া যায়নি।' }
+
+  const updatePayload: any = {
+    role: newRole,
+    is_active: active,
+    updated_at: new Date().toISOString(),
   }
 
-  const root = profiles[0]
-  const parsed = parseSubAdmins(root.username)
+  if (newPassword && newPassword.trim()) {
+    updatePayload.password_hash = hashPassword(newPassword.trim())
+    updatePayload.password_hint = newPassword.trim()
+  }
 
-  if (adminId === root.id) {
-    // Updating root user
-    if (newPassword && newPassword.trim()) {
-      parsed.password = newPassword.trim()
-    }
-    const updatedRaw = packSubAdmins(parsed.baseUsername, parsed.password, parsed.subAdmins)
-    await supabase
-      .from('admin_profiles')
-      .update({
-        username: updatedRaw,
-        role: newRole,
-        active,
-      })
-      .eq('id', root.id)
-  } else {
-    // Updating subadmin
-    const target = parsed.subAdmins.find((sa) => sa.id === adminId)
-    if (!target) {
-      return { error: 'ইউজার পাওয়া যায়নি।' }
-    }
-    target.role = newRole
-    target.active = active
-    if (newPassword && newPassword.trim()) {
-      target.password = newPassword.trim()
-    }
-    const updatedRaw = packSubAdmins(parsed.baseUsername, parsed.password, parsed.subAdmins)
-    await supabase
-      .from('admin_profiles')
-      .update({ username: updatedRaw })
-      .eq('id', root.id)
+  const { error: updErr } = await supabase
+    .from('admin_users')
+    .update(updatePayload)
+    .eq('id', adminId)
+
+  if (updErr) {
+    return { error: 'আপডেট ব্যর্থ হয়েছে: ' + updErr.message }
   }
 
   revalidatePath('/admin/users')

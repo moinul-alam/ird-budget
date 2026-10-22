@@ -48,9 +48,16 @@ export default async function SuperadminFormulasPage() {
   }
 
   const supabase = createOfficeClient()
-  const { data: codes } = await supabase
-    .from('expense_codes')
+  let { data: codes, error } = await supabase
+    .from('core_economic_codes')
     .select('id, code, name, is_manual, formula_key, sort_order')
+
+  if (error || !codes) {
+    const fallbackRes = await supabase
+      .from('core_expense_codes')
+      .select('id, code, name, is_manual, formula_key, sort_order')
+    codes = fallbackRes.data || []
+  }
 
   // Sort them code wise
   const list = (codes || []).sort((a: any, b: any) => {

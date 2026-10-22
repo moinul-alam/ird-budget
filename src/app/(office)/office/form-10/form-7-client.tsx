@@ -265,12 +265,29 @@ export function Form7Client({
     }, 0)
   }, [dataMap])
 
+  const handleSaveAll = async () => {
+    if (!submissionId) return
+    for (const config of CARD_CONFIGS) {
+      const typeId = getTypeIdForConfig(config)
+      if (!typeId) continue
+      const data = dataMap[config.key]
+      await saveFormITEquipmentRow(submissionId, typeId, {
+        existing_count: data.existing_count,
+        damaged_count: data.damaged_count,
+        toner_cost: data.toner_cost,
+        required_qty: data.required_qty,
+        unit_budget: config.defaultUnitPrice,
+      })
+    }
+  }
+
   return (
     <FormShell
-      title={strings.forms.form9.title}
-      formNumber={9}
+      title={strings.forms.form10.title}
+      formNumber={10}
       prevHref="/office/form-9"
       nextHref="/office/form-11"
+      onSave={submissionId ? handleSaveAll : undefined}
     >
       <div className="p-6 lg:p-8 space-y-8 max-w-6xl mx-auto">
         {/* Page Header */}

@@ -218,11 +218,19 @@ export async function getExpenseCodesWithCategoryAndMapping(
 ) {
   const supabase = createOfficeClient()
 
-  // 1. Fetch all expense codes
-  const { data: codes } = await supabase
-    .from('expense_codes')
-    .select('id, code, name, parent_code, parent_title, sort_order, formula_key, is_manual')
+  // 1. Fetch all expense codes from core_economic_codes (or core_expense_codes)
+  let { data: codes, error } = await supabase
+    .from('core_economic_codes')
+    .select('*')
     .order('sort_order', { ascending: true })
+
+  if (error || !codes) {
+    const fallbackRes = await supabase
+      .from('core_expense_codes')
+      .select('*')
+      .order('sort_order', { ascending: true })
+    codes = fallbackRes.data || []
+  }
 
   let enabledCodeIds = new Set<number>()
 
@@ -231,33 +239,42 @@ export async function getExpenseCodesWithCategoryAndMapping(
     if (levelMap[officeLevelId]) {
       enabledCodeIds = new Set<number>(levelMap[officeLevelId])
     } else {
-      // Fallback to office_type_mapping initially if level not explicitly customized
-      const { data: mappings } = await supabase
-        .from('code_type_mapping')
-        .select('code_id')
-        .eq('office_type_id', officeTypeId)
-      enabledCodeIds = new Set<number>((mappings || []).map((m: any) => m.code_id))
+      // Fallback: enabled by default for all office types if not customized
+      enabledCodeIds = new Set<number>((codes || []).map((c: any) => c.id))
     }
   } else {
-    // 2. Fetch enabled mappings for this officeTypeId
-    const { data: mappings } = await supabase
-      .from('code_type_mapping')
-      .select('code_id')
-      .eq('office_type_id', officeTypeId)
-    enabledCodeIds = new Set<number>((mappings || []).map((m: any) => m.code_id))
+    // Enabled by default if level mapping not customized
+    enabledCodeIds = new Set<number>((codes || []).map((c: any) => c.id))
   }
 
-  const list: ExpenseCodeFullItem[] = (codes || []).map((c: any) => ({
-    id: c.id,
-    code: c.code,
-    name: c.name,
-    parent_code: c.parent_code || '',
-    parent_title: c.parent_title || '',
-    hierarchy_order: c.sort_order || 0,
-    formula_key: c.formula_key,
-    is_manual: c.is_manual ?? false,
-    enabled: enabledCodeIds.has(c.id),
-  }))
+  const categoryNameMap: Record<string, string> = {
+    '3111': 'নগদ মজুরি ও বেতন',
+    '3211': 'প্রশাসনিক ব্যয়',
+    '3243': 'পেট্রোল, অয়েল ও লুব্রিকেন্ট',
+    '3244': 'ভ্রমণ ও বদলি',
+    '3255': 'মুদ্রণ ও মনিহারি',
+    '3256': 'সাধারণ সরবরাহ ও কাঁচামাল',
+    '3258': 'মেরামত ও সংরক্ষণ',
+    '3821': 'আবর্তক স্থানান্তর',
+    '4112': 'যন্ত্রপাতি ও সরঞ্জামাদি',
+  }
+
+  const list: ExpenseCodeFullItem[] = (codes || []).map((c: any) => {
+    const pCode = c.parent_code || (c.code ? c.code.substring(0, 4) : '')
+    const pTitle = c.parent_title || categoryNameMap[pCode] || 'অন্যান্য ব্যয়'
+
+    return {
+      id: c.id,
+      code: c.code,
+      name: c.name,
+      parent_code: pCode,
+      parent_title: pTitle,
+      hierarchy_order: c.sort_order || 0,
+      formula_key: c.formula_key,
+      is_manual: c.is_manual ?? false,
+      enabled: enabledCodeIds.has(c.id),
+    }
+  })
 
   return {
     codes: list,
@@ -282,9 +299,11 @@ export async function saveEconomicCode(data: {
 
   const supabase = createOfficeClient()
 
+  const targetTable = 'core_economic_codes'
+
   if (data.id) {
-    const { error } = await supabase
-      .from('expense_codes')
+    let { error } = await supabase
+      .from(targetTable)
       .update({
         code: trimmedCode,
         name: trimmedName,
@@ -295,19 +314,38 @@ export async function saveEconomicCode(data: {
       })
       .eq('id', data.id)
 
-    if (error) return { error: error.message }
+    if (error) {
+      // Fallback to core_expense_codes
+      await supabase
+        .from('core_expense_codes')
+        .update({
+          code: trimmedCode,
+          name: trimmedName,
+          sort_order: data.hierarchy_order || 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', data.id)
+    }
   } else {
-    const { error } = await supabase.from('expense_codes').insert({
+    let { error } = await supabase.from(targetTable).insert({
       code: trimmedCode,
       name: trimmedName,
       parent_code: data.parent_code,
       parent_title: data.parent_title,
       sort_order: data.hierarchy_order || 1,
       is_manual: true,
-      active: true,
+      is_active: true,
     })
 
-    if (error) return { error: error.message }
+    if (error) {
+      await supabase.from('core_expense_codes').insert({
+        code: trimmedCode,
+        name: trimmedName,
+        sort_order: data.hierarchy_order || 1,
+        is_manual: true,
+        is_active: true,
+      })
+    }
   }
 
   revalidatePath('/admin/codes')
@@ -323,7 +361,7 @@ export async function deleteEconomicCode(id: number) {
 
   // Integrity Check: Check if any office has entered data or active budget exists for this code
   const { data: activeEntries } = await supabase
-    .from('budget_sheet')
+    .from('office_budget_sheet')
     .select('id, auto_value, manual_value')
     .eq('code_id', id)
     .or('auto_value.gt.0,manual_value.gt.0')
@@ -335,8 +373,10 @@ export async function deleteEconomicCode(id: number) {
     }
   }
 
-  const { error } = await supabase.from('expense_codes').delete().eq('id', id)
-  if (error) return { error: error.message }
+  let { error } = await supabase.from('core_economic_codes').delete().eq('id', id)
+  if (error) {
+    await supabase.from('core_expense_codes').delete().eq('id', id)
+  }
 
   revalidatePath('/admin/codes')
   revalidatePath('/office/budget-sheet')

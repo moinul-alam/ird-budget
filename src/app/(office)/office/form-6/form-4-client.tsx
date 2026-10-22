@@ -157,12 +157,25 @@ export function Form4Client({ submissionId, initialData }: Form4ClientProps) {
     return item.count > 0 || item.basic > 0 || item.due > 0
   }
 
+  const handleSaveAll = async () => {
+    if (!submissionId) return
+    await saveFormLeave(submissionId, {
+      leave_encashment_officer_basic: data.officer.basic,
+      leave_encashment_officer_due: data.officer.due,
+      leave_encashment_staff_basic: data.staff.basic,
+      leave_encashment_staff_due: data.staff.due,
+      rest_recreation_amount: initialData?.rest_recreation_amount || 0,
+      rest_recreation_due: initialData?.rest_recreation_due || 0,
+    })
+  }
+
   return (
     <FormShell
-      title={strings.forms.form5.title}
-      formNumber={5}
+      title={strings.forms.form6.title}
+      formNumber={6}
       prevHref="/office/form-5"
       nextHref="/office/form-7"
+      onSave={submissionId ? handleSaveAll : undefined}
     >
       <div className="p-6 lg:p-8 space-y-6">
         {/* Header subtitle */}

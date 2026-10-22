@@ -34,6 +34,7 @@ interface AllowanceRowData {
   total_basic: number
   amount: number
   due: number
+  date?: string
 }
 
 // 6 specific allowances (3 top row, 3 bottom row)
@@ -157,6 +158,7 @@ export function Form3Client({ submissionId, allowanceTypes, initialData, initial
   const [basicInput, setBasicInput] = useState('')
   const [amountInput, setAmountInput] = useState('')
   const [dueInput, setDueInput] = useState('')
+  const [dateInput, setDateInput] = useState('')
 
   // Delete Confirmation State
   const [keyToDelete, setKeyToDelete] = useState<string | null>(null)
@@ -170,6 +172,7 @@ export function Form3Client({ submissionId, allowanceTypes, initialData, initial
     setBasicInput(existing?.total_basic ? String(existing.total_basic) : '')
     setAmountInput(existing?.amount ? String(existing.amount) : '')
     setDueInput(existing?.due ? String(existing.due) : '')
+    setDateInput(existing?.date || '')
   }
 
   const closeModal = () => {
@@ -178,6 +181,7 @@ export function Form3Client({ submissionId, allowanceTypes, initialData, initial
     setBasicInput('')
     setAmountInput('')
     setDueInput('')
+    setDateInput('')
   }
 
   const handleSaveModal = async () => {
@@ -199,6 +203,7 @@ export function Form3Client({ submissionId, allowanceTypes, initialData, initial
       total_basic: totalBasic,
       amount,
       due,
+      date: dateInput,
     }
 
     setAllowanceData((prev) => ({
@@ -276,12 +281,35 @@ export function Form3Client({ submissionId, allowanceTypes, initialData, initial
     return d.count > 0 || d.total_basic > 0 || d.amount > 0 || d.due > 0
   }
 
+  // Save all active allowances
+  const handleSaveAll = async () => {
+    if (!submissionId) return
+    for (const [key, row] of Object.entries(allowanceData)) {
+      if (key === 'restRecreation') {
+        await saveFormRestRecreation(submissionId, {
+          rest_recreation_amount: row.amount || 0,
+          rest_recreation_due: row.due || 0,
+        })
+        const type = typesByName.get('restRecreation') || typesByName.get('recreation')
+        if (type) {
+          await saveFormAllowanceRow(submissionId, type.id, row)
+        }
+      } else {
+        const type = typesByName.get(key)
+        if (type) {
+          await saveFormAllowanceRow(submissionId, type.id, row)
+        }
+      }
+    }
+  }
+
   return (
     <FormShell
-      title={strings.forms.form4.title}
-      formNumber={4}
+      title={strings.forms.form5.title}
+      formNumber={5}
       prevHref="/office/form-4"
       nextHref="/office/form-6"
+      onSave={submissionId ? handleSaveAll : undefined}
     >
       <div className="p-6 lg:p-8 space-y-6">
         {/* Header subtitle */}
@@ -473,6 +501,14 @@ export function Form3Client({ submissionId, allowanceTypes, initialData, initial
                             {data.due ? toBanglaAmount(data.due) : '—'}
                           </span>
                         </div>
+                        {data.date && (
+                          <div className="flex justify-between py-1 border-t border-slate-100 text-xs">
+                            <span className="text-slate-500">প্রদানের তারিখ:</span>
+                            <span className="font-semibold font-mono text-blue-700">
+                              {toBanglaNumber(data.date)}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="py-4 text-center">
@@ -593,6 +629,18 @@ export function Form3Client({ submissionId, allowanceTypes, initialData, initial
                   />
                 </div>
               )}
+
+              {/* Additional Date Field (Same logic as existing date forms) */}
+              <div className="space-y-1.5">
+                <Label htmlFor="allowance_date">প্রযোজ্য/প্রদানের তারিখ (ঐচ্ছিক)</Label>
+                <Input
+                  id="allowance_date"
+                  type="date"
+                  value={dateInput}
+                  onChange={(e) => setDateInput(e.target.value)}
+                  className="font-mono text-sm"
+                />
+              </div>
             </div>
           )}
 

@@ -174,12 +174,23 @@ export function Form8Client({
     })
   }
 
+  const handleSaveAll = async () => {
+    if (!submissionId) return
+    for (const row of rows) {
+      await saveFormUtilityRow(submissionId, row.utility_type_id, {
+        annual_cost: row.annual_cost,
+        due: row.due,
+      })
+    }
+  }
+
   return (
     <FormShell
-      title={strings.forms.form10.title}
-      formNumber={10}
+      title={strings.forms.form11.title}
+      formNumber={11}
       prevHref="/office/form-10"
       nextHref="/office/form-12"
+      onSave={submissionId ? handleSaveAll : undefined}
     >
       <div className="p-6 lg:p-8 space-y-6 max-w-5xl mx-auto">
         {/* Top Header & Action (Form 5 style) */}

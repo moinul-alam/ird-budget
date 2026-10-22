@@ -228,7 +228,7 @@ export async function getCyclesList(): Promise<CycleItem[]> {
   const cfg = await getStoredBudgetConfig()
 
   const { data: cycles, error } = await supabase
-    .from('cycles')
+    .from('core_budget_cycles')
     .select('*')
     .order('id', { ascending: false })
 
@@ -237,7 +237,7 @@ export async function getCyclesList(): Promise<CycleItem[]> {
   // Check submissions count for each cycle to determine if data exists
   const cycleIds = cycles.map((c: any) => c.id)
   const { data: subs } = await supabase
-    .from('submissions')
+    .from('office_submissions')
     .select('id, cycle_id, status')
     .in('cycle_id', cycleIds)
 
@@ -308,7 +308,7 @@ export async function saveCycle(data: {
 
   // If opening this cycle, close all other cycles so only one active cycle exists
   if (data.status === 'open') {
-    await supabase.from('cycles').update({ status: 'closed', closed_at: new Date().toISOString() }).neq('id', data.id || 0)
+    await supabase.from('core_budget_cycles').update({ status: 'closed' }).neq('id', data.id || 0)
   }
 
   if (data.id) {
@@ -318,15 +318,9 @@ export async function saveCycle(data: {
       status: data.status,
       updated_at: new Date().toISOString(),
     }
-    if (data.status === 'open') {
-      updatePayload.opened_at = new Date().toISOString()
-      updatePayload.closed_at = null
-    } else {
-      updatePayload.closed_at = new Date().toISOString()
-    }
 
     const { error } = await supabase
-      .from('cycles')
+      .from('core_budget_cycles')
       .update(updatePayload)
       .eq('id', data.id)
 
@@ -334,7 +328,7 @@ export async function saveCycle(data: {
   } else {
     // Check if duplicate entry exists for this fiscal_year and budgetType
     const { data: existing } = await supabase
-      .from('cycles')
+      .from('core_budget_cycles')
       .select('id')
       .eq('budget_type', budgetType)
       .like('fiscal_year', `${data.fiscal_year}%`)
@@ -347,12 +341,11 @@ export async function saveCycle(data: {
     const insertPayload: any = {
       fiscal_year: storedFiscalYear,
       budget_type: budgetType,
+      title: `${data.fiscal_year} ${data.budget_type_name}`,
       status: data.status,
-      opened_at: data.status === 'open' ? new Date().toISOString() : null,
-      closed_at: data.status === 'closed' ? new Date().toISOString() : null,
     }
 
-    const { error } = await supabase.from('cycles').insert(insertPayload)
+    const { error } = await supabase.from('core_budget_cycles').insert(insertPayload)
     if (error) return { error: error.message }
   }
 
@@ -369,15 +362,13 @@ export async function toggleCycleStatus(id: number, targetStatus: 'open' | 'clos
 
   if (targetStatus === 'open') {
     // Close other cycles
-    await supabase.from('cycles').update({ status: 'closed', closed_at: new Date().toISOString() }).neq('id', id)
+    await supabase.from('core_budget_cycles').update({ status: 'closed' }).neq('id', id)
   }
 
   const { error } = await supabase
-    .from('cycles')
+    .from('core_budget_cycles')
     .update({
       status: targetStatus,
-      opened_at: targetStatus === 'open' ? new Date().toISOString() : undefined,
-      closed_at: targetStatus === 'closed' ? new Date().toISOString() : null,
     })
     .eq('id', id)
 
@@ -396,7 +387,7 @@ export async function deleteOrArchiveCycle(id: number) {
 
   // Check if submissions exist
   const { data: subs } = await supabase
-    .from('submissions')
+    .from('office_submissions')
     .select('id')
     .eq('cycle_id', id)
     .limit(1)
@@ -404,8 +395,8 @@ export async function deleteOrArchiveCycle(id: number) {
   if (subs && subs.length > 0) {
     // Has data: Cannot delete, archive by marking status = 'closed'
     const { error } = await supabase
-      .from('cycles')
-      .update({ status: 'closed', closed_at: new Date().toISOString() })
+      .from('core_budget_cycles')
+      .update({ status: 'closed' })
       .eq('id', id)
 
     if (error) return { error: error.message }
@@ -415,7 +406,7 @@ export async function deleteOrArchiveCycle(id: number) {
   }
 
   // No submissions: Safely remove
-  const { error } = await supabase.from('cycles').delete().eq('id', id)
+  const { error } = await supabase.from('core_budget_cycles').delete().eq('id', id)
   if (error) return { error: error.message }
 
   revalidatePath('/admin/budgets')
