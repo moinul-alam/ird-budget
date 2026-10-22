@@ -12,7 +12,7 @@ export default async function Form7Page() {
 
   const [typesRes, dataRes, itItemsRes] = await Promise.all([
     supabase.from('equipment_types').select('*').order('id'),
-    submissionId ? supabase.from('form_it_equipment').select('*').eq('submission_id', submissionId) : Promise.resolve({ data: [] }),
+    submissionId ? supabase.from('office_form_it_equipment').select('*').eq('submission_id', submissionId) : Promise.resolve({ data: [] }),
     supabase.from('it_items').select('*').order('id'),
   ])
 

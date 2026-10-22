@@ -17,8 +17,8 @@ export default async function Form5Page() {
     supabase.from('vehicle_fuel_config').select('*, car_type:car_type_id(id, name), fuel_type:fuel_type_id(id, name)'),
     submissionId
       ? supabase
-          .from('form_vehicles')
-          .select('*, vehicle_fuel_config(*, car_type:car_type_id(name), fuel_type:fuel_type_id(name))')
+          .from('office_form_vehicles_govt')
+          .select('*')
           .eq('submission_id', submissionId)
           .order('id')
       : Promise.resolve({ data: [] }),
@@ -34,5 +34,3 @@ export default async function Form5Page() {
     />
   )
 }
-
-

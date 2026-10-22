@@ -16,8 +16,8 @@ export default async function Form6Page() {
     supabase.from('vehicle_rent_config').select('*, car_type:car_type_id(id, name)'),
     submissionId
       ? supabase
-          .from('form_vehicle_rent')
-          .select('*, vehicle_rent_config(*, car_type:car_type_id(name))')
+          .from('office_form_vehicles_rent')
+          .select('*')
           .eq('submission_id', submissionId)
           .order('id')
       : Promise.resolve({ data: [] }),
@@ -32,5 +32,3 @@ export default async function Form6Page() {
     />
   )
 }
-
-

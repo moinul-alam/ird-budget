@@ -13,7 +13,7 @@ export default async function Form8Page() {
 
   const [utilityTypes, dataRes] = await Promise.all([
     getUtilityTypes(),
-    submissionId ? supabase.from('form_utility').select('*').eq('submission_id', submissionId) : Promise.resolve({ data: [] })
+    submissionId ? supabase.from('office_form_utilities').select('*').eq('submission_id', submissionId) : Promise.resolve({ data: [] })
   ])
 
   return (
