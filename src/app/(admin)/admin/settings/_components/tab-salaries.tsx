@@ -49,6 +49,10 @@ interface TabSalariesProps {
   setHouseRentModal: React.Dispatch<React.SetStateAction<boolean>>
   slabs: Array<{ id: string; from_grade: number; to_grade: number; percentage: number }>
   setSlabs: React.Dispatch<React.SetStateAction<Array<{ id: string; from_grade: number; to_grade: number; percentage: number }>>>
+  specialBenefitModal: boolean
+  setSpecialBenefitModal: React.Dispatch<React.SetStateAction<boolean>>
+  specialBenefitSlabs: Array<{ id: string; from_grade: number; to_grade: number; percentage: number }>
+  setSpecialBenefitSlabs: React.Dispatch<React.SetStateAction<Array<{ id: string; from_grade: number; to_grade: number; percentage: number }>>>
   mobileModal: boolean
   setMobileModal: React.Dispatch<React.SetStateAction<boolean>>
   mobileSlabs: Array<{ id: string; from_grade: number; to_grade: number; amount: number }>
@@ -56,6 +60,7 @@ interface TabSalariesProps {
   onSaveNumberField: () => Promise<void>
   onSaveGradeField: () => Promise<void>
   onSaveHouseRentSlabs: () => Promise<void>
+  onSaveSpecialBenefitSlabs: () => Promise<void>
   onSaveMobileSlabs: () => Promise<void>
   saving: boolean
 }
@@ -70,6 +75,10 @@ export function TabSalaries({
   setHouseRentModal,
   slabs,
   setSlabs,
+  specialBenefitModal,
+  setSpecialBenefitModal,
+  specialBenefitSlabs,
+  setSpecialBenefitSlabs,
   mobileModal,
   setMobileModal,
   mobileSlabs,
@@ -77,6 +86,7 @@ export function TabSalaries({
   onSaveNumberField,
   onSaveGradeField,
   onSaveHouseRentSlabs,
+  onSaveSpecialBenefitSlabs,
   onSaveMobileSlabs,
   saving,
 }: TabSalariesProps) {
@@ -514,14 +524,14 @@ export function TabSalaries({
             </CardContent>
           </Card>
 
-          {/* 12. বিশেষ সুবিধা */}
+          {/* 12. বিশেষ সুবিধা (Multiple Slabs - Percentage of Basic) */}
           <Card className="rounded-2xl border-slate-200/80 bg-white shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
             <div className="h-1.5 w-full bg-violet-500" />
             <CardHeader className="pb-3 flex flex-row items-start justify-between">
               <div>
                 <CardTitle className="text-base font-extrabold text-slate-800">বিশেষ সুবিধা</CardTitle>
                 <CardDescription className="text-xs text-slate-500 mt-0.5">
-                  প্রযোজ্য: গ্রেড {toBanglaNumber(salaryConfig.special_benefit_allowance.from_grade)} হতে {toBanglaNumber(salaryConfig.special_benefit_allowance.to_grade)}
+                  {(salaryConfig.special_benefit_slabs || []).length} টি স্ল্যাব (মূল বেতনের %)
                 </CardDescription>
               </div>
               <div className="p-2.5 bg-violet-50 text-violet-600 rounded-xl">
@@ -529,27 +539,28 @@ export function TabSalaries({
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="flex items-baseline justify-between mt-2">
-                <span className="text-3xl font-extrabold text-slate-800 font-mono">
-                  {toBanglaAmount(salaryConfig.special_benefit_allowance.rate)}
-                </span>
-                <span className="text-xs font-semibold text-slate-400">টাকা/মাস</span>
+              <div className="space-y-1 mt-1">
+                {(salaryConfig.special_benefit_slabs || []).map(s => (
+                  <div key={s.id} className="flex justify-between text-xs py-0.5 border-b border-slate-100">
+                    <span className="text-slate-600">গ্রেড {toBanglaNumber(s.from_grade)} - {toBanglaNumber(s.to_grade)}:</span>
+                    <span className="font-bold text-slate-800 font-mono">{toBanglaNumber(s.percentage)}%</span>
+                  </div>
+                ))}
+                {(!salaryConfig.special_benefit_slabs || salaryConfig.special_benefit_slabs.length === 0) && (
+                  <p className="text-xs text-slate-400 py-1">কোনো স্ল্যাব কনফিগার করা নেই</p>
+                )}
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setGradeModal({
-                  open: true,
-                  field: 'special_benefit_allowance',
-                  title: 'বিশেষ সুবিধা ও প্রযোজ্য গ্রেড',
-                  rate: salaryConfig.special_benefit_allowance.rate,
-                  fromGrade: salaryConfig.special_benefit_allowance.from_grade,
-                  toGrade: salaryConfig.special_benefit_allowance.to_grade,
-                })}
+                onClick={() => {
+                  setSpecialBenefitSlabs(salaryConfig.special_benefit_slabs || [])
+                  setSpecialBenefitModal(true)
+                }}
                 className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-1.5"
               >
-                <Edit2 className="h-3.5 w-3.5" />
-                পরিবর্তন করুন
+                <Sliders className="h-3.5 w-3.5" />
+                স্ল্যাব সম্পাদনা করুন
               </Button>
             </CardContent>
           </Card>
@@ -883,6 +894,124 @@ export function TabSalaries({
                 বাতিল
               </Button>
               <Button onClick={onSaveHouseRentSlabs} disabled={saving} className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+                সংরক্ষণ করুন
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Special Benefit Slabs Modal */}
+      {specialBenefitModal && (
+        <Dialog open={specialBenefitModal} onOpenChange={(open) => !open && setSpecialBenefitModal(false)}>
+          <DialogContent className="sm:max-w-xl rounded-3xl p-6">
+            <DialogHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
+              <DialogTitle className="text-xl font-extrabold text-slate-800">
+                বিশেষ সুবিধা স্ল্যাবসমূহ (মূল বেতনের %)
+              </DialogTitle>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setSpecialBenefitSlabs(prev => [
+                  ...prev,
+                  { id: `sb-slab-${Date.now()}`, from_grade: 1, to_grade: 20, percentage: 5 }
+                ])}
+                className="rounded-xl text-xs font-bold border-slate-200"
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                স্ল্যাব যোগ করুন
+              </Button>
+            </DialogHeader>
+            <div className="space-y-3 py-3 max-h-[60vh] overflow-y-auto">
+              {specialBenefitSlabs.map((slab, i) => (
+                <div key={slab.id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                  <div className="flex justify-between items-center text-xs font-bold text-slate-500">
+                    <span>স্ল্যাব #{toBanglaNumber(i + 1)}</span>
+                    <button
+                      type="button"
+                      onClick={() => setSpecialBenefitSlabs(prev => prev.filter(s => s.id !== slab.id))}
+                      className="text-rose-600 hover:text-rose-800 font-semibold text-xs"
+                    >
+                      মুছুন
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2.5">
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-600 block mb-1">হতে গ্রেড</span>
+                      <Select
+                        value={String(slab.from_grade)}
+                        onValueChange={(v) => {
+                          const val = parseInt(v || '1')
+                          setSpecialBenefitSlabs(prev => prev.map(s => s.id === slab.id ? { ...s, from_grade: val } : s))
+                        }}
+                      >
+                        <SelectTrigger className="w-full rounded-xl bg-white border-slate-200">
+                          <SelectValue>
+                            গ্রেড {toBanglaNumber(slab.from_grade)}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 20 }, (_, idx) => idx + 1).map(g => (
+                            <SelectItem key={g} value={String(g)}>
+                              গ্রেড {toBanglaNumber(g)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-600 block mb-1">পর্যন্ত গ্রেড</span>
+                      <Select
+                        value={String(slab.to_grade)}
+                        onValueChange={(v) => {
+                          const val = parseInt(v || '20')
+                          setSpecialBenefitSlabs(prev => prev.map(s => s.id === slab.id ? { ...s, to_grade: val } : s))
+                        }}
+                      >
+                        <SelectTrigger className="w-full rounded-xl bg-white border-slate-200">
+                          <SelectValue>
+                            গ্রেড {toBanglaNumber(slab.to_grade)}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from({ length: 20 }, (_, idx) => idx + 1).map(g => (
+                            <SelectItem key={g} value={String(g)}>
+                              গ্রেড {toBanglaNumber(g)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <span className="text-[11px] font-bold text-slate-600 block mb-1">হার (% মূলবেতন)</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step="any"
+                        value={slab.percentage}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0
+                          setSpecialBenefitSlabs(prev => prev.map(s => s.id === slab.id ? { ...s, percentage: val } : s))
+                        }}
+                        className="rounded-xl border-slate-200 bg-white font-mono text-sm font-bold text-violet-700 h-9"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {specialBenefitSlabs.length === 0 && (
+                <div className="text-center py-6 text-sm text-slate-400">
+                  কোনো স্ল্যাব নেই। &apos;স্ল্যাব যোগ করুন&apos; বাটনে ক্লিক করে নতুন স্ল্যাব তৈরি করুন।
+                </div>
+              )}
+            </div>
+            <DialogFooter className="pt-3 border-t border-slate-100 flex gap-2 sm:justify-end">
+              <Button variant="outline" onClick={() => setSpecialBenefitModal(false)} className="rounded-xl">
+                বাতিল
+              </Button>
+              <Button onClick={onSaveSpecialBenefitSlabs} disabled={saving} className="rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold">
                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
                 সংরক্ষণ করুন
               </Button>

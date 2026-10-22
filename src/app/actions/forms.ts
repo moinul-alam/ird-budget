@@ -663,3 +663,51 @@ export async function deleteFormITEquipmentRow(
   if (error) return { error: error.message }
   return { success: true }
 }
+
+export interface NewStaffRecord {
+  grade_id: number
+  count: number
+  monthly_basic: number
+  expected_date: string // YYYY-MM-DD
+  remaining_months: number
+  total_salary: number
+}
+
+export async function getFormNewStaffRows(submissionId: number): Promise<NewStaffRecord[]> {
+  const supabase = createOfficeClient()
+  const { data: profiles } = await supabase.from('admin_profiles').select('*').limit(1)
+  if (!profiles || profiles.length === 0) return []
+  const profile = profiles[0]
+  const username = profile.username || ''
+  const tag = `:::new_staff_${submissionId}=`
+  if (!username.includes(tag)) return []
+  try {
+    const raw = username.split(tag)[1]?.split(':::')[0]
+    return raw ? JSON.parse(decodeURIComponent(raw)) : []
+  } catch {
+    return []
+  }
+}
+
+export async function saveFormNewStaffRows(submissionId: number, rows: NewStaffRecord[]) {
+  const supabase = createOfficeClient()
+  const { data: profiles } = await supabase.from('admin_profiles').select('*').limit(1)
+  if (!profiles || profiles.length === 0) return { success: false, error: 'No admin profile' }
+  const profile = profiles[0]
+  let username = profile.username || ''
+  const tag = `:::new_staff_${submissionId}=`
+
+  // Remove existing entry for this submission if any
+  if (username.includes(tag)) {
+    const parts = username.split(tag)
+    const after = parts[1].includes(':::') ? ':::' + parts[1].split(':::').slice(1).join(':::') : ''
+    username = parts[0] + after
+  }
+
+  const encoded = encodeURIComponent(JSON.stringify(rows))
+  username = `${username}${tag}${encoded}`
+
+  const { error } = await supabase.from('admin_profiles').update({ username }).eq('id', profile.id)
+  if (error) return { success: false, error: error.message }
+  return { success: true }
+}

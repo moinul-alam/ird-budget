@@ -1,38 +1,26 @@
 import { createOfficeClient } from '@/lib/supabase/server'
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import { getVehicleTypes, getFuelTypes } from '@/app/actions/admin-settings'
-import { Form5Client } from './form-5-client'
+import { Form4Client } from './form-4-client'
 
-export default async function Form5Page() {
+export default async function Form4Page() {
   const supabase = createOfficeClient()
   const session = await getOfficeSession()
   if (!session) redirect('/')
 
   const submissionId = session.submission_id || null
 
-  const [vehicleTypes, fuelTypes, configsRes, vehiclesRes] = await Promise.all([
-    getVehicleTypes(),
-    getFuelTypes(),
-    supabase.from('vehicle_fuel_config').select('*, car_type:car_type_id(id, name), fuel_type:fuel_type_id(id, name)'),
-    submissionId
-      ? supabase
-          .from('form_vehicles')
-          .select('*, vehicle_fuel_config(*, car_type:car_type_id(name), fuel_type:fuel_type_id(name))')
-          .eq('submission_id', submissionId)
-          .order('id')
-      : Promise.resolve({ data: [] }),
-  ])
+  let initialData = null
+  if (submissionId) {
+    const { data } = await supabase
+      .from('form_leave')
+      .select('*')
+      .eq('submission_id', submissionId)
+      .maybeSingle()
+    initialData = data
+  }
 
-  return (
-    <Form5Client
-      submissionId={submissionId}
-      initialData={vehiclesRes.data || []}
-      carTypes={vehicleTypes}
-      fuelTypes={fuelTypes}
-      fuelConfigs={configsRes.data || []}
-    />
-  )
+  return <Form4Client submissionId={submissionId} initialData={initialData} />
 }
 
 

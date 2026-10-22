@@ -269,8 +269,8 @@ export function Form7Client({
     <FormShell
       title={strings.forms.form9.title}
       formNumber={9}
-      prevHref="/office/form-8"
-      nextHref="/office/form-10"
+      prevHref="/office/form-9"
+      nextHref="/office/form-11"
     >
       <div className="p-6 lg:p-8 space-y-8 max-w-6xl mx-auto">
         {/* Page Header */}

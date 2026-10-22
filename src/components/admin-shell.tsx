@@ -20,7 +20,8 @@ import {
   Building,
   Building2,
   BarChart3,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Calculator
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
@@ -291,6 +292,21 @@ export function AdminShell({
                        <Settings className="h-3.5 w-3.5 shrink-0" />
                        <span>ডিফল্ট ভ্যালু সেটিংস</span>
                      </Link>
+
+                      {isSuperAdmin && (
+                        <Link 
+                          href="/admin/formulas" 
+                          onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
+                          className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${
+                            pathname.startsWith('/admin/formulas')
+                              ? 'bg-emerald-600 text-white'
+                              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                          }`}
+                        >
+                          <Calculator className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                          <span>কোড হিসাব সূত্রাবলী</span>
+                        </Link>
+                      )}
                    </div>
                  )}
                </div>

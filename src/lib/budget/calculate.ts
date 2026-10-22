@@ -10,6 +10,10 @@ export interface BudgetContext {
     total_basic: number;
     count: number;
   }>;
+  newStaff?: Array<{
+    category: 'officer' | 'staff' | null;
+    total_salary: number;
+  }>;
   leave: {
     leave_encashment_officer_basic: number;
     leave_encashment_staff_basic: number;
@@ -48,13 +52,21 @@ export const codeFormulas: Record<string, (ctx: BudgetContext) => number> = {
   // মূল বেতন (অফিসার)
   '3111101': (ctx) => {
     const officerRows = ctx.staff.filter((s) => s.category === 'officer');
-    return officerRows.reduce((sum, r) => sum + num(r.total_basic) * 12, 0);
+    const base = officerRows.reduce((sum, r) => sum + num(r.total_basic) * 12, 0);
+    const newOfficer = (ctx.newStaff || [])
+      .filter((s) => s.category === 'officer')
+      .reduce((sum, r) => sum + num(r.total_salary), 0);
+    return base + newOfficer;
   },
   
   // মূল বেতন (কর্মচারী)
   '3111201': (ctx) => {
     const staffRows = ctx.staff.filter((s) => s.category === 'staff');
-    return staffRows.reduce((sum, r) => sum + num(r.total_basic) * 12, 0);
+    const base = staffRows.reduce((sum, r) => sum + num(r.total_basic) * 12, 0);
+    const newStaffSum = (ctx.newStaff || [])
+      .filter((s) => s.category === 'staff')
+      .reduce((sum, r) => sum + num(r.total_salary), 0);
+    return base + newStaffSum;
   },
 
   // ছুটি নগদায়ন বেতন (অফিসার)

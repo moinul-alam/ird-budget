@@ -9,7 +9,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { BarChart3, ArrowRight, CheckCircle2, Clock } from 'lucide-react'
 import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
 
-// 11 forms organized serially
+// 12 forms organized serially
 const FORM_LIST = [
   { key: 'form1' as const, num: 1, href: '/office/form-1' },
   { key: 'form2' as const, num: 2, href: '/office/form-2' },
@@ -22,6 +22,7 @@ const FORM_LIST = [
   { key: 'form9' as const, num: 9, href: '/office/form-9' },
   { key: 'form10' as const, num: 10, href: '/office/form-10' },
   { key: 'form11' as const, num: 11, href: '/office/form-11' },
+  { key: 'form12' as const, num: 12, href: '/office/form-12' },
 ] as const
 
 export default async function DashboardPage() {
@@ -111,14 +112,18 @@ export default async function DashboardPage() {
     if (hasActiveStaff) completedForms.add('form2')
     if (hasSuspendedStaff) completedForms.add('form3') // mapped to 2b
 
-    if (f3.data && f3.data.length > 0) completedForms.add('form4')
-    if (f4.data) completedForms.add('form5')
-    if (f5.data && f5.data.length > 0) completedForms.add('form6')
-    if (f6.data && f6.data.length > 0) completedForms.add('form7')
-    if (f9.data) completedForms.add('form8') // office rent
-    if (f7.data && f7.data.length > 0) completedForms.add('form9') // computer
-    if (f8.data && f8.data.length > 0) completedForms.add('form10') // utility
-    if (f10.data) completedForms.add('form11') // tax return
+    // Check form completion
+    if (fStaff.data && fStaff.data.some((s: any) => s.new_recruit_count > 0 || s.new_recruit_total_basic > 0)) {
+      completedForms.add('form4')
+    }
+    if (f3.data && f3.data.length > 0) completedForms.add('form5')
+    if (f4.data) completedForms.add('form6')
+    if (f5.data && f5.data.length > 0) completedForms.add('form7')
+    if (f6.data && f6.data.length > 0) completedForms.add('form8')
+    if (f9.data) completedForms.add('form9') // office rent
+    if (f7.data && f7.data.length > 0) completedForms.add('form10') // computer
+    if (f8.data && f8.data.length > 0) completedForms.add('form11') // utility
+    if (f10.data) completedForms.add('form12') // tax return
   }
 
   const isSubmitted = submissionStatus === 'submitted'
@@ -237,7 +242,7 @@ export default async function DashboardPage() {
                   বাজেট ফর্ম
                 </span>
                 <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
-                  সকল ১১টি ফরমের সমন্বিত চূড়ান্ত হিসাব পর্যালোচনা ও দাখিল সম্পন্ন করুন।
+                  সকল ১২টি ফরমের সমন্বিত চূড়ান্ত হিসাব পর্যালোচনা ও দাখিল সম্পন্ন করুন।
                 </p>
               </div>
               <div className="mt-4">

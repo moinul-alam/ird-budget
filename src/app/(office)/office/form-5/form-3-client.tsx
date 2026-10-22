@@ -280,8 +280,8 @@ export function Form3Client({ submissionId, allowanceTypes, initialData, initial
     <FormShell
       title={strings.forms.form4.title}
       formNumber={4}
-      prevHref="/office/form-3"
-      nextHref="/office/form-5"
+      prevHref="/office/form-4"
+      nextHref="/office/form-6"
     >
       <div className="p-6 lg:p-8 space-y-6">
         {/* Header subtitle */}

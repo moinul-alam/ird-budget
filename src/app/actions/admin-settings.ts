@@ -26,7 +26,15 @@ export interface SalaryCodeConfig {
   tiffin_allowance: { rate: number; from_grade: number; to_grade: number }
   wash_allowance: { rate: number; from_grade: number; to_grade: number }
   entertainment_allowance: { rate: number; from_grade: number; to_grade: number }
-  special_benefit_allowance: { rate: number; from_grade: number; to_grade: number }
+  special_benefit_allowance?: { rate: number; from_grade: number; to_grade: number }
+
+  // Slabs for Special Benefit (percentage of basic salary)
+  special_benefit_slabs: Array<{
+    id: string
+    from_grade: number
+    to_grade: number
+    percentage: number
+  }>
 
   // Slabs for House Rent
   house_rent_slabs: Array<{
@@ -64,6 +72,10 @@ const DEFAULT_SALARY_CONFIG: SalaryCodeConfig = {
   wash_allowance: { rate: 100, from_grade: 16, to_grade: 20 },
   entertainment_allowance: { rate: 500, from_grade: 1, to_grade: 5 },
   special_benefit_allowance: { rate: 1000, from_grade: 1, to_grade: 20 },
+
+  special_benefit_slabs: [
+    { id: 'sb-slab-1', from_grade: 1, to_grade: 20, percentage: 5 },
+  ],
 
   house_rent_slabs: [
     { id: 'slab-1', from_grade: 1, to_grade: 10, percentage: 50 },

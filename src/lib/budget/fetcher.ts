@@ -43,6 +43,22 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
     count: Number(s.count),
   }))
 
+  // Format New Recruits
+  let formattedNewStaff: Array<{ category: 'officer' | 'staff' | null; total_salary: number }> = []
+  try {
+    const { data: profiles } = await supabase.from('admin_profiles').select('*').limit(1)
+    const username = profiles?.[0]?.username || ''
+    const tag = `:::new_staff_${submissionId}=`
+    if (username.includes(tag)) {
+      const raw = username.split(tag)[1]?.split(':::')[0]
+      const parsed: Array<{ grade_id: number; total_salary: number }> = raw ? JSON.parse(decodeURIComponent(raw)) : []
+      formattedNewStaff = parsed.map((p) => ({
+        category: p.grade_id <= 9 ? ('officer' as const) : ('staff' as const),
+        total_salary: Number(p.total_salary || 0),
+      }))
+    }
+  } catch {}
+
   // Format Utilities
   const formattedUtilities = (utility || []).map((u: any) => ({
     type_name: u.utility_type?.name || '',
@@ -67,6 +83,7 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
 
   return {
     staff: formattedStaff,
+    newStaff: formattedNewStaff,
     leave: leave ? {
       leave_encashment_officer_basic: Number(leave.leave_encashment_officer_basic),
       leave_encashment_staff_basic: Number(leave.leave_encashment_staff_basic),

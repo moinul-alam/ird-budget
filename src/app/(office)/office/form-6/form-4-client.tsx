@@ -161,8 +161,8 @@ export function Form4Client({ submissionId, initialData }: Form4ClientProps) {
     <FormShell
       title={strings.forms.form5.title}
       formNumber={5}
-      prevHref="/office/form-4"
-      nextHref="/office/form-6"
+      prevHref="/office/form-5"
+      nextHref="/office/form-7"
     >
       <div className="p-6 lg:p-8 space-y-6">
         {/* Header subtitle */}

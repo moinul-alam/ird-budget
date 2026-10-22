@@ -94,6 +94,13 @@ export function AdminSettingsClient({
   const [houseRentModal, setHouseRentModal] = useState(false)
   const [slabs, setSlabs] = useState(initialSalaryConfig.house_rent_slabs || [])
 
+  const [specialBenefitModal, setSpecialBenefitModal] = useState(false)
+  const [specialBenefitSlabs, setSpecialBenefitSlabs] = useState(
+    initialSalaryConfig.special_benefit_slabs || [
+      { id: 'sb-slab-1', from_grade: 1, to_grade: 20, percentage: 5 },
+    ]
+  )
+
   const [mobileModal, setMobileModal] = useState(false)
   const [mobileSlabs, setMobileSlabs] = useState(
     initialSalaryConfig.mobile_allowance_slabs || [
@@ -203,6 +210,22 @@ export function AdminSettingsClient({
     setSaving(false)
     setHouseRentModal(false)
     showSuccess('বাড়ি ভাড়া স্ল্যাব কনফিগারেশন সংরক্ষিত হয়েছে।')
+  }
+
+  const handleSaveSpecialBenefitSlabs = async () => {
+    setSaving(true)
+    setErrorMsg(null)
+    const update = { special_benefit_slabs: specialBenefitSlabs }
+    const res = await saveSalaryCodeConfig(update)
+    if (res.error) {
+      setErrorMsg(res.error)
+      setSaving(false)
+      return
+    }
+    setSalaryConfig(prev => ({ ...prev, ...update }))
+    setSaving(false)
+    setSpecialBenefitModal(false)
+    showSuccess('বিশেষ সুবিধা স্ল্যাব কনফিগারেশন সংরক্ষিত হয়েছে।')
   }
 
   const handleSaveMobileSlabs = async () => {
@@ -611,6 +634,10 @@ export function AdminSettingsClient({
           setHouseRentModal={setHouseRentModal}
           slabs={slabs}
           setSlabs={setSlabs}
+          specialBenefitModal={specialBenefitModal}
+          setSpecialBenefitModal={setSpecialBenefitModal}
+          specialBenefitSlabs={specialBenefitSlabs}
+          setSpecialBenefitSlabs={setSpecialBenefitSlabs}
           mobileModal={mobileModal}
           setMobileModal={setMobileModal}
           mobileSlabs={mobileSlabs}
@@ -618,6 +645,7 @@ export function AdminSettingsClient({
           onSaveNumberField={handleSaveNumberField}
           onSaveGradeField={handleSaveGradeField}
           onSaveHouseRentSlabs={handleSaveHouseRentSlabs}
+          onSaveSpecialBenefitSlabs={handleSaveSpecialBenefitSlabs}
           onSaveMobileSlabs={handleSaveMobileSlabs}
           saving={saving}
         />

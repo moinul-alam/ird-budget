@@ -137,7 +137,7 @@ export function BudgetSheetClient({ initialRows, submissionId }: { initialRows: 
       </Card>
 
       <div className="flex items-center justify-between pt-4">
-        <Link href="/office/form-10" className={buttonVariants({ variant: "outline" })}>
+        <Link href="/office/form-12" className={buttonVariants({ variant: "outline" })}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             {strings.previous}
         </Link>

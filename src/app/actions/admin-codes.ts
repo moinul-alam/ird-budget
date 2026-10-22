@@ -320,6 +320,21 @@ export async function deleteEconomicCode(id: number) {
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
   const supabase = createOfficeClient()
+
+  // Integrity Check: Check if any office has entered data or active budget exists for this code
+  const { data: activeEntries } = await supabase
+    .from('budget_sheet')
+    .select('id, auto_value, manual_value')
+    .eq('code_id', id)
+    .or('auto_value.gt.0,manual_value.gt.0')
+    .limit(1)
+
+  if (activeEntries && activeEntries.length > 0) {
+    return {
+      error: 'এই কোডে বিভিন্ন অফিসের সক্রিয় বাজেট তথ্য বিদ্যমান রয়েছে! ডাটার নিরাপত্তার স্বার্থে এটি মুছে ফেলা সম্ভব নয়।'
+    }
+  }
+
   const { error } = await supabase.from('expense_codes').delete().eq('id', id)
   if (error) return { error: error.message }
 
