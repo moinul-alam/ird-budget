@@ -148,3 +148,15 @@ export async function updateOfficeProfile(data: {
 
   return { success: true, cleanName: data.name.trim() }
 }
+
+export async function getOfficeLevelsForType(officeTypeId: number) {
+  const supabase = createOfficeClient()
+  const { data, error } = await supabase
+    .from('admin_office_levels')
+    .select('id, level_name')
+    .eq('office_type_id', officeTypeId)
+    .order('level_order', { ascending: true })
+
+  if (error || !data) return []
+  return data.map((l: any) => ({ id: String(l.id), name: l.level_name }))
+}

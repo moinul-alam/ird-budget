@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { strings } from '@/lib/strings'
 import { toEnglishNumber } from '@/lib/bangla'
-import { searchOffice, getDepartments, getParentOffices, getOfficeTypes, getMinistriesList } from '@/app/actions/office'
+import { searchOffice, getDepartments, getParentOffices, getOfficeTypes, getMinistriesList, getOfficeLevelsForType } from '@/app/actions/office'
 import { loginOffice, registerOffice } from '@/app/actions/auth'
 import { Search, Plus, Check, X, ArrowRight, Lock, Loader2 } from 'lucide-react'
 import Link from 'next/link'
@@ -45,6 +45,8 @@ export function LandingClient() {
   const [selectedDept, setSelectedDept] = useState('')
   const [selectedParent, setSelectedParent] = useState('')
   const [selectedType, setSelectedType] = useState('')
+  const [selectedLevel, setSelectedLevel] = useState('')
+  const [officeLevels, setOfficeLevels] = useState<SelectOption[]>([])
   const [regError, setRegError] = useState<string | null>(null)
   const [password, setPassword] = useState('')
   const [loginError, setLoginError] = useState<string | null>(null)
@@ -131,6 +133,19 @@ export function LandingClient() {
     ])
     setParentOffices(parents)
     setOfficeTypes(types)
+    setSelectedLevel('')
+    setOfficeLevels([])
+  }
+
+
+  // Office type change → load levels
+  const handleTypeChange = async (typeId: string) => {
+    setSelectedType(typeId)
+    setSelectedLevel('')
+    setOfficeLevels([])
+    if (!typeId) return
+    const levels = await getOfficeLevelsForType(parseInt(typeId, 10))
+    setOfficeLevels(levels)
   }
 
   // Filtered departments for selected ministry
@@ -453,13 +468,31 @@ export function LandingClient() {
                       <select
                         id="office_type"
                         value={selectedType}
-                        onChange={(e) => setSelectedType(e.target.value)}
+                        onChange={(e) => handleTypeChange(e.target.value)}
                         disabled={!selectedDept}
                         className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all disabled:opacity-50 text-sm"
                         required
                       >
                         <option value="" disabled>{strings.registration.officeTypePlaceholder}</option>
                         {officeTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      </select>
+                    </div>
+
+                    {/* 3.5 Office Level */}
+                    <div>
+                      <label htmlFor="office_level" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
+                        মাঠ পর্যায়ের অফিসের স্তর <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        id="office_level"
+                        value={selectedLevel}
+                        onChange={(e) => setSelectedLevel(e.target.value)}
+                        disabled={!selectedType}
+                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all disabled:opacity-50 text-sm"
+                        required
+                      >
+                        <option value="" disabled>স্তর নির্বাচন করুন</option>
+                        {officeLevels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
                       </select>
                     </div>
 

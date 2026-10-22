@@ -76,7 +76,7 @@ export interface VehicleRentConfigModalState {
 
 export interface EquipmentModalState {
   open: boolean
-  field: 'computer_price' | 'laptop_price' | 'printer_price' | 'scanner_price' | 'photocopier_price' | null
+  itemId: number | null
   title: string
   price: number
 }

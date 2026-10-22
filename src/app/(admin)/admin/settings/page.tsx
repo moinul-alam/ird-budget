@@ -7,6 +7,7 @@ import {
   getVehicleFuelConfigs,
   getVehicleRentConfigs,
   getUtilityTypes,
+  getItItems,
 } from '@/app/actions/admin-settings'
 import { AdminSettingsClient } from './admin-settings-client'
 
@@ -29,6 +30,7 @@ export default async function AdminSettingsPage() {
     fuelConfigs,
     rentConfigs,
     utilityTypes,
+    itItems,
   ] = await Promise.all([
     getSalaryCodeConfig(),
     getVehicleTypes(),
@@ -36,6 +38,7 @@ export default async function AdminSettingsPage() {
     getVehicleFuelConfigs(),
     getVehicleRentConfigs(),
     getUtilityTypes(),
+    getItItems(),
   ])
 
   return (
@@ -47,6 +50,7 @@ export default async function AdminSettingsPage() {
         initialFuelConfigs={fuelConfigs}
         initialRentConfigs={rentConfigs}
         initialUtilityTypes={utilityTypes}
+        initialItItems={itItems}
       />
     </div>
   )

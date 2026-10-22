@@ -21,7 +21,7 @@ import {
   saveFieldOffice,
   deleteFieldOffice,
 } from '@/app/actions/admin-offices-management'
-import { MinistryItem, DepartmentItem, OfficeTypeHierarchyItem } from '@/app/actions/admin-offices-config'
+import { MinistryItem, DepartmentItem, OfficeTypeHierarchyItem, OfficeLevelItem } from '@/app/actions/admin-offices-config'
 import { FieldOfficeModalState, ConfirmModalState } from './_types/field-offices'
 import { FieldOfficesTable } from './_components/field-offices-table'
 import { FieldOfficeModal } from './_components/field-office-modal'
@@ -32,6 +32,7 @@ interface FieldOfficesClientProps {
   ministries: MinistryItem[]
   departments: DepartmentItem[]
   officeTypes: OfficeTypeHierarchyItem[]
+  officeLevels: OfficeLevelItem[]
 }
 
 export function FieldOfficesClient({
@@ -40,6 +41,7 @@ export function FieldOfficesClient({
   ministries,
   departments,
   officeTypes,
+  officeLevels,
 }: FieldOfficesClientProps) {
   const [fieldOffices, setFieldOffices] = useState<FieldOfficeItem[]>(initialFieldOffices)
   const [isPending, startTransition] = useTransition()
@@ -55,6 +57,7 @@ export function FieldOfficesClient({
     department_id: 0,
     head_office_id: 0,
     office_type_id: 0,
+    office_level_id: 0,
   })
 
   // Delete confirmation modal state
@@ -118,6 +121,7 @@ export function FieldOfficesClient({
       department_id: defaultDeptId,
       head_office_id: defaultHeadId,
       office_type_id: defaultTypeId,
+      office_level_id: 0,
     })
   }
 
@@ -132,6 +136,7 @@ export function FieldOfficesClient({
       department_id: item.department_id,
       head_office_id: item.head_office_id,
       office_type_id: item.office_type_id,
+      office_level_id: 0,
     })
   }
 
@@ -146,6 +151,7 @@ export function FieldOfficesClient({
       department_id: item.department_id,
       head_office_id: item.head_office_id,
       office_type_id: item.office_type_id,
+      office_level_id: 0,
     })
     showStatus(`"${item.name}" থেকে অনুলিপি করা হচ্ছে। নতুন অফিসের নাম ও বাজেট আইডি লিখুন।`, 'success')
   }
@@ -326,6 +332,7 @@ export function FieldOfficesClient({
         modalHeadOffices={modalHeadOffices}
         officeTypes={officeTypes}
         modalOfficeTypes={modalOfficeTypes}
+        officeLevels={officeLevels}
         onSave={handleSave}
         isPending={isPending}
       />

@@ -96,24 +96,22 @@ const DEFAULT_SALARY_CONFIG: SalaryCodeConfig = {
 
 export async function getSalaryCodeConfig(): Promise<SalaryCodeConfig> {
   const supabase = createOfficeClient()
-  const { data: profiles } = await supabase.from('admin_profiles').select('id, username').limit(1)
+  const { data, error } = await supabase
+    .from('admin_rates')
+    .select('value, name')
+    .eq('key', 'salary_config')
+    .maybeSingle()
 
-  if (!profiles || profiles.length === 0) {
+  if (error || !data) {
     return DEFAULT_SALARY_CONFIG
   }
 
-  const root = profiles[0]
-  if (root.username.includes(':::cfg=')) {
-    try {
-      const encoded = root.username.split(':::cfg=')[1].split(':::')[0]
-      const parsed = JSON.parse(decodeURIComponent(encoded))
-      return { ...DEFAULT_SALARY_CONFIG, ...parsed }
-    } catch {
-      return DEFAULT_SALARY_CONFIG
-    }
+  try {
+    const parsed = JSON.parse(data.name)
+    return { ...DEFAULT_SALARY_CONFIG, ...parsed }
+  } catch {
+    return DEFAULT_SALARY_CONFIG
   }
-
-  return DEFAULT_SALARY_CONFIG
 }
 
 export async function saveSalaryCodeConfig(config: Partial<SalaryCodeConfig>) {
@@ -123,32 +121,22 @@ export async function saveSalaryCodeConfig(config: Partial<SalaryCodeConfig>) {
   }
 
   const supabase = createOfficeClient()
-  const { data: profiles } = await supabase.from('admin_profiles').select('*').limit(1)
-  if (!profiles || profiles.length === 0) {
-    return { error: 'অ্যাডমিন প্রোফাইল পাওয়া যায়নি' }
-  }
-
-  const root = profiles[0]
-  let currentConfig = await getSalaryCodeConfig()
+  const currentConfig = await getSalaryCodeConfig()
   const merged = { ...currentConfig, ...config }
+  const configJson = JSON.stringify(merged)
 
-  // Re-encode into root username safely
-  let rawUsername = root.username
-  if (rawUsername.includes(':::cfg=')) {
-    // replace existing cfg segment
-    const parts = rawUsername.split(':::cfg=')
-    const before = parts[0]
-    const afterSegments = parts[1].split(':::').slice(1).join(':::')
-    rawUsername = afterSegments ? `${before}:::${afterSegments}` : before
-  }
-
-  const encodedConfig = encodeURIComponent(JSON.stringify(merged))
-  const newUsername = `${rawUsername}:::cfg=${encodedConfig}`
-
+  // Upsert into admin_rates with key='salary_config'
   const { error } = await supabase
-    .from('admin_profiles')
-    .update({ username: newUsername })
-    .eq('id', root.id)
+    .from('admin_rates')
+    .upsert(
+      {
+        key: 'salary_config',
+        name: configJson,
+        value: 0,
+        unit: 'json',
+      },
+      { onConflict: 'key' }
+    )
 
   if (error) {
     return { error: 'সংরক্ষণ ব্যর্থ হয়েছে: ' + error.message }
@@ -170,19 +158,14 @@ export interface VehicleTypeItem {
 
 export async function getVehicleTypes(): Promise<VehicleTypeItem[]> {
   const supabase = createOfficeClient()
-  const { data, error } = await supabase.from('car_types').select('*').order('id')
+  const { data, error } = await supabase.from('car_types').select('*').order('sort_order', { ascending: true })
   if (error || !data) return []
 
-  return data.map((c: any) => {
-    let name = c.name || ''
-    let order = c.id
-    if (name.includes(':::order=')) {
-      const parts = name.split(':::order=')
-      name = parts[0]
-      order = parseInt(parts[1], 10) || c.id
-    }
-    return { id: c.id, name, order }
-  }).sort((a: any, b: any) => a.order - b.order)
+  return data.map((c: any) => ({
+    id: c.id,
+    name: c.name || '',
+    order: c.sort_order || c.id,
+  }))
 }
 
 export async function saveVehicleType(data: { id?: number; name: string; order?: number }) {
@@ -192,18 +175,17 @@ export async function saveVehicleType(data: { id?: number; name: string; order?:
   const supabase = createOfficeClient()
   const cleanName = data.name.trim()
   const orderNum = data.order || 1
-  const encodedName = `${cleanName}:::order=${orderNum}`
 
   if (data.id) {
     const { error } = await supabase
       .from('car_types')
-      .update({ name: encodedName })
+      .update({ name: cleanName, sort_order: orderNum })
       .eq('id', data.id)
     if (error) return { error: error.message }
   } else {
     const { error } = await supabase
       .from('car_types')
-      .insert({ name: encodedName })
+      .insert({ name: cleanName, sort_order: orderNum })
     if (error) return { error: error.message }
   }
 
@@ -240,33 +222,15 @@ export interface FuelTypeItem {
 
 export async function getFuelTypes(): Promise<FuelTypeItem[]> {
   const supabase = createOfficeClient()
-  const { data, error } = await supabase.from('fuel_types').select('*').order('id')
+  const { data, error } = await supabase.from('fuel_types').select('*').order('sort_order', { ascending: true })
   if (error || !data) return []
 
-  return data.map((f: any) => {
-    let name = f.name || ''
-    let price = 0
-    let order = f.id
-
-    if (name.includes(':::price=')) {
-      const parts = name.split(':::price=')
-      name = parts[0]
-      const rem = parts[1] || ''
-      if (rem.includes(':::order=')) {
-        const [p, o] = rem.split(':::order=')
-        price = parseFloat(p) || 0
-        order = parseInt(o, 10) || f.id
-      } else {
-        price = parseFloat(rem) || 0
-      }
-    } else if (name.includes(':::order=')) {
-      const parts = name.split(':::order=')
-      name = parts[0]
-      order = parseInt(parts[1], 10) || f.id
-    }
-
-    return { id: f.id, name, price, order }
-  }).sort((a: any, b: any) => a.order - b.order)
+  return data.map((f: any) => ({
+    id: f.id,
+    name: f.name || '',
+    price: f.price || 0,
+    order: f.sort_order || f.id,
+  }))
 }
 
 export async function saveFuelType(data: { id?: number; name: string; price: number; order?: number }) {
@@ -277,18 +241,17 @@ export async function saveFuelType(data: { id?: number; name: string; price: num
   const cleanName = data.name.trim()
   const priceVal = data.price || 0
   const orderNum = data.order || 1
-  const encodedName = `${cleanName}:::price=${priceVal}:::order=${orderNum}`
 
   if (data.id) {
     const { error } = await supabase
       .from('fuel_types')
-      .update({ name: encodedName })
+      .update({ name: cleanName, price: priceVal, sort_order: orderNum })
       .eq('id', data.id)
     if (error) return { error: error.message }
   } else {
     const { error } = await supabase
       .from('fuel_types')
-      .insert({ name: encodedName })
+      .insert({ name: cleanName, price: priceVal, sort_order: orderNum })
     if (error) return { error: error.message }
   }
 
@@ -550,6 +513,46 @@ export async function deleteUtilityType(id: number) {
 
   const supabase = createOfficeClient()
   const { error } = await supabase.from('utility_types').delete().eq('id', id)
+  if (error) return { error: error.message }
+
+  revalidatePath('/admin/settings')
+  return { success: true }
+}
+
+// ----------------------------------------------------
+// IT Items (it_items) — Single source of truth for equipment prices
+// ----------------------------------------------------
+
+export interface ItItem {
+  id: number
+  name: string
+  allotted_budget: number
+  has_toner: boolean
+  is_lumpsum: boolean
+}
+
+export async function getItItems(): Promise<ItItem[]> {
+  const supabase = createOfficeClient()
+  const { data, error } = await supabase.from('it_items').select('*').order('id')
+  if (error || !data) return []
+  return data.map((d: any) => ({
+    id: d.id,
+    name: d.name || '',
+    allotted_budget: d.allotted_budget || 0,
+    has_toner: d.has_toner || false,
+    is_lumpsum: d.is_lumpsum || false,
+  }))
+}
+
+export async function saveItItemPrice(id: number, price: number) {
+  const session = await getAdminSession()
+  if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
+
+  const supabase = createOfficeClient()
+  const { error } = await supabase
+    .from('it_items')
+    .update({ allotted_budget: price })
+    .eq('id', id)
   if (error) return { error: error.message }
 
   revalidatePath('/admin/settings')

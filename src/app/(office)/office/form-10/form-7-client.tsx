@@ -35,6 +35,12 @@ export interface Form7ClientProps {
   submissionId: number | null
   equipmentTypes: Array<{ id: number; name: string }>
   initialData: any[]
+  adminPrices: {
+    computer: number
+    printer: number
+    scanner: number
+    photocopier: number
+  }
 }
 
 interface EquipmentCardData {
@@ -103,7 +109,13 @@ export function Form7Client({
   submissionId,
   equipmentTypes,
   initialData,
+  adminPrices,
 }: Form7ClientProps) {
+  // Override hardcoded defaults with admin-set prices
+  const cardConfigs = CARD_CONFIGS.map(c => ({
+    ...c,
+    defaultUnitPrice: adminPrices[c.key] || c.defaultUnitPrice,
+  }))
   // Helper to resolve equipment type id by card aliases
   const getTypeIdForConfig = (config: CardConfig): number | null => {
     const match = equipmentTypes.find((t) =>
@@ -124,7 +136,7 @@ export function Form7Client({
     }
 
     if (initialData && initialData.length > 0) {
-      CARD_CONFIGS.forEach((config) => {
+      cardConfigs.forEach((config) => {
         const typeId = getTypeIdForConfig(config)
         const row = initialData.find((item) =>
           typeId ? item.equipment_type_id === typeId : false
@@ -158,7 +170,7 @@ export function Form7Client({
 
   const activeConfig = useMemo(() => {
     if (!activeModalKey) return null
-    return CARD_CONFIGS.find((c) => c.key === activeModalKey) || null
+    return cardConfigs.find((c) => c.key === activeModalKey) || null
   }, [activeModalKey])
 
   const hasData = (key: EquipmentKey) => {
@@ -219,7 +231,7 @@ export function Form7Client({
   // Delete card handler
   const handleConfirmDelete = () => {
     if (!keyToDelete) return
-    const config = CARD_CONFIGS.find((c) => c.key === keyToDelete)
+    const config = cardConfigs.find((c) => c.key === keyToDelete)
     if (!config) return
 
     setDataMap((prev) => ({
@@ -258,7 +270,7 @@ export function Form7Client({
 
   // 2. কম্পিউটার ও আনুষঙ্গিক: (new computer x predefined price + new printer x predefined price + scanner x predefined price + photocopier x predefined price)
   const computerAccessoriesTotal = useMemo(() => {
-    return CARD_CONFIGS.reduce((sum, config) => {
+    return cardConfigs.reduce((sum, config) => {
       const data = dataMap[config.key]
       const qty = data.required_qty || 0
       return sum + qty * config.defaultUnitPrice
@@ -267,7 +279,7 @@ export function Form7Client({
 
   const handleSaveAll = async () => {
     if (!submissionId) return
-    for (const config of CARD_CONFIGS) {
+    for (const config of cardConfigs) {
       const typeId = getTypeIdForConfig(config)
       if (!typeId) continue
       const data = dataMap[config.key]
@@ -303,7 +315,7 @@ export function Form7Client({
 
         {/* 4 Cards in one line (responsive 1 col on mobile, 2 on md, 4 on lg) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {CARD_CONFIGS.map((config) => {
+          {cardConfigs.map((config) => {
             const data = dataMap[config.key]
             const filled = hasData(config.key)
             const Icon = config.icon

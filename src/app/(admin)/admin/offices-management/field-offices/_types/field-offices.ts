@@ -18,6 +18,7 @@ export interface FieldOfficeModalState {
   department_id: number
   head_office_id: number
   office_type_id: number
+  office_level_id: number
 }
 
 export interface ConfirmModalState {

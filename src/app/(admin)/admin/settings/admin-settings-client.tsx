@@ -31,6 +31,8 @@ import {
   deleteVehicleRentConfigItem,
   saveUtilityType,
   deleteUtilityType,
+  saveItItemPrice,
+  ItItem,
 } from '@/app/actions/admin-settings'
 import {
   AdminSettingsClientProps,
@@ -59,7 +61,8 @@ export function AdminSettingsClient({
   initialFuelConfigs,
   initialRentConfigs,
   initialUtilityTypes,
-}: AdminSettingsClientProps) {
+  initialItItems,
+}: AdminSettingsClientProps & { initialItItems: ItItem[] }) {
   const [activeTab, setActiveTab] = useState<SettingsTabKey>('salaries')
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -71,6 +74,7 @@ export function AdminSettingsClient({
   const [fuelTypes, setFuelTypes] = useState<FuelTypeItem[]>(initialFuelTypes)
   const [fuelConfigs, setFuelConfigs] = useState<VehicleFuelConfigItem[]>(initialFuelConfigs)
   const [rentConfigs, setRentConfigs] = useState<VehicleRentConfigItem[]>(initialRentConfigs)
+  const [itItems, setItItems] = useState<ItItem[]>(initialItItems)
   const [utilityTypes, setUtilityTypes] = useState<UtilityTypeItem[]>(initialUtilityTypes)
 
   // Modals state
@@ -139,7 +143,7 @@ export function AdminSettingsClient({
 
   const [equipModal, setEquipModal] = useState<EquipmentModalState>({
     open: false,
-    field: null,
+    itemId: null,
     title: '',
     price: 0,
   })
@@ -441,19 +445,18 @@ export function AdminSettingsClient({
 
   // Tab 6 handlers
   const handleSaveEquipment = async () => {
-    if (!equipModal.field) return
+    if (!equipModal.itemId) return
     setSaving(true)
     setErrorMsg(null)
-    const update = { [equipModal.field]: equipModal.price }
-    const res = await saveSalaryCodeConfig(update)
+    const res = await saveItItemPrice(equipModal.itemId, equipModal.price)
     if (res.error) {
       setErrorMsg(res.error)
       setSaving(false)
       return
     }
-    setSalaryConfig(prev => ({ ...prev, ...update }))
+    setItItems(prev => prev.map(item => item.id === equipModal.itemId ? { ...item, allotted_budget: equipModal.price } : item))
     setSaving(false)
-    setEquipModal({ open: false, field: null, title: '', price: 0 })
+    setEquipModal({ open: false, itemId: null, title: '', price: 0 })
     showSuccess('সরঞ্জামের দর সংরক্ষিত হয়েছে।')
   }
 
@@ -705,7 +708,7 @@ export function AdminSettingsClient({
       {/* Tab 6: Equipment */}
       {activeTab === 'equipment' && (
         <TabEquipment
-          salaryConfig={salaryConfig}
+          itItems={itItems}
           equipModal={equipModal}
           setEquipModal={setEquipModal}
           onSaveEquipment={handleSaveEquipment}

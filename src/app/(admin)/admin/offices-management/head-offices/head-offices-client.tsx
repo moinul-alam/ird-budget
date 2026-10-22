@@ -37,7 +37,7 @@ import {
   saveHeadOffice,
   deleteHeadOffice,
 } from '@/app/actions/admin-offices-management'
-import { MinistryItem, DepartmentItem, OfficeTypeHierarchyItem } from '@/app/actions/admin-offices-config'
+import { MinistryItem, DepartmentItem, OfficeTypeHierarchyItem, OfficeLevelItem } from '@/app/actions/admin-offices-config'
 import Link from 'next/link'
 
 interface HeadOfficesClientProps {
@@ -45,6 +45,7 @@ interface HeadOfficesClientProps {
   ministries: MinistryItem[]
   departments: DepartmentItem[]
   officeTypes: OfficeTypeHierarchyItem[]
+  officeLevels: OfficeLevelItem[]
 }
 
 export function HeadOfficesClient({
@@ -52,6 +53,7 @@ export function HeadOfficesClient({
   ministries,
   departments,
   officeTypes,
+  officeLevels,
 }: HeadOfficesClientProps) {
   const [headOffices, setHeadOffices] = useState<HeadOfficeItem[]>(initialHeadOffices)
   const [isPending, startTransition] = useTransition()
@@ -67,6 +69,7 @@ export function HeadOfficesClient({
     ministry_id: string
     department_id: number
     office_type_id: number
+    office_level_id: number
   }>({
     open: false,
     name: '',
@@ -74,6 +77,7 @@ export function HeadOfficesClient({
     ministry_id: '',
     department_id: 0,
     office_type_id: 0,
+    office_level_id: 0,
   })
 
   // Delete confirmation modal
@@ -138,6 +142,7 @@ export function HeadOfficesClient({
       ministry_id: defaultMin,
       department_id: defaultDeptId,
       office_type_id: defaultTypeId,
+      office_level_id: 0,
     })
   }
 
@@ -151,6 +156,7 @@ export function HeadOfficesClient({
       ministry_id: item.ministry_id || ministries[0]?.id || '',
       department_id: item.department_id,
       office_type_id: item.office_type_id,
+      office_level_id: item.office_level || 0,
     })
   }
 
@@ -164,6 +170,7 @@ export function HeadOfficesClient({
       ministry_id: item.ministry_id || ministries[0]?.id || '',
       department_id: item.department_id,
       office_type_id: item.office_type_id,
+      office_level_id: item.office_level || 0,
     })
     showStatus(`"${item.name}" থেকে অনুলিপি করা হচ্ছে। অনুগ্রহ করে নতুন হেড অফিসের নাম ও বাজেট আইডি লিখুন।`, 'success')
   }
@@ -563,7 +570,32 @@ export function HeadOfficesClient({
               </Select>
             </div>
 
-            
+            {/* ৪. মাঠ পর্যায়ের অফিসের স্তর */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700">মাঠ পর্যায়ের অফিসের স্তর</Label>
+              <Select
+                value={String(modal.office_level_id || '')}
+                onValueChange={(val) => {
+                  if (val) setModal((prev) => ({ ...prev, office_level_id: parseInt(val, 10) }))
+                }}
+              >
+                <SelectTrigger className="w-full rounded-xl border-slate-200 text-xs h-10">
+                  <SelectValue placeholder="স্তর নির্বাচন করুন">
+                    {officeLevels.find((ol) => String(ol.id) === String(modal.office_level_id))?.level_name || 'স্তর নির্বাচন করুন'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="rounded-xl text-xs">
+                  {officeLevels
+                    .filter((ol) => ol.office_type_id === modal.office_type_id)
+                    .map((ol) => (
+                      <SelectItem key={ol.id} value={String(ol.id)}>
+                        {ol.level_name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* ৫. হেড অফিসের নাম (Typed field) */}
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-700">হেড অফিসের নাম</Label>

@@ -12,170 +12,83 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Monitor, Printer, Scan, Copy, Edit2, Loader2 } from 'lucide-react'
-import { SalaryCodeConfig } from '@/app/actions/admin-settings'
-import { EquipmentModalState } from '../_types/settings'
+import { ItItem } from '@/app/actions/admin-settings'
+
+interface EquipmentModalState {
+  open: boolean
+  itemId: number | null
+  title: string
+  price: number
+}
 
 interface TabEquipmentProps {
-  salaryConfig: SalaryCodeConfig
+  itItems: ItItem[]
   equipModal: EquipmentModalState
   setEquipModal: React.Dispatch<React.SetStateAction<EquipmentModalState>>
   onSaveEquipment: () => Promise<void>
   saving: boolean
 }
 
+const EQUIP_UI = [
+  { keyword: 'computer', label: 'কম্পিউটার', modalTitle: 'প্রতি কম্পিউটারের মূল্য', icon: Monitor, color: 'blue' },
+  { keyword: 'printer', label: 'প্রিন্টার', modalTitle: 'প্রতি প্রিন্টারের মূল্য', icon: Printer, color: 'emerald' },
+  { keyword: 'scanner', label: 'স্ক্যানার', modalTitle: 'প্রতি স্ক্যানারের মূল্য', icon: Scan, color: 'amber' },
+  { keyword: 'accessor', label: 'ফটোকপিয়ার / আনুষঙ্গিক', modalTitle: 'প্রতি ফটোকপিয়ারের মূল্য', icon: Copy, color: 'purple' },
+]
+
 export function TabEquipment({
-  salaryConfig,
+  itItems,
   equipModal,
   setEquipModal,
   onSaveEquipment,
   saving,
 }: TabEquipmentProps) {
+  const findItem = (keyword: string) => itItems.find(i => i.name?.toLowerCase().includes(keyword))
+
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* 1. Computer Card */}
-        <Card className="rounded-2xl border-slate-200/80 bg-white shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="h-1.5 w-full bg-blue-500" />
-          <CardHeader className="pb-3 flex flex-row items-start justify-between">
-            <div>
-              <CardTitle className="text-base font-extrabold text-slate-800">কম্পিউটার</CardTitle>
-              <CardDescription className="text-xs text-slate-500 mt-0.5">প্রতি ইউনিটের প্রাক্কলিত মূল্য</CardDescription>
-            </div>
-            <div className="p-2.5 bg-blue-50 text-blue-600 rounded-xl">
-              <Monitor className="h-6 w-6" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="flex items-baseline justify-between mt-2">
-              <span className="text-3xl font-extrabold text-slate-800 font-mono">
-                {toBanglaAmount(salaryConfig.computer_price)}
-              </span>
-              <span className="text-xs font-semibold text-slate-400">টাকা/একক</span>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEquipModal({
-                open: true,
-                field: 'computer_price',
-                title: 'প্রতি কম্পিউটারের মূল্য',
-                price: salaryConfig.computer_price,
-              })}
-              className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-1.5"
-            >
-              <Edit2 className="h-3.5 w-3.5" />
-              মূল্য পরিবর্তন
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* 2. Printer Card */}
-        <Card className="rounded-2xl border-slate-200/80 bg-white shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="h-1.5 w-full bg-emerald-500" />
-          <CardHeader className="pb-3 flex flex-row items-start justify-between">
-            <div>
-              <CardTitle className="text-base font-extrabold text-slate-800">প্রিন্টার</CardTitle>
-              <CardDescription className="text-xs text-slate-500 mt-0.5">প্রতি ইউনিটের প্রাক্কলিত মূল্য</CardDescription>
-            </div>
-            <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
-              <Printer className="h-6 w-6" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="flex items-baseline justify-between mt-2">
-              <span className="text-3xl font-extrabold text-slate-800 font-mono">
-                {toBanglaAmount(salaryConfig.printer_price)}
-              </span>
-              <span className="text-xs font-semibold text-slate-400">টাকা/একক</span>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEquipModal({
-                open: true,
-                field: 'printer_price',
-                title: 'প্রতি প্রিন্টারের মূল্য',
-                price: salaryConfig.printer_price,
-              })}
-              className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-1.5"
-            >
-              <Edit2 className="h-3.5 w-3.5" />
-              মূল্য পরিবর্তন
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* 3. Scanner Card */}
-        <Card className="rounded-2xl border-slate-200/80 bg-white shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="h-1.5 w-full bg-amber-500" />
-          <CardHeader className="pb-3 flex flex-row items-start justify-between">
-            <div>
-              <CardTitle className="text-base font-extrabold text-slate-800">স্ক্যানার</CardTitle>
-              <CardDescription className="text-xs text-slate-500 mt-0.5">প্রতি ইউনিটের প্রাক্কলিত মূল্য</CardDescription>
-            </div>
-            <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl">
-              <Scan className="h-6 w-6" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="flex items-baseline justify-between mt-2">
-              <span className="text-3xl font-extrabold text-slate-800 font-mono">
-                {toBanglaAmount(salaryConfig.scanner_price)}
-              </span>
-              <span className="text-xs font-semibold text-slate-400">টাকা/একক</span>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEquipModal({
-                open: true,
-                field: 'scanner_price',
-                title: 'প্রতি স্ক্যানারের মূল্য',
-                price: salaryConfig.scanner_price,
-              })}
-              className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-1.5"
-            >
-              <Edit2 className="h-3.5 w-3.5" />
-              মূল্য পরিবর্তন
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* 4. Photocopier Card */}
-        <Card className="rounded-2xl border-slate-200/80 bg-white shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="h-1.5 w-full bg-purple-500" />
-          <CardHeader className="pb-3 flex flex-row items-start justify-between">
-            <div>
-              <CardTitle className="text-base font-extrabold text-slate-800">ফটোকপিয়ার</CardTitle>
-              <CardDescription className="text-xs text-slate-500 mt-0.5">প্রতি ইউনিটের প্রাক্কলিত মূল্য</CardDescription>
-            </div>
-            <div className="p-2.5 bg-purple-50 text-purple-600 rounded-xl">
-              <Copy className="h-6 w-6" />
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="flex items-baseline justify-between mt-2">
-              <span className="text-3xl font-extrabold text-slate-800 font-mono">
-                {toBanglaAmount(salaryConfig.photocopier_price)}
-              </span>
-              <span className="text-xs font-semibold text-slate-400">টাকা/একক</span>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEquipModal({
-                open: true,
-                field: 'photocopier_price',
-                title: 'প্রতি ফটোকপিয়ারের মূল্য',
-                price: salaryConfig.photocopier_price,
-              })}
-              className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-1.5"
-            >
-              <Edit2 className="h-3.5 w-3.5" />
-              মূল্য পরিবর্তন
-            </Button>
-          </CardContent>
-        </Card>
+        {EQUIP_UI.map((ui) => {
+          const item = findItem(ui.keyword)
+          const price = item?.allotted_budget || 0
+          const Icon = ui.icon
+          return (
+            <Card key={ui.keyword} className="rounded-2xl border-slate-200/80 bg-white shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
+              <div className={`h-1.5 w-full bg-${ui.color}-500`} />
+              <CardHeader className="pb-3 flex flex-row items-start justify-between">
+                <div>
+                  <CardTitle className="text-base font-extrabold text-slate-800">{ui.label}</CardTitle>
+                  <CardDescription className="text-xs text-slate-500 mt-0.5">প্রতি ইউনিটের প্রাক্কলিত মূল্য</CardDescription>
+                </div>
+                <div className={`p-2.5 bg-${ui.color}-50 text-${ui.color}-600 rounded-xl`}>
+                  <Icon className="h-6 w-6" />
+                </div>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="flex items-baseline justify-between mt-2">
+                  <span className="text-3xl font-extrabold text-slate-800 font-mono">
+                    {toBanglaAmount(price)}
+                  </span>
+                  <span className="text-xs font-semibold text-slate-400">টাকা/একক</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEquipModal({
+                    open: true,
+                    itemId: item?.id || null,
+                    title: ui.modalTitle,
+                    price: price,
+                  })}
+                  className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-1.5"
+                >
+                  <Edit2 className="h-3.5 w-3.5" />
+                  মূল্য পরিবর্তন
+                </Button>
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
 
       {/* Equipment Price Modal */}

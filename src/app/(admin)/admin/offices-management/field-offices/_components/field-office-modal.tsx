@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select'
 import { Loader2 } from 'lucide-react'
 import { HeadOfficeItem } from '@/app/actions/admin-offices-management'
-import { MinistryItem, DepartmentItem, OfficeTypeHierarchyItem } from '@/app/actions/admin-offices-config'
+import { MinistryItem, DepartmentItem, OfficeTypeHierarchyItem, OfficeLevelItem } from '@/app/actions/admin-offices-config'
 import { FieldOfficeModalState } from '../_types/field-offices'
 
 interface FieldOfficeModalProps {
@@ -33,6 +33,7 @@ interface FieldOfficeModalProps {
   modalHeadOffices: HeadOfficeItem[]
   officeTypes: OfficeTypeHierarchyItem[]
   modalOfficeTypes: OfficeTypeHierarchyItem[]
+  officeLevels: OfficeLevelItem[]
   onSave: () => void
   isPending: boolean
 }
@@ -47,6 +48,7 @@ export function FieldOfficeModal({
   modalHeadOffices,
   officeTypes,
   modalOfficeTypes,
+  officeLevels,
   onSave,
   isPending,
 }: FieldOfficeModalProps) {
@@ -173,6 +175,32 @@ export function FieldOfficeModal({
                     {ot.name} (লেভেল {toBanglaNumber(ot.hierarchy_order)})
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* ৪.৫ মাঠ পর্যায়ের অফিসের স্তর */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold text-slate-700">মাঠ পর্যায়ের অফিসের স্তর</Label>
+            <Select
+              value={String(modal.office_level_id || '')}
+              onValueChange={(val) => {
+                if (val) setModal((prev) => ({ ...prev, office_level_id: parseInt(val, 10) }))
+              }}
+            >
+              <SelectTrigger className="w-full rounded-xl border-slate-200 text-xs h-10">
+                <SelectValue placeholder="স্তর নির্বাচন করুন">
+                  {officeLevels.find((ol) => String(ol.id) === String(modal.office_level_id))?.level_name || 'স্তর নির্বাচন করুন'}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent className="rounded-xl text-xs">
+                {officeLevels
+                  .filter((ol) => ol.office_type_id === modal.office_type_id)
+                  .map((ol) => (
+                    <SelectItem key={ol.id} value={String(ol.id)}>
+                      {ol.level_name} (স্তর {toBanglaNumber(ol.level_order)})
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>
