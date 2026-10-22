@@ -17,14 +17,18 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
     { data: vehicles },
     { data: vehicleRent },
     { data: returnInfo },
+    { data: itEquipment },
+    { data: submission },
   ] = await Promise.all([
     supabase.from('form_staff').select('*').eq('submission_id', submissionId),
     supabase.from('form_leave').select('*').eq('submission_id', submissionId).maybeSingle(),
     supabase.from('form_utility').select('*, utility_type:utility_type_id(name)').eq('submission_id', submissionId),
     supabase.from('form_house_rent').select('*').eq('submission_id', submissionId).maybeSingle(),
-    supabase.from('form_vehicles').select('*, fuel_config:vehicle_fuel_config_id(rate_key)').eq('submission_id', submissionId),
+    supabase.from('form_vehicles').select('*, fuel_config:vehicle_fuel_config_id(rate_key, fuel_type:fuel_type_id(name))').eq('submission_id', submissionId),
     supabase.from('form_vehicle_rent').select('*, rent_config:vehicle_rent_config_id(monthly_allowance)').eq('submission_id', submissionId),
     supabase.from('form_return_info').select('*').eq('submission_id', submissionId).maybeSingle(),
+    supabase.from('form_it_equipment').select('*, equipment_type:equipment_type_id(name)').eq('submission_id', submissionId),
+    supabase.from('submissions').select('office_id, offices(office_type_id, office_types(name))').eq('id', submissionId).maybeSingle(),
   ])
 
   // Get rates (in a real app, this might be filtered by cycle_id or just all active rates)
@@ -35,6 +39,9 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
       rates[r.key] = Number(r.value)
     }
   }
+
+  // Office type name
+  const officeTypeName: string = (submission as any)?.offices?.office_types?.name || ''
 
   // Format Staff
   const formattedStaff = (staff || []).map((s: any) => ({
@@ -68,6 +75,7 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
   // Format Vehicles
   const formattedVehicles = (vehicles || []).map((v: any) => ({
     rate_key: v.fuel_config?.rate_key || null,
+    fuel_name: v.fuel_config?.fuel_type?.name || '',
     count: Number(v.count),
     monthly_fuel_allowance: Number(v.monthly_fuel_allowance || 0),
     annual_lube_allowance: Number(v.annual_lube_allowance || 0),
@@ -81,7 +89,15 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
     monthly_rent_allowance: Number(v.rent_config?.monthly_allowance || 0),
   }))
 
+  // Format IT Equipment
+  const formattedITEquipment = (itEquipment || []).map((eq: any) => ({
+    equipment_name: eq.equipment_type?.name || '',
+    existing_count: Number(eq.existing_count || 0),
+    toner_cost: Number(eq.toner_cost || 0),
+  }))
+
   return {
+    officeTypeName,
     staff: formattedStaff,
     newStaff: formattedNewStaff,
     leave: leave ? {
@@ -99,6 +115,7 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
     returnInfo: returnInfo ? {
       return_submitted_count: Number(returnInfo.return_submitted_count),
     } : null,
+    itEquipment: formattedITEquipment,
     rates,
   }
 }

@@ -27,8 +27,10 @@ export interface BudgetContext {
     monthly_bill: number;
     due: number;
   } | null;
+  officeTypeName?: string;
   vehicles: Array<{
     rate_key: string | null; // e.g., 'fuel_price_octane', 'fuel_price_diesel', 'fuel_price_cng'
+    fuel_name?: string; // e.g., 'অকটেন', 'পেট্রোল', 'ডিজেল', 'সিএনজি'
     count: number;
     monthly_fuel_allowance: number;
     annual_lube_allowance: number;
@@ -42,6 +44,11 @@ export interface BudgetContext {
   returnInfo: {
     return_submitted_count: number;
   } | null;
+  itEquipment?: Array<{
+    equipment_name: string;
+    existing_count: number;
+    toner_cost: number;
+  }>;
   rates: Record<string, number>;
 }
 
@@ -75,6 +82,13 @@ export const codeFormulas: Record<string, (ctx: BudgetContext) => number> = {
   // ছুটি নগদায়ন বেতন (কর্মচারী)
   '3111209': (ctx) => num(ctx.leave?.leave_encashment_staff_basic),
 
+  // শিক্ষা ভাতা (total staff * 2 (max number of child) * default rate * 12 months)
+  '3111306': (ctx) => {
+    const totalStaff = ctx.staff.reduce((s, r) => s + int(r.count), 0);
+    const childRate = ctx.rates.education_allowance || 500;
+    return totalStaff * 2 * childRate * 12;
+  },
+
   // বাড়ি ভাড়া ভাতা
   '3111310': (ctx) => {
     const totalBasicAll = ctx.staff.reduce((s, r) => s + num(r.total_basic), 0);
@@ -93,29 +107,33 @@ export const codeFormulas: Record<string, (ctx: BudgetContext) => number> = {
     return totalBasicAll * (ctx.rates.festival_bonus_multiplier || 0);
   },
 
-  // শ্রান্তি ও বিনোদন ভাতা
+  // শ্রান্তি ও বিনোদন ভাতা (Manual entry from form - leave blank or direct form value)
   '3111328': (ctx) => num(ctx.leave?.rest_recreation_amount),
 
-  // বিদ্যুৎ
+  // বিদ্যুৎ (Manual entry)
   '3211113': (ctx) => {
     const row = ctx.utilities.find((u) => u.type_name === 'বিদ্যুৎ');
     return num(row?.annual_cost);
   },
   
-  // পানি
+  // পানি (Manual entry)
   '3211115': (ctx) => {
     const row = ctx.utilities.find((u) => u.type_name === 'পানি');
     return num(row?.annual_cost);
   },
   
-  // ইন্টারনেট/ফ্যাক্স/টেলেক্স
+  // ইন্টারনেট/ফ্যাক্স/টেলেক্স (Manual entry)
   '3211117': (ctx) => {
     const row = ctx.utilities.find((u) => u.type_name === 'ইন্টারনেট');
     return num(row?.annual_cost);
   },
 
-  // ডাক
+  // ডাক (valid only for কর সার্কেল, kept open/0 for other offices)
   '3211119': (ctx) => {
+    const isTaxCircle = ctx.officeTypeName?.includes('সার্কেল') || ctx.officeTypeName?.includes('কর সার্কেল');
+    if (!isTaxCircle && ctx.officeTypeName) {
+      return 0; // open for manual entry for other offices
+    }
     return int(ctx.returnInfo?.return_submitted_count) * (ctx.rates.postal_expense_rate || 0);
   },
 
@@ -127,10 +145,15 @@ export const codeFormulas: Record<string, (ctx: BudgetContext) => number> = {
     return monthly * 12 * (1 + vatPct / 100) + due;
   },
 
-  // পেট্রোল, অয়েল ও লুব্রিকেন্ট
+  // পেট্রোল, অয়েল ও লুব্রিকেন্ট (any oil: petrol, octane, diesel - anything other than gas)
   '3243301': (ctx) => {
     return ctx.vehicles
-      .filter((v) => v.rate_key === 'fuel_price_octane')
+      .filter((v) => {
+        const key = (v.rate_key || '').toLowerCase();
+        const fname = (v.fuel_name || '').toLowerCase();
+        const isGas = key.includes('cng') || key.includes('gas') || fname.includes('সিএনজি') || fname.includes('গ্যাস');
+        return !isGas; // All oil vehicles (octane, petrol, diesel)
+      })
       .reduce((sum, v) => {
         const fuelRate = ctx.rates[v.rate_key!] || 0;
         const monthlyFuel = num(v.monthly_fuel_allowance) * fuelRate;
@@ -140,10 +163,14 @@ export const codeFormulas: Record<string, (ctx: BudgetContext) => number> = {
       }, 0);
   },
 
-  // গ্যাস ও জ্বালানী
+  // গ্যাস ও জ্বালানী (only gas, no oil)
   '3243302': (ctx) => {
     return ctx.vehicles
-      .filter((v) => v.rate_key === 'fuel_price_diesel' || v.rate_key === 'fuel_price_cng')
+      .filter((v) => {
+        const key = (v.rate_key || '').toLowerCase();
+        const fname = (v.fuel_name || '').toLowerCase();
+        return key.includes('cng') || key.includes('gas') || fname.includes('সিএনজি') || fname.includes('গ্যাস');
+      })
       .reduce((sum, v) => {
         const fuelRate = ctx.rates[v.rate_key!] || 0;
         const monthlyFuel = num(v.monthly_fuel_allowance) * fuelRate;
@@ -160,7 +187,25 @@ export const codeFormulas: Record<string, (ctx: BudgetContext) => number> = {
     }, 0);
   },
 
-  // মোটরযান রক্ষণারবক্ষণ ব্যয়
+  // কম্পিউটার সামগ্রী (number of printers * toner price * 12)
+  '3255101': (ctx) => {
+    const printers = (ctx.itEquipment || []).filter((eq) =>
+      eq.equipment_name.toLowerCase().includes('printer') || eq.equipment_name.includes('প্রিন্টার')
+    );
+    return printers.reduce((sum, p) => {
+      return sum + int(p.existing_count) * num(p.toner_cost) * 12;
+    }, 0);
+  },
+
+  // মোটরযান (number of vehicle * yearly maintenance)
+  '3258101': (ctx) => {
+    return ctx.vehicles.reduce((sum, v) => {
+      const maint = num(v.annual_maintenance_allowance);
+      return sum + maint * int(v.count) + num(v.maintenance_cost);
+    }, 0);
+  },
+
+  // মোটরযান রক্ষণারবক্ষণ ব্যয় (alias for 3258101)
   '3258140': (ctx) => {
     return ctx.vehicles.reduce((sum, v) => {
       const maint = num(v.annual_maintenance_allowance);
