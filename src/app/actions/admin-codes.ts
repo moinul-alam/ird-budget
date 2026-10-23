@@ -23,54 +23,21 @@ export interface ExpenseCodeFullItem {
   enabled?: boolean
 }
 
-const DEFAULT_CATEGORIES: BudgetCategoryItem[] = [
-  { id: 'cat-3111', code: '3111', title: 'নগদ মজুরি ও বেতন', hierarchy_order: 1 },
-  { id: 'cat-3211', code: '3211', title: 'প্রশাসনিক ব্যয়', hierarchy_order: 2 },
-  { id: 'cat-3243', code: '3243', title: 'পেট্রোল, অয়েল ও লুব্রিকেন্ট', hierarchy_order: 3 },
-  { id: 'cat-3244', code: '3244', title: 'ভ্রমণ ও বদলি', hierarchy_order: 4 },
-  { id: 'cat-3255', code: '3255', title: 'মুদ্রণ ও মনিহারি', hierarchy_order: 5 },
-  { id: 'cat-3256', code: '3256', title: 'সাধারণ সরবরাহ ও কাঁচামাল', hierarchy_order: 6 },
-  { id: 'cat-3258', code: '3258', title: 'মেরামত ও সংরক্ষণ', hierarchy_order: 7 },
-  { id: 'cat-3821', code: '3821', title: 'আবর্তক স্থানান্তর', hierarchy_order: 8 },
-  { id: 'cat-4112', code: '4112', title: 'যন্ত্রপাতি ও সরঞ্জামাদি', hierarchy_order: 9 },
-]
-
 // -------------------------------------------------------------------
-// CATEGORIES (stored in ref_economic_codes.category field)
+// CATEGORIES (ref_budget_categories)
 // -------------------------------------------------------------------
 export async function getBudgetCategories(): Promise<BudgetCategoryItem[]> {
-  // Get unique categories from economic codes
-  const codes = await prisma.refEconomicCode.findMany({
-    where: { category: { not: null } },
-    select: { category: true },
-    distinct: ['category'],
+  const categories = await prisma.refBudgetCategory.findMany({
+    where: { isActive: true },
+    orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
   })
 
-  if (codes.length === 0) {
-    return DEFAULT_CATEGORIES
-  }
-
-  // Map categories to budget categories
-  const categoryNameMap: Record<string, string> = {
-    'Salary': 'নগদ মজুরি ও বেতন',
-    'Admin': 'প্রশাসনিক ব্যয়',
-    'Fuel': 'পেট্রোল, অয়েল ও লুব্রিকেন্ট',
-    'Travel': 'ভ্রমণ ও বদলি',
-    'Printing': 'মুদ্রণ ও মনিহারি',
-    'Supply': 'সাধারণ সরবরাহ ও কাঁচামাল',
-    'Maintenance': 'মেরামত ও সংরক্ষণ',
-    'Transfer': 'আবর্তক স্থানান্তর',
-    'Equipment': 'যন্ত্রপাতি ও সরঞ্জামাদি',
-  }
-
-  return codes
-    .map((c, idx) => ({
-      id: `cat-${c.category}`,
-      code: c.category || 'OTHER',
-      title: categoryNameMap[c.category || ''] || c.category || 'অন্যান্য ব্যয়',
-      hierarchy_order: idx + 1,
-    }))
-    .sort((a, b) => a.hierarchy_order - b.hierarchy_order)
+  return categories.map((c, idx) => ({
+    id: String(c.id),
+    code: c.code,
+    title: c.title,
+    hierarchy_order: c.sortOrder || idx + 1,
+  }))
 }
 
 export async function saveBudgetCategory(data: {
@@ -78,21 +45,62 @@ export async function saveBudgetCategory(data: {
   code: string
   title: string
   hierarchy_order: number
-}) {
+}): Promise<{ success?: true; error?: string; category?: BudgetCategoryItem }> {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
-  // Categories are derived from ref_economic_codes.category
-  // This is a no-op in the new schema - categories are managed via economic codes
-  return { error: 'ক্যাটাগরি পরিচালনা অর্থনৈতিক কোডের মাধ্যমে করুন' }
+  const code = data.code.trim()
+  const title = data.title.trim()
+  if (!code || !title) return { error: 'ক্যাটাগরি কোড ও নাম আবশ্যক' }
+
+  try {
+    const row = data.id
+      ? await prisma.refBudgetCategory.update({
+        where: { id: BigInt(data.id) },
+        data: { code, title, sortOrder: data.hierarchy_order || 1 },
+      })
+      : await prisma.refBudgetCategory.create({
+        data: { code, title, sortOrder: data.hierarchy_order || 1 },
+      })
+
+    revalidatePath('/admin/codes')
+    return {
+      success: true,
+      category: {
+        id: String(row.id),
+        code: row.code,
+        title: row.title,
+        hierarchy_order: row.sortOrder,
+      },
+    }
+  } catch (error) {
+    if ((error as { code?: string }).code === 'P2002') {
+      return { error: `ক্যাটাগরি কোড ${code} ইতিমধ্যে ব্যবহৃত` }
+    }
+    return { error: (error as Error).message }
+  }
 }
 
-export async function deleteBudgetCategory(id: string) {
+export async function deleteBudgetCategory(
+  id: string
+): Promise<{ success?: true; error?: string }> {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
-  // Categories are derived from ref_economic_codes.category
-  return { error: 'ক্যাটাগরি পরিচালনা অর্থনৈতিক কোডের মাধ্যমে করুন' }
+  try {
+    // Integrity Check: a category still referenced by economic codes must not vanish
+    const assigned = await prisma.refEconomicCode.count({ where: { categoryId: BigInt(id) } })
+    if (assigned > 0) {
+      return { error: `এই ক্যাটাগরির অধীনে ${assigned} টি অর্থনৈতিক কোড রয়েছে — আগে সেগুলো সরান` }
+    }
+
+    await prisma.refBudgetCategory.delete({ where: { id: BigInt(id) } })
+
+    revalidatePath('/admin/codes')
+    return { success: true }
+  } catch (error) {
+    return { error: (error as Error).message }
+  }
 }
 
 // -------------------------------------------------------------------
@@ -115,13 +123,14 @@ async function getLevelEnabledCodeIds(officeLevelId: string): Promise<Set<number
 }
 
 export async function getExpenseCodesWithCategoryAndMapping(
-  officeTypeId: number,
+  officeTypeId: string,
   officeLevelId?: string
 ) {
   // Fetch all economic codes
   const codes = await prisma.refEconomicCode.findMany({
     where: { isActive: true },
     orderBy: { sortOrder: 'asc' },
+    include: { category: { select: { code: true, title: true } } },
   })
 
   let enabledCodeIds = new Set<number>()
@@ -133,34 +142,17 @@ export async function getExpenseCodesWithCategoryAndMapping(
     enabledCodeIds = new Set(codes.map((c) => Number(c.id)))
   }
 
-  const categoryNameMap: Record<string, string> = {
-    '3111': 'নগদ মজুরি ও বেতন',
-    '3211': 'প্রশাসনিক ব্যয়',
-    '3243': 'পেট্রোল, অয়েল ও লুব্রিকেন্ট',
-    '3244': 'ভ্রমণ ও বদলি',
-    '3255': 'মুদ্রণ ও মনিহারি',
-    '3256': 'সাধারণ সরবরাহ ও কাঁচামাল',
-    '3258': 'মেরামত ও সংরক্ষণ',
-    '3821': 'আবর্তক স্থানান্তর',
-    '4112': 'যন্ত্রপাতি ও সরঞ্জামাদি',
-  }
-
-  const list: ExpenseCodeFullItem[] = codes.map((c) => {
-    const pCode = c.code ? c.code.substring(0, 4) : ''
-    const pTitle = c.category || categoryNameMap[pCode] || 'অন্যান্য ব্যয়'
-
-    return {
-      id: Number(c.id),
-      code: c.code,
-      name: c.name,
-      parent_code: pCode,
-      parent_title: pTitle,
-      hierarchy_order: c.sortOrder || 0,
-      formula_key: c.formulaKey,
-      is_manual: c.isManual,
-      enabled: enabledCodeIds.has(Number(c.id)),
-    }
-  })
+  const list: ExpenseCodeFullItem[] = codes.map((c) => ({
+    id: Number(c.id),
+    code: c.code,
+    name: c.name,
+    parent_code: c.category?.code ?? '',
+    parent_title: c.category?.title ?? 'ক্যাটাগরি নির্ধারিত নয়',
+    hierarchy_order: c.sortOrder || 0,
+    formula_key: c.formulaKey,
+    is_manual: c.isManual,
+    enabled: enabledCodeIds.has(Number(c.id)),
+  }))
 
   return {
     codes: list,
@@ -173,7 +165,6 @@ export async function saveEconomicCode(data: {
   code: string
   name: string
   parent_code: string
-  parent_title: string
   hierarchy_order: number
 }) {
   const session = await getAdminSession()
@@ -184,13 +175,19 @@ export async function saveEconomicCode(data: {
   if (!trimmedCode || !trimmedName) return { error: 'কোড ও বিবরণ আবশ্যক' }
 
   try {
+    const category = await prisma.refBudgetCategory.findUnique({
+      where: { code: data.parent_code.trim() },
+      select: { id: true },
+    })
+    if (!category) return { error: 'নির্বাচিত ক্যাটাগরি পাওয়া যায়নি' }
+
     if (data.id) {
       await prisma.refEconomicCode.update({
         where: { id: BigInt(data.id) },
         data: {
           code: trimmedCode,
           name: trimmedName,
-          category: data.parent_code,
+          categoryId: category.id,
           sortOrder: data.hierarchy_order || 1,
         },
       })
@@ -199,7 +196,7 @@ export async function saveEconomicCode(data: {
         data: {
           code: trimmedCode,
           name: trimmedName,
-          category: data.parent_code,
+          categoryId: category.id,
           sortOrder: data.hierarchy_order || 1,
           isManual: true,
           isActive: true,
@@ -250,7 +247,7 @@ export async function deleteEconomicCode(id: number) {
 }
 
 export async function toggleCodeForOfficeType(
-  officeTypeId: number,
+  officeTypeId: string,
   codeId: number,
   enable: boolean,
   officeLevelId?: string
@@ -287,7 +284,7 @@ export async function toggleCodeForOfficeType(
 }
 
 export async function toggleBulkCodesForOfficeType(
-  officeTypeId: number,
+  officeTypeId: string,
   codeIds: number[],
   enable: boolean,
   officeLevelId?: string

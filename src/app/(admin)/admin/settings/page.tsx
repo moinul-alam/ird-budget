@@ -4,10 +4,10 @@ import {
   getSalaryCodeConfig,
   getVehicleTypes,
   getFuelTypes,
-  getVehicleFuelConfigs,
+  getVehicleConfigs,
   getVehicleRentConfigs,
   getUtilityTypes,
-  getItItems,
+  getItEquipmentTypes,
 } from '@/app/actions/admin-settings'
 import { AdminSettingsClient } from './admin-settings-client'
 
@@ -35,10 +35,10 @@ export default async function AdminSettingsPage() {
     getSalaryCodeConfig(),
     getVehicleTypes(),
     getFuelTypes(),
-    getVehicleFuelConfigs(),
+    getVehicleConfigs(),
     getVehicleRentConfigs(),
     getUtilityTypes(),
-    getItItems(),
+    getItEquipmentTypes(),
   ])
 
   return (

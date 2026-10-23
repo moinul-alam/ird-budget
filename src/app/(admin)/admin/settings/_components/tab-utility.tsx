@@ -75,7 +75,7 @@ export function TabUtility({
                   utilityTypes.map((u, idx) => (
                     <tr key={u.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="px-6 py-4 font-mono font-bold text-slate-500">
-                        {toBanglaNumber(u.order || idx + 1)}
+                        {toBanglaNumber(idx + 1)}
                       </td>
                       <td className="px-6 py-4 font-bold text-slate-800">
                         {u.name}
@@ -84,7 +84,7 @@ export function TabUtility({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setUtilityModal({ open: true, id: u.id, name: u.name, order: u.order })}
+                          onClick={() => setUtilityModal({ open: true, id: u.id, name: u.name, order: idx + 1 })}
                           className="rounded-xl border-slate-200 text-xs font-semibold"
                         >
                           <Edit2 className="h-3 w-3 mr-1" />

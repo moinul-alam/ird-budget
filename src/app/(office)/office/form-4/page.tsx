@@ -1,11 +1,10 @@
-import { createOfficeClient } from '@/lib/supabase/server'
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { getFormNewStaffRows, NewStaffRecord } from '@/app/actions/forms'
 import { Form4Client } from './form-4-client'
+import { loadSubmissionFiscalYear } from '@/lib/office/load-form-data'
 
 export default async function Form4Page() {
-  const supabase = createOfficeClient()
   const session = await getOfficeSession()
   if (!session) redirect('/')
 
@@ -16,18 +15,8 @@ export default async function Form4Page() {
 
   if (submissionId) {
     initialData = await getFormNewStaffRows(submissionId)
-
-    // Retrieve fiscal year from cycle
-    const { data: sub } = await supabase
-      .from('office_submissions')
-      .select('cycle_id, core_budget_cycles(fiscal_year)')
-      .eq('id', submissionId)
-      .maybeSingle()
-    
-    const cy = (sub as any)?.core_budget_cycles
-    if (cy?.fiscal_year) {
-      fiscalYear = cy.fiscal_year.split(':::')[0]
-    }
+    const fy = await loadSubmissionFiscalYear(submissionId)
+    if (fy) fiscalYear = fy
   }
 
   return (

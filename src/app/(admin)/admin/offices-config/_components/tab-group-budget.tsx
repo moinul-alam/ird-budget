@@ -100,8 +100,8 @@ export function TabGroupBudget({
                   const firstLevel = officeLevels.filter((lvl) => lvl.office_type_id === firstOt?.id).sort((a, b) => a.level_order - b.level_order)[0]
                   setGroupModal({
                     open: true,
-                    department_id: firstOt?.department_id || 0,
-                    office_type_id: firstOt?.id || 0,
+                    department_id: firstOt?.department_id?.toString() || '',
+                    office_type_id: firstOt?.id?.toString() || '',
                     office_level_id: firstLevel?.id || '',
                     is_group_budget: true,
                   })
@@ -153,8 +153,8 @@ export function TabGroupBudget({
                     setGroupModal({
                       open: true,
                       id: undefined,
-                      department_id: firstOt?.department_id || 0,
-                      office_type_id: firstOt?.id || 0,
+                      department_id: firstOt?.department_id?.toString() || '',
+                      office_type_id: firstOt?.id?.toString() || '',
                       office_level_id: firstLevel?.id || '',
                       is_group_budget: true,
                     })
@@ -270,14 +270,13 @@ export function TabGroupBudget({
                 value={String(groupModal.office_type_id || '')}
                 onValueChange={(val) => {
                   if (val) {
-                    const otId = parseInt(val, 10)
-                    const selectedOt = officeTypes.find((ot) => ot.id === otId)
+                    const selectedOt = officeTypes.find((ot) => ot.id === val)
                     const matchingLevels = officeLevels
-                      .filter((lvl) => lvl.office_type_id === otId)
+                      .filter((lvl) => lvl.office_type_id === val)
                       .sort((a, b) => a.level_order - b.level_order)
                     setGroupModal((prev) => ({
                       ...prev,
-                      office_type_id: otId,
+                      office_type_id: val,
                       office_level_id: matchingLevels[0]?.id || '',
                       department_id: selectedOt?.department_id || prev.department_id,
                     }))

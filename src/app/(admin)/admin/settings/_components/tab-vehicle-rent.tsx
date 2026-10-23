@@ -2,8 +2,6 @@
 
 import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import {
   Dialog,
@@ -12,14 +10,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Plus, Edit2, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Edit2, Trash2 } from 'lucide-react'
 import { VehicleTypeItem, VehicleRentConfigItem } from '@/app/actions/admin-settings'
 import { VehicleRentConfigModalState } from '../_types/settings'
 
@@ -53,11 +44,7 @@ export function TabVehicleRent({
             </CardDescription>
           </div>
           <Button
-            onClick={() => setVrcModal({
-              open: true,
-              carTypeId: vehicleTypes[0] ? String(vehicleTypes[0].id) : '',
-              monthlyRent: 0,
-            })}
+            disabled
             className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
           >
             <Plus className="h-4 w-4" />
@@ -89,33 +76,26 @@ export function TabVehicleRent({
                         {toBanglaNumber(idx + 1)}
                       </td>
                       <td className="px-6 py-4 font-bold text-slate-800">
-                        {rc.car_name}
+                        কনফিগারেশন প্রয়োজন
                       </td>
                       <td className="px-6 py-4 font-mono font-bold text-emerald-700">
-                        {toBanglaAmount(rc.monthly_rent_allowance)} টাকা
+                        {toBanglaAmount(rc.monthly_rent_rate)} টাকা
                       </td>
                       <td className="px-6 py-4 text-right space-x-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setVrcModal({
-                            open: true,
-                            id: rc.id,
-                            carTypeId: String(rc.car_type_id),
-                            monthlyRent: rc.monthly_rent_allowance,
-                          })}
+                          disabled
                           className="rounded-xl border-slate-200 text-xs font-semibold"
                         >
-                          <Edit2 className="h-3.5 w-3.5 text-slate-600 mr-1" />
                           সম্পাদনা
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => onDeleteVrc(rc.id)}
+                          disabled
                           className="rounded-xl border-rose-200 hover:bg-rose-50 text-xs font-semibold text-rose-600"
                         >
-                          <Trash2 className="h-3.5 w-3.5 mr-1" />
                           মুছুন
                         </Button>
                       </td>
@@ -134,49 +114,15 @@ export function TabVehicleRent({
           <DialogContent className="sm:max-w-md rounded-3xl p-6">
             <DialogHeader className="pb-3 border-b border-slate-100">
               <DialogTitle className="text-xl font-extrabold text-slate-800">
-                {vrcModal.id ? 'ভাড়া সিলিং সম্পাদনা' : 'নতুন গাড়ি ভাড়া সিলিং'}
+                কনফিগারেশন প্রয়োজন
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-3">
-              <div className="space-y-2">
-                <Label className="text-sm font-bold text-slate-700">যানবাহন নির্বাচন করুন</Label>
-                <Select
-                  value={vrcModal.carTypeId}
-                  onValueChange={(v) => setVrcModal(prev => ({ ...prev, carTypeId: v || '' }))}
-                >
-                  <SelectTrigger className="w-full rounded-xl">
-                    <SelectValue placeholder="যানবাহন নির্বাচন করুন">
-                      {vehicleTypes.find(c => String(c.id) === vrcModal.carTypeId)?.name}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vehicleTypes.map(c => (
-                      <SelectItem key={c.id} value={String(c.id)}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-bold text-slate-700">মাসিক সর্বোচ্চ ভাড়া (টাকা)</Label>
-                <Input
-                  type="number"
-                  placeholder="যেমন: ৫০০০০"
-                  value={vrcModal.monthlyRent}
-                  onChange={(e) => setVrcModal(prev => ({ ...prev, monthlyRent: parseFloat(e.target.value) || 0 }))}
-                  className="rounded-xl border-slate-200 font-mono"
-                />
-              </div>
+              <p className="text-sm text-slate-600">এই ফিচারটি বর্তমানে উপলব্য নেই। অনুগ্রহ করে পরে কনফিগার করুন।</p>
             </div>
-            <DialogFooter className="pt-3 border-t border-slate-100 flex gap-2 sm:justify-end">
-              <Button variant="outline" onClick={() => setVrcModal(prev => ({ ...prev, open: false }))} className="rounded-xl">
-                বাতিল
-              </Button>
-              <Button onClick={onSaveVrc} disabled={saving} className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
-                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
-                সংরক্ষণ করুন
+            <DialogFooter>
+              <Button onClick={() => setVrcModal(prev => ({ ...prev, open: false }))}>
+                বন্ধ করুন
               </Button>
             </DialogFooter>
           </DialogContent>

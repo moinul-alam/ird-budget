@@ -21,11 +21,11 @@ import { ConfirmToggleAllDialog } from './code-modals'
 
 interface TabEnableCodesProps {
   departments: DepartmentItem[]
-  selectedDepartmentId?: number
-  setSelectedDepartmentId: (id: number) => void
+  selectedDepartmentId?: string
+  setSelectedDepartmentId: (id: string) => void
   officeTypes: OfficeTypeItem[]
-  selectedOfficeTypeId: number
-  setSelectedOfficeTypeId: (id: number) => void
+  selectedOfficeTypeId: string
+  setSelectedOfficeTypeId: (id: string) => void
   selectedOfficeType?: OfficeTypeItem
   officeLevels: OfficeLevelItem[]
   selectedLevelId: string
@@ -165,9 +165,8 @@ export function TabEnableCodes({
                 value={selectedDepartmentId ? String(selectedDepartmentId) : ''}
                 onValueChange={(val) => {
                   if (val) {
-                    const deptId = parseInt(val, 10)
-                    setSelectedDepartmentId(deptId)
-                    const firstMatchingType = officeTypes.find((ot) => ot.department_id === deptId)
+                    setSelectedDepartmentId(val)
+                    const firstMatchingType = officeTypes.find((ot) => ot.department_id === val)
                     if (firstMatchingType) {
                       setSelectedOfficeTypeId(firstMatchingType.id)
                     }
@@ -198,8 +197,7 @@ export function TabEnableCodes({
                 value={String(selectedOfficeTypeId)}
                 onValueChange={(val) => {
                   if (val) {
-                    const newId = parseInt(val, 10)
-                    setSelectedOfficeTypeId(newId)
+                    setSelectedOfficeTypeId(val)
                   }
                 }}
               >

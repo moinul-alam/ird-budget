@@ -1,7 +1,7 @@
 import { getAdminSession } from '@/lib/auth-admin'
 import { redirect } from 'next/navigation'
 import { getAllOfficeUsersList } from '@/app/actions/office-users'
-import { createOfficeClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db/client'
 import { OfficeUsersClient } from './office-users-client'
 
 export const metadata = {
@@ -17,11 +17,20 @@ export default async function AdminOfficesUsersPage() {
 
   const { offices, defaultPassword } = await getAllOfficeUsersList()
 
-  const supabase = createOfficeClient()
-  const [{ data: officeTypes }, { data: parentOffices }] = await Promise.all([
-    supabase.from('office_types').select('id, name').order('id'),
-    supabase.from('parent_offices').select('id, name').order('id'),
+  const [officeTypes, parentOffices] = await Promise.all([
+    prisma.coreOfficeType.findMany({
+      select: { id: true, name: true },
+      orderBy: { id: 'asc' }
+    }),
+    prisma.coreOffice.findMany({
+      where: { parentOfficeId: null },
+      select: { id: true, name: true },
+      orderBy: { id: 'asc' }
+    })
   ])
+
+  const normalizedOfficeTypes = officeTypes.map(ot => ({ id: String(ot.id), name: ot.name }))
+  const normalizedParentOffices = parentOffices.map(po => ({ id: String(po.id), name: po.name }))
 
   return (
     <div className="space-y-6">
@@ -34,8 +43,8 @@ export default async function AdminOfficesUsersPage() {
       <OfficeUsersClient
         initialOffices={offices}
         defaultPassword={defaultPassword}
-        officeTypes={officeTypes || []}
-        parentOffices={parentOffices || []}
+        officeTypes={normalizedOfficeTypes}
+        parentOffices={normalizedParentOffices}
       />
     </div>
   )

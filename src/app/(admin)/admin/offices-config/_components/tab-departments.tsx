@@ -133,7 +133,7 @@ export function TabDepartments({
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {departments.map((d, idx) => {
-                    const typeCount = officeTypes.filter((ot) => ot.department_id === d.id).length
+                    const typeCount = officeTypes.filter((ot) => ot.department_id === d.id?.toString()).length
                     return (
                       <tr key={d.id} className="hover:bg-slate-50/60 transition-colors">
                         <td className="py-3.5 px-4 font-mono font-semibold text-slate-600">
@@ -173,10 +173,10 @@ export function TabDepartments({
                               onClick={() =>
                                 setDepModal({
                                   open: true,
-                                  id: d.id,
+                                  id: d.id?.toString(),
                                   name: d.name,
                                   budget_id: d.budget_id || '',
-                                  ministry_id: d.ministry_id || ministries[0]?.id || '',
+                                  ministry_id: d.ministry_id?.toString() || ministries[0]?.id?.toString() || '',
                                 })
                               }
                               className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"

@@ -1,6 +1,6 @@
 /**
  * Bangla Number & Currency Formatting Utilities
- * Pure utility functions — no React/Next.js/Supabase imports.
+ * Pure utility functions — no React/Next.js/database imports.
  */
 
 const BANGLA_DIGITS = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'] as const;

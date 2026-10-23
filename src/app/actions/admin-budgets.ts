@@ -7,7 +7,6 @@ import { revalidatePath } from 'next/cache'
 export interface BudgetTypeItem {
   id: string
   name: string
-  code: 'revised' | 'new'
   created_at?: string
 }
 
@@ -20,7 +19,6 @@ export interface FiscalYearItem {
 export interface CycleItem {
   id: number
   fiscal_year: string
-  budget_type: 'new' | 'revised'
   budget_type_name: string
   status: 'open' | 'closed'
   has_data?: boolean
@@ -30,60 +28,130 @@ export interface CycleItem {
   created_at?: string
 }
 
-const DEFAULT_BUDGET_TYPES: BudgetTypeItem[] = [
-  { id: 'bt-1', name: 'প্রাক্কলিত', code: 'new' },
-  { id: 'bt-2', name: 'সংশোধিত', code: 'revised' },
-]
-
-const DEFAULT_FISCAL_YEARS: FiscalYearItem[] = [
-  { id: 'fy-1', year: '২০২৪-২৫' },
-  { id: 'fy-2', year: '২০২৫-২৬' },
-  { id: 'fy-3', year: '২০২৬-২৭' },
-  { id: 'fy-4', year: '২০২৭-২৮' },
-]
-
 // -------------------------------------------------------------------
-// TAB 1: বাজেটের ধরণ (Budget Types) - Simplified to return defaults
+// TAB 1: বাজেটের ধরণ (Budget Types)
 // -------------------------------------------------------------------
 export async function getBudgetTypes(): Promise<BudgetTypeItem[]> {
-  return DEFAULT_BUDGET_TYPES
+  const types = await prisma.refBudgetType.findMany({
+    where: { isActive: true },
+    orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+  })
+
+  return types.map((t) => ({
+    id: String(t.id),
+    name: t.name,
+    created_at: t.createdAt.toISOString(),
+  }))
 }
 
 export async function saveBudgetType(data: { id?: string; name: string }) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
-  // Budget types are hardcoded defaults for now
-  return { error: 'বাজেটের ধরণ পরিবর্তন করা যাবে না' }
+  const name = data.name.trim()
+  if (!name) return { error: 'বাজেটের ধরণ আবশ্যক' }
+
+  try {
+    const row = data.id
+      ? await prisma.refBudgetType.update({ where: { id: BigInt(data.id) }, data: { name } })
+      : await prisma.refBudgetType.create({ data: { name, sortOrder: await nextBudgetTypeOrder() } })
+
+    revalidatePath('/admin/budgets')
+    revalidatePath('/dashboard')
+    return { success: true, budgetType: { id: String(row.id), name: row.name } }
+  } catch (error) {
+    if ((error as { code?: string }).code === 'P2002') {
+      return { error: `"${name}" ধরণটি ইতিমধ্যে বিদ্যমান` }
+    }
+    return { error: (error as Error).message }
+  }
 }
 
 export async function deleteBudgetType(id: string) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
-  return { error: 'বাজেটের ধরণ মুছে ফেলা যাবে না' }
+  try {
+    const inUse = await prisma.coreBudgetCycle.count({ where: { budgetTypeId: BigInt(id) } })
+    if (inUse > 0) {
+      return { error: `এই ধরণটি ${inUse} টি বাজেট সাইকেলে ব্যবহৃত — আগে সেগুলো সরান` }
+    }
+
+    await prisma.refBudgetType.delete({ where: { id: BigInt(id) } })
+    revalidatePath('/admin/budgets')
+    revalidatePath('/dashboard')
+    return { success: true }
+  } catch (error) {
+    return { error: (error as Error).message }
+  }
+}
+
+async function nextBudgetTypeOrder(): Promise<number> {
+  const last = await prisma.refBudgetType.findFirst({ orderBy: { sortOrder: 'desc' } })
+  return (last?.sortOrder ?? 0) + 1
 }
 
 // -------------------------------------------------------------------
-// TAB 2: অর্থবছর (Fiscal Years) - Simplified to return defaults
+// TAB 2: অর্থবছর (Fiscal Years)
 // -------------------------------------------------------------------
 export async function getFiscalYears(): Promise<FiscalYearItem[]> {
-  return DEFAULT_FISCAL_YEARS
+  const years = await prisma.refFiscalYear.findMany({
+    where: { isActive: true },
+    orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
+  })
+
+  return years.map((y) => ({
+    id: String(y.id),
+    year: y.year,
+    created_at: y.createdAt.toISOString(),
+  }))
 }
 
 export async function saveFiscalYear(data: { id?: string; year: string }) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
-  // Fiscal years are hardcoded defaults for now
-  return { error: 'অর্থবছর পরিবর্তন করা যাবে না' }
+  const year = data.year.trim()
+  if (!year) return { error: 'অর্থবছর আবশ্যক' }
+
+  try {
+    const row = data.id
+      ? await prisma.refFiscalYear.update({ where: { id: BigInt(data.id) }, data: { year } })
+      : await prisma.refFiscalYear.create({ data: { year, sortOrder: await nextFiscalYearOrder() } })
+
+    revalidatePath('/admin/budgets')
+    revalidatePath('/dashboard')
+    return { success: true, fiscalYear: { id: String(row.id), year: row.year } }
+  } catch (error) {
+    if ((error as { code?: string }).code === 'P2002') {
+      return { error: `"${year}" অর্থবছরটি ইতিমধ্যে বিদ্যমান` }
+    }
+    return { error: (error as Error).message }
+  }
 }
 
 export async function deleteFiscalYear(id: string) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
-  return { error: 'অর্থবছর মুছে ফেলা যাবে না' }
+  try {
+    const inUse = await prisma.coreBudgetCycle.count({ where: { fiscalYearId: BigInt(id) } })
+    if (inUse > 0) {
+      return { error: `এই অর্থবছরটি ${inUse} টি বাজেট সাইকেলে ব্যবহৃত — আগে সেগুলো সরান` }
+    }
+
+    await prisma.refFiscalYear.delete({ where: { id: BigInt(id) } })
+    revalidatePath('/admin/budgets')
+    revalidatePath('/dashboard')
+    return { success: true }
+  } catch (error) {
+    return { error: (error as Error).message }
+  }
+}
+
+async function nextFiscalYearOrder(): Promise<number> {
+  const last = await prisma.refFiscalYear.findFirst({ orderBy: { sortOrder: 'desc' } })
+  return (last?.sortOrder ?? 0) + 1
 }
 
 // -------------------------------------------------------------------
@@ -92,6 +160,10 @@ export async function deleteFiscalYear(id: string) {
 export async function getCyclesList(): Promise<CycleItem[]> {
   const cycles = await prisma.coreBudgetCycle.findMany({
     orderBy: { id: 'desc' },
+    include: {
+      fiscalYear: { select: { year: true } },
+      budgetType: { select: { name: true } },
+    },
   })
 
   // Get submission counts
@@ -105,15 +177,12 @@ export async function getCyclesList(): Promise<CycleItem[]> {
   const subCountMap = new Map(submissions.map((s) => [s.cycleId, s._count]))
 
   return cycles.map((c) => {
-    const fy = c.fiscalYear || ''
-    const typeName = c.budgetType === 'revised' ? 'সংশোধিত' : 'প্রাক্কলিত'
     const count = subCountMap.get(c.id) || 0
 
     return {
       id: Number(c.id),
-      fiscal_year: fy,
-      budget_type: c.budgetType as 'new' | 'revised',
-      budget_type_name: typeName,
+      fiscal_year: c.fiscalYear.year,
+      budget_type_name: c.budgetType.name,
       status: c.status as 'open' | 'closed',
       has_data: count > 0,
       submission_count: count,
@@ -137,10 +206,14 @@ export async function saveCycle(data: {
     return { error: 'অর্থবছর ও বাজেটের ধরণ আবশ্যক' }
   }
 
-  const isRevised =
-    data.budget_type_name.includes('সংশোধিত') ||
-    data.budget_type_name.toLowerCase().includes('revised')
-  const budgetType: 'new' | 'revised' = isRevised ? 'revised' : 'new'
+  // Both sides of a cycle are reference rows; resolve them to their foreign keys.
+  const [fiscalYear, budgetType] = await Promise.all([
+    prisma.refFiscalYear.findUnique({ where: { year: data.fiscal_year.trim() }, select: { id: true } }),
+    prisma.refBudgetType.findUnique({ where: { name: data.budget_type_name.trim() }, select: { id: true } }),
+  ])
+
+  if (!fiscalYear) return { error: 'নির্বাচিত অর্থবছর পাওয়া যায়নি' }
+  if (!budgetType) return { error: 'নির্বাচিত বাজেটের ধরণ পাওয়া যায়নি' }
 
   try {
     // If opening this cycle, close all other cycles
@@ -155,31 +228,20 @@ export async function saveCycle(data: {
       await prisma.coreBudgetCycle.update({
         where: { id: BigInt(data.id) },
         data: {
-          fiscalYear: data.fiscal_year,
-          budgetType,
+          fiscalYearId: fiscalYear.id,
+          budgetTypeId: budgetType.id,
+          title: `${data.fiscal_year.trim()} ${data.budget_type_name.trim()}`,
           status: data.status,
           openedAt: data.status === 'open' ? new Date() : undefined,
           closedAt: data.status === 'closed' ? new Date() : undefined,
         },
       })
     } else {
-      // Check for duplicate
-      const existing = await prisma.coreBudgetCycle.findFirst({
-        where: {
-          budgetType,
-          fiscalYear: { startsWith: data.fiscal_year },
-        },
-      })
-
-      if (existing) {
-        return { error: 'এই অর্থবছর এবং বাজেটের ধরণের সাইকেল ইতোমধ্যে বিদ্যমান' }
-      }
-
       await prisma.coreBudgetCycle.create({
         data: {
-          fiscalYear: data.fiscal_year,
-          budgetType,
-          title: `${data.fiscal_year} ${data.budget_type_name}`,
+          fiscalYearId: fiscalYear.id,
+          budgetTypeId: budgetType.id,
+          title: `${data.fiscal_year.trim()} ${data.budget_type_name.trim()}`,
           status: data.status,
           openedAt: data.status === 'open' ? new Date() : undefined,
           closedAt: data.status === 'closed' ? new Date() : undefined,
@@ -191,6 +253,9 @@ export async function saveCycle(data: {
     revalidatePath('/dashboard')
     return { success: true }
   } catch (error: any) {
+    if (error?.code === 'P2002') {
+      return { error: 'এই অর্থবছর এবং বাজেটের ধরণের সাইকেল ইতোমধ্যে বিদ্যমান' }
+    }
     return { error: error.message }
   }
 }

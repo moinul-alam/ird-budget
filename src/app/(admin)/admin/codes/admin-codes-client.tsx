@@ -36,15 +36,15 @@ export function AdminCodesClient({
   // Tabs: 'create_codes' | 'enable_codes'
   const [activeTab, setActiveTab] = useState<'create_codes' | 'enable_codes'>('create_codes')
 
-  const [selectedOfficeTypeId, setSelectedOfficeTypeId] = useState<number>(initialOfficeTypeId)
+  const [selectedOfficeTypeId, setSelectedOfficeTypeId] = useState<string>(initialOfficeTypeId)
   const initialType = officeTypes.find((ot) => ot.id === initialOfficeTypeId) || officeTypes[0]
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState<number | undefined>(
-    initialDepartmentId || initialType?.department_id || departments[0]?.id
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState<string | undefined>(
+    initialDepartmentId?.toString() || initialType?.department_id?.toString() || departments[0]?.id?.toString()
   )
 
   // Office Levels for selected type
   const matchingLevels = useMemo(
-    () => officeLevels.filter((lvl) => lvl.office_type_id === selectedOfficeTypeId),
+    () => officeLevels.filter((lvl) => lvl.office_type_id === String(selectedOfficeTypeId)),
     [officeLevels, selectedOfficeTypeId]
   )
   const [selectedLevelId, setSelectedLevelId] = useState<string>(
@@ -85,8 +85,8 @@ export function AdminCodesClient({
     open: false,
     code: '',
     name: '',
-    parent_code: categories[0]?.code || '3111',
-    parent_title: categories[0]?.title || 'নগদ মজুরি ও বেতন',
+    parent_code: categories[0]?.code || '',
+    parent_title: categories[0]?.title || '',
     hierarchy_order: codes.length + 1,
   })
 
@@ -140,27 +140,20 @@ export function AdminCodesClient({
         showStatus('বাজেট ক্যাটাগরি সফলভাবে সংরক্ষিত হয়েছে')
         setCatModal({ open: false, code: '', title: '', hierarchy_order: categories.length + 1 })
 
-        const trimmedCode = catModal.code.trim()
-        const trimmedTitle = catModal.title.trim()
-        if (catModal.id) {
-          setCategories((prev) =>
-            prev.map((c) =>
-              c.id === catModal.id
-                ? { ...c, code: trimmedCode, title: trimmedTitle, hierarchy_order: catModal.hierarchy_order }
-                : c
-            ).sort((a, b) => a.hierarchy_order - b.hierarchy_order)
+        if (!res.category) return
+        const saved = res.category
+        setCategories((prev) =>
+          (catModal.id ? prev.map((c) => (c.id === catModal.id ? saved : c)) : [...prev, saved]).sort(
+            (a, b) => a.hierarchy_order - b.hierarchy_order
           )
-        } else {
-          setCategories((prev) => [
-            ...prev,
-            {
-              id: `cat-${trimmedCode}`,
-              code: trimmedCode,
-              title: trimmedTitle,
-              hierarchy_order: catModal.hierarchy_order,
-            },
-          ].sort((a, b) => a.hierarchy_order - b.hierarchy_order))
-        }
+        )
+
+        // Category titles are rendered on every code row, so re-read them from the server.
+        const refreshed = await getExpenseCodesWithCategoryAndMapping(
+          selectedOfficeTypeId,
+          selectedLevelId || undefined
+        )
+        if (refreshed.codes) setCodes(refreshed.codes)
       }
     })
   }
@@ -186,13 +179,11 @@ export function AdminCodesClient({
     }
 
     startTransition(async () => {
-      const cat = categories.find((c) => c.code === codeModal.parent_code)
       const res = await saveEconomicCode({
         id: codeModal.id,
         code: codeModal.code,
         name: codeModal.name,
         parent_code: codeModal.parent_code,
-        parent_title: cat?.title || codeModal.parent_title,
         hierarchy_order: codeModal.hierarchy_order,
       })
 
@@ -204,42 +195,17 @@ export function AdminCodesClient({
           open: false,
           code: '',
           name: '',
-          parent_code: categories[0]?.code || '3111',
-          parent_title: categories[0]?.title || 'নগদ মজুরি ও বেতন',
+          parent_code: categories[0]?.code || '',
+          parent_title: categories[0]?.title || '',
           hierarchy_order: codes.length + 1,
         })
 
-        const trimmedCode = codeModal.code.trim()
-        const trimmedName = codeModal.name.trim()
-        if (codeModal.id) {
-          setCodes((prev) =>
-            prev.map((c) =>
-              c.id === codeModal.id
-                ? {
-                  ...c,
-                  code: trimmedCode,
-                  name: trimmedName,
-                  parent_code: codeModal.parent_code,
-                  parent_title: cat?.title || codeModal.parent_title,
-                  hierarchy_order: codeModal.hierarchy_order,
-                }
-                : c
-            ).sort((a, b) => a.hierarchy_order - b.hierarchy_order)
-          )
-        } else {
-          setCodes((prev) => [
-            ...prev,
-            {
-              id: Date.now(),
-              code: trimmedCode,
-              name: trimmedName,
-              parent_code: codeModal.parent_code,
-              parent_title: cat?.title || codeModal.parent_title,
-              hierarchy_order: codeModal.hierarchy_order,
-              enabled: false,
-            },
-          ].sort((a, b) => a.hierarchy_order - b.hierarchy_order))
-        }
+        // Re-read from the server so ids, categories and ordering stay authoritative.
+        const refreshed = await getExpenseCodesWithCategoryAndMapping(
+          selectedOfficeTypeId,
+          selectedLevelId || undefined
+        )
+        if (refreshed.codes) setCodes(refreshed.codes)
       }
     })
   }
@@ -382,7 +348,7 @@ export function AdminCodesClient({
           setSelectedDepartmentId={setSelectedDepartmentId}
           officeTypes={officeTypes}
           selectedOfficeTypeId={selectedOfficeTypeId}
-          setSelectedOfficeTypeId={(id: number) => {
+          setSelectedOfficeTypeId={(id: string) => {
             setSelectedOfficeTypeId(id)
             const typeLevels = officeLevels.filter((lvl) => lvl.office_type_id === id)
             if (typeLevels.length > 0) {

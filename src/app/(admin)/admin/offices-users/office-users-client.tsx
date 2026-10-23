@@ -29,8 +29,8 @@ import Link from 'next/link'
 interface OfficeUsersClientProps {
   initialOffices: OfficeUserItem[]
   defaultPassword?: string
-  officeTypes?: { id: number; name: string }[]
-  parentOffices?: { id: number; name: string }[]
+  officeTypes?: { id: string; name: string }[]
+  parentOffices?: { id: string; name: string }[]
 }
 
 export function OfficeUsersClient({

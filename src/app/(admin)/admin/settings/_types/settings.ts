@@ -2,7 +2,7 @@ import {
   SalaryCodeConfig,
   VehicleTypeItem,
   FuelTypeItem,
-  VehicleFuelConfigItem,
+  VehicleConfigItem,
   VehicleRentConfigItem,
   UtilityTypeItem,
 } from '@/app/actions/admin-settings'
@@ -11,7 +11,7 @@ export interface AdminSettingsClientProps {
   initialSalaryConfig: SalaryCodeConfig
   initialVehicleTypes: VehicleTypeItem[]
   initialFuelTypes: FuelTypeItem[]
-  initialFuelConfigs: VehicleFuelConfigItem[]
+  initialFuelConfigs: VehicleConfigItem[]
   initialRentConfigs: VehicleRentConfigItem[]
   initialUtilityTypes: UtilityTypeItem[]
 }

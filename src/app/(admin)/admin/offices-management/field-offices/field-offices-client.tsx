@@ -54,10 +54,10 @@ export function FieldOfficesClient({
     name: '',
     budget_id: '',
     ministry_id: '',
-    department_id: 0,
-    head_office_id: 0,
-    office_type_id: 0,
-    office_level_id: 0,
+    department_id: '',
+    head_office_id: '',
+    office_type_id: '',
+    office_level_id: '',
   })
 
   // Delete confirmation modal state
@@ -107,11 +107,11 @@ export function FieldOfficesClient({
   const handleOpenAdd = () => {
     const defaultMin = ministries[0]?.id || ''
     const defaultDepts = defaultMin ? departments.filter((d) => d.ministry_id === defaultMin) : departments
-    const defaultDeptId = defaultDepts[0]?.id || departments[0]?.id || 0
+    const defaultDeptId = defaultDepts[0]?.id?.toString() || departments[0]?.id?.toString() || ''
     const defaultHeads = defaultDeptId ? headOffices.filter((h) => h.department_id === defaultDeptId) : headOffices
-    const defaultHeadId = defaultHeads[0]?.id || headOffices[0]?.id || 0
+    const defaultHeadId = defaultHeads[0]?.id?.toString() || headOffices[0]?.id?.toString() || ''
     const defaultTypes = defaultDeptId ? officeTypes.filter((ot) => ot.department_id === defaultDeptId) : officeTypes
-    const defaultTypeId = defaultTypes[0]?.id || officeTypes[0]?.id || 0
+    const defaultTypeId = defaultTypes[0]?.id?.toString() || officeTypes[0]?.id?.toString() || ''
 
     setModal({
       open: true,
@@ -121,7 +121,7 @@ export function FieldOfficesClient({
       department_id: defaultDeptId,
       head_office_id: defaultHeadId,
       office_type_id: defaultTypeId,
-      office_level_id: 0,
+      office_level_id: '',
     })
   }
 
@@ -136,7 +136,7 @@ export function FieldOfficesClient({
       department_id: item.department_id,
       head_office_id: item.head_office_id,
       office_type_id: item.office_type_id,
-      office_level_id: 0,
+      office_level_id: item.office_level_id || '',
     })
   }
 
@@ -151,7 +151,7 @@ export function FieldOfficesClient({
       department_id: item.department_id,
       head_office_id: item.head_office_id,
       office_type_id: item.office_type_id,
-      office_level_id: 0,
+      office_level_id: item.office_level_id || '',
     })
     showStatus(`"${item.name}" থেকে অনুলিপি করা হচ্ছে। নতুন অফিসের নাম ও বাজেট আইডি লিখুন।`, 'success')
   }
@@ -217,7 +217,6 @@ export function FieldOfficesClient({
                     head_office_name: headObj?.name || '',
                     office_type_id: modal.office_type_id,
                     office_type_name: typeObj?.name || '',
-                    office_level: computedOfficeLevel,
                   }
                 : f
             )
@@ -225,7 +224,7 @@ export function FieldOfficesClient({
         } else {
           setFieldOffices((prev) => [
             {
-              id: Date.now(),
+              id: String(Date.now()),
               name: modal.name.trim(),
               budget_id: englishBudgetId,
               department_id: modal.department_id,
@@ -236,7 +235,6 @@ export function FieldOfficesClient({
               head_office_name: headObj?.name || '',
               office_type_id: modal.office_type_id,
               office_type_name: typeObj?.name || '',
-              office_level: computedOfficeLevel,
               password_hint: '12345',
               created_at: new Date().toISOString(),
             },

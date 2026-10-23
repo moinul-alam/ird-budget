@@ -63,21 +63,21 @@ export function HeadOfficesClient({
   // Head Office Modal
   const [modal, setModal] = useState<{
     open: boolean
-    id?: number
+    id?: string
     name: string
     budget_id?: string
     ministry_id: string
-    department_id: number
-    office_type_id: number
-    office_level_id: number
+    department_id: string
+    office_type_id: string
+    office_level_id: string
   }>({
     open: false,
     name: '',
     budget_id: '',
     ministry_id: '',
-    department_id: 0,
-    office_type_id: 0,
-    office_level_id: 0,
+    department_id: '',
+    office_type_id: '',
+    office_level_id: '',
   })
 
   // Delete confirmation modal
@@ -131,9 +131,9 @@ export function HeadOfficesClient({
   const handleOpenAdd = () => {
     const defaultMin = ministries[0]?.id || ''
     const defaultDepts = defaultMin ? departments.filter((d) => d.ministry_id === defaultMin) : departments
-    const defaultDeptId = defaultDepts[0]?.id || departments[0]?.id || 0
+    const defaultDeptId = defaultDepts[0]?.id?.toString() || departments[0]?.id?.toString() || ''
     const defaultTypes = defaultDeptId ? officeTypes.filter((ot) => ot.department_id === defaultDeptId) : officeTypes
-    const defaultTypeId = defaultTypes[0]?.id || officeTypes[0]?.id || 0
+    const defaultTypeId = defaultTypes[0]?.id?.toString() || officeTypes[0]?.id?.toString() || ''
 
     setModal({
       open: true,
@@ -142,7 +142,7 @@ export function HeadOfficesClient({
       ministry_id: defaultMin,
       department_id: defaultDeptId,
       office_type_id: defaultTypeId,
-      office_level_id: 0,
+      office_level_id: '',
     })
   }
 
@@ -156,7 +156,7 @@ export function HeadOfficesClient({
       ministry_id: item.ministry_id || ministries[0]?.id || '',
       department_id: item.department_id,
       office_type_id: item.office_type_id,
-      office_level_id: item.office_level || 0,
+      office_level_id: item.office_level_id || '',
     })
   }
 
@@ -170,7 +170,7 @@ export function HeadOfficesClient({
       ministry_id: item.ministry_id || ministries[0]?.id || '',
       department_id: item.department_id,
       office_type_id: item.office_type_id,
-      office_level_id: item.office_level || 0,
+      office_level_id: item.office_level_id || '',
     })
     showStatus(`"${item.name}" থেকে অনুলিপি করা হচ্ছে। অনুগ্রহ করে নতুন হেড অফিসের নাম ও বাজেট আইডি লিখুন।`, 'success')
   }
@@ -197,7 +197,7 @@ export function HeadOfficesClient({
         budget_id: modal.budget_id?.trim() || undefined,
         department_id: modal.department_id,
         office_type_id: modal.office_type_id,
-        office_level: computedOfficeLevel,
+        office_level_id: modal.office_level_id || undefined,
       })
 
       if (res.error) {
@@ -225,7 +225,6 @@ export function HeadOfficesClient({
                     ministry_name: minObj?.name || '',
                     office_type_id: modal.office_type_id,
                     office_type_name: typeObj?.name || '',
-                    office_level: computedOfficeLevel,
                   }
                 : h
             )
@@ -233,7 +232,7 @@ export function HeadOfficesClient({
         } else {
           setHeadOffices((prev) => [
             {
-              id: Date.now(),
+              id: String(Date.now()),
               name: modal.name.trim(),
               budget_id: trimmedBudget,
               department_id: modal.department_id,
@@ -242,7 +241,6 @@ export function HeadOfficesClient({
               ministry_name: minObj?.name || '',
               office_type_id: modal.office_type_id,
               office_type_name: typeObj?.name || '',
-              office_level: computedOfficeLevel,
               created_at: new Date().toISOString(),
             },
             ...prev,
@@ -486,13 +484,13 @@ export function HeadOfficesClient({
                 onValueChange={(val) => {
                   if (val) {
                     const depts = departments.filter((d) => d.ministry_id === val)
-                    const firstDeptId = depts[0]?.id || departments[0]?.id || 0
+                    const firstDeptId = depts[0]?.id?.toString() || departments[0]?.id?.toString() || ''
                     const types = officeTypes.filter((ot) => ot.department_id === firstDeptId)
                     setModal((prev) => ({
                       ...prev,
                       ministry_id: val,
                       department_id: firstDeptId,
-                      office_type_id: types[0]?.id || 0,
+                      office_type_id: types[0]?.id?.toString() || '',
                     }))
                   }
                 }}
@@ -519,12 +517,11 @@ export function HeadOfficesClient({
                 value={String(modal.department_id || '')}
                 onValueChange={(val) => {
                   if (val) {
-                    const deptId = parseInt(val, 10)
-                    const types = officeTypes.filter((ot) => ot.department_id === deptId)
+                    const types = officeTypes.filter((ot) => ot.department_id === val)
                     setModal((prev) => ({
                       ...prev,
-                      department_id: deptId,
-                      office_type_id: types[0]?.id || 0,
+                      department_id: val,
+                      office_type_id: types[0]?.id?.toString() || '',
                     }))
                   }
                 }}
@@ -551,7 +548,7 @@ export function HeadOfficesClient({
                 value={String(modal.office_type_id || '')}
                 onValueChange={(val) => {
                   if (val) {
-                    setModal((prev) => ({ ...prev, office_type_id: parseInt(val, 10) }))
+                    setModal((prev) => ({ ...prev, office_type_id: val }))
                   }
                 }}
               >
@@ -576,7 +573,7 @@ export function HeadOfficesClient({
               <Select
                 value={String(modal.office_level_id || '')}
                 onValueChange={(val) => {
-                  if (val) setModal((prev) => ({ ...prev, office_level_id: parseInt(val, 10) }))
+                  if (val) setModal((prev) => ({ ...prev, office_level_id: val }))
                 }}
               >
                 <SelectTrigger className="w-full rounded-xl border-slate-200 text-xs h-10">

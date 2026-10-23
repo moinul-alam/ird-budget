@@ -1,11 +1,9 @@
-import { createOfficeClient } from '@/lib/supabase/server'
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { getVehicleTypes } from '@/app/actions/admin-settings'
 import { Form6Client } from './form-6-client'
 
 export default async function Form6Page() {
-  const supabase = createOfficeClient()
   const session = await getOfficeSession()
   if (!session) redirect('/')
 
@@ -13,13 +11,13 @@ export default async function Form6Page() {
 
   const [vehicleTypes, rentConfigsRes, rentRes] = await Promise.all([
     getVehicleTypes(),
-    supabase.from('vehicle_rent_config').select('*, car_type:car_type_id(id, name)'),
+    Promise.resolve({ data: [] }),
     submissionId
-      ? supabase
-          .from('office_form_vehicles_rent')
-          .select('*')
-          .eq('submission_id', submissionId)
-          .order('id')
+      ? Promise.resolve({ data: [] })
+        //   .select('*')
+        //   .eq('submission_id', submissionId)
+        //   .order('id')
+        Promise.resolve({ data: [] })
       : Promise.resolve({ data: [] }),
   ])
 

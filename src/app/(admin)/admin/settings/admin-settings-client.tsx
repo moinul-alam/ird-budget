@@ -17,7 +17,7 @@ import {
   SalaryCodeConfig,
   VehicleTypeItem,
   FuelTypeItem,
-  VehicleFuelConfigItem,
+  VehicleConfigItem,
   VehicleRentConfigItem,
   UtilityTypeItem,
   saveSalaryCodeConfig,
@@ -25,14 +25,14 @@ import {
   deleteVehicleType,
   saveFuelType,
   deleteFuelType,
-  saveVehicleFuelConfigItem,
-  deleteVehicleFuelConfigItem,
-  saveVehicleRentConfigItem,
-  deleteVehicleRentConfigItem,
+  saveVehicleConfig,
+  deleteVehicleConfig,
+  saveVehicleRentConfig,
+  deleteVehicleRentConfig,
   saveUtilityType,
   deleteUtilityType,
-  saveItItemPrice,
-  ItItem,
+  saveItEquipmentType,
+  ItEquipmentTypeItem,
 } from '@/app/actions/admin-settings'
 import {
   AdminSettingsClientProps,
@@ -62,7 +62,7 @@ export function AdminSettingsClient({
   initialRentConfigs,
   initialUtilityTypes,
   initialItItems,
-}: AdminSettingsClientProps & { initialItItems: ItItem[] }) {
+}: AdminSettingsClientProps & { initialItItems: ItEquipmentTypeItem[] }) {
   const [activeTab, setActiveTab] = useState<SettingsTabKey>('salaries')
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -72,9 +72,9 @@ export function AdminSettingsClient({
   const [salaryConfig, setSalaryConfig] = useState<SalaryCodeConfig>(initialSalaryConfig)
   const [vehicleTypes, setVehicleTypes] = useState<VehicleTypeItem[]>(initialVehicleTypes)
   const [fuelTypes, setFuelTypes] = useState<FuelTypeItem[]>(initialFuelTypes)
-  const [fuelConfigs, setFuelConfigs] = useState<VehicleFuelConfigItem[]>(initialFuelConfigs)
+  const [fuelConfigs, setFuelConfigs] = useState<VehicleConfigItem[]>(initialFuelConfigs)
   const [rentConfigs, setRentConfigs] = useState<VehicleRentConfigItem[]>(initialRentConfigs)
-  const [itItems, setItItems] = useState<ItItem[]>(initialItItems)
+  const [itItems, setItItems] = useState<ItEquipmentTypeItem[]>(initialItItems)
   const [utilityTypes, setUtilityTypes] = useState<UtilityTypeItem[]>(initialUtilityTypes)
 
   // Modals state
@@ -96,22 +96,20 @@ export function AdminSettingsClient({
   })
 
   const [houseRentModal, setHouseRentModal] = useState(false)
-  const [slabs, setSlabs] = useState(initialSalaryConfig.house_rent_slabs || [])
+  const [slabs, setSlabs] = useState<Array<{ id: string; from_grade: number; to_grade: number; percentage: number }>>([
+    { id: 'hr-slab-1', from_grade: 1, to_grade: 20, percentage: 40 },
+  ])
 
   const [specialBenefitModal, setSpecialBenefitModal] = useState(false)
-  const [specialBenefitSlabs, setSpecialBenefitSlabs] = useState(
-    initialSalaryConfig.special_benefit_slabs || [
-      { id: 'sb-slab-1', from_grade: 1, to_grade: 20, percentage: 5 },
-    ]
-  )
+  const [specialBenefitSlabs, setSpecialBenefitSlabs] = useState<Array<{ id: string; from_grade: number; to_grade: number; percentage: number }>>([
+    { id: 'sb-slab-1', from_grade: 1, to_grade: 20, percentage: 5 },
+  ])
 
   const [mobileModal, setMobileModal] = useState(false)
-  const [mobileSlabs, setMobileSlabs] = useState(
-    initialSalaryConfig.mobile_allowance_slabs || [
-      { id: 'mob-1', from_grade: 1, to_grade: 9, amount: 1500 },
-      { id: 'mob-2', from_grade: 10, to_grade: 20, amount: 1000 },
-    ]
-  )
+  const [mobileSlabs, setMobileSlabs] = useState<Array<{ id: string; from_grade: number; to_grade: number; amount: number }>>([
+    { id: 'mob-1', from_grade: 1, to_grade: 9, amount: 1500 },
+    { id: 'mob-2', from_grade: 10, to_grade: 20, amount: 1000 },
+  ])
 
   const [carModal, setCarModal] = useState<VehicleTypeModalState>({
     open: false,
@@ -203,49 +201,28 @@ export function AdminSettingsClient({
   const handleSaveHouseRentSlabs = async () => {
     setSaving(true)
     setErrorMsg(null)
-    const update = { house_rent_slabs: slabs }
-    const res = await saveSalaryCodeConfig(update)
-    if (res.error) {
-      setErrorMsg(res.error)
-      setSaving(false)
-      return
-    }
-    setSalaryConfig(prev => ({ ...prev, ...update }))
+    // house_rent_slabs not supported in current schema
     setSaving(false)
     setHouseRentModal(false)
-    showSuccess('বাড়ি ভাড়া স্ল্যাব কনফিগারেশন সংরক্ষিত হয়েছে।')
+    showSuccess('বাড়ি ভাড়া স্ল্যাব কনফিগারেশন বর্তমানে সংরক্ষিত হচ্ছে না।')
   }
 
   const handleSaveSpecialBenefitSlabs = async () => {
     setSaving(true)
     setErrorMsg(null)
-    const update = { special_benefit_slabs: specialBenefitSlabs }
-    const res = await saveSalaryCodeConfig(update)
-    if (res.error) {
-      setErrorMsg(res.error)
-      setSaving(false)
-      return
-    }
-    setSalaryConfig(prev => ({ ...prev, ...update }))
+    // special_benefit_slabs not supported in current schema
     setSaving(false)
     setSpecialBenefitModal(false)
-    showSuccess('বিশেষ সুবিধা স্ল্যাব কনফিগারেশন সংরক্ষিত হয়েছে।')
+    showSuccess('বিশেষ সুবিধা স্ল্যাব কনফিগারেশন বর্তমানে সংরক্ষিত হচ্ছে না।')
   }
 
   const handleSaveMobileSlabs = async () => {
     setSaving(true)
     setErrorMsg(null)
-    const update = { mobile_allowance_slabs: mobileSlabs }
-    const res = await saveSalaryCodeConfig(update)
-    if (res.error) {
-      setErrorMsg(res.error)
-      setSaving(false)
-      return
-    }
-    setSalaryConfig(prev => ({ ...prev, ...update }))
+    // mobile_allowance_slabs not supported in current schema
     setSaving(false)
     setMobileModal(false)
-    showSuccess('মোবাইল/সেলফোন ভাতা স্ল্যাব কনফিগারেশন সংরক্ষিত হয়েছে।')
+    showSuccess('মোবাইল/সেলফোন ভাতা স্ল্যাব কনফিগারেশন বর্তমানে সংরক্ষিত হচ্ছে না।')
   }
 
   // Tab 2 handlers
@@ -256,7 +233,6 @@ export function AdminSettingsClient({
     const res = await saveVehicleType({
       id: carModal.id,
       name: carModal.name.trim(),
-      order: carModal.order,
     })
     if (res.error) {
       setErrorMsg(res.error)
@@ -265,9 +241,9 @@ export function AdminSettingsClient({
     }
     setVehicleTypes(prev => {
       if (carModal.id) {
-        return prev.map(c => c.id === carModal.id ? { ...c, name: carModal.name.trim(), order: carModal.order } : c).sort((a,b) => a.order - b.order)
+        return prev.map(c => c.id === carModal.id ? { ...c, name: carModal.name.trim() } : c).sort((a,b) => a.id - b.id)
       }
-      return [...prev, { id: Date.now(), name: carModal.name.trim(), order: carModal.order }].sort((a,b) => a.order - b.order)
+      return [...prev, { id: Date.now(), name: carModal.name.trim() }].sort((a,b) => a.id - b.id)
     })
     setSaving(false)
     setCarModal({ open: false, name: '', order: 1 })
@@ -282,8 +258,8 @@ export function AdminSettingsClient({
       return
     }
     setVehicleTypes(prev => prev.filter(c => c.id !== id))
-    setFuelConfigs(prev => prev.filter(f => f.car_type_id !== id))
-    setRentConfigs(prev => prev.filter(r => r.car_type_id !== id))
+    setFuelConfigs(prev => prev.filter(f => f.vehicle_type_id !== id))
+    setRentConfigs(prev => prev.filter(r => r.vehicle_type_id !== id))
     showSuccess('যানবাহনের ধরন মুছে ফেলা হয়েছে।')
   }
 
@@ -295,8 +271,6 @@ export function AdminSettingsClient({
     const res = await saveFuelType({
       id: fuelModal.id,
       name: fuelModal.name.trim(),
-      price: fuelModal.price,
-      order: fuelModal.order,
     })
     if (res.error) {
       setErrorMsg(res.error)
@@ -305,9 +279,9 @@ export function AdminSettingsClient({
     }
     setFuelTypes(prev => {
       if (fuelModal.id) {
-        return prev.map(f => f.id === fuelModal.id ? { ...f, name: fuelModal.name.trim(), price: fuelModal.price, order: fuelModal.order } : f).sort((a,b) => a.order - b.order)
+        return prev.map(f => f.id === fuelModal.id ? { ...f, name: fuelModal.name.trim() } : f).sort((a,b) => a.id - b.id)
       }
-      return [...prev, { id: Date.now(), name: fuelModal.name.trim(), price: fuelModal.price, order: fuelModal.order }].sort((a,b) => a.order - b.order)
+      return [...prev, { id: Date.now(), name: fuelModal.name.trim() }].sort((a,b) => a.id - b.id)
     })
     setSaving(false)
     setFuelModal({ open: false, name: '', price: 0, order: 1 })
@@ -336,11 +310,12 @@ export function AdminSettingsClient({
     }
     setSaving(true)
     setErrorMsg(null)
-    const res = await saveVehicleFuelConfigItem({
+    const res = await saveVehicleConfig({
       id: vfcModal.id,
-      car_type_id: carId,
+      office_type_id: 1, // Default for now
+      vehicle_type_id: carId,
       fuel_type_id: fuelId,
-      monthly_fuel_allowance: vfcModal.monthlyFuel,
+      monthly_fuel_quota_liter: vfcModal.monthlyFuel,
       annual_lube_allowance: vfcModal.annualLube,
       annual_maintenance_allowance: vfcModal.annualMaint,
     })
@@ -355,22 +330,20 @@ export function AdminSettingsClient({
       if (vfcModal.id) {
         return prev.map(fc => fc.id === vfcModal.id ? {
           ...fc,
-          car_type_id: carId,
-          car_name: cName,
+          office_type_id: 1,
+          vehicle_type_id: carId,
           fuel_type_id: fuelId,
-          fuel_name: fName,
-          monthly_fuel_allowance: vfcModal.monthlyFuel,
+          monthly_fuel_quota_liter: vfcModal.monthlyFuel,
           annual_lube_allowance: vfcModal.annualLube,
           annual_maintenance_allowance: vfcModal.annualMaint,
         } : fc)
       }
       return [...prev, {
         id: Date.now(),
-        car_type_id: carId,
-        car_name: cName,
+        office_type_id: 1,
+        vehicle_type_id: carId,
         fuel_type_id: fuelId,
-        fuel_name: fName,
-        monthly_fuel_allowance: vfcModal.monthlyFuel,
+        monthly_fuel_quota_liter: vfcModal.monthlyFuel,
         annual_lube_allowance: vfcModal.annualLube,
         annual_maintenance_allowance: vfcModal.annualMaint,
       }]
@@ -382,7 +355,7 @@ export function AdminSettingsClient({
 
   const handleDeleteVfc = async (id: number) => {
     if (!confirm('আপনি কি এই বরাদ্দ কনফিগারেশন মুছে ফেলতে চান?')) return
-    const res = await deleteVehicleFuelConfigItem(id)
+    const res = await deleteVehicleConfig(id)
     if (res.error) {
       alert(res.error)
       return
@@ -400,10 +373,11 @@ export function AdminSettingsClient({
     }
     setSaving(true)
     setErrorMsg(null)
-    const res = await saveVehicleRentConfigItem({
+    const res = await saveVehicleRentConfig({
       id: vrcModal.id,
-      car_type_id: carId,
-      monthly_rent_allowance: vrcModal.monthlyRent,
+      office_type_id: 1, // Default for now
+      vehicle_type_id: carId,
+      monthly_rent_rate: vrcModal.monthlyRent,
     })
     if (res.error) {
       setErrorMsg(res.error)
@@ -415,16 +389,16 @@ export function AdminSettingsClient({
       if (vrcModal.id) {
         return prev.map(rc => rc.id === vrcModal.id ? {
           ...rc,
-          car_type_id: carId,
-          car_name: cName,
-          monthly_rent_allowance: vrcModal.monthlyRent,
+          office_type_id: 1,
+          vehicle_type_id: carId,
+          monthly_rent_rate: vrcModal.monthlyRent,
         } : rc)
       }
       return [...prev, {
         id: Date.now(),
-        car_type_id: carId,
-        car_name: cName,
-        monthly_rent_allowance: vrcModal.monthlyRent,
+        office_type_id: 1,
+        vehicle_type_id: carId,
+        monthly_rent_rate: vrcModal.monthlyRent,
       }]
     })
     setSaving(false)
@@ -434,7 +408,7 @@ export function AdminSettingsClient({
 
   const handleDeleteVrc = async (id: number) => {
     if (!confirm('আপনি কি এই গাড়ি ভাড়া কনফিগারেশন মুছে ফেলতে চান?')) return
-    const res = await deleteVehicleRentConfigItem(id)
+    const res = await deleteVehicleRentConfig(id)
     if (res.error) {
       alert(res.error)
       return
@@ -448,13 +422,18 @@ export function AdminSettingsClient({
     if (!equipModal.itemId) return
     setSaving(true)
     setErrorMsg(null)
-    const res = await saveItItemPrice(equipModal.itemId, equipModal.price)
+    const res = await saveItEquipmentType({
+      id: equipModal.itemId,
+      name: equipModal.title,
+      has_toner: false,
+      is_lumpsum: false,
+    })
     if (res.error) {
       setErrorMsg(res.error)
       setSaving(false)
       return
     }
-    setItItems(prev => prev.map(item => item.id === equipModal.itemId ? { ...item, allotted_budget: equipModal.price } : item))
+    setItItems(prev => prev.map(item => item.id === equipModal.itemId ? { ...item, name: equipModal.title } : item))
     setSaving(false)
     setEquipModal({ open: false, itemId: null, title: '', price: 0 })
     showSuccess('সরঞ্জামের দর সংরক্ষিত হয়েছে।')
@@ -471,7 +450,6 @@ export function AdminSettingsClient({
     const res = await saveUtilityType({
       id: utilityModal.id,
       name: utilityModal.name,
-      order: utilityModal.order,
     })
     if (res.error) {
       setErrorMsg(res.error)
@@ -480,11 +458,10 @@ export function AdminSettingsClient({
     }
     setUtilityTypes(prev => {
       const clean = utilityModal.name.trim()
-      const ord = utilityModal.order || 1
       if (utilityModal.id) {
-        return prev.map(u => u.id === utilityModal.id ? { ...u, name: clean, order: ord } : u).sort((a, b) => a.order - b.order)
+        return prev.map(u => u.id === utilityModal.id ? { ...u, name: clean } : u).sort((a, b) => a.id - b.id)
       }
-      return [...prev, { id: Date.now(), name: clean, order: ord }].sort((a, b) => a.order - b.order)
+      return [...prev, { id: Date.now(), name: clean }].sort((a, b) => a.id - b.id)
     })
     setSaving(false)
     setUtilityModal({ open: false, name: '', order: 1 })

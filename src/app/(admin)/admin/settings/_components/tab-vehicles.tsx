@@ -72,7 +72,7 @@ export function TabVehicles({
                   vehicleTypes.map((v, idx) => (
                     <tr key={v.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="px-6 py-4 font-mono font-bold text-slate-500">
-                        {toBanglaNumber(v.order || idx + 1)}
+                        {toBanglaNumber(idx + 1)}
                       </td>
                       <td className="px-6 py-4 font-bold text-slate-800">
                         {v.name}
@@ -81,7 +81,7 @@ export function TabVehicles({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setCarModal({ open: true, id: v.id, name: v.name, order: v.order })}
+                          onClick={() => setCarModal({ open: true, id: v.id, name: v.name, order: idx + 1 })}
                           className="rounded-xl border-slate-200 text-xs font-semibold"
                         >
                           <Edit2 className="h-3.5 w-3.5 text-slate-600 mr-1" />

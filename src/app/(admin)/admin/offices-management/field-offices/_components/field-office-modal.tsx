@@ -69,15 +69,15 @@ export function FieldOfficeModal({
               onValueChange={(val) => {
                 if (val) {
                   const depts = departments.filter((d) => d.ministry_id === val)
-                  const newDeptId = depts[0]?.id || 0
+                  const newDeptId = depts[0]?.id?.toString() || ''
                   const heads = headOffices.filter((h) => h.department_id === newDeptId)
                   const types = officeTypes.filter((ot) => ot.department_id === newDeptId)
                   setModal((prev) => ({
                     ...prev,
                     ministry_id: val,
                     department_id: newDeptId,
-                    head_office_id: heads[0]?.id || 0,
-                    office_type_id: types[0]?.id || 0,
+                    head_office_id: heads[0]?.id?.toString() || '',
+                    office_type_id: types[0]?.id?.toString() || '',
                   }))
                 }
               }}
@@ -104,14 +104,13 @@ export function FieldOfficeModal({
               value={String(modal.department_id || '')}
               onValueChange={(val) => {
                 if (val) {
-                  const deptId = parseInt(val, 10)
-                  const heads = headOffices.filter((h) => h.department_id === deptId)
-                  const types = officeTypes.filter((ot) => ot.department_id === deptId)
+                  const heads = headOffices.filter((h) => h.department_id === val)
+                  const types = officeTypes.filter((ot) => ot.department_id === val)
                   setModal((prev) => ({
                     ...prev,
-                    department_id: deptId,
-                    head_office_id: heads[0]?.id || 0,
-                    office_type_id: types[0]?.id || 0,
+                    department_id: val,
+                    head_office_id: heads[0]?.id?.toString() || '',
+                    office_type_id: types[0]?.id?.toString() || '',
                   }))
                 }
               }}
@@ -137,7 +136,7 @@ export function FieldOfficeModal({
             <Select
               value={String(modal.head_office_id || '')}
               onValueChange={(val) => {
-                if (val) setModal((prev) => ({ ...prev, head_office_id: parseInt(val, 10) }))
+                if (val) setModal((prev) => ({ ...prev, head_office_id: val }))
               }}
             >
               <SelectTrigger className="w-full rounded-xl border-slate-200 text-xs h-10">
@@ -161,7 +160,7 @@ export function FieldOfficeModal({
             <Select
               value={String(modal.office_type_id || '')}
               onValueChange={(val) => {
-                if (val) setModal((prev) => ({ ...prev, office_type_id: parseInt(val, 10) }))
+                if (val) setModal((prev) => ({ ...prev, office_type_id: val }))
               }}
             >
               <SelectTrigger className="w-full rounded-xl border-slate-200 text-xs h-10">
@@ -185,7 +184,7 @@ export function FieldOfficeModal({
             <Select
               value={String(modal.office_level_id || '')}
               onValueChange={(val) => {
-                if (val) setModal((prev) => ({ ...prev, office_level_id: parseInt(val, 10) }))
+                if (val) setModal((prev) => ({ ...prev, office_level_id: val }))
               }}
             >
               <SelectTrigger className="w-full rounded-xl border-slate-200 text-xs h-10">

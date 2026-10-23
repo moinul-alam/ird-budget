@@ -1,6 +1,6 @@
 import { getAdminSession } from '@/lib/auth-admin'
 import { redirect } from 'next/navigation'
-import { createOfficeClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db/client'
 import { Card } from '@/components/ui/card'
 import { toBanglaNumber } from '@/lib/bangla'
 import { Calculator } from 'lucide-react'
@@ -47,20 +47,19 @@ export default async function SuperadminFormulasPage() {
     redirect('/admin/dashboard')
   }
 
-  const supabase = createOfficeClient()
-  let { data: codes, error } = await supabase
-    .from('core_economic_codes')
-    .select('id, code, name, is_manual, formula_key, sort_order')
-
-  if (error || !codes) {
-    const fallbackRes = await supabase
-      .from('core_expense_codes')
-      .select('id, code, name, is_manual, formula_key, sort_order')
-    codes = fallbackRes.data || []
-  }
+  const codes = await prisma.refEconomicCode.findMany({
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      isManual: true,
+      formulaKey: true,
+      sortOrder: true
+    }
+  })
 
   // Sort them code wise
-  const list = (codes || []).sort((a: any, b: any) => {
+  const list = codes.sort((a, b) => {
     return (a.code || '').localeCompare(b.code || '')
   })
 

@@ -25,7 +25,7 @@ export interface MinistryModalState {
 
 export interface DepartmentModalState {
   open: boolean
-  id?: number
+  id?: string
   name: string
   ministry_id: string
   budget_id?: string
@@ -33,15 +33,15 @@ export interface DepartmentModalState {
 
 export interface OfficeTypeModalState {
   open: boolean
-  id?: number
+  id?: string
   name: string
-  department_id: number
+  department_id: string
 }
 
 export interface HierarchyModalState {
   open: boolean
   id?: string
-  office_type_id: number
+  office_type_id: string
   level_name: string
   level_order: number
 }
@@ -49,8 +49,8 @@ export interface HierarchyModalState {
 export interface GroupModalState {
   open: boolean
   id?: string
-  department_id: number
-  office_type_id: number
+  department_id: string
+  office_type_id: string
   office_level_id?: string
   is_group_budget: boolean
 }

@@ -3,13 +3,12 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname
 
-  // Protect Office routes (cookie-based auth only — no Supabase round-trip)
+  // Protect Office routes (cookie-based auth only)
   if (path.startsWith('/office') || path.startsWith('/dashboard')) {
     const officeSession = request.cookies.get('office_session')
     if (!officeSession) {
       return NextResponse.redirect(new URL('/', request.url))
     }
-    // Skip Supabase auth entirely for office routes — blazing fast
     return NextResponse.next()
   }
 
@@ -18,12 +17,13 @@ export async function proxy(request: NextRequest) {
     const isLogin = path === '/admin/login'
     const adminSession = request.cookies.get('admin_session')
 
+    // Only a presence check is possible here (no signature verification in the
+    // edge proxy), so never redirect *away* from the login page — the admin
+    // layout validates the session and handles the authenticated case. Blindly
+    // bouncing /admin/login -> /admin/dashboard on a stale cookie causes an
+    // infinite redirect loop with the layout's validity check.
     if (!adminSession && !isLogin) {
       return NextResponse.redirect(new URL('/admin/login', request.url))
-    }
-
-    if (adminSession && isLogin) {
-      return NextResponse.redirect(new URL('/admin/dashboard', request.url))
     }
 
     return NextResponse.next()

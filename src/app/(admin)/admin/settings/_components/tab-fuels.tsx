@@ -73,19 +73,19 @@ export function TabFuels({
                   fuelTypes.map((f, idx) => (
                     <tr key={f.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="px-6 py-4 font-mono font-bold text-slate-500">
-                        {toBanglaNumber(f.order || idx + 1)}
+                        {toBanglaNumber(idx + 1)}
                       </td>
                       <td className="px-6 py-4 font-bold text-slate-800">
                         {f.name}
                       </td>
                       <td className="px-6 py-4 font-mono font-bold text-emerald-700">
-                        {toBanglaAmount(f.price)} টাকা
+                        {toBanglaAmount(f.price || 0)} টাকা
                       </td>
                       <td className="px-6 py-4 text-right space-x-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setFuelModal({ open: true, id: f.id, name: f.name, price: f.price, order: f.order })}
+                          onClick={() => setFuelModal({ open: true, id: f.id, name: f.name, price: f.price || 0, order: idx + 1 })}
                           className="rounded-xl border-slate-200 text-xs font-semibold"
                         >
                           <Edit2 className="h-3.5 w-3.5 text-slate-600 mr-1" />

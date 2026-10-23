@@ -2,10 +2,10 @@ import { BudgetCategoryItem, ExpenseCodeFullItem } from '@/app/actions/admin-cod
 import { DepartmentItem, OfficeLevelItem } from '@/app/actions/admin-offices-config'
 
 export interface OfficeTypeItem {
-  id: number
+  id: string
   name: string
   department_name: string
-  department_id: number
+  department_id: string
 }
 
 export interface AdminCodesClientProps {
@@ -14,8 +14,8 @@ export interface AdminCodesClientProps {
   officeLevels: OfficeLevelItem[]
   initialCodes: ExpenseCodeFullItem[]
   initialCategories: BudgetCategoryItem[]
-  initialOfficeTypeId: number
-  initialDepartmentId?: number
+  initialOfficeTypeId: string
+  initialDepartmentId?: string
   initialOfficeLevelId?: string
 }
 

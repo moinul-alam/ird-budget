@@ -1,4 +1,4 @@
-import { createOfficeClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db/client'
 import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -23,90 +23,76 @@ export const metadata = {
 }
 
 export default async function AdminDashboardPage() {
-  const supabase = createOfficeClient()
-
   // 1. Fetch active cycle (or latest cycle)
-  const { data: cycles } = await supabase
-    .from('core_budget_cycles')
-    .select('*')
-    .order('id', { ascending: false })
+  const cycles = await prisma.coreBudgetCycle.findMany({
+    orderBy: { id: 'desc' },
+    include: {
+      fiscalYear: { select: { year: true } },
+      budgetType: { select: { name: true } },
+    },
+  })
 
-  const activeCycle = cycles?.find((c: any) => c.status === 'open') || cycles?.[0] || null
+  const activeCycle = cycles.find((c) => c.status === 'open') || cycles[0] || null
 
   // 2. Fetch all offices with department and office_types
-  const { data: offices } = await supabase
-    .from('core_offices')
-    .select(`
-      id,
-      name,
-      budget_id,
-      office_type_id,
-      core_office_types (
-        id,
-        name,
-        is_group_budget,
-        department_id,
-        core_departments (
-          id,
-          name
-        )
-      )
-    `)
-    .order('id')
+  const offices = await prisma.coreOffice.findMany({
+    include: {
+      officeType: {
+        include: {
+          department: true,
+        },
+      },
+    },
+    orderBy: { id: 'asc' },
+  })
 
   // 3. Fetch submissions for this cycle
-  const cycleId = activeCycle?.id || 1
-  const { data: submissions } = await supabase
-    .from('office_submissions')
-    .select(`
-      id,
-      office_id,
-      cycle_id,
-      status,
-      submitted_at,
-      office_budget_sheet (
-        auto_value,
-        manual_value
-      )
-    `)
-    .eq('cycle_id', cycleId)
+  const cycleId = activeCycle?.id || BigInt(1)
+  const submissions = await prisma.officeSubmission.findMany({
+    where: { cycleId },
+    include: {
+      budgetSheets: {
+        select: {
+          autoValue: true,
+          manualValue: true,
+        },
+      },
+    },
+  })
 
   // Submissions map
   const subMap = new Map<number, any>()
   let totalSubmittedBudget = 0
   let totalDraftBudget = 0
 
-  if (submissions) {
-    for (const sub of submissions) {
-      let subTotal = 0
-      if (sub.budget_sheet) {
-        subTotal = sub.budget_sheet.reduce((sum: number, b: any) => {
-          return sum + (Number(b.manual_value ?? b.auto_value) || 0)
-        }, 0)
-      }
-      subMap.set(sub.office_id, {
-        ...sub,
-        total: subTotal,
-      })
+  for (const sub of submissions) {
+    let subTotal = 0
+    if (sub.budgetSheets) {
+      subTotal = sub.budgetSheets.reduce((sum, b) => {
+        return sum + (Number(b.manualValue ?? b.autoValue) || 0)
+      }, 0)
+    }
+    subMap.set(Number(sub.officeId), {
+      ...sub,
+      total: subTotal,
+    })
 
-      if (sub.status === 'submitted') {
-        totalSubmittedBudget += subTotal
-      } else {
-        totalDraftBudget += subTotal
-      }
+    if (sub.status === 'submitted') {
+      totalSubmittedBudget += subTotal
+    } else {
+      totalDraftBudget += subTotal
     }
   }
 
-  const allOffices = offices || []
+  const allOffices = offices
   const totalOfficesCount = allOffices.length
 
   // 3. Fetch all active departments from DB
-  const { data: dbDepartments } = await supabase
-    .from('departments')
-    .select('id, name')
-    .order('id')
+  const dbDepartments = await prisma.coreDepartment.findMany({
+    orderBy: { id: 'asc' },
+  })
 
-  const departmentList = dbDepartments || []
+  const departmentList = dbDepartments
   const departmentStatsMap = new Map<number, {
     id: number
     name: string
@@ -117,13 +103,13 @@ export default async function AdminDashboardPage() {
   }>()
 
   // Initialize department stats
-  departmentList.forEach((d: any) => {
+  departmentList.forEach((d) => {
     let rawName = d.name || ''
     if (rawName.includes(':::min=')) {
       rawName = rawName.split(':::min=')[0]
     }
-    departmentStatsMap.set(d.id, {
-      id: d.id,
+    departmentStatsMap.set(Number(d.id), {
+      id: Number(d.id),
       name: rawName,
       totalOffices: 0,
       submittedOffices: 0,
@@ -136,8 +122,8 @@ export default async function AdminDashboardPage() {
   let groupBudgetSubmitted = 0
 
   // Office list enhanced
-  const officeStats = allOffices.map((off: any) => {
-    const sub = subMap.get(off.id)
+  const officeStats = allOffices.map((off) => {
+    const sub = subMap.get(Number(off.id))
     const isSubmitted = sub?.status === 'submitted'
     const isDraft = sub?.status === 'draft'
     const status: 'submitted' | 'draft' | 'not_started' = isSubmitted
@@ -146,12 +132,12 @@ export default async function AdminDashboardPage() {
         ? 'draft'
         : 'not_started'
 
-    const deptId = off.office_types?.department_id || off.office_types?.departments?.id || 0
-    let deptName = off.office_types?.departments?.name || 'অনির্ধারিত বিভাগ'
+    const deptId = Number(off.officeType?.departmentId || 0)
+    let deptName = off.officeType?.department?.name || 'অনির্ধারিত বিভাগ'
     if (deptName.includes(':::min=')) {
       deptName = deptName.split(':::min=')[0]
     }
-    const isGroup = off.office_types?.is_group_budget || false
+    const isGroup = off.officeType?.isGroupBudget || false
     const subBudget = sub?.total || 0
 
     // Dynamic aggregation by department
@@ -181,21 +167,21 @@ export default async function AdminDashboardPage() {
     }
 
     return {
-      id: off.id,
+      id: Number(off.id),
       name: off.name,
-      budget_id: off.budget_id,
+      budget_id: off.budgetId,
       department: deptName,
-      office_type: off.office_types?.name || 'অফিস',
+      office_type: off.officeType?.name || 'অফিস',
       isGroup,
       status,
-      submitted_at: sub?.submitted_at,
+      submitted_at: sub?.submittedAt,
       totalBudget: subBudget,
     }
   })
 
-  const submittedOfficesCount = officeStats.filter((o: any) => o.status === 'submitted').length
-  const draftOfficesCount = officeStats.filter((o: any) => o.status === 'draft').length
-  const notStartedOfficesCount = officeStats.filter((o: any) => o.status === 'not_started').length
+  const submittedOfficesCount = officeStats.filter((o) => o.status === 'submitted').length
+  const draftOfficesCount = officeStats.filter((o) => o.status === 'draft').length
+  const notStartedOfficesCount = officeStats.filter((o) => o.status === 'not_started').length
 
   const submittedPercent = totalOfficesCount > 0 ? Math.round((submittedOfficesCount / totalOfficesCount) * 100) : 0
   const departmentBreakdowns = Array.from(departmentStatsMap.values())
@@ -206,15 +192,10 @@ export default async function AdminDashboardPage() {
   const hasActiveCycle = Boolean(activeCycle)
 
   if (activeCycle) {
-    let fy = activeCycle.fiscal_year || '২০২৬-২৭'
-    if (fy.includes(':::name=')) {
-      const parts = fy.split(':::name=')
-      cycleTitle = `${toBanglaNumber(parts[0])} অর্থবছর`
-      cycleTypeName = parts[1] || cycleTypeName
-    } else {
-      cycleTitle = `${toBanglaNumber(fy)} অর্থবছর`
-      cycleTypeName = activeCycle.budget_type === 'revised' ? 'সংশোধিত বাজেট' : 'প্রাক্কলিত বাজেট'
-    }
+    // Both labels come from the reference tables, so a rename in
+    // /admin/budgets flows straight through to this banner.
+    cycleTitle = `${toBanglaNumber(activeCycle.fiscalYear.year)} অর্থবছর`
+    cycleTypeName = activeCycle.budgetType.name
   }
 
   return (

@@ -175,7 +175,7 @@ export function TabSalaries({
               <div>
                 <CardTitle className="text-base font-extrabold text-slate-800">যাতায়াত ভাতা</CardTitle>
                 <CardDescription className="text-xs text-slate-500 mt-0.5">
-                  প্রযোজ্য: গ্রেড {toBanglaNumber(salaryConfig.transport_allowance.from_grade)} হতে {toBanglaNumber(salaryConfig.transport_allowance.to_grade)}
+                  প্রযোজ্য: সকল গ্রেড
                 </CardDescription>
               </div>
               <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl">
@@ -185,22 +185,15 @@ export function TabSalaries({
             <CardContent className="pt-0">
               <div className="flex items-baseline justify-between mt-2">
                 <span className="text-3xl font-extrabold text-slate-800 font-mono">
-                  {toBanglaAmount(salaryConfig.transport_allowance.rate)}
+                  কনফিগারেশন প্রয়োজন
                 </span>
                 <span className="text-xs font-semibold text-slate-400">টাকা/মাস</span>
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setGradeModal({
-                  open: true,
-                  field: 'transport_allowance',
-                  title: 'যাতায়াত ভাতা ও প্রযোজ্য গ্রেড',
-                  rate: salaryConfig.transport_allowance.rate,
-                  fromGrade: salaryConfig.transport_allowance.from_grade,
-                  toGrade: salaryConfig.transport_allowance.to_grade,
-                })}
-                className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-1.5"
+                disabled
+                className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 flex items-center justify-center gap-1.5"
               >
                 <Edit2 className="h-3.5 w-3.5" />
                 পরিবর্তন করুন
@@ -252,7 +245,7 @@ export function TabSalaries({
               <div>
                 <CardTitle className="text-base font-extrabold text-slate-800">বাড়ি ভাড়া ভাতা</CardTitle>
                 <CardDescription className="text-xs text-slate-500 mt-0.5">
-                  {salaryConfig.house_rent_slabs.length} টি স্ল্যাব কনফিগার করা
+                  কনফিগারেশন প্রয়োজন
                 </CardDescription>
               </div>
               <div className="p-2.5 bg-teal-50 text-teal-600 rounded-xl">
@@ -260,22 +253,17 @@ export function TabSalaries({
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="space-y-1 mt-1">
-                {salaryConfig.house_rent_slabs.map(s => (
-                  <div key={s.id} className="flex justify-between text-xs py-0.5 border-b border-slate-100">
-                    <span className="text-slate-600">গ্রেড {toBanglaNumber(s.from_grade)} - {toBanglaNumber(s.to_grade)}:</span>
-                    <span className="font-bold text-slate-800 font-mono">{toBanglaNumber(s.percentage)}%</span>
-                  </div>
-                ))}
+              <div className="flex items-baseline justify-between mt-2">
+                <span className="text-3xl font-extrabold text-slate-800 font-mono">
+                  কনফিগারেশন প্রয়োজন
+                </span>
+                <span className="text-xs font-semibold text-slate-400">টাকা/মাস</span>
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  setSlabs(salaryConfig.house_rent_slabs)
-                  setHouseRentModal(true)
-                }}
-                className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-1.5"
+                disabled
+                className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 flex items-center justify-center gap-1.5"
               >
                 <Sliders className="h-3.5 w-3.5" />
                 স্ল্যাব সম্পাদনা করুন
@@ -327,7 +315,7 @@ export function TabSalaries({
               <div>
                 <CardTitle className="text-base font-extrabold text-slate-800">মোবাইল/সেলফোন ভাতা</CardTitle>
                 <CardDescription className="text-xs text-slate-500 mt-0.5">
-                  {(salaryConfig.mobile_allowance_slabs || []).length} টি স্ল্যাব কনফিগার করা
+                  কনফিগারেশন প্রয়োজন
                 </CardDescription>
               </div>
               <div className="p-2.5 bg-amber-50 text-amber-600 rounded-xl">
@@ -335,28 +323,17 @@ export function TabSalaries({
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="space-y-1 mt-1">
-                {(salaryConfig.mobile_allowance_slabs || [
-                  { id: 'mob-1', from_grade: 1, to_grade: 9, amount: 1500 },
-                  { id: 'mob-2', from_grade: 10, to_grade: 20, amount: 1000 },
-                ]).map(s => (
-                  <div key={s.id} className="flex justify-between text-xs py-0.5 border-b border-slate-100">
-                    <span className="text-slate-600">গ্রেড {toBanglaNumber(s.from_grade)} - {toBanglaNumber(s.to_grade)}:</span>
-                    <span className="font-bold text-slate-800 font-mono">{toBanglaAmount(s.amount)} টাকা</span>
-                  </div>
-                ))}
+              <div className="flex items-baseline justify-between mt-2">
+                <span className="text-3xl font-extrabold text-slate-800 font-mono">
+                  কনফিগারেশন প্রয়োজন
+                </span>
+                <span className="text-xs font-semibold text-slate-400">টাকা/মাস</span>
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  setMobileSlabs(salaryConfig.mobile_allowance_slabs || [
-                    { id: 'mob-1', from_grade: 1, to_grade: 9, amount: 1500 },
-                    { id: 'mob-2', from_grade: 10, to_grade: 20, amount: 1000 },
-                  ])
-                  setMobileModal(true)
-                }}
-                className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-1.5"
+                disabled
+                className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 flex items-center justify-center gap-1.5"
               >
                 <Sliders className="h-3.5 w-3.5" />
                 স্ল্যাব সম্পাদনা করুন
@@ -371,7 +348,7 @@ export function TabSalaries({
               <div>
                 <CardTitle className="text-base font-extrabold text-slate-800">আবাসিক টেলিফোন নগদায়ন</CardTitle>
                 <CardDescription className="text-xs text-slate-500 mt-0.5">
-                  প্রযোজ্য: গ্রেড {toBanglaNumber(salaryConfig.telephone_allowance.from_grade)} হতে {toBanglaNumber(salaryConfig.telephone_allowance.to_grade)}
+                  কনফিগারেশন প্রয়োজন
                 </CardDescription>
               </div>
               <div className="p-2.5 bg-cyan-50 text-cyan-600 rounded-xl">
@@ -381,22 +358,15 @@ export function TabSalaries({
             <CardContent className="pt-0">
               <div className="flex items-baseline justify-between mt-2">
                 <span className="text-3xl font-extrabold text-slate-800 font-mono">
-                  {toBanglaAmount(salaryConfig.telephone_allowance.rate)}
+                  কনফিগারেশন প্রয়োজন
                 </span>
                 <span className="text-xs font-semibold text-slate-400">টাকা/মাস</span>
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setGradeModal({
-                  open: true,
-                  field: 'telephone_allowance',
-                  title: 'আবাসিক টেলিফোন নগদায়ন ভাতা',
-                  rate: salaryConfig.telephone_allowance.rate,
-                  fromGrade: salaryConfig.telephone_allowance.from_grade,
-                  toGrade: salaryConfig.telephone_allowance.to_grade,
-                })}
-                className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-1.5"
+                disabled
+                className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 flex items-center justify-center gap-1.5"
               >
                 <Edit2 className="h-3.5 w-3.5" />
                 পরিবর্তন করুন
@@ -411,7 +381,7 @@ export function TabSalaries({
               <div>
                 <CardTitle className="text-base font-extrabold text-slate-800">টিফিন ভাতা</CardTitle>
                 <CardDescription className="text-xs text-slate-500 mt-0.5">
-                  প্রযোজ্য: গ্রেড {toBanglaNumber(salaryConfig.tiffin_allowance.from_grade)} হতে {toBanglaNumber(salaryConfig.tiffin_allowance.to_grade)}
+                  কনফিগারেশন প্রয়োজন
                 </CardDescription>
               </div>
               <div className="p-2.5 bg-orange-50 text-orange-600 rounded-xl">
@@ -421,22 +391,15 @@ export function TabSalaries({
             <CardContent className="pt-0">
               <div className="flex items-baseline justify-between mt-2">
                 <span className="text-3xl font-extrabold text-slate-800 font-mono">
-                  {toBanglaAmount(salaryConfig.tiffin_allowance.rate)}
+                  কনফিগারেশন প্রয়োজন
                 </span>
                 <span className="text-xs font-semibold text-slate-400">টাকা/মাস</span>
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setGradeModal({
-                  open: true,
-                  field: 'tiffin_allowance',
-                  title: 'টিফিন ভাতা ও প্রযোজ্য গ্রেড',
-                  rate: salaryConfig.tiffin_allowance.rate,
-                  fromGrade: salaryConfig.tiffin_allowance.from_grade,
-                  toGrade: salaryConfig.tiffin_allowance.to_grade,
-                })}
-                className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-1.5"
+                disabled
+                className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 flex items-center justify-center gap-1.5"
               >
                 <Edit2 className="h-3.5 w-3.5" />
                 পরিবর্তন করুন
@@ -451,7 +414,7 @@ export function TabSalaries({
               <div>
                 <CardTitle className="text-base font-extrabold text-slate-800">ধোলাই ভাতা</CardTitle>
                 <CardDescription className="text-xs text-slate-500 mt-0.5">
-                  প্রযোজ্য: গ্রেড {toBanglaNumber(salaryConfig.wash_allowance.from_grade)} হতে {toBanglaNumber(salaryConfig.wash_allowance.to_grade)}
+                  কনফিগারেশন প্রয়োজন
                 </CardDescription>
               </div>
               <div className="p-2.5 bg-sky-50 text-sky-600 rounded-xl">
@@ -461,22 +424,15 @@ export function TabSalaries({
             <CardContent className="pt-0">
               <div className="flex items-baseline justify-between mt-2">
                 <span className="text-3xl font-extrabold text-slate-800 font-mono">
-                  {toBanglaAmount(salaryConfig.wash_allowance.rate)}
+                  কনফিগারেশন প্রয়োজন
                 </span>
                 <span className="text-xs font-semibold text-slate-400">টাকা/মাস</span>
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setGradeModal({
-                  open: true,
-                  field: 'wash_allowance',
-                  title: 'ধোলাই ভাতা ও প্রযোজ্য গ্রেড',
-                  rate: salaryConfig.wash_allowance.rate,
-                  fromGrade: salaryConfig.wash_allowance.from_grade,
-                  toGrade: salaryConfig.wash_allowance.to_grade,
-                })}
-                className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-1.5"
+                disabled
+                className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 flex items-center justify-center gap-1.5"
               >
                 <Edit2 className="h-3.5 w-3.5" />
                 পরিবর্তন করুন
@@ -491,7 +447,7 @@ export function TabSalaries({
               <div>
                 <CardTitle className="text-base font-extrabold text-slate-800">আপ্যায়ন ভাতা</CardTitle>
                 <CardDescription className="text-xs text-slate-500 mt-0.5">
-                  প্রযোজ্য: গ্রেড {toBanglaNumber(salaryConfig.entertainment_allowance.from_grade)} হতে {toBanglaNumber(salaryConfig.entertainment_allowance.to_grade)}
+                  কনফিগারেশন প্রয়োজন
                 </CardDescription>
               </div>
               <div className="p-2.5 bg-lime-50 text-lime-600 rounded-xl">
@@ -501,22 +457,15 @@ export function TabSalaries({
             <CardContent className="pt-0">
               <div className="flex items-baseline justify-between mt-2">
                 <span className="text-3xl font-extrabold text-slate-800 font-mono">
-                  {toBanglaAmount(salaryConfig.entertainment_allowance.rate)}
+                  কনফিগারেশন প্রয়োজন
                 </span>
                 <span className="text-xs font-semibold text-slate-400">টাকা/মাস</span>
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setGradeModal({
-                  open: true,
-                  field: 'entertainment_allowance',
-                  title: 'আপ্যায়ন ভাতা ও প্রযোজ্য গ্রেড',
-                  rate: salaryConfig.entertainment_allowance.rate,
-                  fromGrade: salaryConfig.entertainment_allowance.from_grade,
-                  toGrade: salaryConfig.entertainment_allowance.to_grade,
-                })}
-                className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-1.5"
+                disabled
+                className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 flex items-center justify-center gap-1.5"
               >
                 <Edit2 className="h-3.5 w-3.5" />
                 পরিবর্তন করুন
@@ -531,7 +480,7 @@ export function TabSalaries({
               <div>
                 <CardTitle className="text-base font-extrabold text-slate-800">বিশেষ সুবিধা</CardTitle>
                 <CardDescription className="text-xs text-slate-500 mt-0.5">
-                  {(salaryConfig.special_benefit_slabs || []).length} টি স্ল্যাব (মূল বেতনের %)
+                  কনফিগারেশন প্রয়োজন
                 </CardDescription>
               </div>
               <div className="p-2.5 bg-violet-50 text-violet-600 rounded-xl">
@@ -539,25 +488,17 @@ export function TabSalaries({
               </div>
             </CardHeader>
             <CardContent className="pt-0">
-              <div className="space-y-1 mt-1">
-                {(salaryConfig.special_benefit_slabs || []).map(s => (
-                  <div key={s.id} className="flex justify-between text-xs py-0.5 border-b border-slate-100">
-                    <span className="text-slate-600">গ্রেড {toBanglaNumber(s.from_grade)} - {toBanglaNumber(s.to_grade)}:</span>
-                    <span className="font-bold text-slate-800 font-mono">{toBanglaNumber(s.percentage)}%</span>
-                  </div>
-                ))}
-                {(!salaryConfig.special_benefit_slabs || salaryConfig.special_benefit_slabs.length === 0) && (
-                  <p className="text-xs text-slate-400 py-1">কোনো স্ল্যাব কনফিগার করা নেই</p>
-                )}
+              <div className="flex items-baseline justify-between mt-2">
+                <span className="text-3xl font-extrabold text-slate-800 font-mono">
+                  কনফিগারেশন প্রয়োজন
+                </span>
+                <span className="text-xs font-semibold text-slate-400">টাকা/মাস</span>
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => {
-                  setSpecialBenefitSlabs(salaryConfig.special_benefit_slabs || [])
-                  setSpecialBenefitModal(true)
-                }}
-                className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-1.5"
+                disabled
+                className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 flex items-center justify-center gap-1.5"
               >
                 <Sliders className="h-3.5 w-3.5" />
                 স্ল্যাব সম্পাদনা করুন

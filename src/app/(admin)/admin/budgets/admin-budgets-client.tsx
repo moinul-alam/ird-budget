@@ -13,6 +13,9 @@ import {
   BudgetTypeItem,
   FiscalYearItem,
   CycleItem,
+  getBudgetTypes,
+  getFiscalYears,
+  getCyclesList,
   saveBudgetType,
   deleteBudgetType,
   saveFiscalYear,
@@ -96,20 +99,10 @@ export function AdminBudgetsClient({
       if (res.error) {
         showStatus(res.error, 'error')
       } else {
-        showStatus('বাজেটের ধরণ সফলভাবে সংরক্ষিত হয়েছে')
+        showStatus('বাজেটের ধরণ সফলভাবে সংরক্ষিত হয়েছে')
         setTypeModal({ open: false, name: '' })
-        const trimmed = typeModal.name.trim()
-        const isRevised = trimmed.includes('সংশোধিত')
-        if (typeModal.id) {
-          setBudgetTypes((prev) =>
-            prev.map((b) => (b.id === typeModal.id ? { ...b, name: trimmed, code: isRevised ? 'revised' : 'new' } : b))
-          )
-        } else {
-          setBudgetTypes((prev) => [
-            ...prev,
-            { id: `bt-${Date.now()}`, name: trimmed, code: isRevised ? 'revised' : 'new' },
-          ])
-        }
+        // Re-read from the server so ids and ordering stay authoritative.
+        setBudgetTypes(await getBudgetTypes())
       }
     })
   }
@@ -126,16 +119,10 @@ export function AdminBudgetsClient({
       if (res.error) {
         showStatus(res.error, 'error')
       } else {
-        showStatus('অর্থবছর সফলভাবে সংরক্ষিত হয়েছে')
+        showStatus('অর্থবছর সফলভাবে সংরক্ষিত হয়েছে')
         setFyModal({ open: false, year: '' })
-        const trimmed = fyModal.year.trim()
-        if (fyModal.id) {
-          setFiscalYears((prev) =>
-            prev.map((f) => (f.id === fyModal.id ? { ...f, year: trimmed } : f))
-          )
-        } else {
-          setFiscalYears((prev) => [...prev, { id: `fy-${Date.now()}`, year: trimmed }])
-        }
+        // Re-read from the server so ids and ordering stay authoritative.
+        setFiscalYears(await getFiscalYears())
       }
     })
   }
@@ -158,37 +145,16 @@ export function AdminBudgetsClient({
       if (res.error) {
         showStatus(res.error, 'error')
       } else {
-        showStatus('বাজেট সাইকেল সফলভাবে সংরক্ষিত হয়েছে')
+        showStatus('বাজেট সাইকেল সফলভাবে সংরক্ষিত হয়েছে')
         setCycleModal({
           open: false,
           fiscal_year: fiscalYears[0]?.year || '',
           budget_type_name: budgetTypes[0]?.name || '',
           status: 'open',
         })
-        const isRevised = cycleModal.budget_type_name.includes('সংশোধিত')
-        const updatedItem: CycleItem = {
-          id: cycleModal.id || Date.now(),
-          fiscal_year: cycleModal.fiscal_year,
-          budget_type: isRevised ? 'revised' : 'new',
-          budget_type_name: cycleModal.budget_type_name,
-          status: cycleModal.status,
-          has_data: false,
-          submission_count: 0,
-        }
-
-        if (cycleModal.status === 'open') {
-          setCycles((prev) =>
-            prev.map((c) => ({ ...c, status: c.id === cycleModal.id ? 'open' : 'closed' }))
-          )
-        }
-
-        if (cycleModal.id) {
-          setCycles((prev) =>
-            prev.map((c) => (c.id === cycleModal.id ? { ...c, ...updatedItem } : c))
-          )
-        } else {
-          setCycles((prev) => [updatedItem, ...prev])
-        }
+        // Re-read from the server: the new cycle's id, its reference labels and
+        // any cycles auto-closed above all come back authoritative.
+        setCycles(await getCyclesList())
       }
     })
   }

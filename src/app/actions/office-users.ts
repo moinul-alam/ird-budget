@@ -42,7 +42,7 @@ export async function getAllOfficeUsersList(): Promise<{ offices: OfficeUserItem
           name: true,
         },
       },
-      officeUser: {
+      officeUsers: {
         select: {
           passwordHint: true,
         },
@@ -60,7 +60,7 @@ export async function getAllOfficeUsersList(): Promise<{ offices: OfficeUserItem
   const defaultPassword = '12345'
 
   const list: OfficeUserItem[] = offices.map((o) => {
-    const hint = o.officeUser?.passwordHint || defaultPassword
+    const hint = o.officeUsers?.[0]?.passwordHint || defaultPassword
     const hasCustomPassword = hint !== defaultPassword
 
     return {
@@ -99,12 +99,10 @@ export async function updateOfficePassword(
       where: { officeId: BigInt(officeId) },
       update: {
         passwordHash: pwdHash,
-        passwordHint: cleanPwd,
       },
       create: {
         officeId: BigInt(officeId),
         passwordHash: pwdHash,
-        passwordHint: cleanPwd,
       },
     })
 

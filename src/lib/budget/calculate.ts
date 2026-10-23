@@ -1,6 +1,6 @@
 /**
  * Budget Calculation Engine
- * Pure functions without React, Next.js, or Supabase imports.
+ * Pure functions without React, Next.js, or database-specific imports.
  * Takes typed context and returns computed numeric values.
  */
 

@@ -1,11 +1,9 @@
-import { createOfficeClient } from '@/lib/supabase/server'
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { getUtilityTypes } from '@/app/actions/admin-settings'
 import { Form8Client } from './form-8-client'
 
 export default async function Form8Page() {
-  const supabase = createOfficeClient()
   const session = await getOfficeSession()
   if (!session) redirect('/')
 
@@ -13,7 +11,7 @@ export default async function Form8Page() {
 
   const [utilityTypes, dataRes] = await Promise.all([
     getUtilityTypes(),
-    submissionId ? supabase.from('office_form_utilities').select('*').eq('submission_id', submissionId) : Promise.resolve({ data: [] })
+    Promise.resolve({ data: [] })
   ])
 
   return (

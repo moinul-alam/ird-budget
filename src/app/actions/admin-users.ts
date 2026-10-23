@@ -84,7 +84,6 @@ export async function createAdminUser(
       data: {
         username: cleanUser,
         passwordHash: pwdHash,
-        passwordHint: cleanPwd,
         role,
         isActive: true,
       },
@@ -115,7 +114,6 @@ export async function updateAdminUserRole(
 
   if (newPassword && newPassword.trim()) {
     updatePayload.passwordHash = hashPassword(newPassword.trim())
-    updatePayload.passwordHint = newPassword.trim()
   }
 
   try {

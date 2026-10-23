@@ -1,7 +1,7 @@
 import { getAdminSession } from '@/lib/auth-admin'
 import { redirect } from 'next/navigation'
 import { getFieldOffices, getHeadOffices } from '@/app/actions/admin-offices-management'
-import { getMinistries, getDepartments, getOfficeTypesHierarchy, getOfficeLevels } from '@/app/actions/admin-offices-config'
+import { getMinistries, getDepartments, getOfficeTypes, getOfficeLevels } from '@/app/actions/admin-offices-config'
 import { FieldOfficesClient } from './field-offices-client'
 
 export const metadata = {
@@ -20,7 +20,7 @@ export default async function AdminFieldOfficesPage() {
     getHeadOffices(),
     getMinistries(),
     getDepartments(),
-    getOfficeTypesHierarchy(),
+    getOfficeTypes(),
     getOfficeLevels(),
   ])
 

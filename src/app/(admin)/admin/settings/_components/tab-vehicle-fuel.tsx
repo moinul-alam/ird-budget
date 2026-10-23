@@ -23,12 +23,12 @@ import { Plus, Edit2, Trash2, Loader2 } from 'lucide-react'
 import {
   VehicleTypeItem,
   FuelTypeItem,
-  VehicleFuelConfigItem,
+  VehicleConfigItem,
 } from '@/app/actions/admin-settings'
 import { VehicleFuelConfigModalState } from '../_types/settings'
 
 interface TabVehicleFuelProps {
-  fuelConfigs: VehicleFuelConfigItem[]
+  fuelConfigs: VehicleConfigItem[]
   vehicleTypes: VehicleTypeItem[]
   fuelTypes: FuelTypeItem[]
   vfcModal: VehicleFuelConfigModalState
@@ -59,14 +59,7 @@ export function TabVehicleFuel({
             </CardDescription>
           </div>
           <Button
-            onClick={() => setVfcModal({
-              open: true,
-              carTypeId: vehicleTypes[0] ? String(vehicleTypes[0].id) : '',
-              fuelTypeId: fuelTypes[0] ? String(fuelTypes[0].id) : '',
-              monthlyFuel: 0,
-              annualLube: 0,
-              annualMaint: 0,
-            })}
+            disabled
             className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
           >
             <Plus className="h-4 w-4" />
@@ -101,13 +94,13 @@ export function TabVehicleFuel({
                         {toBanglaNumber(idx + 1)}
                       </td>
                       <td className="px-5 py-4 font-bold text-slate-800">
-                        {fc.car_name}
+                        কনফিগারেশন প্রয়োজন
                       </td>
                       <td className="px-5 py-4 font-semibold text-slate-700">
-                        {fc.fuel_name}
+                        {vehicleTypes.find(vt => vt.id === fc.vehicle_type_id)?.name || '—'}
                       </td>
                       <td className="px-5 py-4 font-mono font-bold text-emerald-700">
-                        {toBanglaNumber(fc.monthly_fuel_allowance)} লি.
+                        {toBanglaNumber(fc.monthly_fuel_quota_liter)} লি.
                       </td>
                       <td className="px-5 py-4 font-mono font-bold text-slate-800">
                         {toBanglaAmount(fc.annual_lube_allowance)} টাকা
@@ -119,15 +112,7 @@ export function TabVehicleFuel({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setVfcModal({
-                            open: true,
-                            id: fc.id,
-                            carTypeId: String(fc.car_type_id),
-                            fuelTypeId: String(fc.fuel_type_id),
-                            monthlyFuel: fc.monthly_fuel_allowance,
-                            annualLube: fc.annual_lube_allowance,
-                            annualMaint: fc.annual_maintenance_allowance,
-                          })}
+                          disabled
                           className="rounded-xl border-slate-200 text-xs font-semibold"
                         >
                           <Edit2 className="h-3.5 w-3.5 text-slate-600 mr-1" />
@@ -136,7 +121,7 @@ export function TabVehicleFuel({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => onDeleteVfc(fc.id)}
+                          disabled
                           className="rounded-xl border-rose-200 hover:bg-rose-50 text-xs font-semibold text-rose-600"
                         >
                           <Trash2 className="h-3.5 w-3.5 mr-1" />
@@ -158,95 +143,15 @@ export function TabVehicleFuel({
           <DialogContent className="sm:max-w-md rounded-3xl p-6">
             <DialogHeader className="pb-3 border-b border-slate-100">
               <DialogTitle className="text-xl font-extrabold text-slate-800">
-                {vfcModal.id ? 'বরাদ্দ সম্পাদনা' : 'নতুন বরাদ্দ কনফিগারেশন'}
+                কনফিগারেশন প্রয়োজন
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-3">
-              <div className="space-y-2">
-                <Label className="text-sm font-bold text-slate-700">যানবাহন নির্বাচন করুন</Label>
-                <Select
-                  value={vfcModal.carTypeId}
-                  onValueChange={(v) => setVfcModal(prev => ({ ...prev, carTypeId: v || '' }))}
-                >
-                  <SelectTrigger className="w-full rounded-xl">
-                    <SelectValue placeholder="যানবাহন নির্বাচন করুন">
-                      {vehicleTypes.find(c => String(c.id) === vfcModal.carTypeId)?.name}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vehicleTypes.map(c => (
-                      <SelectItem key={c.id} value={String(c.id)}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-bold text-slate-700">জ্বালানি নির্বাচন করুন</Label>
-                <Select
-                  value={vfcModal.fuelTypeId}
-                  onValueChange={(v) => setVfcModal(prev => ({ ...prev, fuelTypeId: v || '' }))}
-                >
-                  <SelectTrigger className="w-full rounded-xl">
-                    <SelectValue placeholder="জ্বালানি নির্বাচন করুন">
-                      {(() => {
-                        const f = fuelTypes.find(item => String(item.id) === vfcModal.fuelTypeId);
-                        return f ? `${f.name} (${toBanglaAmount(f.price)} টাকা/একক)` : undefined;
-                      })()}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {fuelTypes.map(f => (
-                      <SelectItem key={f.id} value={String(f.id)}>
-                        {f.name} ({toBanglaAmount(f.price)} টাকা/একক)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-bold text-slate-700">মাসিক জ্বালানি সিলিং (লিটার/ঘনমিটার)</Label>
-                <Input
-                  type="number"
-                  placeholder="যেমন: ১৫০"
-                  value={vfcModal.monthlyFuel}
-                  onChange={(e) => setVfcModal(prev => ({ ...prev, monthlyFuel: parseFloat(e.target.value) || 0 }))}
-                  className="rounded-xl border-slate-200 font-mono"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-bold text-slate-700">বাৎসরিক লুব্রিকেন্ট বরাদ্দ (টাকা)</Label>
-                <Input
-                  type="number"
-                  placeholder="যেমন: ১৫০০০"
-                  value={vfcModal.annualLube}
-                  onChange={(e) => setVfcModal(prev => ({ ...prev, annualLube: parseFloat(e.target.value) || 0 }))}
-                  className="rounded-xl border-slate-200 font-mono"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-bold text-slate-700">বাৎসরিক মেরামত ও রক্ষণাবেক্ষণ (টাকা)</Label>
-                <Input
-                  type="number"
-                  placeholder="যেমন: ৮০০০০"
-                  value={vfcModal.annualMaint}
-                  onChange={(e) => setVfcModal(prev => ({ ...prev, annualMaint: parseFloat(e.target.value) || 0 }))}
-                  className="rounded-xl border-slate-200 font-mono"
-                />
-              </div>
+              <p className="text-sm text-slate-600">এই ফিচারটি বর্তমানে উপলব্য নেই। অনুগ্রহ করে পরে কনফিগার করুন।</p>
             </div>
-            <DialogFooter className="pt-3 border-t border-slate-100 flex gap-2 sm:justify-end">
-              <Button variant="outline" onClick={() => setVfcModal(prev => ({ ...prev, open: false }))} className="rounded-xl">
-                বাতিল
-              </Button>
-              <Button onClick={onSaveVfc} disabled={saving} className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold">
-                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
-                সংরক্ষণ করুন
+            <DialogFooter>
+              <Button onClick={() => setVfcModal(prev => ({ ...prev, open: false }))}>
+                বন্ধ করুন
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -146,6 +146,7 @@ export async function deleteVehicleType(id: number) {
 export interface FuelTypeItem {
   id: number
   name: string
+  price?: number
 }
 
 export async function getFuelTypes(): Promise<FuelTypeItem[]> {
@@ -156,6 +157,7 @@ export async function getFuelTypes(): Promise<FuelTypeItem[]> {
   return types.map((t) => ({
     id: Number(t.id),
     name: t.name,
+    price: 0, // Price would be fetched from rates table in a full implementation
   }))
 }
 

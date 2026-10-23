@@ -87,7 +87,7 @@ export function TabOfficeTypes({
                   setOfficeTypeModal({
                     open: true,
                     name: '',
-                    department_id: departments[0]?.id || 0,
+                    department_id: departments[0]?.id?.toString() || '',
                   })
                 }
                 className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5 shadow-xs"
@@ -135,7 +135,7 @@ export function TabOfficeTypes({
                     setOfficeTypeModal({
                       open: true,
                       name: '',
-                      department_id: departments[0]?.id || 0,
+                      department_id: departments[0]?.id?.toString() || '',
                     })
                   }
                   className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5"
@@ -180,7 +180,7 @@ export function TabOfficeTypes({
                                 open: true,
                                 id: ot.id,
                                 name: ot.name,
-                                department_id: ot.department_id,
+                                department_id: ot.department_id || '',
                               })
                             }
                             className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
@@ -222,7 +222,7 @@ export function TabOfficeTypes({
               <Select
                 value={String(officeTypeModal.department_id || '')}
                 onValueChange={(val) => {
-                  if (val) setOfficeTypeModal((prev) => ({ ...prev, department_id: parseInt(val, 10) }))
+                  if (val) setOfficeTypeModal((prev) => ({ ...prev, department_id: val }))
                 }}
               >
                 <SelectTrigger className="w-full rounded-xl border-slate-200 text-xs h-10">

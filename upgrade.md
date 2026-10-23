@@ -10,18 +10,86 @@ This document outlines the complete upgrade process from the current (inconsiste
 
 ## Prerequisites
 
-- Supabase database access
-- Ability to run SQL scripts in Supabase SQL Editor
+- A PostgreSQL connection string in `.env` as `DATABASE_URL` (any Postgres host — Supabase or otherwise)
 - Development environment ready
 - Understanding that this is a clean slate - existing data will be backed up and re-seeded
 
 ---
 
-## Step 0: Backup & Wipe Database
+## Step 0: Database Setup (authoritative)
+
+**`prisma/schema.prisma` is the single source of truth for the schema.** The database is
+created by Prisma migrations — do not paste DDL by hand. Hand-running SQL is what produced
+the drift this plan exists to remove.
+
+```bash
+npm run db:generate   # regenerate the Prisma client after a schema change
+npm run db:deploy     # apply committed migrations to the database
+npm run db:seed       # idempotent: admin user + reference data
+npm run db:reset      # DESTRUCTIVE: drop everything, re-apply migrations, re-seed
+npm run db:drift      # report schema drift; exits non-zero if DB and schema.prisma disagree
+npm run db:studio     # browse data
+```
+
+Authoring a schema change:
+
+```bash
+# 1. edit prisma/schema.prisma
+# 2. generate the migration
+npx prisma migrate dev --name <description>
+# 3. commit BOTH prisma/schema.prisma and prisma/migrations/<timestamp>_<description>/
+```
+
+Rebuilding from nothing is `npm run db:reset` — it drops every table, re-applies
+`prisma/migrations/`, and runs the seed, so a wiped database returns to a working state
+(including a login) in one command.
+
+### Connection notes
+
+- `DATABASE_URL` **must include `connect_timeout=30`**. Prisma's 5s default is exceeded by the
+  TLS handshake when the host resolves over a NAT64/IPv6 path, and the failure surfaces as a
+  misleading `P1001 Can't reach database server` — which looks like a TLS or credential problem
+  but is only a timeout.
+- Use `sslmode=verify-full` for real certificate and hostname verification. Prisma trusts the
+  OS certificate store; Node's bundled CA list may not contain the host's CA, so a
+  `pg`/node script can fail to verify a connection that Prisma handles fine.
+- Prisma connects over TCP as the role named in `DATABASE_URL`. On Supabase that is `postgres`
+  (`rolbypassrls = true`), so RLS is already bypassed for all app queries and
+  `SUPABASE_SERVICE_ROLE_KEY` plays no part in them — those are PostgREST credentials, not
+  database credentials.
+- Because the connection is a plain Postgres connection, moving to another Postgres host is a
+  one-line `DATABASE_URL` change. Nothing in `prisma/migrations/` is Supabase-specific.
+
+### Seeding
+
+Seeding lives in [prisma/seed.js](prisma/seed.js) and is idempotent (upserts keyed on natural
+unique columns). Add new reference data there rather than in ad-hoc SQL files.
+
+Current contents: the `superadmin` admin user and the 139 economic codes. `ADMIN_USERNAME`,
+`ADMIN_PASSWORD`, and `ADMIN_PASSWORD_HINT` environment variables override the default
+`superadmin` / `123` credentials.
+
+⚠️ The seed only sets the admin password when creating the row, so re-running it will never
+overwrite a password you have since changed.
+
+---
+
+## Step 0 (LEGACY): Manual Backup & Wipe — superseded
+
+> ⚠️ **Do not run the SQL in this section.** It is kept only as a record of the old process.
+> Use the Prisma workflow in Step 0 above.
+>
+> Two parts are actively harmful if executed:
+> - The wipe list is out of date — it names legacy tables (`office_user_logins`,
+>   `budget_sheet`, `form_basic`, `expense_codes`, `office_types`, `code_type_mapping`,
+>   `parent_offices`, …) that no longer exist, and omits tables that do.
+> - The RLS block at the end of Step 0.3 creates a `USING (true)` policy on **every** table,
+>   granting full read/write to the Supabase `anon` role over PostgREST — i.e. to anyone
+>   holding the public anon key. See "Row Level Security" in the Notes section.
 
 ### 0.1 Backup Existing Data
 
-Run this script in Supabase SQL Editor to export your existing data:
+Run this script to export your existing data:
 
 ```sql
 -- ==============================================================================
@@ -614,42 +682,41 @@ CREATE TABLE admin_group_budget_rules (
 );
 
 -- ============================================================
--- ENABLE RLS & GRANT PERMISSIONS
+-- RLS & GRANTS -- REMOVED. DO NOT REINTRODUCE.
 -- ============================================================
-
-DO $$
-DECLARE
-  t text;
-  tables text[] := ARRAY[
-    'core_ministries', 'core_departments', 'core_office_types', 'core_office_levels', 'core_offices', 'core_budget_cycles',
-    'ref_grades', 'ref_economic_codes', 'office_level_economic_code_mapping',
-    'ref_allowance_types', 'ref_vehicle_types', 'ref_fuel_types', 'ref_it_equipment_types', 'ref_utility_types',
-    'admin_rates', 'admin_vehicle_config', 'admin_vehicle_rent_config', 'admin_it_config',
-    'office_users', 'office_submissions',
-    'office_form_basic', 'office_form_staff_working', 'office_form_staff_suspended', 'office_form_staff_new_recruits',
-    'office_form_allowances', 'office_form_leave_encashment', 'office_form_vehicles_govt', 'office_form_vehicles_rent',
-    'office_form_house_rent', 'office_form_it_equipment', 'office_form_utilities', 'office_form_return_info',
-    'office_budget_sheet', 'admin_users', 'admin_group_budget_rules'
-  ];
-BEGIN
-  FOREACH t IN ARRAY tables LOOP
-    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', t);
-    EXECUTE format('DROP POLICY IF EXISTS "Allow all on %s" ON public.%I;', t, t);
-    EXECUTE format('CREATE POLICY "Allow all on %s" ON public.%I FOR ALL TO authenticated USING (true) WITH CHECK (true);', t, t);
-  END LOOP;
-END $$;
-
--- Grant permissions to authenticated users only (not anon)
--- Authenticated = admin users + office users who logged in
--- Service role = Supabase backend services
-GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated, service_role;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated, service_role;
+-- This block used to ENABLE ROW LEVEL SECURITY on all 35 tables and then create a
+-- permissive "Allow all" policy on each one:
+--
+--   CREATE POLICY "Allow all on %s" ON public.%I FOR ALL TO authenticated
+--     USING (true) WITH CHECK (true);
+--
+-- A policy whose expression is `true` permits *everything*, so this did not restrict
+-- access -- it granted full read/write on every table to any client presenting a valid
+-- JWT. Combined with the default Supabase grants to `anon`/`authenticated`, anyone
+-- holding the public anon key could read and modify all data over PostgREST.
+--
+-- The correct default is the opposite: RLS enabled with *no* permissive policy, which
+-- denies by default. Supabase's `ensure_rls` event trigger already enables RLS on every
+-- new table in `public`, so the rebuilt database needs no policies at all and PostgREST
+-- clients get nothing.
+--
+-- The app does not need RLS: it talks to Postgres over TCP via Prisma as the `postgres`
+-- role, which has `rolbypassrls = true`. Policies would therefore never affect app
+-- queries -- they only govern the PostgREST/anon surface.
+--
+-- If you later expose data over PostgREST, write narrow, explicit policies for the
+-- specific tables and operations you intend to expose. Never write `USING (true)`.
+--
+-- These grants are only meaningful on Supabase (the `authenticated`/`service_role` roles
+-- are Supabase-specific) and are unrelated to the Prisma connection. See
+-- resources/grant_permissions.sql if you specifically need to re-grant on Supabase.
 ```
 
 **Instructions:**
-1. Run the schema creation script above
-2. Verify all 30 tables are created
-3. Proceed to Phase 1
+1. Prefer the Prisma workflow in Step 0 — `prisma/migrations/20261023000000_init/migration.sql` already contains this schema, version-controlled and applied.
+2. If you do run the DDL manually, verify all **35** tables are created.
+3. Skip the RLS/grants block (it has been replaced with a comment explaining why).
+4. Proceed to Phase 1
 
 ---
 
@@ -1314,12 +1381,29 @@ Build comprehensive reporting features for admin users to view and analyze submi
 ## Notes
 
 ### Re-seeding Data
-After schema is created, use the backup_data.sql file to re-seed:
-1. Transform INSERT statements to match new schema
-2. Update column names as needed
-3. Add any missing fields (category, formula_key, etc.)
-4. Run re-seed script
-5. Verify data integrity
+Use `npm run db:seed` (see [prisma/seed.js](prisma/seed.js)). It is idempotent and currently seeds
+the `superadmin` admin user plus the 139 economic codes.
+
+To add more reference data, extend `prisma/seed.js` — do not add new ad-hoc `*.sql` seed files.
+The existing ones are stale: `resources/seed_data.sql` targets the pre-rename schema
+(`departments`, `office_types`, `expense_codes`, `code_type_mapping`, `parent_offices`), and
+`scripts/create-superadmin.sql` predates the seed script.
+
+**Not yet seeded:** the office hierarchy (ministries, departments, office types, office levels,
+offices). Those tables are intentionally empty and are meant to be populated through the admin
+UI. `resources/offices_backup_91.json` contains 91 real offices but references `office_type_id`
+values that do not exist in the rebuilt database, so it cannot be replayed as-is.
+
+### Row Level Security
+RLS is enabled on every table with **zero policies**, which denies all access by default. This is
+the correct state — leave it as is.
+
+- The app is unaffected: Prisma connects over TCP as the `postgres` role (`rolbypassrls = true`),
+  so policies never apply to application queries.
+- RLS only governs Supabase's PostgREST surface. Enabled with no policy, the public `anon` key
+  can read and write nothing.
+- **Never create a `USING (true)` policy.** That is equivalent to turning security off, and it is
+  exactly what the removed block in Step 0.3 used to do.
 
 ### Formula Key Convention
 Use descriptive keys for formulas:

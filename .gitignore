@@ -61,6 +61,7 @@ cypress/screenshots/
 # Block all .env files EXCEPT the safe example/template file
 .env
 .env.*
+.env.example
 !.env.example
 !.env.template
 

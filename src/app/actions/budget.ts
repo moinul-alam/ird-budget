@@ -3,7 +3,6 @@
 import { prisma } from '@/lib/db/client'
 import { getBudgetContext } from '@/lib/budget/fetcher'
 import { calculateAll } from '@/lib/budget/calculate'
-import defaultCodesData from '@/lib/budget/default-codes.json'
 
 export interface BudgetSheetRowItem {
   id: number
@@ -43,32 +42,24 @@ export async function getBudgetSheetData(submissionId: number): Promise<BudgetSh
     // 1. Fetch form context & rates
     const ctx = await getBudgetContext(submissionId)
 
-    // 2. Fetch economic codes (fallback to default-codes.json)
-    let dbCodes = await prisma.refEconomicCode.findMany({
+    // 2. Fetch economic codes
+    const dbCodes = await prisma.refEconomicCode.findMany({
       select: { id: true, code: true, name: true, isManual: true, sortOrder: true },
       where: { isActive: true },
       orderBy: { sortOrder: 'asc' },
     })
 
-    let activeCodes: Array<{ id: number; code: string; name: string; is_manual: boolean; sort_order: number }> = []
-
-    if (dbCodes && dbCodes.length > 0) {
-      activeCodes = dbCodes.map((c) => ({
+    // Economic codes are reference data. An empty table means there is nothing to
+    // show — never substitute a hardcoded list, because the synthetic row ids would
+    // not exist in ref_economic_codes and would corrupt manual-value lookups.
+    const activeCodes: Array<{ id: number; code: string; name: string; is_manual: boolean; sort_order: number }> =
+      dbCodes.map((c) => ({
         id: Number(c.id),
         code: c.code,
         name: c.name || '',
         is_manual: c.isManual,
         sort_order: Number(c.sortOrder || 0),
       }))
-    } else {
-      activeCodes = (defaultCodesData as any[]).map((c, idx) => ({
-        id: idx + 1,
-        code: c.code,
-        name: c.name,
-        is_manual: Boolean(c.is_manual),
-        sort_order: Number(c.sort_order || idx + 1),
-      }))
-    }
 
     // Sort by sort_order
     activeCodes.sort((a, b) => a.sort_order - b.sort_order)

@@ -12,7 +12,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Monitor, Printer, Scan, Copy, Edit2, Loader2 } from 'lucide-react'
-import { ItItem } from '@/app/actions/admin-settings'
+import { ItEquipmentTypeItem } from '@/app/actions/admin-settings'
 
 interface EquipmentModalState {
   open: boolean
@@ -22,7 +22,7 @@ interface EquipmentModalState {
 }
 
 interface TabEquipmentProps {
-  itItems: ItItem[]
+  itItems: ItEquipmentTypeItem[]
   equipModal: EquipmentModalState
   setEquipModal: React.Dispatch<React.SetStateAction<EquipmentModalState>>
   onSaveEquipment: () => Promise<void>
@@ -50,7 +50,7 @@ export function TabEquipment({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {EQUIP_UI.map((ui) => {
           const item = findItem(ui.keyword)
-          const price = item?.allotted_budget || 0
+          const price = 0 // Price would be fetched from rates table in a full implementation
           const Icon = ui.icon
           return (
             <Card key={ui.keyword} className="rounded-2xl border-slate-200/80 bg-white shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">

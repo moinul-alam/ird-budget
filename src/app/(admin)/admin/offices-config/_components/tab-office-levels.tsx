@@ -87,8 +87,8 @@ export function TabOfficeLevels({
               <Button
                 onClick={() => {
                   const defaultOtId = filterTypeForHierarchy !== 'all'
-                    ? parseInt(filterTypeForHierarchy, 10)
-                    : (officeTypes[0]?.id || 0)
+                    ? filterTypeForHierarchy
+                    : (officeTypes[0]?.id?.toString() || '')
                   setHierarchyModal({
                     open: true,
                     id: undefined,
@@ -143,7 +143,7 @@ export function TabOfficeLevels({
                     setHierarchyModal({
                       open: true,
                       id: undefined,
-                      office_type_id: defaultOt?.id || 0,
+                      office_type_id: defaultOt?.id?.toString() || '',
                       level_name: '',
                       level_order: 1,
                     })
@@ -245,10 +245,9 @@ export function TabOfficeLevels({
                 value={String(hierarchyModal.office_type_id || '')}
                 onValueChange={(val) => {
                   if (val) {
-                    const otId = parseInt(val, 10)
                     setHierarchyModal((prev) => ({
                       ...prev,
-                      office_type_id: otId,
+                      office_type_id: val,
                     }))
                   }
                 }}

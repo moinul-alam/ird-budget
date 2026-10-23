@@ -1,29 +1,30 @@
-import { createOfficeClient } from '@/lib/supabase/server'
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { Form3Client } from './form-3-client'
+import {
+  loadAllowanceTypes,
+  loadFormAllowancesInitial,
+  loadFormRestRecreationInitial,
+} from '@/lib/office/load-form-data'
 
 export default async function Form3Page() {
-  const supabase = createOfficeClient()
   const session = await getOfficeSession()
   if (!session) redirect('/')
 
   const submissionId = session.submission_id || null
 
-  const [typesRes, dataRes, leaveRes] = await Promise.all([
-    supabase.from('allowance_types').select('*').order('id'),
-    submissionId ? supabase.from('office_form_allowances').select('*').eq('submission_id', submissionId) : Promise.resolve({ data: [] }),
-    submissionId ? supabase.from('office_form_leave_encashment').select('rest_recreation_amount, rest_recreation_due').eq('submission_id', submissionId).maybeSingle() : Promise.resolve({ data: null })
+  const [allowanceTypes, initialData, initialLeaveData] = await Promise.all([
+    loadAllowanceTypes(),
+    submissionId ? loadFormAllowancesInitial(submissionId) : Promise.resolve([]),
+    submissionId ? loadFormRestRecreationInitial(submissionId) : Promise.resolve(null),
   ])
 
   return (
-    <Form3Client 
-      submissionId={submissionId} 
-      allowanceTypes={typesRes.data || []}
-      initialData={dataRes.data || []}
-      initialLeaveData={leaveRes.data || null}
+    <Form3Client
+      submissionId={submissionId}
+      allowanceTypes={allowanceTypes}
+      initialData={initialData}
+      initialLeaveData={initialLeaveData}
     />
   )
 }
-
-

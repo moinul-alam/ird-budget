@@ -21,12 +21,15 @@ import {
   deleteMinistry,
   saveDepartment,
   deleteDepartment,
-  saveOfficeTypeOnly,
+  saveOfficeType,
   saveOfficeLevel,
   deleteOfficeLevel,
   saveGroupBudgetSetting,
   deleteGroupBudgetSetting,
   deleteOfficeType,
+  getOfficeLevels,
+  getGroupBudgetSettings,
+  getOfficeTypes,
 } from '@/app/actions/admin-offices-config'
 import {
   AdminOfficesConfigClientProps,
@@ -86,20 +89,20 @@ export function AdminOfficesConfigClient({
   const [officeTypeModal, setOfficeTypeModal] = useState<OfficeTypeModalState>({
     open: false,
     name: '',
-    department_id: 0,
+    department_id: '',
   })
 
   const [hierarchyModal, setHierarchyModal] = useState<HierarchyModalState>({
     open: false,
-    office_type_id: 0,
+    office_type_id: '',
     level_name: '',
     level_order: 1,
   })
 
   const [groupModal, setGroupModal] = useState<GroupModalState>({
     open: false,
-    department_id: 0,
-    office_type_id: 0,
+    department_id: '',
+    office_type_id: '',
     office_level_id: '',
     is_group_budget: true,
   })
@@ -196,7 +199,7 @@ export function AdminOfficesConfigClient({
           setDepartments((prev) => [
             ...prev,
             {
-              id: Date.now(),
+              id: String(Date.now()),
               name: trimmed,
               budget_id: trimmedBudget,
               ministry_id: depModal.ministry_id,
@@ -220,10 +223,10 @@ export function AdminOfficesConfigClient({
     }
 
     startTransition(async () => {
-      const res = await saveOfficeTypeOnly({
+      const res = await saveOfficeType({
         id: officeTypeModal.id,
         name: officeTypeModal.name,
-        department_id: officeTypeModal.department_id,
+        department_id: officeTypeModal.department_id?.toString(),
       })
 
       if (res.error) {
@@ -233,7 +236,7 @@ export function AdminOfficesConfigClient({
         setOfficeTypeModal({
           open: false,
           name: '',
-          department_id: departments[0]?.id || 0,
+          department_id: departments[0]?.id?.toString() || '',
         })
 
         const dep = departments.find((d) => d.id === officeTypeModal.department_id)
@@ -244,7 +247,7 @@ export function AdminOfficesConfigClient({
                 ? {
                     ...ot,
                     name: officeTypeModal.name.trim(),
-                    department_id: officeTypeModal.department_id,
+                    department_id: officeTypeModal.department_id?.toString(),
                     department_name: dep?.name || '',
                   }
                 : ot
@@ -254,9 +257,9 @@ export function AdminOfficesConfigClient({
           setOfficeTypes((prev) => [
             ...prev,
             {
-              id: Date.now(),
+              id: String(Date.now()),
               name: officeTypeModal.name.trim(),
-              department_id: officeTypeModal.department_id,
+              department_id: officeTypeModal.department_id?.toString(),
               department_name: dep?.name || '',
               hierarchy_order: null,
               is_group_budget: false,
@@ -291,23 +294,17 @@ export function AdminOfficesConfigClient({
       })
       if (res.error) {
         showStatus(res.error, 'error')
-      } else if (res.level) {
+      } else {
         showStatus('মাঠ অফিসের স্তর সফলভাবে সংরক্ষিত হয়েছে')
-        const savedItem = res.level
-        setOfficeLevels((prev) => {
-          const exists = prev.some((l) => l.id === savedItem.id)
-          let updated: OfficeLevelItem[]
-          if (exists) {
-            updated = prev.map((l) => (l.id === savedItem.id ? savedItem : l))
-          } else {
-            updated = [...prev, savedItem]
-          }
-          return updated.sort((a, b) => a.level_order - b.level_order)
+        // Re-fetch office levels to get updated data
+        startTransition(async () => {
+          const refreshed = await getOfficeLevels()
+          setOfficeLevels(refreshed)
         })
         setHierarchyModal({
           open: false,
           id: undefined,
-          office_type_id: 0,
+          office_type_id: '',
           level_name: '',
           level_order: 1,
         })
@@ -348,28 +345,21 @@ export function AdminOfficesConfigClient({
         id: groupModal.id,
         office_type_id: groupModal.office_type_id,
         office_level_id: groupModal.office_level_id,
-        department_id: groupModal.department_id,
         is_group_budget: groupModal.is_group_budget,
       })
       if (res.error) {
         showStatus(res.error, 'error')
-      } else if (res.setting) {
+      } else {
         showStatus('গ্রুপ বাজেট সেটিংস সফলভাবে আপডেট হয়েছে')
-        const savedSetting = res.setting
-        setGroupSettings((prev) => {
-          const exists = prev.some((g) => g.id === savedSetting.id)
-          if (exists) {
-            return prev.map((g) => (g.id === savedSetting.id ? savedSetting : g))
-          }
-          return [...prev, savedSetting]
+        // Re-fetch group settings and office types
+        startTransition(async () => {
+          const [refreshedSettings, refreshedTypes] = await Promise.all([
+            getGroupBudgetSettings(),
+            getOfficeTypes(),
+          ])
+          setGroupSettings(refreshedSettings)
+          setOfficeTypes(refreshedTypes)
         })
-        setOfficeTypes((prev) =>
-          prev.map((ot) =>
-            ot.id === groupModal.office_type_id
-              ? { ...ot, is_group_budget: groupModal.is_group_budget }
-              : ot
-          )
-        )
         setGroupModal((prev) => ({ ...prev, open: false }))
       }
     })
@@ -510,7 +500,7 @@ export function AdminOfficesConfigClient({
         const matchingLevels = officeLevels.filter((lvl) => lvl.office_type_id === ot.id).sort((a, b) => a.level_order - b.level_order)
         list.push({
           id: `legacy-${ot.id}`,
-          department_id: ot.department_id,
+          department_id: ot.department_id || '',
           department_name: ot.department_name,
           office_type_id: ot.id,
           office_type_name: ot.name,

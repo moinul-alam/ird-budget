@@ -1,7 +1,7 @@
 import { getAdminSession } from '@/lib/auth-admin'
 import { redirect } from 'next/navigation'
 import { getAdminUsersList } from '@/app/actions/admin-users'
-import { createOfficeClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db/client'
 import { UsersClient } from './users-client'
 
 export const metadata = {
@@ -17,11 +17,18 @@ export default async function AdminUsersPage() {
 
   const users = await getAdminUsersList()
 
-  const supabase = createOfficeClient()
-  const { data: officeTypes } = await supabase
-    .from('office_types')
-    .select('id, name')
-    .order('id')
+  const officeTypes = await prisma.coreOfficeType.findMany({
+    select: {
+      id: true,
+      name: true
+    },
+    orderBy: { id: 'asc' }
+  })
+
+  const officeTypesMapped = officeTypes.map(ot => ({
+    id: Number(ot.id),
+    name: ot.name
+  }))
 
   return (
     <div className="space-y-6">
@@ -34,7 +41,7 @@ export default async function AdminUsersPage() {
 
       <UsersClient
         initialUsers={users}
-        officeTypes={officeTypes || []}
+        officeTypes={officeTypesMapped}
         currentUserId={session.id}
       />
     </div>

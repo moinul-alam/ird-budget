@@ -3,36 +3,36 @@
 import { prisma } from '@/lib/db/client'
 import { getAdminSession } from '@/lib/auth-admin'
 import { revalidatePath } from 'next/cache'
-import { getOfficeTypesHierarchy, getDepartments, getMinistries } from './admin-offices-config'
+import { getOfficeTypes, getDepartments, getMinistries } from './admin-offices-config'
 
 export interface HeadOfficeItem {
-  id: number
+  id: string
   name: string
   budget_id?: string
-  department_id: number
+  department_id: string
   department_name: string
   ministry_id?: string
   ministry_name?: string
-  office_type_id: number
+  office_type_id: string
   office_type_name: string
-  office_level_id?: number
+  office_level_id?: string
   office_level_name?: string
   created_at?: string
 }
 
 export interface FieldOfficeItem {
-  id: number
+  id: string
   budget_id: string
   name: string
-  department_id: number
+  department_id?: string
   department_name: string
   ministry_id?: string
   ministry_name?: string
-  office_type_id: number
+  office_type_id: string
   office_type_name: string
-  office_level_id?: number
+  office_level_id?: string
   office_level_name?: string
-  head_office_id: number
+  head_office_id: string
   head_office_name: string
   password_hint: string
   created_at?: string
@@ -60,27 +60,27 @@ export async function getHeadOffices(): Promise<HeadOfficeItem[]> {
   })
 
   return offices.map((o) => ({
-    id: Number(o.id),
+    id: String(o.id),
     name: o.name,
     budget_id: o.budgetId,
-    department_id: Number(o.departmentId),
+    department_id: o.departmentId ? String(o.departmentId) : '',
     department_name: o.department?.name || '—',
     ministry_id: '',
     ministry_name: '',
-    office_type_id: Number(o.officeTypeId),
+    office_type_id: o.officeTypeId ? String(o.officeTypeId) : '',
     office_type_name: o.officeType?.name || '—',
-    office_level_id: o.officeLevelId ? Number(o.officeLevelId) : undefined,
+    office_level_id: o.officeLevelId ? String(o.officeLevelId) : undefined,
     office_level_name: o.officeLevel?.levelName,
     created_at: o.createdAt.toISOString(),
   }))
 }
 
 export async function saveHeadOffice(data: {
-  id?: number
+  id?: string
   name: string
-  department_id: number
-  office_type_id: number
-  office_level_id?: number
+  department_id: string
+  office_type_id: string
+  office_level_id?: string
   budget_id?: string
 }) {
   const session = await getAdminSession()
@@ -140,7 +140,7 @@ export async function saveHeadOffice(data: {
   }
 }
 
-export async function deleteHeadOffice(id: number) {
+export async function deleteHeadOffice(id: string) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
@@ -189,7 +189,7 @@ export async function getFieldOffices(): Promise<FieldOfficeItem[]> {
       parentOffice: {
         select: { name: true },
       },
-      officeUser: {
+      officeUsers: {
         select: { passwordHint: true },
       },
     },
@@ -197,30 +197,31 @@ export async function getFieldOffices(): Promise<FieldOfficeItem[]> {
   })
 
   return offices.map((off) => ({
-    id: Number(off.id),
+    id: String(off.id),
     budget_id: off.budgetId,
     name: off.name,
-    department_id: Number(off.departmentId),
+    department_id: off.departmentId ? String(off.departmentId) : '',
     department_name: off.department?.name || '—',
     ministry_id: '',
     ministry_name: '',
-    office_type_id: Number(off.officeTypeId),
+    office_type_id: off.officeTypeId ? String(off.officeTypeId) : '',
     office_type_name: off.officeType?.name || '—',
-    office_level_id: off.officeLevelId ? Number(off.officeLevelId) : undefined,
+    office_level_id: off.officeLevelId ? String(off.officeLevelId) : undefined,
     office_level_name: off.officeLevel?.levelName,
-    head_office_id: Number(off.parentOfficeId),
+    head_office_id: off.parentOfficeId ? String(off.parentOfficeId) : '',
     head_office_name: off.parentOffice?.name || '—',
-    password_hint: off.officeUser?.passwordHint || '12345',
+    password_hint: off.officeUsers?.[0]?.passwordHint || '12345',
     created_at: off.createdAt.toISOString(),
   }))
 }
 
 export async function saveFieldOffice(data: {
-  id?: number
+  id?: string
   name: string
   budget_id: string
-  head_office_id: number
-  office_type_id: number
+  head_office_id: string
+  office_type_id: string
+  department_id?: string
   password?: string
 }) {
   const session = await getAdminSession()
@@ -249,16 +250,32 @@ export async function saveFieldOffice(data: {
 
     const pwdHash = require('crypto').createHash('sha256').update(pwd).digest('hex')
 
-    if (data.id) {
-      await prisma.coreOffice.update({
-        where: { id: BigInt(data.id) },
-        data: {
-          name: trimmedName,
-          budgetId: trimmedBudget,
-          parentOfficeId: BigInt(data.head_office_id),
-          officeTypeId: BigInt(data.office_type_id),
-        },
-      })
+  // Get departmentId from office_type if not provided
+  let departmentId: bigint
+  if (data.department_id) {
+    departmentId = BigInt(data.department_id)
+  } else {
+    const officeType = await prisma.coreOfficeType.findUnique({
+      where: { id: BigInt(data.office_type_id) },
+      select: { departmentId: true },
+    })
+    if (!officeType) {
+      return { error: 'অফিসের ধরণ পাওয়া যায়নি' }
+    }
+    departmentId = officeType.departmentId
+  }
+
+  if (data.id) {
+    await prisma.coreOffice.update({
+      where: { id: BigInt(data.id) },
+      data: {
+        name: trimmedName,
+        budgetId: trimmedBudget,
+        parentOfficeId: BigInt(data.head_office_id),
+        officeTypeId: BigInt(data.office_type_id),
+        departmentId: departmentId,
+      },
+    })
 
       // Update password
       await prisma.officeUser.upsert({
@@ -280,6 +297,7 @@ export async function saveFieldOffice(data: {
           budgetId: trimmedBudget,
           parentOfficeId: BigInt(data.head_office_id),
           officeTypeId: BigInt(data.office_type_id),
+          departmentId: departmentId,
           isActive: true,
         },
       })
@@ -303,7 +321,7 @@ export async function saveFieldOffice(data: {
   }
 }
 
-export async function deleteFieldOffice(id: number) {
+export async function deleteFieldOffice(id: string) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 

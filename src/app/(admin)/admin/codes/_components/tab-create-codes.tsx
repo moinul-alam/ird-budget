@@ -192,8 +192,8 @@ export function TabCreateCodes({
                   open: true,
                   code: '',
                   name: '',
-                  parent_code: categories[0]?.code || '3111',
-                  parent_title: categories[0]?.title || 'নগদ মজুরি ও বেতন',
+                  parent_code: categories[0]?.code || '',
+                  parent_title: categories[0]?.title || '',
                   hierarchy_order: codes.length + 1,
                 })
               }
@@ -262,7 +262,7 @@ export function TabCreateCodes({
                                 id: c.id,
                                 code: c.code,
                                 name: c.name,
-                                parent_code: c.parent_code || categories[0]?.code || '3111',
+                                parent_code: c.parent_code || categories[0]?.code || '',
                                 parent_title: c.parent_title || categories[0]?.title || '',
                                 hierarchy_order: c.hierarchy_order,
                               })

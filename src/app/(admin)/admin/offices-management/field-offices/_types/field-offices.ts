@@ -11,14 +11,14 @@ export interface FieldOfficesClientProps {
 
 export interface FieldOfficeModalState {
   open: boolean
-  id?: number
+  id?: string
   name: string
   budget_id: string
   ministry_id: string
-  department_id: number
-  head_office_id: number
-  office_type_id: number
-  office_level_id: number
+  department_id?: string
+  head_office_id: string
+  office_type_id: string
+  office_level_id: string
 }
 
 export interface ConfirmModalState {

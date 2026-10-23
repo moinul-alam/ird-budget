@@ -12,7 +12,7 @@ export interface MinistryItem {
 }
 
 export interface DepartmentItem {
-  id: number
+  id: string
   name: string
   budget_id?: string
   ministry_id?: string
@@ -21,9 +21,9 @@ export interface DepartmentItem {
 }
 
 export interface OfficeTypeHierarchyItem {
-  id: number
+  id: string
   name: string
-  department_id: number
+  department_id?: string
   department_name?: string
   hierarchy_order?: number | null
   hierarchy_label?: string
@@ -33,9 +33,9 @@ export interface OfficeTypeHierarchyItem {
 
 export interface OfficeLevelItem {
   id: string
-  office_type_id: number
+  office_type_id: string
   office_type_name?: string
-  department_id: number
+  department_id?: string
   department_name?: string
   level_name: string
   level_order: number
@@ -44,9 +44,9 @@ export interface OfficeLevelItem {
 
 export interface GroupBudgetSettingItem {
   id: string
-  department_id: number
+  department_id: string
   department_name?: string
-  office_type_id: number
+  office_type_id: string
   office_type_name?: string
   office_level_id?: string
   office_level_name?: string
@@ -128,7 +128,7 @@ export async function getDepartments(): Promise<DepartmentItem[]> {
   })
 
   return departments.map((d) => ({
-    id: Number(d.id),
+    id: String(d.id),
     name: d.name,
     budget_id: d.code,
     ministry_id: d.ministryId ? String(d.ministryId) : undefined,
@@ -152,21 +152,27 @@ export async function saveDepartment(data: {
 
   try {
     if (data.id) {
+      const updateData: any = {
+        name: trimmed,
+        code: trimmedBudget,
+      }
+      if (data.ministry_id) {
+        updateData.ministryId = BigInt(data.ministry_id)
+      }
       await prisma.coreDepartment.update({
         where: { id: BigInt(data.id) },
-        data: {
-          name: trimmed,
-          code: trimmedBudget,
-          ministryId: data.ministry_id ? BigInt(data.ministry_id) : undefined,
-        },
+        data: updateData,
       })
     } else {
+      const createData: any = {
+        name: trimmed,
+        code: trimmedBudget,
+      }
+      if (data.ministry_id) {
+        createData.ministryId = BigInt(data.ministry_id)
+      }
       await prisma.coreDepartment.create({
-        data: {
-          name: trimmed,
-          code: trimmedBudget,
-          ministryId: data.ministry_id ? BigInt(data.ministry_id) : undefined,
-        },
+        data: createData,
       })
     }
 
@@ -207,9 +213,9 @@ export async function getOfficeTypes(): Promise<OfficeTypeHierarchyItem[]> {
   })
 
   return types.map((t) => ({
-    id: Number(t.id),
+    id: String(t.id),
     name: t.name,
-    department_id: Number(t.departmentId),
+    department_id: t.departmentId ? String(t.departmentId) : undefined,
     department_name: t.department?.name,
     hierarchy_order: t.sortOrder,
     hierarchy_label: `Level ${t.sortOrder}`,
@@ -291,10 +297,10 @@ export async function getOfficeLevels(): Promise<OfficeLevelItem[]> {
 
   return levels.map((l) => ({
     id: String(l.id),
-    office_type_id: Number(l.officeTypeId),
+    office_type_id: String(l.officeTypeId),
     office_type_name: l.officeType?.name,
-    department_id: Number(l.officeType?.departmentId),
-    department_name: undefined, // Could add department relation if needed
+    department_id: l.officeType?.departmentId ? String(l.officeType.departmentId) : '',
+    department_name: undefined,
     level_name: l.levelName,
     level_order: l.levelOrder,
     created_at: l.createdAt.toISOString(),
@@ -374,9 +380,9 @@ export async function getGroupBudgetSettings(): Promise<GroupBudgetSettingItem[]
 
   return rules.map((r) => ({
     id: String(r.id),
-    department_id: 0, // Office type doesn't directly link to department in new schema
+    department_id: '', // Office type doesn't directly link to department in new schema
     department_name: '',
-    office_type_id: Number(r.officeTypeId),
+    office_type_id: String(r.officeTypeId),
     office_type_name: r.officeType?.name,
     office_level_id: r.officeLevelId ? String(r.officeLevelId) : undefined,
     office_level_name: r.officeLevel?.levelName,
