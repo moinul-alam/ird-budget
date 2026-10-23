@@ -1,6 +1,6 @@
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import { Form4Client } from './form-4-client'
+import { Form6Client } from './form-6-client'
 import { loadFormLeaveEncashmentInitial } from '@/lib/office/load-form-data'
 
 export default async function Form4Page() {
@@ -12,5 +12,5 @@ export default async function Form4Page() {
   const initialData =
     submissionId != null ? await loadFormLeaveEncashmentInitial(submissionId) : null
 
-  return <Form4Client submissionId={submissionId} initialData={initialData} />
+  return <Form6Client submissionId={submissionId} initialData={initialData} />
 }

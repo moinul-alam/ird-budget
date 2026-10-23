@@ -1,18 +1,20 @@
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
+import { loadFormHouseRentInitial, loadVatPercentage } from '@/lib/office/load-form-data'
 import { Form9Client } from './form-9-client'
 
 export default async function Form9Page() {
   const session = await getOfficeSession()
   if (!session) redirect('/')
 
-  const submissionId = session.submission_id || null
+  const submissionId = session.submission_id ?? null
 
-  let initialData = null
-  let vatPercentage = 15 // Standard default fallback
-  if (submissionId) {
-    // House rent data loading via Prisma
-  }
+  // The VAT rate is an admin rate, not a constant: changing it in
+  // /admin/settings must change what this form projects.
+  const [initialData, vatPercentage] = await Promise.all([
+    submissionId ? loadFormHouseRentInitial(submissionId) : Promise.resolve(null),
+    loadVatPercentage(),
+  ])
 
   return (
     <Form9Client
@@ -22,5 +24,3 @@ export default async function Form9Page() {
     />
   )
 }
-
-

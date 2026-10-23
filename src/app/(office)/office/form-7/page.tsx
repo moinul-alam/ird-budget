@@ -1,34 +1,38 @@
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { getVehicleTypes, getFuelTypes } from '@/app/actions/admin-settings'
-import { Form5Client } from './form-5-client'
+import {
+  getOfficeTypeIdForOffice,
+  loadFormVehiclesGovtInitial,
+  loadVehicleFuelConfigsForOfficeType,
+} from '@/lib/office/load-form-data'
+import { Form7Client } from './form-7-client'
 
-export default async function Form5Page() {
+export default async function Form7Page() {
   const session = await getOfficeSession()
   if (!session) redirect('/')
 
-  const submissionId = session.submission_id || null
+  const submissionId = session.submission_id ?? null
+  const officeId = session.office_id ?? Number(session.id)
 
-  const [vehicleTypes, fuelTypes, configsRes, vehiclesRes] = await Promise.all([
-    getVehicleTypes(),
-    getFuelTypes(),
-    Promise.resolve({ data: [] }),
-    submissionId
-      ? Promise.resolve({ data: [] })
-        //   .select('*')
-        //   .eq('submission_id', submissionId)
-        //   .order('id')
-        Promise.resolve({ data: [] })
-      : Promise.resolve({ data: [] }),
+  const [carTypes, fuelTypes] = await Promise.all([getVehicleTypes(), getFuelTypes()])
+
+  // The selectable rows and their maintenance allowance come from the
+  // per-office-type config, so the office type has to be resolved first.
+  const officeTypeId = await getOfficeTypeIdForOffice(officeId)
+
+  const [fuelConfigs, initialData] = await Promise.all([
+    officeTypeId ? loadVehicleFuelConfigsForOfficeType(officeTypeId) : Promise.resolve([]),
+    submissionId ? loadFormVehiclesGovtInitial(submissionId) : Promise.resolve([]),
   ])
 
   return (
-    <Form5Client
+    <Form7Client
       submissionId={submissionId}
-      initialData={vehiclesRes.data || []}
-      carTypes={vehicleTypes}
+      initialData={initialData}
+      carTypes={carTypes}
       fuelTypes={fuelTypes}
-      fuelConfigs={configsRes.data || []}
+      fuelConfigs={fuelConfigs}
     />
   )
 }

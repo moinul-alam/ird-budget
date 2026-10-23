@@ -105,9 +105,6 @@ export function TabOfficeTypes({
               <h3 className="text-sm font-bold text-slate-700">
                 পূর্বে কোনো দপ্তর বা সংস্থা যুক্ত করা হয়নি
               </h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                অফিসের ধরণ নির্ধারণ করতে প্রথমে ২ নম্বর ট্যাবে গিয়ে দপ্তর/সংস্থা তৈরি করুন।
-              </p>
               <div className="mt-4">
                 <Button
                   size="sm"
@@ -150,7 +147,7 @@ export function TabOfficeTypes({
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                    <th className="py-3 px-4 w-20">ক্র.নং</th>
+                    <th className="py-3 px-4 w-20">ক্রম</th>
                     <th className="py-3 px-4">অফিসের ধরণের নাম</th>
                     <th className="py-3 px-4">দপ্তর / সংস্থা</th>
                     <th className="py-3 px-4 text-center w-28">একশন</th>

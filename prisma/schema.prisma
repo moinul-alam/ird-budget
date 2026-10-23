@@ -217,9 +217,14 @@ model OfficeLevelEconomicCodeMapping {
 model RefAllowanceType {
   id                 BigInt   @id @default(autoincrement())
   name               String   @unique @db.Text
+  labelBn            String?  @map("label_bn") @db.Text
+  countLabelBn       String?  @map("count_label_bn") @db.Text
   isCalculated       Boolean  @default(false) @map("is_calculated")
   formulaKey         String?  @map("formula_key") @db.VarChar(100)
   applicableCategory String?  @map("applicable_category") @db.VarChar(20)
+  hasBasic           Boolean  @default(false) @map("has_basic")
+  hasAmount          Boolean  @default(false) @map("has_amount")
+  hasDue             Boolean  @default(false) @map("has_due")
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   allowances OfficeFormAllowance[]
@@ -241,6 +246,7 @@ model RefVehicleType {
 model RefFuelType {
   id        BigInt   @id @default(autoincrement())
   name      String   @unique @db.Text
+  unitPrice Decimal  @default(0) @map("unit_price") @db.Decimal(14, 2)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   vehicleConfigs AdminVehicleConfig[]
@@ -251,6 +257,7 @@ model RefFuelType {
 model RefItEquipmentType {
   id        BigInt   @id @default(autoincrement())
   name      String   @unique @db.Text
+  unitPrice Decimal  @default(0) @map("unit_price") @db.Decimal(14, 2)
   hasToner  Boolean  @default(false) @map("has_toner")
   isLumpsum Boolean  @default(false) @map("is_lumpsum")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
@@ -290,9 +297,47 @@ model AdminRate {
   @@map("admin_rates")
 }
 
+// The /admin/settings "বেতন-ভাতা" tab. Each row is one tile: a scalar rate
+// (`input_type = 'number'`), a rate applied to a grade range (`'grade'`), or a
+// grade-banded table whose rows live in AdminSalarySlab (`'slab'`). The tile
+// list itself is data, so adding a row here adds a tile with no code change.
+model AdminSalaryConfig {
+  id            BigInt   @id @default(autoincrement())
+  key           String   @unique @db.VarChar(50)
+  labelBn       String   @map("label_bn") @db.Text
+  descriptionBn String?  @map("description_bn") @db.Text
+  unitBn        String   @default("") @map("unit_bn") @db.VarChar(30)
+  inputType     String   @default("number") @map("input_type") @db.VarChar(20)
+  valueFormat   String   @default("number") @map("value_format") @db.VarChar(20)
+  value         Decimal  @default(0) @db.Decimal(14, 2)
+  fromGrade     Int?     @map("from_grade")
+  toGrade       Int?     @map("to_grade")
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  slabs AdminSalarySlab[]
+
+  @@map("admin_salary_config")
+}
+
+model AdminSalarySlab {
+  id        BigInt   @id @default(autoincrement())
+  configKey String   @map("config_key") @db.VarChar(50)
+  fromGrade Int      @map("from_grade")
+  toGrade   Int      @map("to_grade")
+  value     Decimal  @db.Decimal(14, 2)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  config AdminSalaryConfig @relation(fields: [configKey], references: [key], onDelete: Cascade)
+
+  @@map("admin_salary_slabs")
+}
+
 model AdminVehicleConfig {
   id                         BigInt   @id @default(autoincrement())
-  officeTypeId               BigInt   @map("office_type_id")
+  officeTypeId               BigInt?  @map("office_type_id")
   vehicleTypeId              BigInt   @map("vehicle_type_id")
   fuelTypeId                 BigInt   @map("fuel_type_id")
   monthlyFuelQuotaLiter      Decimal? @default(0) @map("monthly_fuel_quota_liter") @db.Decimal(10, 2)
@@ -301,28 +346,28 @@ model AdminVehicleConfig {
   createdAt                  DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt                  DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  officeType  CoreOfficeType          @relation(fields: [officeTypeId], references: [id], onDelete: Cascade)
+  officeType  CoreOfficeType?         @relation(fields: [officeTypeId], references: [id], onDelete: Cascade)
   vehicleType RefVehicleType          @relation(fields: [vehicleTypeId], references: [id], onDelete: Cascade)
   fuelType    RefFuelType             @relation(fields: [fuelTypeId], references: [id], onDelete: Cascade)
   vehicles    OfficeFormVehicleGovt[]
 
-  @@unique([officeTypeId, vehicleTypeId, fuelTypeId])
+  @@unique([vehicleTypeId, fuelTypeId])
   @@map("admin_vehicle_config")
 }
 
 model AdminVehicleRentConfig {
   id              BigInt   @id @default(autoincrement())
-  officeTypeId    BigInt   @map("office_type_id")
+  officeTypeId    BigInt?  @map("office_type_id")
   vehicleTypeId   BigInt   @map("vehicle_type_id")
   monthlyRentRate Decimal? @default(0) @map("monthly_rent_rate") @db.Decimal(14, 2)
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  officeType  CoreOfficeType          @relation(fields: [officeTypeId], references: [id], onDelete: Cascade)
+  officeType  CoreOfficeType?         @relation(fields: [officeTypeId], references: [id], onDelete: Cascade)
   vehicleType RefVehicleType          @relation(fields: [vehicleTypeId], references: [id], onDelete: Cascade)
   vehicles    OfficeFormVehicleRent[]
 
-  @@unique([officeTypeId, vehicleTypeId])
+  @@unique([vehicleTypeId])
   @@map("admin_vehicle_rent_config")
 }
 
@@ -468,7 +513,9 @@ model OfficeFormAllowance {
   allowanceTypeId   BigInt    @map("allowance_type_id")
   officerCount      Int       @default(0) @map("officer_count")
   staffCount        Int       @default(0) @map("staff_count")
+  totalBasic        Decimal   @default(0) @map("total_basic") @db.Decimal(14, 2)
   totalAnnualAmount Decimal   @default(0) @map("total_annual_amount") @db.Decimal(14, 2)
+  dueAmount         Decimal   @default(0) @map("due_amount") @db.Decimal(14, 2)
   effectiveDate     DateTime? @map("effective_date") @db.Date
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
@@ -498,13 +545,14 @@ model OfficeFormLeaveEncashment {
 }
 
 model OfficeFormVehicleGovt {
-  id              BigInt   @id @default(autoincrement())
-  submissionId    BigInt   @map("submission_id")
-  vehicleConfigId BigInt   @map("vehicle_config_id")
-  vehicleCount    Int      @default(0) @map("vehicle_count")
-  maintenanceDue  Decimal? @map("maintenance_due") @db.Decimal(14, 2)
-  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  id                BigInt   @id @default(autoincrement())
+  submissionId      BigInt   @map("submission_id")
+  vehicleConfigId   BigInt   @map("vehicle_config_id")
+  vehicleCount      Int      @default(0) @map("vehicle_count")
+  maintenanceDue    Decimal? @map("maintenance_due") @db.Decimal(14, 2)
+  additionalExpense Decimal  @default(0) @map("additional_expense") @db.Decimal(14, 2)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   submission OfficeSubmission   @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   config     AdminVehicleConfig @relation(fields: [vehicleConfigId], references: [id])
@@ -529,14 +577,16 @@ model OfficeFormVehicleRent {
 }
 
 model OfficeFormHouseRent {
-  id           BigInt   @id @default(autoincrement())
-  submissionId BigInt   @unique @map("submission_id")
-  monthlyRent  Decimal  @default(0) @map("monthly_rent") @db.Decimal(14, 2)
-  vatRateId    BigInt?  @map("vat_rate_id")
-  arrearsDue   Decimal  @default(0) @map("arrears_due") @db.Decimal(14, 2)
-  annualTotal  Decimal  @default(0) @map("annual_total") @db.Decimal(14, 2)
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  id                BigInt    @id @default(autoincrement())
+  submissionId      BigInt    @unique @map("submission_id")
+  monthlyRent       Decimal   @default(0) @map("monthly_rent") @db.Decimal(14, 2)
+  vatRateId         BigInt?   @map("vat_rate_id")
+  arrearsDue        Decimal   @default(0) @map("arrears_due") @db.Decimal(14, 2)
+  annualTotal       Decimal   @default(0) @map("annual_total") @db.Decimal(14, 2)
+  contractStartDate DateTime? @map("contract_start_date") @db.Date
+  contractEndDate   DateTime? @map("contract_end_date") @db.Date
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   submission OfficeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   vatRate    AdminRate?       @relation(fields: [vatRateId], references: [id])
@@ -549,6 +599,7 @@ model OfficeFormItEquipment {
   submissionId     BigInt   @map("submission_id")
   itConfigId       BigInt   @map("it_config_id")
   existingCount    Int      @default(0) @map("existing_count")
+  damagedCount     Int      @default(0) @map("damaged_count")
   newDemandCount   Int      @default(0) @map("new_demand_count")
   tonerCostMonthly Decimal? @map("toner_cost_monthly") @db.Decimal(14, 2)
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
@@ -580,6 +631,7 @@ model OfficeFormUtility {
 model OfficeFormReturnInfo {
   id                   BigInt   @id @default(autoincrement())
   submissionId         BigInt   @unique @map("submission_id")
+  tinCount             Int      @default(0) @map("tin_count")
   returnSubmittedCount Int      @default(0) @map("return_submitted_count")
   postalRateId         BigInt?  @map("postal_rate_id")
   totalPostalDemand    Decimal  @default(0) @map("total_postal_demand") @db.Decimal(14, 2)

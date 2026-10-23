@@ -173,13 +173,13 @@ export function TabCreateCodes({
         </Card>
       </div>
 
-      {/* Right Section: অর্থনৈতিক কোডসমূহ (7 cols) */}
+      {/* Right Section: ইকোনমিক কোডসমূহ (7 cols) */}
       <div className="lg:col-span-7 space-y-4">
         <Card className="border-slate-200 shadow-sm h-full flex flex-col">
           <CardHeader className="border-b border-slate-100 flex flex-row items-center justify-between pb-3">
             <div>
               <CardTitle className="text-base font-bold text-slate-900">
-                অর্থনৈতিক কোডসমূহ (Economic Codes)
+                ইকোনমিক কোডসমূহ (Economic Codes)
               </CardTitle>
               <CardDescription className="text-xs text-slate-500">
                 ক্যাটাগরির অধীন ৭ ডিজিট বিস্তারিত কোড ({toBanglaNumber(codes.length)} টি)
@@ -232,7 +232,7 @@ export function TabCreateCodes({
                 {filteredCodes.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="py-8 text-center text-slate-400 text-xs">
-                      কোনো অর্থনৈতিক কোড পাওয়া যায়নি
+                      কোনো ইকোনমিক কোড পাওয়া যায়নি
                     </td>
                   </tr>
                 ) : (
@@ -328,7 +328,7 @@ export function TabCreateCodes({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-rose-600">
               <AlertTriangle className="h-5 w-5 text-rose-500" />
-              অর্থনৈতিক কোড মুছে ফেলা নিশ্চিতকরণ
+              ইকোনমিক কোড মুছে ফেলা নিশ্চিতকরণ
             </DialogTitle>
           </DialogHeader>
           <div className="py-3 text-sm text-slate-600 space-y-2">

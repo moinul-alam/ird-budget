@@ -22,6 +22,15 @@ export async function loadFormBasicInitial(submissionId: number) {
   }
 }
 
+export async function loadGrades() {
+  const grades = await prisma.refGrade.findMany({ orderBy: { gradeNo: 'asc' } })
+  return grades.map((g) => ({
+    id: g.id,
+    grade_no: g.gradeNo,
+    category: g.category,
+  }))
+}
+
 export async function loadFormStaffWorkingInitial(submissionId: number) {
   const rows = await prisma.officeFormStaffWorking.findMany({
     where: { submissionId: BigInt(submissionId) },
@@ -61,9 +70,14 @@ export async function loadAllowanceTypes() {
   return types.map((t) => ({
     id: Number(t.id),
     name: t.name,
+    label_bn: t.labelBn ?? t.name,
+    count_label_bn: t.countLabelBn ?? '',
     is_calculated: t.isCalculated,
     formula_key: t.formulaKey,
     applicable_category: t.applicableCategory,
+    has_basic: t.hasBasic,
+    has_amount: t.hasAmount,
+    has_due: t.hasDue,
   }))
 }
 
@@ -73,10 +87,11 @@ export async function loadFormAllowancesInitial(submissionId: number) {
   })
   return rows.map((r) => ({
     allowance_type_id: Number(r.allowanceTypeId),
-    officer_count: r.officerCount,
-    staff_count: r.staffCount,
-    total_annual_amount: Number(r.totalAnnualAmount),
-    effective_date: r.effectiveDate?.toISOString().split('T')[0] ?? null,
+    count: r.officerCount || r.staffCount,
+    total_basic: Number(r.totalBasic),
+    amount: Number(r.totalAnnualAmount),
+    due: Number(r.dueAmount),
+    date: r.effectiveDate?.toISOString().split('T')[0] ?? '',
   }))
 }
 
@@ -145,8 +160,9 @@ export async function loadFormVehiclesGovtInitial(submissionId: number) {
   return rows.map((r) => ({
     id: Number(r.id),
     vehicle_fuel_config_id: Number(r.vehicleConfigId),
-    vehicle_count: r.vehicleCount,
-    maintenance_due: Number(r.maintenanceDue),
+    count: r.vehicleCount,
+    maintenance_cost: Number(r.maintenanceDue),
+    additional_expense: Number(r.additionalExpense),
     vehicle_fuel_config: r.config
       ? {
           id: Number(r.config.id),
@@ -170,7 +186,7 @@ export async function loadVehicleRentConfigsForOfficeType(officeTypeId: number) 
     office_type_id: Number(c.officeTypeId),
     car_type_id: Number(c.vehicleTypeId),
     car_type: { id: Number(c.vehicleType.id), name: c.vehicleType.name },
-    monthly_rent_rate: Number(c.monthlyRentRate),
+    monthly_rent_allowance: Number(c.monthlyRentRate),
   }))
 }
 
@@ -185,7 +201,7 @@ export async function loadFormVehiclesRentInitial(submissionId: number) {
   return rows.map((r) => ({
     id: Number(r.id),
     vehicle_rent_config_id: Number(r.vehicleRentConfigId),
-    vehicle_count: r.vehicleCount,
+    count: r.vehicleCount,
     vehicle_rent_config: r.config
       ? {
           id: Number(r.config.id),
@@ -209,8 +225,8 @@ export async function loadFormHouseRentInitial(submissionId: number) {
   return {
     monthly_bill: Number(row.monthlyRent),
     due: Number(row.arrearsDue),
-    contract_start_date: '',
-    contract_end_date: '',
+    contract_start_date: row.contractStartDate?.toISOString().split('T')[0] ?? '',
+    contract_end_date: row.contractEndDate?.toISOString().split('T')[0] ?? '',
   }
 }
 
@@ -227,23 +243,19 @@ export async function loadFormUtilitiesInitial(submissionId: number) {
   }))
 }
 
-export async function loadItAdminPrices(officeTypeId: number) {
+export async function loadItConfigsForOfficeType(officeTypeId: number) {
   const configs = await prisma.adminItConfig.findMany({
     where: { officeTypeId: BigInt(officeTypeId) },
-    include: { equipmentType: { select: { name: true } } },
+    include: { equipmentType: { select: { id: true, name: true } } },
+    orderBy: { id: 'asc' },
   })
-  const findPrice = (keyword: string) => {
-    const match = configs.find((c) =>
-      c.equipmentType.name.toLowerCase().includes(keyword.toLowerCase())
-    )
-    return match ? Number(match.unitBudget) : 0
-  }
-  return {
-    computer: findPrice('computer') || findPrice('কম্পিউ'),
-    printer: findPrice('printer') || findPrice('প্রিন্ট'),
-    scanner: findPrice('scanner') || findPrice('স্ক্যান'),
-    photocopier: findPrice('accessor') || findPrice('ফটো'),
-  }
+  return configs.map((c) => ({
+    id: Number(c.id),
+    office_type_id: Number(c.officeTypeId),
+    equipment_type_id: Number(c.equipmentTypeId),
+    equipment_type_name: c.equipmentType.name,
+    unit_budget: Number(c.unitBudget ?? 0),
+  }))
 }
 
 export async function loadFormItEquipmentInitial(submissionId: number) {
@@ -254,12 +266,13 @@ export async function loadFormItEquipmentInitial(submissionId: number) {
     },
   })
   return rows.map((r) => ({
+    it_config_id: Number(r.itConfigId),
     equipment_type_id: Number(r.config.equipmentTypeId),
     existing_count: r.existingCount,
-    damaged_count: 0,
+    damaged_count: r.damagedCount,
     toner_cost: Number(r.tonerCostMonthly),
     required_qty: r.newDemandCount,
-    unit_budget: Number(r.config.unitBudget),
+    unit_budget: Number(r.config.unitBudget ?? 0),
   }))
 }
 
@@ -269,7 +282,7 @@ export async function loadFormReturnInfoInitial(submissionId: number) {
   })
   if (!row) return null
   return {
-    tin_count: 0,
+    tin_count: row.tinCount,
     return_submitted_count: row.returnSubmittedCount,
   }
 }

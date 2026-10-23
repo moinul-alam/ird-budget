@@ -91,7 +91,7 @@ export async function deleteBudgetCategory(
     // Integrity Check: a category still referenced by economic codes must not vanish
     const assigned = await prisma.refEconomicCode.count({ where: { categoryId: BigInt(id) } })
     if (assigned > 0) {
-      return { error: `এই ক্যাটাগরির অধীনে ${assigned} টি অর্থনৈতিক কোড রয়েছে — আগে সেগুলো সরান` }
+      return { error: `এই ক্যাটাগরির অধীনে ${assigned} টি ইকোনমিক কোড রয়েছে — আগে সেগুলো সরান` }
     }
 
     await prisma.refBudgetCategory.delete({ where: { id: BigInt(id) } })

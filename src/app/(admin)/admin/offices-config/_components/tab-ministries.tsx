@@ -49,7 +49,7 @@ export function TabMinistries({
             className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5 shadow-xs"
           >
             <Plus className="h-4 w-4" />
-            নতুন মন্ত্রণালয়/বিভাগ যোগ করুন
+            মন্ত্রণালয়/বিভাগ যোগ করুন
           </Button>
         </CardHeader>
         <CardContent className="p-0">
@@ -59,9 +59,6 @@ export function TabMinistries({
               <h3 className="text-sm font-bold text-slate-700">
                 কোনো মন্ত্রণালয় বা বিভাগ পাওয়া যায়নি
               </h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                দপ্তর বা সংস্থা নির্ধারণের পূর্বে &quot;নতুন মন্ত্রণালয়/বিভাগ যোগ করুন&quot; বাটনে চাপুন।
-              </p>
               <div className="mt-4">
                 <Button
                   size="sm"
@@ -69,7 +66,7 @@ export function TabMinistries({
                   className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  নতুন মন্ত্রণালয়/বিভাগ যোগ করুন
+                  মন্ত্রণালয়/বিভাগ যোগ করুন
                 </Button>
               </div>
             </div>
@@ -78,9 +75,9 @@ export function TabMinistries({
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                    <th className="py-3 px-4 w-20">ক্র.নং</th>
+                    <th className="py-3 px-4 w-20">ক্রম</th>
                     <th className="py-3 px-4">মন্ত্রণালয় / বিভাগের নাম</th>
-                    <th className="py-3 px-4">বাজেট আইডি (Login ID)</th>
+                    <th className="py-3 px-4">বাজেট আইডি</th>
                     <th className="py-3 px-4">অধীনস্থ দপ্তর সংখ্যা</th>
                     <th className="py-3 px-4 text-center w-28">একশন</th>
                   </tr>
@@ -164,7 +161,7 @@ export function TabMinistries({
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-slate-700">বাজেট আইডি (Login ID)</Label>
+                <Label className="text-xs font-bold text-slate-700">বাজেট আইডি</Label>
                 <span className="text-[11px] text-blue-600 font-medium">লগইন করার জন্য ব্যবহৃত হবে</span>
               </div>
               <Input

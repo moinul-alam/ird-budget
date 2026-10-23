@@ -3,10 +3,16 @@
  *
  *   npm run db:seed
  *
- * Safe to run repeatedly: every write is an upsert keyed on a natural unique
- * column, so existing rows are updated rather than duplicated. This is the
- * single source of truth for "minimum data required for the app to work" and
- * is what lets a database be wiped and rebuilt without locking anyone out.
+ * Safe to run repeatedly: every write is keyed on a natural unique column, so
+ * existing rows are updated rather than duplicated. This is the single source
+ * of truth for "minimum data required for the app to work" and is what lets a
+ * database be wiped and rebuilt without locking anyone out.
+ *
+ * Scope: the admin login plus reference/lookup data only. The organizational
+ * structure (ministries, departments, office types, office levels), the offices
+ * themselves, their logins and all per-office-type configuration are created by
+ * hand from the admin UI. They are deliberately NOT seeded, so anything an
+ * administrator deletes stays deleted.
  *
  * Deliberately dependency-free (plain Node + @prisma/client) so it runs on any
  * machine that can run the app, with no extra toolchain.
@@ -153,6 +159,52 @@ async function seedFiscalYears() {
 }
 
 // ---------------------------------------------------------------------------
+// Budget cycle
+// ---------------------------------------------------------------------------
+// An office login resolves its submission through the most recent cycle (see
+// getOrCreateOfficeSubmission in src/app/actions/auth.ts) and returns null when
+// no cycle exists at all. Without one here, an office user signs in and every
+// form has no submission to save against.
+async function seedBudgetCycle() {
+  const fiscalYear = await prisma.refFiscalYear.findFirst({
+    orderBy: { sortOrder: 'desc' },
+    select: { id: true, year: true },
+  })
+  const budgetType = await prisma.refBudgetType.findFirst({
+    orderBy: { sortOrder: 'asc' },
+    select: { id: true, name: true },
+  })
+
+  if (!fiscalYear || !budgetType) {
+    console.log('  core_budget_cycles  : skipped (needs a fiscal year and a budget type)')
+    return
+  }
+
+  const existing = await prisma.coreBudgetCycle.findUnique({
+    where: {
+      fiscalYearId_budgetTypeId: { fiscalYearId: fiscalYear.id, budgetTypeId: budgetType.id },
+    },
+    select: { id: true },
+  })
+
+  if (existing) {
+    console.log(`  core_budget_cycles  : "${fiscalYear.year} ${budgetType.name}" already exists`)
+    return
+  }
+
+  await prisma.coreBudgetCycle.create({
+    data: {
+      fiscalYearId: fiscalYear.id,
+      budgetTypeId: budgetType.id,
+      title: `${fiscalYear.year} ${budgetType.name}`,
+      status: 'open',
+      openedAt: new Date(),
+    },
+  })
+  console.log(`  core_budget_cycles  : opened "${fiscalYear.year} ${budgetType.name}"`)
+}
+
+// ---------------------------------------------------------------------------
 // Reference data: economic codes
 // ---------------------------------------------------------------------------
 async function seedEconomicCodes() {
@@ -196,6 +248,282 @@ async function seedEconomicCodes() {
 }
 
 // ---------------------------------------------------------------------------
+// Reference data: pay grades
+// ---------------------------------------------------------------------------
+// Forms 2, 3 and 4 write one row per grade and the staff tables reference
+// ref_grades.grade_no directly, so every grade a form offers must exist here.
+// Grades 1–9 are officer grades and 10–20 are staff (see budget-system-PRD.md).
+const SEED_GRADES = Array.from({ length: 20 }, (_, i) => ({
+  gradeNo: i + 1,
+  category: i + 1 <= 9 ? 'officer' : 'staff',
+}))
+
+async function seedGrades() {
+  let created = 0
+
+  for (const item of SEED_GRADES) {
+    const existing = await prisma.refGrade.findUnique({
+      where: { gradeNo: item.gradeNo },
+      select: { id: true },
+    })
+    if (existing) continue
+
+    await prisma.refGrade.create({ data: item })
+    created += 1
+  }
+
+  console.log(
+    `  ref_grades          : ${created} created, ${SEED_GRADES.length - created} already present`
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Reference data: allowance types
+// ---------------------------------------------------------------------------
+// Form 5 renders one card per allowance row, so everything the card shows is
+// described here: the Bengali label, the count label and which of the basic /
+// amount / due inputs the card collects. The budget engine keys its formulas off
+// `name`, so the names must stay exactly as written.
+const SEED_ALLOWANCE_TYPES = [
+  { name: 'overtime', labelBn: 'অধিকাল ভাতা (চালক)', countLabelBn: 'গাড়ীচালকের সংখ্যা', hasBasic: true, hasAmount: false, hasDue: true, isCalculated: true, formulaKey: null, applicableCategory: 'staff' },
+  { name: 'duty', labelBn: 'দায়িত্ব ভাতা', countLabelBn: 'কর্মকর্তার সংখ্যা', hasBasic: false, hasAmount: false, hasDue: false, isCalculated: true, formulaKey: null, applicableCategory: 'officer' },
+  { name: 'dress', labelBn: 'পোশাক ভাতা', countLabelBn: 'কর্মচারীর সংখ্যা', hasBasic: false, hasAmount: true, hasDue: true, isCalculated: false, formulaKey: null, applicableCategory: 'staff' },
+  { name: 'risk', labelBn: 'ঝুঁকি ভাতা', countLabelBn: 'কর্মচারীর সংখ্যা', hasBasic: false, hasAmount: true, hasDue: true, isCalculated: false, formulaKey: null, applicableCategory: 'staff' },
+  { name: 'hill', labelBn: 'পাহাড়ী ভাতা', countLabelBn: 'কর্মচারীর সংখ্যা', hasBasic: false, hasAmount: true, hasDue: true, isCalculated: false, formulaKey: null, applicableCategory: 'staff' },
+  { name: 'restRecreation', labelBn: 'শ্রান্তি ও বিনোদন ভাতা', countLabelBn: 'কর্মকর্তা/কর্মচারীর সংখ্যা', hasBasic: false, hasAmount: true, hasDue: true, isCalculated: false, formulaKey: null, applicableCategory: 'both' },
+]
+
+async function seedAllowanceTypes() {
+  let created = 0
+
+  for (const item of SEED_ALLOWANCE_TYPES) {
+    // Upsert on the natural key so the descriptive columns stay in sync with
+    // this file rather than only being set on first insert.
+    await prisma.refAllowanceType.upsert({
+      where: { name: item.name },
+      update: item,
+      create: item,
+    })
+    created += 1
+  }
+
+  console.log(`  ref_allowance_types : ${created} upserted`)
+}
+
+// ---------------------------------------------------------------------------
+// Reference data: vehicle and fuel types
+// ---------------------------------------------------------------------------
+// Forms 7 and 8 offer a vehicle type; form 7 also pairs it with a fuel type.
+// The budget engine picks a rate (fuel_price_octane / _diesel / _cng) from the
+// fuel name, so keep the Bengali names below intact.
+const SEED_VEHICLE_TYPES = ['মোটরসাইকেল', 'জিপ', 'মাইক্রোবাস', 'পিকআপ']
+
+// `unit_price` is what /admin/settings (জ্বালানির দর) edits and what the budget
+// engine charges per litre / cubic metre. The defaults match the figures the
+// engine used to assume (admin_rates fuel_price_*) so a fresh database produces
+// the same budgets as before the price moved into this table.
+const SEED_FUEL_TYPES = [
+  { name: 'অকটেন', unitPrice: 130 },
+  { name: 'ডিজেল', unitPrice: 110 },
+  { name: 'সিএনজি', unitPrice: 45 },
+]
+
+async function seedVehicleTypes() {
+  let created = 0
+
+  for (const name of SEED_VEHICLE_TYPES) {
+    const existing = await prisma.refVehicleType.findUnique({ where: { name }, select: { id: true } })
+    if (existing) continue
+
+    await prisma.refVehicleType.create({ data: { name } })
+    created += 1
+  }
+
+  console.log(
+    `  ref_vehicle_types   : ${created} created, ${SEED_VEHICLE_TYPES.length - created} already present`
+  )
+}
+
+async function seedFuelTypes() {
+  let created = 0
+
+  for (const item of SEED_FUEL_TYPES) {
+    const existing = await prisma.refFuelType.findUnique({ where: { name: item.name }, select: { id: true } })
+    if (existing) continue
+
+    await prisma.refFuelType.create({ data: item })
+    created += 1
+  }
+
+  console.log(
+    `  ref_fuel_types      : ${created} created, ${SEED_FUEL_TYPES.length - created} already present`
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Reference data: IT equipment types
+// ---------------------------------------------------------------------------
+// Form 10 matches these rows by substring against hardcoded aliases (see the
+// CARD_CONFIGS aliases in src/app/(office)/office/form-10/form-7-client.tsx).
+// Each name below contains one of those aliases — renaming one breaks form 10
+// silently (the row is never matched, so nothing is saved).
+const SEED_IT_EQUIPMENT_TYPES = [
+  { name: 'কম্পিউটার', hasToner: false, isLumpsum: false },
+  { name: 'প্রিন্টার', hasToner: true, isLumpsum: false },
+  { name: 'স্ক্যানার', hasToner: false, isLumpsum: false },
+  { name: 'ফটোকপিয়ার', hasToner: false, isLumpsum: false },
+]
+
+async function seedItEquipmentTypes() {
+  let created = 0
+
+  for (const item of SEED_IT_EQUIPMENT_TYPES) {
+    const existing = await prisma.refItEquipmentType.findUnique({
+      where: { name: item.name },
+      select: { id: true },
+    })
+    if (existing) continue
+
+    await prisma.refItEquipmentType.create({ data: item })
+    created += 1
+  }
+
+  console.log(
+    `  ref_it_equipment_types: ${created} created, ${SEED_IT_EQUIPMENT_TYPES.length - created} already present`
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Reference data: utility types
+// ---------------------------------------------------------------------------
+// Form 11's dropdown. Bengali bill names — re-seeding only fills gaps.
+const SEED_UTILITY_TYPES = ['বিদ্যুৎ', 'পানি', 'গ্যাস', 'টেলিফোন', 'ইন্টারনেট']
+
+async function seedUtilityTypes() {
+  let created = 0
+
+  for (const name of SEED_UTILITY_TYPES) {
+    const existing = await prisma.refUtilityType.findUnique({ where: { name }, select: { id: true } })
+    if (existing) continue
+
+    await prisma.refUtilityType.create({ data: { name } })
+    created += 1
+  }
+
+  console.log(
+    `  ref_utility_types   : ${created} created, ${SEED_UTILITY_TYPES.length - created} already present`
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Salary and allowance configuration
+// ---------------------------------------------------------------------------
+// The /admin/settings "বেতন-ভাতা" tab renders one tile per row of
+// admin_salary_config; the tile list is data, not JSX, so adding a row adds a
+// tile. Grade-banded tiles (বাড়ি ভাড়া, বিশেষ সুবিধা, মোবাইল ভাতা) keep their
+// bands in admin_salary_slabs. Both are editable from the tab afterwards.
+//
+// The migration that introduced these tables already inserted the same rows for
+// existing databases; this keeps a freshly reset database identical and fills
+// any row an administrator deleted by hand.
+const SEED_SALARY_CONFIG = [
+  { key: 'salary_months', labelBn: 'বেতন-ভাতা মাস', descriptionBn: 'বাজেট গুণক মাস সংখ্যা', unitBn: 'মাস', inputType: 'number', valueFormat: 'number', value: 12, sortOrder: 1 },
+  { key: 'duty_allowance', labelBn: 'দায়িত্ব ভাতা', descriptionBn: 'মাসিক হার', unitBn: 'টাকা/মাস', inputType: 'number', valueFormat: 'amount', value: 1500, sortOrder: 2 },
+  { key: 'transport_allowance', labelBn: 'যাতায়াত ভাতা', descriptionBn: 'গ্রেড অনুযায়ী মাসিক হার', unitBn: 'টাকা/মাস', inputType: 'grade', valueFormat: 'amount', value: 0, fromGrade: 1, toGrade: 20, sortOrder: 3 },
+  { key: 'education_allowance', labelBn: 'শিক্ষা ভাতা', descriptionBn: 'সন্তান প্রতি মাসিক হার', unitBn: 'টাকা/মাস', inputType: 'number', valueFormat: 'amount', value: 500, sortOrder: 4 },
+  { key: 'house_rent', labelBn: 'বাড়ি ভাড়া ভাতা', descriptionBn: 'গ্রেড অনুযায়ী মূল বেতনের শতকরা হার', unitBn: '% মূলবেতন', inputType: 'slab', valueFormat: 'percent', value: 0, sortOrder: 5 },
+  { key: 'medical_allowance', labelBn: 'চিকিৎসা ভাতা', descriptionBn: 'কর্মকর্তা/কর্মচারী মাসিক হার', unitBn: 'টাকা/মাস', inputType: 'number', valueFormat: 'amount', value: 1500, sortOrder: 6 },
+  { key: 'mobile_allowance', labelBn: 'মোবাইল/সেলফোন ভাতা', descriptionBn: 'গ্রেড অনুযায়ী মাসিক ভাতা', unitBn: 'স্ল্যাব', inputType: 'slab', valueFormat: 'amount', value: 0, sortOrder: 7 },
+  { key: 'telephone_allowance', labelBn: 'আবাসিক টেলিফোন নগদায়ন', descriptionBn: 'গ্রেড অনুযায়ী মাসিক হার', unitBn: 'টাকা/মাস', inputType: 'grade', valueFormat: 'amount', value: 0, fromGrade: 1, toGrade: 20, sortOrder: 8 },
+  { key: 'tiffin_allowance', labelBn: 'টিফিন ভাতা', descriptionBn: 'গ্রেড অনুযায়ী মাসিক হার', unitBn: 'টাকা/মাস', inputType: 'grade', valueFormat: 'amount', value: 0, fromGrade: 1, toGrade: 20, sortOrder: 9 },
+  { key: 'wash_allowance', labelBn: 'ধোলাই ভাতা', descriptionBn: 'গ্রেড অনুযায়ী মাসিক হার', unitBn: 'টাকা/মাস', inputType: 'grade', valueFormat: 'amount', value: 0, fromGrade: 1, toGrade: 20, sortOrder: 10 },
+  { key: 'entertainment_allowance', labelBn: 'আপ্যায়ন ভাতা', descriptionBn: 'গ্রেড অনুযায়ী মাসিক হার', unitBn: 'টাকা/মাস', inputType: 'grade', valueFormat: 'amount', value: 0, fromGrade: 1, toGrade: 20, sortOrder: 11 },
+  { key: 'special_benefit', labelBn: 'বিশেষ সুবিধা', descriptionBn: 'গ্রেড অনুযায়ী মূল বেতনের শতকরা হার', unitBn: '% মূলবেতন', inputType: 'slab', valueFormat: 'percent', value: 0, sortOrder: 12 },
+  { key: 'noboborsho_percent', labelBn: 'বাংলা নববর্ষ ভাতা', descriptionBn: 'মূল বেতনের শতকরা হার', unitBn: 'বেসিকের', inputType: 'number', valueFormat: 'percent', value: 20, sortOrder: 13 },
+  { key: 'festival_bonus_multiplier', labelBn: 'উৎসব ভাতা', descriptionBn: 'বাৎসরিক বোনাস সংখ্যা', unitBn: 'টি বেসিক', inputType: 'number', valueFormat: 'number', value: 2, sortOrder: 14 },
+  { key: 'office_rent_vat_percent', labelBn: 'অফিস ভাড়ার ভ্যাট হার', descriptionBn: 'ভাড়া বাবদ ভ্যাটের শতকরা হার', unitBn: 'ভাড়ার ওপর', inputType: 'number', valueFormat: 'percent', value: 15, sortOrder: 15 },
+]
+
+const SEED_SALARY_SLABS = [
+  { configKey: 'house_rent', fromGrade: 1, toGrade: 20, value: 40, sortOrder: 1 },
+  { configKey: 'special_benefit', fromGrade: 1, toGrade: 20, value: 5, sortOrder: 1 },
+  { configKey: 'mobile_allowance', fromGrade: 1, toGrade: 9, value: 1500, sortOrder: 1 },
+  { configKey: 'mobile_allowance', fromGrade: 10, toGrade: 20, value: 1000, sortOrder: 2 },
+]
+
+async function seedSalaryConfig() {
+  let created = 0
+
+  for (const item of SEED_SALARY_CONFIG) {
+    const existing = await prisma.adminSalaryConfig.findUnique({
+      where: { key: item.key },
+      select: { id: true },
+    })
+    if (existing) continue
+
+    await prisma.adminSalaryConfig.create({ data: item })
+    created += 1
+  }
+
+  let slabsCreated = 0
+  for (const slab of SEED_SALARY_SLABS) {
+    const existing = await prisma.adminSalarySlab.findFirst({
+      where: { configKey: slab.configKey, fromGrade: slab.fromGrade, toGrade: slab.toGrade },
+      select: { id: true },
+    })
+    if (existing) continue
+
+    await prisma.adminSalarySlab.create({ data: slab })
+    slabsCreated += 1
+  }
+
+  console.log(
+    `  admin_salary_config : ${created} created, ${SEED_SALARY_CONFIG.length - created} already present`
+  )
+  console.log(
+    `  admin_salary_slabs  : ${slabsCreated} created, ${SEED_SALARY_SLABS.length - slabsCreated} already present`
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Admin rates
+// ---------------------------------------------------------------------------
+// Every admin_rates key the application reads must exist, otherwise the budget
+// engine and the house-rent / return-info forms fall back to hardcoded values.
+const SEED_RATES = [
+  { key: 'medical_allowance_monthly', name: 'মাসিক চিকিৎসা ভাতা', value: 1500, unit: 'টাকা', description: 'প্রতি কর্মকর্তা/কর্মচারীর মাসিক চিকিৎসা ভাতা' },
+  { key: 'house_rent_percent', name: 'বাসা ভাড়ার হার', value: 50, unit: '%', description: 'মূল বেতনের শতাংশ হিসেবে বাসা ভাড়া' },
+  { key: 'festival_bonus_multiplier', name: 'উৎসব বোনাস গুণক', value: 2, unit: 'গুণ', description: 'উৎসব বোনাস = মূল বেতন × গুণক' },
+  { key: 'provident_fund_percent', name: 'ভবিষ্যৎ তহবিলের হার', value: 10, unit: '%', description: 'মূল বেতনের শতাংশ হিসেবে ভবিষ্যৎ তহবিল' },
+  { key: 'education_allowance', name: 'শিক্ষা ভাতা', value: 500, unit: 'টাকা', description: 'সন্তানদের শিক্ষা ভাতা' },
+  { key: 'fuel_price_octane', name: 'অকটেনের দাম', value: 130, unit: 'টাকা/লিটার', description: 'প্রতি লিটার অকটেনের দাম' },
+  { key: 'fuel_price_diesel', name: 'ডিজেলের দাম', value: 110, unit: 'টাকা/লিটার', description: 'প্রতি লিটার ডিজেলের দাম' },
+  { key: 'fuel_price_cng', name: 'সিএনজি গ্যাসের দাম', value: 45, unit: 'টাকা/কেজি', description: 'প্রতি কেজি সিএনজি গ্যাসের দাম' },
+  { key: 'vat_percentage', name: 'ভ্যাটের হার', value: 15, unit: '%', description: 'অফিস ভাড়ার উপর ভ্যাট (form 9)' },
+  { key: 'postal_rate', name: 'ডাক খরচের হার', value: 50, unit: 'টাকা', description: 'প্রতি রিটার্নে ডাক খরচ (form 12)' },
+  { key: 'postal_expense_rate', name: 'ডাক ব্যয়ের হার', value: 50, unit: 'টাকা', description: 'বাজেট হিসাবে প্রতি রিটার্নে ডাক ব্যয়' },
+]
+
+async function seedAdminRates() {
+  let created = 0
+
+  for (const item of SEED_RATES) {
+    const existing = await prisma.adminRate.findUnique({
+      where: { key: item.key },
+      select: { id: true },
+    })
+    if (existing) continue
+
+    await prisma.adminRate.create({ data: item })
+    created += 1
+  }
+
+  console.log(
+    `  admin_rates         : ${created} created, ${SEED_RATES.length - created} already present`
+  )
+}
+
+// ---------------------------------------------------------------------------
 
 async function main() {
   console.log('Seeding database...')
@@ -204,6 +532,15 @@ async function main() {
   await seedBudgetTypes()
   await seedFiscalYears()
   await seedEconomicCodes()
+  await seedBudgetCycle()
+  await seedGrades()
+  await seedAllowanceTypes()
+  await seedVehicleTypes()
+  await seedFuelTypes()
+  await seedItEquipmentTypes()
+  await seedUtilityTypes()
+  await seedSalaryConfig()
+  await seedAdminRates()
   console.log('Done.')
 }
 

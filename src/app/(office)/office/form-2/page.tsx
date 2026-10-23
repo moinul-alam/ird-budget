@@ -1,7 +1,7 @@
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { Form2Client } from './form-2-client'
-import { loadFormStaffWorkingInitial } from '@/lib/office/load-form-data'
+import { loadFormStaffWorkingInitial, loadGrades } from '@/lib/office/load-form-data'
 
 export default async function Form2Page() {
   const session = await getOfficeSession()
@@ -9,13 +9,16 @@ export default async function Form2Page() {
 
   const submissionId = session.submission_id || null
 
-  const initialData =
-    submissionId != null ? await loadFormStaffWorkingInitial(submissionId) : []
+  const [initialData, grades] = await Promise.all([
+    submissionId != null ? loadFormStaffWorkingInitial(submissionId) : Promise.resolve([]),
+    loadGrades(),
+  ])
 
   return (
     <Form2Client
       initialData={initialData}
       submissionId={submissionId}
+      grades={grades}
     />
   )
 }

@@ -300,8 +300,8 @@ export function TabEnableCodes({
                     {selectedCatFilter === 'all'
                       ? 'সব ক্যাটাগরি'
                       : categories.find((c) => c.code === selectedCatFilter)
-                      ? `${selectedCatFilter} - ${categories.find((c) => c.code === selectedCatFilter)?.title}`
-                      : 'সব ক্যাটাগরি'}
+                        ? `${selectedCatFilter} - ${categories.find((c) => c.code === selectedCatFilter)?.title}`
+                        : 'সব ক্যাটাগরি'}
                   </span>
                 </SelectTrigger>
                 <SelectContent className="rounded-xl text-xs">
@@ -350,7 +350,7 @@ export function TabEnableCodes({
                       title="সকল কোড নির্বাচন করুন"
                     />
                   </th>
-                  <th className="py-3 px-4 w-16">ক্র. নং.</th>
+                  <th className="py-3 px-4 w-16">ক্রম.</th>
                   <th className="py-3 px-4 w-28 font-mono">ক্যাটাগরি কোড</th>
                   <th className="py-3 px-4 w-44">বাজেট ক্যাটাগরি</th>
                   <th className="py-3 px-4 w-32 font-mono">বাজেট কোড</th>
@@ -369,13 +369,12 @@ export function TabEnableCodes({
                   filteredCodes.map((c, idx) => (
                     <tr
                       key={c.id}
-                      className={`hover:bg-slate-50/60 transition-colors ${
-                        selectedCodeIds.includes(c.id)
+                      className={`hover:bg-slate-50/60 transition-colors ${selectedCodeIds.includes(c.id)
                           ? 'bg-blue-50/40'
                           : c.enabled
-                          ? 'bg-white'
-                          : 'bg-slate-50/40 opacity-75'
-                      }`}
+                            ? 'bg-white'
+                            : 'bg-slate-50/40 opacity-75'
+                        }`}
                     >
                       <td className="py-3 px-3 text-center">
                         <input
@@ -406,20 +405,17 @@ export function TabEnableCodes({
                             type="button"
                             onClick={() => handleToggleCode(c)}
                             disabled={isPending}
-                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
-                              c.enabled ? 'bg-emerald-600' : 'bg-slate-300'
-                            }`}
+                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${c.enabled ? 'bg-emerald-600' : 'bg-slate-300'
+                              }`}
                           >
                             <span
-                              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                                c.enabled ? 'translate-x-4' : 'translate-x-0'
-                              }`}
+                              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${c.enabled ? 'translate-x-4' : 'translate-x-0'
+                                }`}
                             />
                           </button>
                           <span
-                            className={`text-[11px] font-bold ${
-                              c.enabled ? 'text-emerald-700' : 'text-slate-400'
-                            }`}
+                            className={`text-[11px] font-bold ${c.enabled ? 'text-emerald-700' : 'text-slate-400'
+                              }`}
                           >
                             {c.enabled ? 'চালু' : 'বন্ধ'}
                           </span>

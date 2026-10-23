@@ -134,14 +134,21 @@ data.
 **Rule: any list a user can configure belongs in a table, reached by foreign key — never in a
 constant in application code.**
 
-This applies to economic code categories, budget types, fiscal years, and every `ref_*` list.
-The admin UI at `/admin/codes` and `/admin/budgets` performs real create / rename / delete
-against those tables, guarded by:
+This applies to economic code categories, budget types, fiscal years, grades, allowance types,
+and every `ref_*` list. The admin UI at `/admin/codes` and `/admin/budgets` performs real
+create / rename / delete against those tables, guarded by:
 
 - a unique constraint on the natural key, surfaced to the user as a friendly duplicate message
   (Prisma error `P2002`); and
 - an in-use check before delete, so a reference row that a cycle or code still points at cannot
   be removed.
+
+Form UI reads these tables rather than shipping its own copy. In particular the office forms no
+longer carry a hardcoded grade list (`1`–`20`): the grade `<select>` is built from `ref_grades`,
+and the officer/staff split is driven by `ref_grades.category` instead of a grade-number range.
+Allowance cards on form 5 are likewise rendered from `ref_allowance_types` (its
+`label_bn`/`count_label_bn`/`has_basic`/`has_amount`/`has_due` columns describe each card's shape),
+so adding or reshaping an allowance is an admin edit, not a code change.
 
 Seed data in [prisma/seed.js](prisma/seed.js) is **data, not code**: it only fills gaps on first
 run, so a row you rename or add by hand survives re-seeding.
@@ -158,10 +165,12 @@ administrable rather than compiled in.
 | `20261023000000_init` | Created the full schema v2 — 35 tables across the five domains. |
 | `20261024000000_add_budget_categories` | Added `ref_budget_categories`; replaced `ref_economic_codes.category` (free text) with `category_id` FK, backfilling by 4-digit code prefix. |
 | `20261024010000_budget_types_and_fiscal_years` | Added `ref_budget_types` and `ref_fiscal_years`; replaced `core_budget_cycles.fiscal_year` / `budget_type` (free text plus a check constraint) with the two FKs. |
+| `20261024020000_form_missing_columns` | Added five columns the forms collected but discarded: `office_form_vehicles_govt.additional_expense`, `office_form_house_rent.contract_start_date` / `contract_end_date`, `office_form_it_equipment.damaged_count`, `office_form_return_info.tin_count`. |
+| `20261024030000_allowance_detail_and_labels` | Added `office_form_allowances.total_basic` / `due_amount`, and the five descriptive columns on `ref_allowance_types` (`label_bn`, `count_label_bn`, `has_basic`, `has_amount`, `has_due`) that make the form 5 cards table-driven; backfills the six seeded allowance types. |
 
-Both later migrations are **data-preserving**: they create the new table, lift any value already
-referenced by existing rows, link the rows, and only then drop the old column. Replaying them on
-a populated database loses nothing.
+The four later migrations are **data-preserving**: they add tables/columns, lift any value already
+referenced by existing rows, and only then drop the old column. Replaying them on a populated
+database loses nothing.
 
 ### Writing a new migration
 
@@ -206,6 +215,7 @@ npm run dev          # start the app
 npm run db:generate  # regenerate the Prisma client after a schema change
 npm run db:deploy    # apply committed migrations to the database
 npm run db:seed      # idempotent: admin user + reference data
+npm run db:seed:hq   # one-time: NBR head offices from the root spreadsheets
 npm run db:reset     # DESTRUCTIVE: drop everything, re-apply migrations, re-seed
 npm run db:drift     # exits non-zero if the database and schema.prisma disagree
 npm run db:studio    # browse data
@@ -236,12 +246,36 @@ working state, including a login.
 | `ref_budget_types` | 2 |
 | `ref_fiscal_years` | 4 |
 | `ref_economic_codes` | 139, read from [resources/expense_codes_backup_139.json](resources/expense_codes_backup_139.json) |
+| `ref_grades` | 20 (`grade_no` 1–20, `category` `officer` / `staff`) |
+| `ref_allowance_types` | 6, each with its card-shape flags (`label_bn`, `count_label_bn`, `has_basic`, `has_amount`, `has_due`) |
+| `ref_vehicle_types` | 4 |
+| `ref_fuel_types` | 3 |
+| `ref_it_equipment_types` | 4 |
+| `ref_utility_types` | 5 |
+| `admin_rates` | 12 |
+| `core_budget_cycles` | 1 open cycle |
 
 The admin password is only written when the row is **created**, so re-running the seed never
-overwrites a password you have since changed. Economic codes are upserted and their category is
-resolved by 4-digit prefix against `ref_budget_categories`.
+overwrites a password you have since changed. Reference rows are created only if missing
+(`ref_allowance_types` is upserted, so edits to its descriptive columns propagate on re-seed);
+economic codes are upserted with their category resolved by 4-digit prefix against
+`ref_budget_categories`.
 
 To add reference data, extend `prisma/seed.js`. Do not add ad-hoc `*.sql` seed files.
+
+### NBR head offices (one-time import)
+
+`npm run db:seed:hq` runs [prisma/seed-head-offices.js](prisma/seed-head-offices.js), a **separate,
+one-time** import kept out of `db:seed` because it writes organizational data an administrator
+manages by hand. It reads the two spreadsheets at the repository root — `head quarters.xlsx`
+(`[office type | name]`) and `hq with codes.xlsx` (`[budget code | name]`) — and creates 102 head
+offices (`core_offices.parent_office_id = NULL`) under the first ministry's department
+`জাতীয় রাজস্ব বোর্ড (NBR)`, each at the **top level of its office type** (lowest `level_order`),
+inserted in natural alphabetical order (১, ২, ৩ … ১০, ১১).
+
+Like `seed.js` it only fills gaps: a head office whose budget id already exists is skipped, so a
+second run creates nothing. 15 names have no code in the source and carry a temporary `TMP-nnn`
+budget id to be corrected in the admin UI.
 
 ---
 
@@ -261,22 +295,26 @@ knowing before changing them:
 
 ## 11. Status
 
-Implemented and verified: the schema above, the Prisma migration workflow, seeding, admin
-authentication, and table-driven reference data for economic codes, categories, budget types,
-and fiscal years.
+Implemented and verified: the schema above, the Prisma migration workflow (five migrations
+applied), seeding, admin authentication, and table-driven reference data for economic codes,
+categories, budget types, fiscal years, grades, and allowance types.
 
 Outstanding:
 
-- **`next build` is currently broken** by syntax errors in
-  [form-7/page.tsx](src/app/(office)/office/form-7/page.tsx) and
-  [form-8/page.tsx](src/app/(office)/office/form-8/page.tsx) — 8 TypeScript errors, all
-  parse errors (`TS1005` / `TS1109` / `TS1128`). These are the only `tsc` errors in the project
-  and are unrelated to the database work.
-- **Office hierarchy is intentionally unseeded.** `core_ministries`, `core_departments`,
-  `core_office_types`, `core_office_levels`, and `core_offices` are empty and meant to be
-  populated through the admin UI. [resources/offices_backup_91.json](resources/offices_backup_91.json)
-  holds 91 real offices but references `office_type_id` values that do not exist in the rebuilt
-  database, so it cannot be replayed as-is.
+- **The office forms: code is done, browser round-trip is not.** Each form was checked against its
+  table. Values the UI collected but silently dropped now have real columns (`20261024020000`);
+  form 5 round-trips its basic/amount/due fields and renders its cards from `ref_allowance_types`;
+  form 10 keys its rows by `admin_it_config.id`; forms 2/3/4/5 build their grade and allowance
+  selectors from the reference tables; the shared `FormShell` now surfaces a save action's
+  `{ error }` instead of always showing "সংরক্ষিত"; and the flat `strings.form*` keys plus the
+  `src/lib/schemas/forms.ts` comments were renumbered to match the routes. `npx tsc --noEmit` is
+  clean, the client is regenerated, and `npm run db:drift` reports no difference. What remains is
+  the manual round-trip per form in a browser (load saved rows, save, reload), which has not run.
+- **Office hierarchy is intentionally minimal.** The seed creates one office (`IRD-0001`) so the
+  app is usable; the hierarchy is meant to grow through the admin UI.
+  [resources/offices_backup_91.json](resources/offices_backup_91.json) holds 91 real offices but
+  references `office_type_id` values that do not exist in the rebuilt database, so it cannot be
+  replayed as-is.
 - **Formula engine and reporting** are not verified end-to-end;
   [src/lib/budget/calculate.ts](src/lib/budget/calculate.ts) and the `/admin/reports/*` pages
   exist but depend on the office hierarchy above.

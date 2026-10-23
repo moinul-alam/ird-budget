@@ -40,18 +40,32 @@ export interface ActiveStaffRow {
   due_salary: number
 }
 
+/**
+ * One row of `ref_grades`. The grade list is administrator-controlled, so the
+ * form never assumes a fixed 1–20 range or that the row id equals the grade
+ * number.
+ */
+export interface GradeRow {
+  id: number
+  grade_no: number
+  category: string
+}
+
 interface Form2ClientProps {
   initialData: ActiveStaffRow[]
   submissionId: number | null
+  grades: GradeRow[]
 }
 
-const ALL_GRADES = Array.from({ length: 20 }, (_, i) => ({
-  id: i + 1,
-  label: `গ্রেড ${toBanglaNumber(i + 1)}`,
-  category: i + 1 <= 10 ? 'কর্মকর্তা' : 'কর্মচারী',
-}))
+const categoryLabel = (category: string) =>
+  category === 'officer' ? 'কর্মকর্তা' : 'কর্মচারী'
 
-export function Form2Client({ initialData, submissionId }: Form2ClientProps) {
+export function Form2Client({ initialData, submissionId, grades }: Form2ClientProps) {
+  const gradeById = useMemo(
+    () => new Map(grades.map((g) => [g.id, g])),
+    [grades]
+  )
+
   const [rows, setRows] = useState<ActiveStaffRow[]>(() => {
     return (initialData || [])
       .filter((r) => (r.count > 0 || r.total_basic > 0 || r.due_salary > 0))
@@ -91,8 +105,8 @@ export function Form2Client({ initialData, submissionId }: Form2ClientProps) {
         .filter((r) => r.grade_id !== editingGradeId)
         .map((r) => r.grade_id)
     )
-    return ALL_GRADES.filter((g) => !used.has(g.id))
-  }, [rows, editingGradeId])
+    return grades.filter((g) => !used.has(g.id))
+  }, [grades, rows, editingGradeId])
 
   const openAddModal = () => {
     setEditingGradeId(null)
@@ -175,14 +189,22 @@ export function Form2Client({ initialData, submissionId }: Form2ClientProps) {
     }
   }
 
-  // Separate sorted officer rows (Grades 1-10) and staff rows (Grades 11-20)
-  const officerRows = useMemo(() => {
-    return rows.filter((r) => r.grade_id <= 10).sort((a, b) => a.grade_id - b.grade_id)
-  }, [rows])
+  // Officers and staff are told apart by the grade's own category, and the
+  // grade number is read from the reference row rather than assumed from the id.
+  const gradeNoOf = (row: ActiveStaffRow) =>
+    gradeById.get(row.grade_id)?.grade_no ?? row.grade_id
+  const isOfficer = (row: ActiveStaffRow) =>
+    gradeById.get(row.grade_id)?.category === 'officer'
 
-  const staffRows = useMemo(() => {
-    return rows.filter((r) => r.grade_id > 10).sort((a, b) => a.grade_id - b.grade_id)
-  }, [rows])
+  const officerRows = useMemo(
+    () => rows.filter(isOfficer).sort((a, b) => gradeNoOf(a) - gradeNoOf(b)),
+    [rows, gradeById]
+  )
+
+  const staffRows = useMemo(
+    () => rows.filter((r) => !isOfficer(r)).sort((a, b) => gradeNoOf(a) - gradeNoOf(b)),
+    [rows, gradeById]
+  )
 
   // Summary calculations
   const summary = useMemo(() => {
@@ -192,7 +214,7 @@ export function Form2Client({ initialData, submissionId }: Form2ClientProps) {
     let staffBasic = 0
 
     rows.forEach((r) => {
-      if (r.grade_id <= 10) {
+      if (isOfficer(r)) {
         officerCount += r.count || 0
         officerBasic += r.total_basic || 0
       } else {
@@ -207,12 +229,12 @@ export function Form2Client({ initialData, submissionId }: Form2ClientProps) {
       staffCount,
       staffBasic,
     }
-  }, [rows])
+  }, [rows, gradeById])
 
   // Save entire form state to database
   const handleSaveAll = async () => {
     if (!submissionId) return
-    await saveFormStaffActiveRows(submissionId, rows)
+    return await saveFormStaffActiveRows(submissionId, rows)
   }
 
   return (
@@ -290,7 +312,7 @@ export function Form2Client({ initialData, submissionId }: Form2ClientProps) {
                     {officerRows.map((row) => (
                       <TableRow key={row.grade_id} className="hover:bg-slate-50/70">
                         <TableCell className="font-bold font-mono text-slate-800">
-                          গ্রেড {toBanglaNumber(row.grade_id)}
+                          গ্রেড {toBanglaNumber(gradeNoOf(row))}
                         </TableCell>
                         <TableCell className="text-right font-mono font-medium">
                           {toBanglaNumber(row.count)}
@@ -358,7 +380,7 @@ export function Form2Client({ initialData, submissionId }: Form2ClientProps) {
                     {staffRows.map((row) => (
                       <TableRow key={row.grade_id} className="hover:bg-slate-50/70">
                         <TableCell className="font-bold font-mono text-slate-800">
-                          গ্রেড {toBanglaNumber(row.grade_id)}
+                          গ্রেড {toBanglaNumber(gradeNoOf(row))}
                         </TableCell>
                         <TableCell className="text-right font-mono font-medium">
                           {toBanglaNumber(row.count)}
@@ -470,7 +492,7 @@ export function Form2Client({ initialData, submissionId }: Form2ClientProps) {
                 <SelectContent>
                   {availableGrades.map((g) => (
                     <SelectItem key={g.id} value={String(g.id)}>
-                      {g.label} ({g.category})
+                      গ্রেড {toBanglaNumber(g.grade_no)} ({categoryLabel(g.category)})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -588,7 +610,10 @@ export function Form2Client({ initialData, submissionId }: Form2ClientProps) {
               </DialogTitle>
             </div>
             <p className="text-sm text-slate-500">
-              {gradeToDelete ? `গ্রেড ${toBanglaNumber(gradeToDelete)} এর ` : ''}{strings.form2.confirmDeleteDesc}
+              {gradeToDelete
+                ? `গ্রেড ${toBanglaNumber(gradeById.get(gradeToDelete)?.grade_no ?? gradeToDelete)} এর `
+                : ''}
+              {strings.form2.confirmDeleteDesc}
             </p>
           </DialogHeader>
 

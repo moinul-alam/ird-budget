@@ -277,7 +277,7 @@ export function AdminBudgetsClient({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-title">
-            বাজেট কনফিগারেশন
+            বাজেট দাখিল উন্মুক্তকরণ
           </h1>
         </div>
 

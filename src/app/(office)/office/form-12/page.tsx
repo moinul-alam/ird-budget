@@ -1,19 +1,15 @@
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import { Form10Client } from './form-10-client'
+import { loadFormReturnInfoInitial } from '@/lib/office/load-form-data'
+import { Form12Client } from './form-12-client'
 
-export default async function Form10Page() {
+export default async function Form12Page() {
   const session = await getOfficeSession()
   if (!session) redirect('/')
 
-  const submissionId = session.submission_id || null
+  const submissionId = session.submission_id ?? null
 
-  let initialData = null
-  if (submissionId) {
-    // Return info data loading via Prisma
-  }
+  const initialData = submissionId ? await loadFormReturnInfoInitial(submissionId) : null
 
-  return <Form10Client submissionId={submissionId} initialData={initialData} />
+  return <Form12Client submissionId={submissionId} initialData={initialData} />
 }
-
-

@@ -37,7 +37,7 @@ import {
   saveHeadOffice,
   deleteHeadOffice,
 } from '@/app/actions/admin-offices-management'
-import { MinistryItem, DepartmentItem, OfficeTypeHierarchyItem, OfficeLevelItem } from '@/app/actions/admin-offices-config'
+import { MinistryItem, DepartmentItem, OfficeTypeHierarchyItem } from '@/app/actions/admin-offices-config'
 import Link from 'next/link'
 
 interface HeadOfficesClientProps {
@@ -45,7 +45,6 @@ interface HeadOfficesClientProps {
   ministries: MinistryItem[]
   departments: DepartmentItem[]
   officeTypes: OfficeTypeHierarchyItem[]
-  officeLevels: OfficeLevelItem[]
 }
 
 export function HeadOfficesClient({
@@ -53,7 +52,6 @@ export function HeadOfficesClient({
   ministries,
   departments,
   officeTypes,
-  officeLevels,
 }: HeadOfficesClientProps) {
   const [headOffices, setHeadOffices] = useState<HeadOfficeItem[]>(initialHeadOffices)
   const [isPending, startTransition] = useTransition()
@@ -69,7 +67,6 @@ export function HeadOfficesClient({
     ministry_id: string
     department_id: string
     office_type_id: string
-    office_level_id: string
   }>({
     open: false,
     name: '',
@@ -77,7 +74,6 @@ export function HeadOfficesClient({
     ministry_id: '',
     department_id: '',
     office_type_id: '',
-    office_level_id: '',
   })
 
   // Delete confirmation modal
@@ -90,7 +86,7 @@ export function HeadOfficesClient({
     open: false,
     title: '',
     description: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
   })
 
   const showStatus = (text: string, type: 'success' | 'error' = 'success') => {
@@ -110,23 +106,6 @@ export function HeadOfficesClient({
     return officeTypes.filter((ot) => ot.department_id === modal.department_id)
   }, [officeTypes, modal.department_id])
 
-  // Selected office type object
-  const selectedTypeObj = useMemo(() => {
-    return officeTypes.find((ot) => ot.id === modal.office_type_id)
-  }, [officeTypes, modal.office_type_id])
-
-  // Automatically computed office level from hierarchy (top level default: order 1 or top)
-  const computedOfficeLevel = useMemo(() => {
-    if (selectedTypeObj) {
-      return selectedTypeObj.hierarchy_order || 1
-    }
-    // If no type selected yet, find top level from available types
-    if (modalOfficeTypes.length > 0) {
-      return modalOfficeTypes[0].hierarchy_order || 1
-    }
-    return 1
-  }, [selectedTypeObj, modalOfficeTypes])
-
   // Open Add modal with smart defaults
   const handleOpenAdd = () => {
     const defaultMin = ministries[0]?.id || ''
@@ -142,7 +121,6 @@ export function HeadOfficesClient({
       ministry_id: defaultMin,
       department_id: defaultDeptId,
       office_type_id: defaultTypeId,
-      office_level_id: '',
     })
   }
 
@@ -156,11 +134,10 @@ export function HeadOfficesClient({
       ministry_id: item.ministry_id || ministries[0]?.id || '',
       department_id: item.department_id,
       office_type_id: item.office_type_id,
-      office_level_id: item.office_level_id || '',
     })
   }
 
-  // Open Duplicate modal: copies ministry, department, office type, level, keeping name EMPTY
+  // Open Duplicate modal: copies ministry, department, office type, keeping name EMPTY
   const handleOpenDuplicate = (item: HeadOfficeItem) => {
     setModal({
       open: true,
@@ -170,7 +147,6 @@ export function HeadOfficesClient({
       ministry_id: item.ministry_id || ministries[0]?.id || '',
       department_id: item.department_id,
       office_type_id: item.office_type_id,
-      office_level_id: item.office_level_id || '',
     })
     showStatus(`"${item.name}" থেকে অনুলিপি করা হচ্ছে। অনুগ্রহ করে নতুন হেড অফিসের নাম ও বাজেট আইডি লিখুন।`, 'success')
   }
@@ -197,7 +173,6 @@ export function HeadOfficesClient({
         budget_id: modal.budget_id?.trim() || undefined,
         department_id: modal.department_id,
         office_type_id: modal.office_type_id,
-        office_level_id: modal.office_level_id || undefined,
       })
 
       if (res.error) {
@@ -216,16 +191,16 @@ export function HeadOfficesClient({
             prev.map((h) =>
               h.id === modal.id
                 ? {
-                    ...h,
-                    name: modal.name.trim(),
-                    budget_id: trimmedBudget,
-                    department_id: modal.department_id,
-                    department_name: dept?.name || '',
-                    ministry_id: modal.ministry_id,
-                    ministry_name: minObj?.name || '',
-                    office_type_id: modal.office_type_id,
-                    office_type_name: typeObj?.name || '',
-                  }
+                  ...h,
+                  name: modal.name.trim(),
+                  budget_id: trimmedBudget,
+                  department_id: modal.department_id,
+                  department_name: dept?.name || '',
+                  ministry_id: modal.ministry_id,
+                  ministry_name: minObj?.name || '',
+                  office_type_id: modal.office_type_id,
+                  office_type_name: typeObj?.name || '',
+                }
                 : h
             )
           )
@@ -286,18 +261,15 @@ export function HeadOfficesClient({
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-title">
             হেড অফিসসমূহ (Head Offices)
           </h1>
-          <p className="text-sm text-slate-500 mt-1 font-medium">
-            অধীনস্থ দপ্তর/সংস্থা এবং অফিসের ধরণের অধীনে মূল আঞ্চলিক বা প্রধান কার্যালয় তৈরি ও ব্যবস্থাপনা
-          </p>
+
         </div>
 
         {statusMessage && (
           <div
-            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200 ${
-              statusMessage.type === 'success'
-                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                : 'bg-rose-50 text-rose-800 border border-rose-200'
-            }`}
+            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200 ${statusMessage.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              : 'bg-rose-50 text-rose-800 border border-rose-200'
+              }`}
           >
             {statusMessage.type === 'success' ? (
               <CheckCircle2 className="h-4 w-4 text-emerald-600" />
@@ -354,10 +326,10 @@ export function HeadOfficesClient({
             <div className="py-12 px-6 text-center">
               <Building className="h-10 w-10 text-slate-300 mx-auto mb-3" />
               <h3 className="text-sm font-bold text-slate-700">
-                অফিস কনফিগারেশন সম্পন্ন করা হয়নি
+                অফিস অরগানোগ্রাম সম্পন্ন করা হয়নি
               </h3>
               <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                হেড অফিস তৈরি করার পূর্বে অফিস কনফিগারেশন থেকে দপ্তর/সংস্থা এবং অফিসের ধরণ নির্ধারণ করুন।
+                হেড অফিস তৈরি করার পূর্বে অরগানোগ্রাম থেকে দপ্তর/সংস্থা এবং অফিসের ধরণ নির্ধারণ করুন।
               </p>
               <div className="mt-4">
                 <Link href="/admin/offices-config">
@@ -377,9 +349,6 @@ export function HeadOfficesClient({
               <h3 className="text-sm font-bold text-slate-700">
                 কোনো হেড অফিস পাওয়া যায়নি
               </h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                নতুন হেড অফিস যুক্ত করতে &quot;নতুন হেড অফিস যোগ করুন&quot; বাটনে চাপুন।
-              </p>
               <div className="mt-4">
                 <Button
                   size="sm"
@@ -396,7 +365,7 @@ export function HeadOfficesClient({
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                    <th className="py-3 px-4 w-16">ক্র. নং</th>
+                    <th className="py-3 px-4 w-16">ক্রম</th>
                     <th className="py-3 px-4">হেড অফিসের নাম</th>
                     <th className="py-3 px-4">বাজেট আইডি</th>
                     <th className="py-3 px-4">দপ্তর / সংস্থা</th>
@@ -567,33 +536,7 @@ export function HeadOfficesClient({
               </Select>
             </div>
 
-            {/* ৪. মাঠ পর্যায়ের অফিসের স্তর */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">মাঠ পর্যায়ের অফিসের স্তর</Label>
-              <Select
-                value={String(modal.office_level_id || '')}
-                onValueChange={(val) => {
-                  if (val) setModal((prev) => ({ ...prev, office_level_id: val }))
-                }}
-              >
-                <SelectTrigger className="w-full rounded-xl border-slate-200 text-xs h-10">
-                  <SelectValue placeholder="স্তর নির্বাচন করুন">
-                    {officeLevels.find((ol) => String(ol.id) === String(modal.office_level_id))?.level_name || 'স্তর নির্বাচন করুন'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="rounded-xl text-xs">
-                  {officeLevels
-                    .filter((ol) => ol.office_type_id === modal.office_type_id)
-                    .map((ol) => (
-                      <SelectItem key={ol.id} value={String(ol.id)}>
-                        {ol.level_name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* ৫. হেড অফিসের নাম (Typed field) */}
+            {/* ৪. হেড অফিসের নাম (Typed field) */}
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-700">হেড অফিসের নাম</Label>
               <Input
@@ -605,10 +548,10 @@ export function HeadOfficesClient({
               />
             </div>
 
-            {/* ৬. বাজেট আইডি (Typed field) */}
+            {/* ৫. বাজেট আইডি (Typed field) */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-slate-700">বাজেট আইডি (Login ID)</Label>
+                <Label className="text-xs font-bold text-slate-700">বাজেট আইডি</Label>
                 <span className="text-[11px] text-blue-600 font-medium">লগইন করার জন্য ব্যবহৃত হবে</span>
               </div>
               <Input

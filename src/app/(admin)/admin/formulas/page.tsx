@@ -68,11 +68,8 @@ export default async function SuperadminFormulasPage() {
       <div className="border-b border-slate-200 pb-5">
         <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight flex items-center gap-2.5">
           <Calculator className="h-7 w-7 text-emerald-600" />
-          ইকোনমিক কোড ক্যালকুলেশন সূত্রাবলী
+          কোড ক্যালকুলেশন ফরমুলা
         </h1>
-        <p className="text-slate-500 text-sm mt-1">
-          সুপার অ্যাডমিন রেফারেন্স: বাজেট নির্ধারণের প্রতিটি ইকোনমিক কোডের হিসাব ও ফর্মুলার বিবরণী (রিড-অনলি)
-        </p>
       </div>
 
       <Card className="rounded-2xl border-slate-200 overflow-hidden shadow-xs">
@@ -80,7 +77,7 @@ export default async function SuperadminFormulasPage() {
           <table className="w-full text-left text-sm border-collapse">
             <thead className="bg-slate-100/80 border-b border-slate-200 text-xs font-bold text-slate-700">
               <tr>
-                <th className="py-3.5 px-4 w-20 text-center">ক্র. নং</th>
+                <th className="py-3.5 px-4 w-20 text-center">ক্রম</th>
                 <th className="py-3.5 px-4 w-36 font-mono">ইকোনমিক কোড</th>
                 <th className="py-3.5 px-5 w-72">কোডের নাম</th>
                 <th className="py-3.5 px-6">ফরমুলার বিবরণ</th>

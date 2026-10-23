@@ -16,13 +16,20 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useTransition } from 'react'
 
+/**
+ * Server actions in src/app/actions/forms.ts report failure by returning
+ * `{ error }` rather than throwing. The shell has to inspect that value,
+ * otherwise a rejected save would still be reported as success.
+ */
+export type FormSaveResult = void | { error?: string; success?: boolean }
+
 interface FormShellProps {
   title: string
   formNumber: number
   prevHref?: string
   nextHref?: string
   children: React.ReactNode
-  onSave?: () => Promise<void>
+  onSave?: () => Promise<FormSaveResult>
   onReset?: () => Promise<void> | void
 }
 
@@ -38,35 +45,55 @@ export function FormShell({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [resetModalOpen, setResetModalOpen] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
 
+  const failed = (result: FormSaveResult): string | null => {
+    if (!result || typeof result !== 'object') return null
+    return 'error' in result && result.error ? result.error : null
+  }
+
   const handleSaveOnly = () => {
     if (!onSave) return
+    setSaveError(null)
     setSaveStatus('saving')
     startTransition(async () => {
       try {
-        await onSave()
+        const error = failed(await onSave())
+        if (error) {
+          setSaveError(error)
+          setSaveStatus('idle')
+          return
+        }
         setSaveStatus('saved')
         setTimeout(() => setSaveStatus('idle'), 3000)
-      } catch (e) {
+      } catch (e: any) {
+        setSaveError(e?.message || 'সংরক্ষণ ব্যর্থ হয়েছে')
         setSaveStatus('idle')
       }
     })
   }
 
   const handleSaveAndNext = () => {
+    setSaveError(null)
     setSaveStatus('saving')
     startTransition(async () => {
       try {
         if (onSave) {
-          await onSave()
+          const error = failed(await onSave())
+          if (error) {
+            setSaveError(error)
+            setSaveStatus('idle')
+            return
+          }
         }
         setSaveStatus('saved')
         if (nextHref) {
           router.push(nextHref)
         }
-      } catch (e) {
+      } catch (e: any) {
+        setSaveError(e?.message || 'সংরক্ষণ ব্যর্থ হয়েছে')
         setSaveStatus('idle')
       }
     })
@@ -151,6 +178,17 @@ export function FormShell({
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
         {children}
       </div>
+
+      {/* Validation / save failure */}
+      {saveError && (
+        <div
+          role="alert"
+          className="flex items-start gap-2.5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700"
+        >
+          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+          <p className="text-xs sm:text-sm font-bold leading-relaxed">{saveError}</p>
+        </div>
+      )}
 
       {/* Bottom Center 3 Action Buttons: [Reset] [Save] [Save and Next] */}
       <div className="py-4 flex flex-wrap items-center justify-center gap-3 sm:gap-4 border-t border-slate-200/60">

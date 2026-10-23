@@ -32,26 +32,26 @@ import { saveFormUtilityRow, deleteFormUtilityRow } from '@/app/actions/forms'
 import { Plus, Trash2, Edit2, Zap, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { useState, useTransition, useMemo } from 'react'
 
-export interface Form8UtilityRow {
+export interface Form11UtilityRow {
   utility_type_id: number
   utility_type_name: string
   annual_cost: number
   due: number
 }
 
-export interface Form8ClientProps {
+export interface Form11ClientProps {
   submissionId: number | null
   utilityTypes: Array<{ id: number; name: string }>
   initialData: any[]
 }
 
-export function Form8Client({
+export function Form11Client({
   submissionId,
   utilityTypes,
   initialData,
-}: Form8ClientProps) {
+}: Form11ClientProps) {
   // Map rows from initialData, only keeping items with values or matching records
-  const [rows, setRows] = useState<Form8UtilityRow[]>(() => {
+  const [rows, setRows] = useState<Form11UtilityRow[]>(() => {
     return (initialData || [])
       .filter((item) => (item.annual_cost || 0) > 0 || (item.due || 0) > 0)
       .map((item) => {
@@ -129,7 +129,7 @@ export function Form8Client({
     const annualCost = parseInt(annualCostInput, 10) || 0
     const due = parseInt(dueInput, 10) || 0
 
-    const updatedRow: Form8UtilityRow = {
+    const updatedRow: Form11UtilityRow = {
       utility_type_id: typeId,
       utility_type_name: name,
       annual_cost: annualCost,
@@ -145,7 +145,7 @@ export function Form8Client({
       }
 
       setRows((prev) => {
-        let newRows: Form8UtilityRow[]
+        let newRows: Form11UtilityRow[]
         if (editingIndex !== null) {
           newRows = [...prev]
           newRows[editingIndex] = updatedRow
@@ -177,10 +177,11 @@ export function Form8Client({
   const handleSaveAll = async () => {
     if (!submissionId) return
     for (const row of rows) {
-      await saveFormUtilityRow(submissionId, row.utility_type_id, {
+      const res = await saveFormUtilityRow(submissionId, row.utility_type_id, {
         annual_cost: row.annual_cost,
         due: row.due,
       })
+      if (res && 'error' in res && res.error) return res
     }
   }
 
@@ -198,10 +199,10 @@ export function Form8Client({
           <div>
             <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
               <Zap className="w-5 h-5 text-amber-500" />
-              {strings.form8.title}
+              {strings.form11.title}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              {strings.form8.subtitle}
+              {strings.form11.subtitle}
             </p>
           </div>
           <Button
@@ -210,7 +211,7 @@ export function Form8Client({
             className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 gap-1.5 rounded-xl font-medium shadow-sm transition-all"
           >
             <Plus className="h-4 w-4" />
-            {strings.form8.addUtility}
+            {strings.form11.addUtility}
           </Button>
         </div>
 
@@ -219,7 +220,7 @@ export function Form8Client({
           <div className="text-center py-16 px-4 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
             <Zap className="mx-auto h-12 w-12 text-slate-300 mb-3" />
             <p className="text-slate-600 font-medium text-base mb-2">
-              {strings.form8.noUtility}
+              {strings.form11.noUtility}
             </p>
             <Button
               type="button"
@@ -228,7 +229,7 @@ export function Form8Client({
               className="mt-2 text-blue-700 border-blue-200 hover:bg-blue-50 rounded-xl"
             >
               <Plus className="h-4 w-4 mr-1.5" />
-              {strings.form8.addUtility}
+              {strings.form11.addUtility}
             </Button>
           </div>
         ) : (
@@ -238,9 +239,9 @@ export function Form8Client({
                 <TableHeader className="bg-slate-50/80 border-b border-slate-200">
                   <TableRow>
                     <TableHead className="w-16 text-center font-bold text-slate-700">#</TableHead>
-                    <TableHead className="font-bold text-slate-700 min-w-[200px]">{strings.form8.utilityType}</TableHead>
-                    <TableHead className="text-right font-bold text-slate-700 min-w-[180px]">{strings.form8.annualCost}</TableHead>
-                    <TableHead className="text-right font-bold text-slate-700 min-w-[180px]">{strings.form8.dueIfAny}</TableHead>
+                    <TableHead className="font-bold text-slate-700 min-w-[200px]">{strings.form11.utilityType}</TableHead>
+                    <TableHead className="text-right font-bold text-slate-700 min-w-[180px]">{strings.form11.annualCost}</TableHead>
+                    <TableHead className="text-right font-bold text-slate-700 min-w-[180px]">{strings.form11.dueIfAny}</TableHead>
                     <TableHead className="w-28 text-center font-bold text-slate-700">কার্যক্রম</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -273,7 +274,7 @@ export function Form8Client({
                             size="sm"
                             onClick={() => handleOpenEdit(idx)}
                             className="h-8 w-8 p-0 text-slate-600 hover:text-blue-600"
-                            title={strings.form8.editUtility}
+                            title={strings.form11.editUtility}
                           >
                             <Edit2 className="w-4 h-4" />
                           </Button>
@@ -282,7 +283,7 @@ export function Form8Client({
                             size="sm"
                             onClick={() => setDeleteIndex(idx)}
                             className="h-8 w-8 p-0 text-slate-400 hover:text-rose-600"
-                            title={strings.form8.deleteUtility}
+                            title={strings.form11.deleteUtility}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -318,8 +319,8 @@ export function Form8Client({
             <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Zap className="w-5 h-5 text-amber-500" />
               {editingIndex !== null
-                ? strings.form8.editModalTitle
-                : strings.form8.modalTitle}
+                ? strings.form11.editModalTitle
+                : strings.form11.modalTitle}
             </DialogTitle>
           </DialogHeader>
 
@@ -327,7 +328,7 @@ export function Form8Client({
             {/* ইউটিলিটির ধরন (dropdown) */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700">
-                {strings.form8.utilityType} <span className="text-rose-500">*</span>
+                {strings.form11.utilityType} <span className="text-rose-500">*</span>
               </Label>
               <Select
                 value={selectedTypeId}
@@ -335,7 +336,7 @@ export function Form8Client({
                 disabled={editingIndex !== null}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder={strings.form8.selectUtilityType}>
+                  <SelectValue placeholder={strings.form11.selectUtilityType}>
                     {cleanTypeName(utilityTypes.find((t) => String(t.id) === selectedTypeId)?.name)}
                   </SelectValue>
                 </SelectTrigger>
@@ -352,7 +353,7 @@ export function Form8Client({
             {/* বার্ষিক ব্যয় (টাকা) manually entered */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700">
-                {strings.form8.annualCost} <span className="text-rose-500">*</span>
+                {strings.form11.annualCost} <span className="text-rose-500">*</span>
               </Label>
               <Input
                 type="number"
@@ -367,7 +368,7 @@ export function Form8Client({
             {/* বকেয়া (যদি থাকে) manually entered */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700">
-                {strings.form8.dueIfAny}
+                {strings.form11.dueIfAny}
               </Label>
               <Input
                 type="number"
@@ -410,11 +411,11 @@ export function Form8Client({
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-rose-500" />
-              {strings.form8.confirmDeleteTitle}
+              {strings.form11.confirmDeleteTitle}
             </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-slate-500">
-            {strings.form8.confirmDeleteDesc}
+            {strings.form11.confirmDeleteDesc}
           </p>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button

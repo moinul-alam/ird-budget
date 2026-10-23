@@ -39,7 +39,7 @@ export function Form1Client({ initialData, submissionId }: Form1ClientProps) {
     Object.entries(formState).forEach(([key, value]) => {
       formData.set(key, value)
     })
-    await saveFormBasic(submissionId, formData)
+    return await saveFormBasic(submissionId, formData)
   }, [submissionId, formState])
 
   return (

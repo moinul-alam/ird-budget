@@ -40,18 +40,32 @@ export interface SuspendedStaffRow {
   suspended_due_salary: number
 }
 
-interface Form2bClientProps {
-  initialData: any[]
-  submissionId: number | null
+/**
+ * One row of `ref_grades`. The grade list is administrator-controlled, so the
+ * form never assumes a fixed 1–20 range or that the row id equals the grade
+ * number.
+ */
+export interface GradeRow {
+  id: number
+  grade_no: number
+  category: string
 }
 
-const ALL_GRADES = Array.from({ length: 20 }, (_, i) => ({
-  id: i + 1,
-  label: `গ্রেড ${toBanglaNumber(i + 1)}`,
-  category: i + 1 <= 10 ? 'কর্মকর্তা' : 'কর্মচারী',
-}))
+interface Form3ClientProps {
+  initialData: any[]
+  submissionId: number | null
+  grades: GradeRow[]
+}
 
-export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
+const categoryLabel = (category: string) =>
+  category === 'officer' ? 'কর্মকর্তা' : 'কর্মচারী'
+
+export function Form3Client({ initialData, submissionId, grades }: Form3ClientProps) {
+  const gradeById = useMemo(
+    () => new Map(grades.map((g) => [g.id, g])),
+    [grades]
+  )
+
   const [rows, setRows] = useState<SuspendedStaffRow[]>(() => {
     // Only pre-fill rows that have suspended staff data
     return (initialData || [])
@@ -98,8 +112,8 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
         .filter((r) => r.grade_id !== editingGradeId)
         .map((r) => r.grade_id)
     )
-    return ALL_GRADES.filter((g) => !used.has(g.id))
-  }, [rows, editingGradeId])
+    return grades.filter((g) => !used.has(g.id))
+  }, [grades, rows, editingGradeId])
 
   const openAddModal = () => {
     setEditingGradeId(null)
@@ -182,14 +196,22 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
     }
   }
 
-  // Separate sorted officer rows (Grades 1-10) and staff rows (Grades 11-20)
-  const officerRows = useMemo(() => {
-    return rows.filter((r) => r.grade_id <= 10).sort((a, b) => a.grade_id - b.grade_id)
-  }, [rows])
+  // Officers and staff are told apart by the grade's own category, and the
+  // grade number is read from the reference row rather than assumed from the id.
+  const gradeNoOf = (row: SuspendedStaffRow) =>
+    gradeById.get(row.grade_id)?.grade_no ?? row.grade_id
+  const isOfficer = (row: SuspendedStaffRow) =>
+    gradeById.get(row.grade_id)?.category === 'officer'
 
-  const staffRows = useMemo(() => {
-    return rows.filter((r) => r.grade_id > 10).sort((a, b) => a.grade_id - b.grade_id)
-  }, [rows])
+  const officerRows = useMemo(
+    () => rows.filter(isOfficer).sort((a, b) => gradeNoOf(a) - gradeNoOf(b)),
+    [rows, gradeById]
+  )
+
+  const staffRows = useMemo(
+    () => rows.filter((r) => !isOfficer(r)).sort((a, b) => gradeNoOf(a) - gradeNoOf(b)),
+    [rows, gradeById]
+  )
 
   // Summary calculations
   const summary = useMemo(() => {
@@ -199,7 +221,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
     let staffBasic = 0
 
     rows.forEach((r) => {
-      if (r.grade_id <= 10) {
+      if (isOfficer(r)) {
         officerCount += r.suspended_count || 0
         officerBasic += r.suspended_total_basic || 0
       } else {
@@ -219,7 +241,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
   // Save entire form state to database
   const handleSaveAll = async () => {
     if (!submissionId) return
-    await saveFormStaffSuspendedRows(submissionId, rows)
+    return await saveFormStaffSuspendedRows(submissionId, rows)
   }
 
   return (
@@ -248,7 +270,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
             disabled={availableGrades.length === 0}
           >
             <Plus className="h-4 w-4" />
-            {strings.form2b.addButton}
+            {strings.form3.addButton}
           </Button>
         </div>
 
@@ -257,7 +279,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
           <div className="text-center py-12 px-4 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
             <UserX className="mx-auto h-12 w-12 text-slate-300 mb-3" />
             <p className="text-slate-600 font-medium text-base mb-2">
-              {strings.form2b.emptyState}
+              {strings.form3.emptyState}
             </p>
             <Button
               type="button"
@@ -266,7 +288,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
               className="mt-2 text-blue-600 border-blue-200 hover:bg-blue-50"
             >
               <Plus className="h-4 w-4 mr-1.5" />
-              {strings.form2b.addButton}
+              {strings.form3.addButton}
             </Button>
           </div>
         ) : (
@@ -277,7 +299,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
                 <div className="bg-slate-100/80 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
                   <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                    {strings.form2b.officerTableTitle}
+                    {strings.form3.officerTableTitle}
                   </h3>
                   <span className="text-xs font-semibold text-slate-500">
                     মোট: {toBanglaNumber(officerRows.length)} টি গ্রেড
@@ -286,10 +308,10 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
                 <Table>
                   <TableHeader className="bg-slate-50">
                     <TableRow>
-                      <TableHead className="w-28 font-bold text-slate-700">{strings.form2b.gradeColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form2b.officerCountColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form2b.basicColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form2b.tableDueSalaryColumn}</TableHead>
+                      <TableHead className="w-28 font-bold text-slate-700">{strings.form3.gradeColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form3.officerCountColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form3.basicColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form3.tableDueSalaryColumn}</TableHead>
                       <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -297,7 +319,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
                     {officerRows.map((row) => (
                       <TableRow key={row.grade_id} className="hover:bg-slate-50/70">
                         <TableCell className="font-bold font-mono text-slate-800">
-                          গ্রেড {toBanglaNumber(row.grade_id)}
+                          গ্রেড {toBanglaNumber(gradeNoOf(row))}
                         </TableCell>
                         <TableCell className="text-right font-mono font-medium">
                           {toBanglaNumber(row.suspended_count)}
@@ -345,7 +367,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
                 <div className="bg-amber-50/60 px-4 py-2.5 border-b border-amber-100 flex items-center justify-between">
                   <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-orange-600"></span>
-                    {strings.form2b.staffTableTitle}
+                    {strings.form3.staffTableTitle}
                   </h3>
                   <span className="text-xs font-semibold text-slate-500">
                     মোট: {toBanglaNumber(staffRows.length)} টি গ্রেড
@@ -354,10 +376,10 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
                 <Table>
                   <TableHeader className="bg-slate-50">
                     <TableRow>
-                      <TableHead className="w-28 font-bold text-slate-700">{strings.form2b.gradeColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form2b.staffCountColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form2b.basicColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form2b.tableDueSalaryColumn}</TableHead>
+                      <TableHead className="w-28 font-bold text-slate-700">{strings.form3.gradeColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form3.staffCountColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form3.basicColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form3.tableDueSalaryColumn}</TableHead>
                       <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -365,7 +387,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
                     {staffRows.map((row) => (
                       <TableRow key={row.grade_id} className="hover:bg-slate-50/70">
                         <TableCell className="font-bold font-mono text-slate-800">
-                          গ্রেড {toBanglaNumber(row.grade_id)}
+                          গ্রেড {toBanglaNumber(gradeNoOf(row))}
                         </TableCell>
                         <TableCell className="text-right font-mono font-medium">
                           {toBanglaNumber(row.suspended_count)}
@@ -419,7 +441,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="p-3 bg-white rounded-xl border border-slate-200">
                   <span className="text-xs text-slate-500 font-medium block">
-                    {strings.form2b.officerCountLabel}:
+                    {strings.form3.officerCountLabel}:
                   </span>
                   <span className="text-xl font-bold text-slate-800 font-mono mt-0.5 block">
                     {toBanglaNumber(summary.officerCount)} জন
@@ -427,7 +449,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
                 </div>
                 <div className="p-3 bg-white rounded-xl border border-slate-200">
                   <span className="text-xs text-slate-500 font-medium block">
-                    {strings.form2b.officerBasicLabel}:
+                    {strings.form3.officerBasicLabel}:
                   </span>
                   <span className="text-xl font-bold text-amber-700 font-mono mt-0.5 block">
                     {toBanglaAmount(summary.officerBasic)}
@@ -435,7 +457,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
                 </div>
                 <div className="p-3 bg-white rounded-xl border border-slate-200">
                   <span className="text-xs text-slate-500 font-medium block">
-                    {strings.form2b.staffCountLabel}:
+                    {strings.form3.staffCountLabel}:
                   </span>
                   <span className="text-xl font-bold text-slate-800 font-mono mt-0.5 block">
                     {toBanglaNumber(summary.staffCount)} জন
@@ -443,7 +465,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
                 </div>
                 <div className="p-3 bg-white rounded-xl border border-slate-200">
                   <span className="text-xs text-slate-500 font-medium block">
-                    {strings.form2b.staffBasicLabel}:
+                    {strings.form3.staffBasicLabel}:
                   </span>
                   <span className="text-xl font-bold text-orange-700 font-mono mt-0.5 block">
                     {toBanglaAmount(summary.staffBasic)}
@@ -462,22 +484,22 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-slate-800">
-              {editingGradeId !== null ? strings.form2b.editModalTitle : strings.form2b.modalTitle}
+              {editingGradeId !== null ? strings.form3.editModalTitle : strings.form3.modalTitle}
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             {/* Grade Selector */}
             <div className="space-y-1.5">
-              <Label htmlFor="grade_select_2b">{strings.form2b.gradeColumn}</Label>
+              <Label htmlFor="grade_select_2b">{strings.form3.gradeColumn}</Label>
               <Select value={selectedGrade} onValueChange={(val) => setSelectedGrade(val ?? '')}>
                 <SelectTrigger id="grade_select_2b" className="w-full">
-                  <SelectValue placeholder={strings.form2b.selectGrade} />
+                  <SelectValue placeholder={strings.form3.selectGrade} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableGrades.map((g) => (
                     <SelectItem key={g.id} value={String(g.id)}>
-                      {g.label} ({g.category})
+                      গ্রেড {toBanglaNumber(g.grade_no)} ({categoryLabel(g.category)})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -486,7 +508,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
 
             {/* Count */}
             <div className="space-y-1.5">
-              <Label htmlFor="count_input_2b">{strings.form2b.countColumn}</Label>
+              <Label htmlFor="count_input_2b">{strings.form3.countColumn}</Label>
               <Input
                 id="count_input_2b"
                 type="number"
@@ -499,7 +521,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
 
             {/* Total Basic */}
             <div className="space-y-1.5">
-              <Label htmlFor="basic_input_2b">{strings.form2b.basicColumn}</Label>
+              <Label htmlFor="basic_input_2b">{strings.form3.basicColumn}</Label>
               <Input
                 id="basic_input_2b"
                 type="number"
@@ -512,7 +534,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
 
             {/* Due Salary */}
             <div className="space-y-1.5">
-              <Label htmlFor="due_input_2b">{strings.form2b.modalDueSalaryColumn}</Label>
+              <Label htmlFor="due_input_2b">{strings.form3.modalDueSalaryColumn}</Label>
               <Input
                 id="due_input_2b"
                 type="number"
@@ -551,11 +573,11 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
             <div className="flex items-center gap-2 text-amber-600 mb-1">
               <AlertTriangle className="h-5 w-5" />
               <DialogTitle className="text-base font-bold text-slate-800">
-                {strings.form2b.confirmCloseTitle}
+                {strings.form3.confirmCloseTitle}
               </DialogTitle>
             </div>
             <p className="text-sm text-slate-500">
-              {strings.form2b.confirmCloseDesc}
+              {strings.form3.confirmCloseDesc}
             </p>
           </DialogHeader>
 
@@ -566,7 +588,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
               onClick={resetModalFields}
               className="text-slate-600"
             >
-              {strings.form2b.discardAndClose}
+              {strings.form3.discardAndClose}
             </Button>
             <Button
               type="button"
@@ -576,7 +598,7 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
               }}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
-              {strings.form2b.saveAndClose}
+              {strings.form3.saveAndClose}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -591,11 +613,14 @@ export function Form2bClient({ initialData, submissionId }: Form2bClientProps) {
             <div className="flex items-center gap-2 text-red-600 mb-1">
               <Trash2 className="h-5 w-5" />
               <DialogTitle className="text-base font-bold text-slate-800">
-                {strings.form2b.confirmDeleteTitle}
+                {strings.form3.confirmDeleteTitle}
               </DialogTitle>
             </div>
             <p className="text-sm text-slate-500">
-              {gradeToDelete ? `গ্রেড ${toBanglaNumber(gradeToDelete)} এর ` : ''}{strings.form2b.confirmDeleteDesc}
+              {gradeToDelete
+                ? `গ্রেড ${toBanglaNumber(gradeById.get(gradeToDelete)?.grade_no ?? gradeToDelete)} এর `
+                : ''}
+              {strings.form3.confirmDeleteDesc}
             </p>
           </DialogHeader>
 

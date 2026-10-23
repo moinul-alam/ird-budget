@@ -31,16 +31,15 @@ import {
 } from 'lucide-react'
 import { useState, useTransition, useMemo } from 'react'
 
-export interface Form7ClientProps {
+export interface Form10ClientProps {
   submissionId: number | null
-  equipmentTypes: Array<{ id: number; name: string }>
+  itConfigs: Array<{
+    id: number
+    equipment_type_id: number
+    equipment_type_name: string
+    unit_budget: number
+  }>
   initialData: any[]
-  adminPrices: {
-    computer: number
-    printer: number
-    scanner: number
-    photocopier: number
-  }
 }
 
 interface EquipmentCardData {
@@ -60,71 +59,67 @@ interface CardConfig {
   icon: any
   iconColor: string
   bgIconColor: string
+  // The card slots are fixed by the form design; these aliases bind each slot
+  // to the matching admin_it_config row for the office type.
   aliases: string[]
   isPrinter?: boolean
-  defaultUnitPrice: number // Predefined price by admin (fallbacks)
 }
 
 const CARD_CONFIGS: CardConfig[] = [
   {
     key: 'computer',
-    title: strings.form7.cards.computer,
+    title: strings.form10.cards.computer,
     icon: Monitor,
     iconColor: 'text-blue-600',
     bgIconColor: 'bg-blue-50',
     aliases: ['কম্পিউটার', 'কম্পিউটার/ডেস্কটপ', 'ডেস্কটপ', 'computer', 'desktop'],
-    defaultUnitPrice: 65000,
   },
   {
     key: 'printer',
-    title: strings.form7.cards.printer,
+    title: strings.form10.cards.printer,
     icon: Printer,
     iconColor: 'text-emerald-600',
     bgIconColor: 'bg-emerald-50',
     aliases: ['প্রিন্টার', 'printer'],
     isPrinter: true,
-    defaultUnitPrice: 25000,
   },
   {
     key: 'scanner',
-    title: strings.form7.cards.scanner,
+    title: strings.form10.cards.scanner,
     icon: Scan,
     iconColor: 'text-amber-600',
     bgIconColor: 'bg-amber-50',
     aliases: ['স্ক্যানার', 'scanner'],
-    defaultUnitPrice: 18000,
   },
   {
     key: 'photocopier',
-    title: strings.form7.cards.photocopier,
+    title: strings.form10.cards.photocopier,
     icon: Copy,
     iconColor: 'text-purple-600',
     bgIconColor: 'bg-purple-50',
     aliases: ['ফটোকপিয়ার', 'ফটোকপি মেশিন', 'ফটোকপি', 'photocopier'],
-    defaultUnitPrice: 120000,
   },
 ]
 
-export function Form7Client({
+export function Form10Client({
   submissionId,
-  equipmentTypes,
+  itConfigs,
   initialData,
-  adminPrices,
-}: Form7ClientProps) {
-  // Override hardcoded defaults with admin-set prices
-  const cardConfigs = CARD_CONFIGS.map(c => ({
-    ...c,
-    defaultUnitPrice: adminPrices[c.key] || c.defaultUnitPrice,
-  }))
-  // Helper to resolve equipment type id by card aliases
-  const getTypeIdForConfig = (config: CardConfig): number | null => {
-    const match = equipmentTypes.find((t) =>
-      config.aliases.some((alias) =>
-        t.name.trim().toLowerCase().includes(alias.toLowerCase())
+}: Form10ClientProps) {
+  // Bind each fixed design slot to its admin_it_config row for this office
+  // type. The unit price is whatever the admin configured, never a constant.
+  const cardConfigs = CARD_CONFIGS.map((c) => {
+    const cfg = itConfigs.find((item) =>
+      c.aliases.some((alias) =>
+        item.equipment_type_name.trim().toLowerCase().includes(alias.toLowerCase())
       )
     )
-    return match ? match.id : null
-  }
+    return {
+      ...c,
+      itConfigId: cfg ? cfg.id : null,
+      unitPrice: cfg ? cfg.unit_budget : 0,
+    }
+  })
 
   // Initialize data keyed by EquipmentKey
   const [dataMap, setDataMap] = useState<Record<EquipmentKey, EquipmentCardData>>(() => {
@@ -137,9 +132,8 @@ export function Form7Client({
 
     if (initialData && initialData.length > 0) {
       cardConfigs.forEach((config) => {
-        const typeId = getTypeIdForConfig(config)
         const row = initialData.find((item) =>
-          typeId ? item.equipment_type_id === typeId : false
+          config.itConfigId ? item.it_config_id === config.itConfigId : false
         )
         if (row) {
           initialMap[config.key] = {
@@ -147,7 +141,7 @@ export function Form7Client({
             damaged_count: Number(row.damaged_count || 0),
             toner_cost: Number(row.toner_cost || 0),
             required_qty: Number(row.required_qty || 0),
-            unit_budget: Number(row.unit_budget || config.defaultUnitPrice),
+            unit_budget: Number(row.unit_budget || config.unitPrice),
           }
         }
       })
@@ -203,7 +197,7 @@ export function Form7Client({
       damaged_count: damagedCount,
       toner_cost: tonerPrice,
       required_qty: requiredQty,
-      unit_budget: activeConfig.defaultUnitPrice,
+      unit_budget: activeConfig.unitPrice,
     }
 
     setDataMap((prev) => ({
@@ -211,16 +205,13 @@ export function Form7Client({
       [activeModalKey]: updatedData,
     }))
 
-    const typeId = getTypeIdForConfig(activeConfig)
-
-    if (submissionId && typeId) {
+    if (submissionId && activeConfig.itConfigId) {
       startTransition(async () => {
-        await saveFormITEquipmentRow(submissionId, typeId, {
+        await saveFormITEquipmentRow(submissionId, activeConfig.itConfigId!, {
           existing_count: existingCount,
           damaged_count: damagedCount,
           toner_cost: tonerPrice,
           required_qty: requiredQty,
-          unit_budget: activeConfig.defaultUnitPrice,
         })
       })
     }
@@ -245,10 +236,9 @@ export function Form7Client({
       },
     }))
 
-    const typeId = getTypeIdForConfig(config)
-    if (submissionId && typeId) {
+    if (submissionId && config.itConfigId) {
       startTransition(async () => {
-        await deleteFormITEquipmentRow(submissionId, typeId)
+        await deleteFormITEquipmentRow(submissionId, config.itConfigId!)
       })
     }
 
@@ -273,23 +263,22 @@ export function Form7Client({
     return cardConfigs.reduce((sum, config) => {
       const data = dataMap[config.key]
       const qty = data.required_qty || 0
-      return sum + qty * config.defaultUnitPrice
+      return sum + qty * config.unitPrice
     }, 0)
   }, [dataMap])
 
   const handleSaveAll = async () => {
     if (!submissionId) return
     for (const config of cardConfigs) {
-      const typeId = getTypeIdForConfig(config)
-      if (!typeId) continue
+      if (!config.itConfigId) continue
       const data = dataMap[config.key]
-      await saveFormITEquipmentRow(submissionId, typeId, {
+      const res = await saveFormITEquipmentRow(submissionId, config.itConfigId, {
         existing_count: data.existing_count,
         damaged_count: data.damaged_count,
         toner_cost: data.toner_cost,
         required_qty: data.required_qty,
-        unit_budget: config.defaultUnitPrice,
       })
+      if (res && 'error' in res && res.error) return res
     }
   }
 
@@ -306,10 +295,10 @@ export function Form7Client({
         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
           <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
             <Monitor className="w-5 h-5 text-blue-600" />
-            {strings.form7.title}
+            {strings.form10.title}
           </h2>
           <p className="text-xs text-slate-500 mt-1">
-            {strings.form7.subtitle}
+            {strings.form10.subtitle}
           </p>
         </div>
 
@@ -348,24 +337,24 @@ export function Form7Client({
                     <div className="space-y-2 text-xs">
                       {/* বিদ্যমান সংখ্যা */}
                       <div className="flex justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">{strings.form7.existingCount}:</span>
+                        <span className="text-slate-500">{strings.form10.existingCount}:</span>
                         <span className="font-bold text-slate-800">
-                          {toBanglaNumber(data.existing_count)} {strings.form7.unitPiece}
+                          {toBanglaNumber(data.existing_count)} {strings.form10.unitPiece}
                         </span>
                       </div>
 
                       {/* অকেজো সংখ্যা */}
                       <div className="flex justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">{strings.form7.damagedCount}:</span>
+                        <span className="text-slate-500">{strings.form10.damagedCount}:</span>
                         <span className={`font-bold ${data.damaged_count > 0 ? 'text-rose-600' : 'text-slate-700'}`}>
-                          {toBanglaNumber(data.damaged_count)} {strings.form7.unitPiece}
+                          {toBanglaNumber(data.damaged_count)} {strings.form10.unitPiece}
                         </span>
                       </div>
 
                       {/* প্রতি টোনারের দাম (only for printer) */}
                       {config.isPrinter && (
                         <div className="flex justify-between py-1 border-b border-slate-100 bg-emerald-50/40 px-1.5 rounded">
-                          <span className="text-emerald-800 font-medium">{strings.form7.tonerPricePerUnit}:</span>
+                          <span className="text-emerald-800 font-medium">{strings.form10.tonerPricePerUnit}:</span>
                           <span className="font-bold text-emerald-700">
                             {data.toner_cost > 0 ? toBanglaAmount(data.toner_cost) : '—'}
                           </span>
@@ -374,15 +363,15 @@ export function Form7Client({
 
                       {/* নতুন প্রয়োজন */}
                       <div className="flex justify-between py-1">
-                        <span className="text-slate-500">{strings.form7.newRequiredQty}:</span>
+                        <span className="text-slate-500">{strings.form10.newRequiredQty}:</span>
                         <span className={`font-bold ${data.required_qty > 0 ? 'text-purple-700' : 'text-slate-600'}`}>
-                          {toBanglaNumber(data.required_qty)} {strings.form7.unitPiece}
+                          {toBanglaNumber(data.required_qty)} {strings.form10.unitPiece}
                         </span>
                       </div>
                     </div>
                   ) : (
                     <div className="py-6 text-center">
-                      <p className="text-xs text-slate-400">{strings.form7.notAdded}</p>
+                      <p className="text-xs text-slate-400">{strings.form10.notAdded}</p>
                     </div>
                   )}
 
@@ -397,14 +386,14 @@ export function Form7Client({
                           className="flex-1 text-blue-700 border-blue-200 hover:bg-blue-50 text-xs h-8 gap-1"
                         >
                           <Edit2 className="h-3 w-3" />
-                          {strings.form7.editInfo}
+                          {strings.form10.editInfo}
                         </Button>
                         <Button
                           type="button"
                           variant="ghost"
                           onClick={() => setKeyToDelete(config.key)}
                           className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
-                          title={strings.form7.deleteInfo}
+                          title={strings.form10.deleteInfo}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -417,7 +406,7 @@ export function Form7Client({
                         className="w-full text-blue-600 border-blue-200 hover:bg-blue-50 text-xs h-8 gap-1.5 font-semibold"
                       >
                         <Plus className="h-3 w-3" />
-                        {strings.form7.addInfo}
+                        {strings.form10.addInfo}
                       </Button>
                     )}
                   </div>
@@ -432,7 +421,7 @@ export function Form7Client({
           <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
             <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
               <Banknote className="w-4 h-4 text-emerald-600" />
-              {strings.form7.summaryTitle}
+              {strings.form10.summaryTitle}
             </h3>
             <span className="text-xs text-slate-400">প্রাক্কলিত হিসাব বিবরণী</span>
           </div>
@@ -444,10 +433,10 @@ export function Form7Client({
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                     <Printer className="w-3.5 h-3.5 text-emerald-600" />
-                    {strings.form7.computerSupplies}
+                    {strings.form10.computerSupplies}
                   </span>
                   <span className="text-[11px] text-slate-400">
-                    {strings.form7.tonerBasedCost}
+                    {strings.form10.tonerBasedCost}
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
@@ -468,14 +457,14 @@ export function Form7Client({
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-purple-950 flex items-center gap-1.5">
                     <Cpu className="w-3.5 h-3.5 text-purple-600" />
-                    {strings.form7.computerAndAccessories}
+                    {strings.form10.computerAndAccessories}
                   </span>
                   <span className="text-[11px] text-purple-500">
                     নতুন ক্রয়ের প্রাক্কলন
                   </span>
                 </div>
                 <p className="text-xs text-purple-700/80 mt-1">
-                  {strings.form7.accessoriesCalculationNote}
+                  {strings.form10.accessoriesCalculationNote}
                 </p>
               </div>
               <div className="mt-3 pt-2 border-t border-purple-200/60 flex items-baseline justify-between">
@@ -497,7 +486,7 @@ export function Form7Client({
               {activeConfig && (
                 <>
                   <activeConfig.icon className={`w-5 h-5 ${activeConfig.iconColor}`} />
-                  <span>{activeConfig.title} - {strings.form7.modalTitle}</span>
+                  <span>{activeConfig.title} - {strings.form10.modalTitle}</span>
                 </>
               )}
             </DialogTitle>
@@ -507,7 +496,7 @@ export function Form7Client({
             {/* বিদ্যমান সংখ্যা */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700">
-                {strings.form7.existingCount} ({strings.form7.unitPiece})
+                {strings.form10.existingCount} ({strings.form10.unitPiece})
               </Label>
               <Input
                 type="number"
@@ -522,7 +511,7 @@ export function Form7Client({
             {/* অকেজো সংখ্যা */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700">
-                {strings.form7.damagedCount} ({strings.form7.unitPiece})
+                {strings.form10.damagedCount} ({strings.form10.unitPiece})
               </Label>
               <Input
                 type="number"
@@ -538,7 +527,7 @@ export function Form7Client({
             {activeConfig?.isPrinter && (
               <div className="space-y-1.5 p-3 rounded-xl bg-emerald-50/60 border border-emerald-100">
                 <Label className="text-xs font-semibold text-emerald-900">
-                  {strings.form7.tonerPricePerUnit}
+                  {strings.form10.tonerPricePerUnit}
                 </Label>
                 <Input
                   type="number"
@@ -554,7 +543,7 @@ export function Form7Client({
             {/* নতুন প্রয়োজন */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700">
-                {strings.form7.newRequiredQty} ({strings.form7.unitPiece})
+                {strings.form10.newRequiredQty} ({strings.form10.unitPiece})
               </Label>
               <Input
                 type="number"
@@ -597,11 +586,11 @@ export function Form7Client({
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-rose-500" />
-              {strings.form7.confirmDeleteTitle}
+              {strings.form10.confirmDeleteTitle}
             </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-slate-500">
-            {strings.form7.confirmDeleteDesc}
+            {strings.form10.confirmDeleteDesc}
           </p>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button

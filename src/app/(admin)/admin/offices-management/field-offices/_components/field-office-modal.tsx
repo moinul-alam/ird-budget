@@ -218,17 +218,14 @@ export function FieldOfficeModal({
 
           {/* ৬. অফিসের বাজেট আইডি */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-bold text-slate-700">অফিসের বাজেট আইডি (ইউজার লগইন আইডি)</Label>
+            <Label className="text-xs font-bold text-slate-700">অফিসের বাজেট আইডি</Label>
             <Input
               type="text"
               value={modal.budget_id}
               onChange={(e) => setModal((prev) => ({ ...prev, budget_id: e.target.value }))}
-              placeholder="যেমন: ১০১, ১০২, ১০৩০১..."
+              placeholder="১১ ডিজিটের বাজেট আইডি"
               className="rounded-xl border-slate-200 text-xs h-10 font-mono"
             />
-            <p className="text-[11px] text-slate-500">
-              এই আইডিটি সংশ্লিষ্ট মাঠ পর্যায়ের অফিসের লগইন আইডি হিসেবে কাজ করবে এবং প্রাথমিক পাসওয়ার্ড হবে <span className="font-bold text-slate-800">12345</span>
-            </p>
           </div>
         </div>
 

@@ -185,7 +185,7 @@ export function UsersClient({ initialUsers, officeTypes, currentUserId }: UsersC
           <CardContent className="text-xs text-slate-600 space-y-1.5">
             <p>✓ সকল অফিসের বাজেট রিপোর্ট পর্যবেক্ষণ</p>
             <p>✓ দাখিলকৃত বাজেট সংশোধন/পরিবর্তন</p>
-            <p>✓ বাজেট কনফিগারেশন পরিবর্তন</p>
+            <p>✓ বাজেট উন্মুক্তকরণ পরিবর্তন</p>
           </CardContent>
         </Card>
 

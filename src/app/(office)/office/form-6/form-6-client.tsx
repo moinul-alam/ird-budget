@@ -18,7 +18,7 @@ import { saveFormLeave } from '@/app/actions/forms'
 import { Plus, Edit2, Trash2, CheckCircle2 } from 'lucide-react'
 import { useState, useTransition } from 'react'
 
-export interface Form4ClientProps {
+export interface Form6ClientProps {
   submissionId: number | null
   initialData: any
 }
@@ -32,21 +32,21 @@ interface LeaveGroupData {
 const LEAVE_CONFIGS = [
   {
     key: 'officer' as const,
-    title: strings.form4.officerTitle,
-    countLabel: strings.form4.officerCount,
+    title: strings.form6.officerTitle,
+    countLabel: strings.form6.officerCount,
     basicKey: 'leave_encashment_officer_basic' as const,
     dueKey: 'leave_encashment_officer_due' as const,
   },
   {
     key: 'staff' as const,
-    title: strings.form4.staffTitle,
-    countLabel: strings.form4.staffCount,
+    title: strings.form6.staffTitle,
+    countLabel: strings.form6.staffCount,
     basicKey: 'leave_encashment_staff_basic' as const,
     dueKey: 'leave_encashment_staff_due' as const,
   },
 ]
 
-export function Form4Client({ submissionId, initialData }: Form4ClientProps) {
+export function Form6Client({ submissionId, initialData }: Form6ClientProps) {
   // Store officer and staff data in state
   const [data, setData] = useState<{
     officer: LeaveGroupData
@@ -159,7 +159,7 @@ export function Form4Client({ submissionId, initialData }: Form4ClientProps) {
 
   const handleSaveAll = async () => {
     if (!submissionId) return
-    await saveFormLeave(submissionId, {
+    return await saveFormLeave(submissionId, {
       leave_encashment_officer_basic: data.officer.basic,
       leave_encashment_officer_due: data.officer.due,
       leave_encashment_staff_basic: data.staff.basic,
@@ -181,7 +181,7 @@ export function Form4Client({ submissionId, initialData }: Form4ClientProps) {
         {/* Header subtitle */}
         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
           <h2 className="text-base font-bold text-slate-800">
-            {strings.form4.subtitle}
+            {strings.form6.subtitle}
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
             কর্মকর্তা ও কর্মচারীদের মধ্যে যাদের জন্য ছুটি নগদায়ন প্রযোজ্য, সংশ্লিষ্ট কার্ডে তথ্য যোগ করুন।
@@ -218,17 +218,17 @@ export function Form4Client({ submissionId, initialData }: Form4ClientProps) {
                       <div className="flex justify-between py-1 border-b border-slate-100">
                         <span className="text-slate-500">{config.countLabel}:</span>
                         <span className="font-bold font-mono text-slate-800">
-                          {item.count ? `${toBanglaNumber(item.count)} ${strings.form4.personUnit}` : '—'}
+                          {item.count ? `${toBanglaNumber(item.count)} ${strings.form6.personUnit}` : '—'}
                         </span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">{strings.form4.monthlyTotalBasic}:</span>
+                        <span className="text-slate-500">{strings.form6.monthlyTotalBasic}:</span>
                         <span className="font-bold font-mono text-slate-800">
                           {toBanglaAmount(item.basic)}
                         </span>
                       </div>
                       <div className="flex justify-between py-1">
-                        <span className="text-slate-500">{strings.form4.due}:</span>
+                        <span className="text-slate-500">{strings.form6.due}:</span>
                         <span className="font-bold font-mono text-slate-700">
                           {item.due ? toBanglaAmount(item.due) : '—'}
                         </span>
@@ -251,14 +251,14 @@ export function Form4Client({ submissionId, initialData }: Form4ClientProps) {
                           className="flex-1 text-blue-700 border-blue-200 hover:bg-blue-50 text-xs h-9 gap-1.5"
                         >
                           <Edit2 className="h-3.5 w-3.5" />
-                          {strings.form4.editLeave}
+                          {strings.form6.editLeave}
                         </Button>
                         <Button
                           type="button"
                           variant="ghost"
                           onClick={() => setKeyToDelete(config.key)}
                           className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-9 w-9 p-0"
-                          title={strings.form4.deleteLeave}
+                          title={strings.form6.deleteLeave}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -271,7 +271,7 @@ export function Form4Client({ submissionId, initialData }: Form4ClientProps) {
                         className="w-full text-blue-600 border-blue-200 hover:bg-blue-50 text-xs h-9 gap-1.5 font-semibold"
                       >
                         <Plus className="h-3.5 w-3.5" />
-                        {strings.form4.addLeave}
+                        {strings.form6.addLeave}
                       </Button>
                     )}
                   </div>
@@ -310,7 +310,7 @@ export function Form4Client({ submissionId, initialData }: Form4ClientProps) {
 
               {/* Monthly Total Basic */}
               <div className="space-y-1.5">
-                <Label htmlFor="leave_basic">{strings.form4.monthlyTotalBasic}</Label>
+                <Label htmlFor="leave_basic">{strings.form6.monthlyTotalBasic}</Label>
                 <Input
                   id="leave_basic"
                   type="number"
@@ -323,7 +323,7 @@ export function Form4Client({ submissionId, initialData }: Form4ClientProps) {
 
               {/* Due */}
               <div className="space-y-1.5">
-                <Label htmlFor="leave_due">{strings.form4.dueIfAny}</Label>
+                <Label htmlFor="leave_due">{strings.form6.dueIfAny}</Label>
                 <Input
                   id="leave_due"
                   type="number"

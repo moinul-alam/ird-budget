@@ -98,9 +98,6 @@ export function TabDepartments({
               <h3 className="text-sm font-bold text-slate-700">
                 কোনো দপ্তর বা সংস্থা পাওয়া যায়নি
               </h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                মাঠ পর্যায়ের অফিসের ধরণ কনফিগার করার পূর্বে &quot;নতুন দপ্তর/সংস্থা যোগ করুন&quot; বাটনে চাপুন।
-              </p>
               <div className="mt-4">
                 <Button
                   size="sm"
@@ -123,9 +120,9 @@ export function TabDepartments({
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                    <th className="py-3 px-4 w-20">ক্র.নং</th>
+                    <th className="py-3 px-4 w-20">ক্রম</th>
                     <th className="py-3 px-4">দপ্তর / সংস্থার নাম</th>
-                    <th className="py-3 px-4">বাজেট আইডি (Login ID)</th>
+                    <th className="py-3 px-4">বাজেট আইডি</th>
                     <th className="py-3 px-4">মূল মন্ত্রণালয় / বিভাগ</th>
                     <th className="py-3 px-4">অফিসের ধরণ সংখ্যা</th>
                     <th className="py-3 px-4 text-center w-28">একশন</th>
@@ -250,7 +247,7 @@ export function TabDepartments({
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-slate-700">বাজেট আইডি (Login ID)</Label>
+                <Label className="text-xs font-bold text-slate-700">বাজেট আইডি</Label>
                 <span className="text-[11px] text-blue-600 font-medium">লগইন করার জন্য ব্যবহৃত হবে</span>
               </div>
               <Input

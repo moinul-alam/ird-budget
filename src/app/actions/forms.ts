@@ -295,10 +295,18 @@ export async function saveFormRestRecreation(
 export async function saveFormAllowanceRow(
   submissionId: number,
   allowanceTypeId: number,
-  data: { count: number; total_basic: number; amount: number; due: number }
+  data: {
+    count: number
+    total_basic: number
+    amount: number
+    due: number
+    date?: string
+    applicable_category?: string | null
+  }
 ) {
   try {
-    const isZero = data.count === 0 && data.total_basic === 0 && data.amount === 0 && data.due === 0
+    const isZero =
+      data.count === 0 && data.total_basic === 0 && data.amount === 0 && data.due === 0
 
     if (isZero) {
       await prisma.officeFormAllowance.deleteMany({
@@ -310,6 +318,22 @@ export async function saveFormAllowanceRow(
       return { success: true }
     }
 
+    // The single count input on the card is a headcount of whichever category
+    // the allowance applies to, so it lands in the matching column.
+    const isStaffOnly = data.applicable_category === 'staff'
+    const officerCount = isStaffOnly ? 0 : data.count
+    const staffCount = isStaffOnly ? data.count : 0
+    const effectiveDate = data.date ? new Date(data.date) : null
+
+    const payload = {
+      officerCount,
+      staffCount,
+      totalBasic: data.total_basic,
+      totalAnnualAmount: data.amount,
+      dueAmount: data.due,
+      effectiveDate,
+    }
+
     await prisma.officeFormAllowance.upsert({
       where: {
         submissionId_allowanceTypeId: {
@@ -317,17 +341,11 @@ export async function saveFormAllowanceRow(
           allowanceTypeId: BigInt(allowanceTypeId),
         },
       },
-      update: {
-        officerCount: data.count,
-        staffCount: 0,
-        totalAnnualAmount: data.amount,
-      },
+      update: payload,
       create: {
         submissionId: BigInt(submissionId),
         allowanceTypeId: BigInt(allowanceTypeId),
-        officerCount: data.count,
-        staffCount: 0,
-        totalAnnualAmount: data.amount,
+        ...payload,
       },
     })
 
@@ -401,6 +419,13 @@ export async function saveFormHouseRent(
 
     const vatPercentage = vatRate ? Number(vatRate.value) : 15
 
+    const contractStartDate = data.contract_start_date
+      ? new Date(data.contract_start_date)
+      : null
+    const contractEndDate = data.contract_end_date
+      ? new Date(data.contract_end_date)
+      : null
+
     await prisma.officeFormHouseRent.upsert({
       where: { submissionId: BigInt(submissionId) },
       update: {
@@ -408,6 +433,8 @@ export async function saveFormHouseRent(
         arrearsDue: data.due,
         vatRateId: vatRate?.id,
         annualTotal: (data.monthly_bill * 12) + data.due,
+        contractStartDate,
+        contractEndDate,
       },
       create: {
         submissionId: BigInt(submissionId),
@@ -415,6 +442,8 @@ export async function saveFormHouseRent(
         arrearsDue: data.due,
         vatRateId: vatRate?.id,
         annualTotal: (data.monthly_bill * 12) + data.due,
+        contractStartDate,
+        contractEndDate,
       },
     })
 
@@ -438,12 +467,14 @@ export async function saveFormReturnInfo(
     await prisma.officeFormReturnInfo.upsert({
       where: { submissionId: BigInt(submissionId) },
       update: {
+        tinCount: data.tin_count,
         returnSubmittedCount: data.return_submitted_count,
         postalRateId: postalRate?.id,
         totalPostalDemand: data.return_submitted_count * rate,
       },
       create: {
         submissionId: BigInt(submissionId),
+        tinCount: data.tin_count,
         returnSubmittedCount: data.return_submitted_count,
         postalRateId: postalRate?.id,
         totalPostalDemand: data.return_submitted_count * rate,
@@ -496,6 +527,7 @@ export async function saveFormVehicleRow(
           vehicleConfigId: BigInt(data.vehicle_fuel_config_id),
           vehicleCount: data.count,
           maintenanceDue: data.maintenance_cost || 0,
+          additionalExpense: data.additional_expense || 0,
         },
       })
       return { success: true, id: Number(updated.id) }
@@ -506,6 +538,7 @@ export async function saveFormVehicleRow(
           vehicleConfigId: BigInt(data.vehicle_fuel_config_id),
           vehicleCount: data.count,
           maintenanceDue: data.maintenance_cost || 0,
+          additionalExpense: data.additional_expense || 0,
         },
       })
       return { success: true, id: Number(created.id) }
@@ -572,13 +605,12 @@ export async function deleteFormVehicleRentRow(rowId: number) {
 
 export async function saveFormITEquipmentRow(
   submissionId: number,
-  equipmentTypeId: number,
+  itConfigId: number,
   data: {
     existing_count: number
     damaged_count: number
     toner_cost: number
     required_qty: number
-    unit_budget: number
   }
 ) {
   try {
@@ -586,18 +618,20 @@ export async function saveFormITEquipmentRow(
       where: {
         submissionId_itConfigId: {
           submissionId: BigInt(submissionId),
-          itConfigId: BigInt(equipmentTypeId),
+          itConfigId: BigInt(itConfigId),
         },
       },
       update: {
         existingCount: data.existing_count,
+        damagedCount: data.damaged_count,
         newDemandCount: data.required_qty,
         tonerCostMonthly: data.toner_cost,
       },
       create: {
         submissionId: BigInt(submissionId),
-        itConfigId: BigInt(equipmentTypeId),
+        itConfigId: BigInt(itConfigId),
         existingCount: data.existing_count,
+        damagedCount: data.damaged_count,
         newDemandCount: data.required_qty,
         tonerCostMonthly: data.toner_cost,
       },
@@ -611,13 +645,13 @@ export async function saveFormITEquipmentRow(
 
 export async function deleteFormITEquipmentRow(
   submissionId: number,
-  equipmentTypeId: number
+  itConfigId: number
 ) {
   try {
     await prisma.officeFormItEquipment.deleteMany({
       where: {
         submissionId: BigInt(submissionId),
-        itConfigId: BigInt(equipmentTypeId),
+        itConfigId: BigInt(itConfigId),
       },
     })
     return { success: true }

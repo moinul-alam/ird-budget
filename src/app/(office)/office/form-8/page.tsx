@@ -1,32 +1,36 @@
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { getVehicleTypes } from '@/app/actions/admin-settings'
-import { Form6Client } from './form-6-client'
+import {
+  getOfficeTypeIdForOffice,
+  loadFormVehiclesRentInitial,
+  loadVehicleRentConfigsForOfficeType,
+} from '@/lib/office/load-form-data'
+import { Form8Client } from './form-8-client'
 
-export default async function Form6Page() {
+export default async function Form8Page() {
   const session = await getOfficeSession()
   if (!session) redirect('/')
 
-  const submissionId = session.submission_id || null
+  const submissionId = session.submission_id ?? null
+  const officeId = session.office_id ?? Number(session.id)
 
-  const [vehicleTypes, rentConfigsRes, rentRes] = await Promise.all([
-    getVehicleTypes(),
-    Promise.resolve({ data: [] }),
-    submissionId
-      ? Promise.resolve({ data: [] })
-        //   .select('*')
-        //   .eq('submission_id', submissionId)
-        //   .order('id')
-        Promise.resolve({ data: [] })
-      : Promise.resolve({ data: [] }),
+  const carTypes = await getVehicleTypes()
+
+  // The rent rate is configured per office type, so resolve that first.
+  const officeTypeId = await getOfficeTypeIdForOffice(officeId)
+
+  const [rentConfigs, initialData] = await Promise.all([
+    officeTypeId ? loadVehicleRentConfigsForOfficeType(officeTypeId) : Promise.resolve([]),
+    submissionId ? loadFormVehiclesRentInitial(submissionId) : Promise.resolve([]),
   ])
 
   return (
-    <Form6Client
+    <Form8Client
       submissionId={submissionId}
-      initialData={rentRes.data || []}
-      carTypes={vehicleTypes}
-      rentConfigs={rentConfigsRes.data || []}
+      initialData={initialData}
+      carTypes={carTypes}
+      rentConfigs={rentConfigs}
     />
   )
 }

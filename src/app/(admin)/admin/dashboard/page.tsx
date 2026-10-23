@@ -219,9 +219,9 @@ export default async function AdminDashboardPage() {
               {hasActiveCycle ? `${cycleTypeName} (${cycleTitle})` : 'কোনো সক্রিয় বাজেট চক্র পাওয়া যায়নি'}
             </h1>
             <p className="text-slate-400 text-xs sm:text-sm mt-1 max-w-2xl leading-relaxed">
-              {hasActiveCycle 
+              {hasActiveCycle
                 ? 'অভ্যন্তরীণ সম্পদ বিভাগের সকল দপ্তর ও আওতাধীন অফিসসমূহের বাজেট প্রস্তুতির ড্যাশবোর্ড'
-                : 'বাজেট দাখিল ও পর্যবেক্ষণ শুরু করতে বাজেট কনফিগারেশন থেকে নতুন বাজেট চক্র উন্মুক্ত করুন।'}
+                : 'বাজেট দাখিল ও পর্যবেক্ষণ শুরু করতে বাজেট উন্মুক্তকরণ থেকে নতুন বাজেট চক্র উন্মুক্ত করুন।'}
             </p>
           </div>
 
@@ -474,7 +474,7 @@ export default async function AdminDashboardPage() {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                  <th className="py-3.5 px-4 w-16">ক্র.নং</th>
+                  <th className="py-3.5 px-4 w-16">ক্রম</th>
                   <th className="py-3.5 px-4">বাজেট আইডি</th>
                   <th className="py-3.5 px-4">অফিসের নাম</th>
                   <th className="py-3.5 px-4">বিভাগ</th>

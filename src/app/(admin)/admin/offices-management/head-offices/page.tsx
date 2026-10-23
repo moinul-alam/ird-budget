@@ -1,7 +1,7 @@
 import { getAdminSession } from '@/lib/auth-admin'
 import { redirect } from 'next/navigation'
 import { getHeadOffices } from '@/app/actions/admin-offices-management'
-import { getMinistries, getDepartments, getOfficeTypes, getOfficeLevels } from '@/app/actions/admin-offices-config'
+import { getMinistries, getDepartments, getOfficeTypes } from '@/app/actions/admin-offices-config'
 import { HeadOfficesClient } from './head-offices-client'
 
 export const metadata = {
@@ -15,12 +15,11 @@ export default async function AdminHeadOfficesPage() {
     redirect('/admin/dashboard')
   }
 
-  const [headOffices, ministries, departments, officeTypes, officeLevels] = await Promise.all([
+  const [headOffices, ministries, departments, officeTypes] = await Promise.all([
     getHeadOffices(),
     getMinistries(),
     getDepartments(),
     getOfficeTypes(),
-    getOfficeLevels(),
   ])
 
   return (
@@ -29,7 +28,6 @@ export default async function AdminHeadOfficesPage() {
       ministries={ministries}
       departments={departments}
       officeTypes={officeTypes}
-      officeLevels={officeLevels}
     />
   )
 }

@@ -68,11 +68,9 @@ export function TabCycles({
         <CardHeader className="border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4">
           <div>
             <CardTitle className="text-lg font-bold text-slate-900">
-              বাজেট সাইকেলসমূহ
+              বাজেট চক্রসমূহ
             </CardTitle>
-            <CardDescription className="text-xs text-slate-500 mt-0.5">
-              অর্থবছর ও বাজেটের ধরণ অনুযায়ী বাজেট দাখিল কার্যক্রম উন্মুক্ত বা বন্ধ করুন
-            </CardDescription>
+
           </div>
           <Button
             disabled={!canCreateCycle}
@@ -91,7 +89,7 @@ export function TabCycles({
             className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5 shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="h-4 w-4" />
-            নতুন বাজেট সাইকেল নির্ধারণ
+            নতুন বাজেট চক্র তৈরি
           </Button>
         </CardHeader>
 
@@ -103,7 +101,7 @@ export function TabCycles({
                 ট্যাব ১ এবং ট্যাব ২ এর তথ্য প্রয়োজন
               </h3>
               <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                বাজেট সাইকেল নির্ধারণ করার পূর্বে অনুগ্রহ করে ট্যাব ১-এ বাজেটের ধরণ এবং ট্যাব ২-এ অর্থবছর এন্ট্রি করুন।
+                বাজেট চক্র তৈরি করার পূর্বে অনুগ্রহ করে ট্যাব ১-এ বাজেটের ধরণ এবং ট্যাব ২-এ অর্থবছর এন্ট্রি করুন।
               </p>
               <div className="mt-4 flex items-center justify-center gap-2">
                 <Button
@@ -128,11 +126,8 @@ export function TabCycles({
             <div className="py-12 px-6 text-center">
               <SlidersHorizontal className="h-10 w-10 text-slate-300 mx-auto mb-3" />
               <h3 className="text-sm font-bold text-slate-700">
-                কোনো বাজেট সাইকেল পাওয়া যায়নি
+                কোনো বাজেট চক্র পাওয়া যায়নি
               </h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                নতুন সাইকেল নির্ধারণ করতে &quot;নতুন বাজেট সাইকেল নির্ধারণ&quot; বাটনে ক্লিক করুন।
-              </p>
               <div className="mt-4">
                 <Button
                   size="sm"
@@ -156,7 +151,7 @@ export function TabCycles({
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                    <th className="py-3 px-4">ক্র.নং</th>
+                    <th className="py-3 px-4">ক্রম</th>
                     <th className="py-3 px-4">অর্থবছর</th>
                     <th className="py-3 px-4">বাজেটের ধরণ</th>
                     <th className="py-3 px-4">দাখিলকৃত অফিসের সংখ্যা</th>
@@ -196,11 +191,10 @@ export function TabCycles({
                         >
                           <Badge
                             variant="outline"
-                            className={`text-xs font-bold gap-1 rounded-full px-2.5 py-0.5 transition-all ${
-                              c.status === 'open'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 group-hover:bg-emerald-100'
-                                : 'bg-slate-100 text-slate-600 border-slate-300 group-hover:bg-slate-200'
-                            }`}
+                            className={`text-xs font-bold gap-1 rounded-full px-2.5 py-0.5 transition-all ${c.status === 'open'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 group-hover:bg-emerald-100'
+                              : 'bg-slate-100 text-slate-600 border-slate-300 group-hover:bg-slate-200'
+                              }`}
                           >
                             {c.status === 'open' ? (
                               <>
@@ -335,11 +329,10 @@ export function TabCycles({
                 <button
                   type="button"
                   onClick={() => setCycleModal((prev) => ({ ...prev, status: 'open' }))}
-                  className={`py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                    cycleModal.status === 'open'
-                      ? 'bg-emerald-600 text-white shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                  }`}
+                  className={`py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${cycleModal.status === 'open'
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    }`}
                 >
                   <Unlock className="h-3.5 w-3.5" />
                   <span>ওপেন</span>
@@ -347,11 +340,10 @@ export function TabCycles({
                 <button
                   type="button"
                   onClick={() => setCycleModal((prev) => ({ ...prev, status: 'closed' }))}
-                  className={`py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                    cycleModal.status === 'closed'
-                      ? 'bg-rose-600 text-white shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                  }`}
+                  className={`py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${cycleModal.status === 'closed'
+                    ? 'bg-rose-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                    }`}
                 >
                   <Lock className="h-3.5 w-3.5" />
                   <span>ক্লোজ্ড</span>

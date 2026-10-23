@@ -41,16 +41,13 @@ export function TabFiscalYears({
             <CardTitle className="text-lg font-bold text-slate-900">
               অর্থবছর তালিকা
             </CardTitle>
-            <CardDescription className="text-xs text-slate-500 mt-0.5">
-              যেমন: ২০২৫-২৬, ২০২৬-২৭
-            </CardDescription>
           </div>
           <Button
             onClick={() => setFyModal({ open: true, year: '' })}
             className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5 shadow-xs"
           >
             <Plus className="h-4 w-4" />
-            নতুন অর্থবছর
+            নতুন অর্থবছর তৈরি
           </Button>
         </CardHeader>
 
@@ -80,7 +77,7 @@ export function TabFiscalYears({
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                    <th className="py-3 px-4 w-20">ক্র.নং</th>
+                    <th className="py-3 px-4 w-20">ক্রম</th>
                     <th className="py-3 px-4">অর্থবছর</th>
                     <th className="py-3 px-4 text-center w-28">একশন</th>
                   </tr>

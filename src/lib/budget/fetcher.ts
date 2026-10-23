@@ -31,6 +31,7 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
     }),
     prisma.officeFormUtility.findMany({
       where: { submissionId: BigInt(submissionId) },
+      include: { utilityType: true },
     }),
     prisma.officeFormHouseRent.findUnique({
       where: { submissionId: BigInt(submissionId) },
@@ -47,12 +48,14 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
     }),
     prisma.officeFormVehicleRent.findMany({
       where: { submissionId: BigInt(submissionId) },
+      include: { config: true },
     }),
     prisma.officeFormReturnInfo.findUnique({
       where: { submissionId: BigInt(submissionId) },
     }),
     prisma.officeFormItEquipment.findMany({
       where: { submissionId: BigInt(submissionId) },
+      include: { config: { include: { equipmentType: true } } },
     }),
     prisma.officeSubmission.findUnique({
       where: { id: BigInt(submissionId) },

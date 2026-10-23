@@ -65,7 +65,7 @@ export function FieldOfficesClient({
     open: false,
     title: '',
     description: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
   })
 
   const showStatus = (text: string, type: 'success' | 'error' = 'success') => {
@@ -206,18 +206,18 @@ export function FieldOfficesClient({
             prev.map((f) =>
               f.id === modal.id
                 ? {
-                    ...f,
-                    name: modal.name.trim(),
-                    budget_id: englishBudgetId,
-                    department_id: modal.department_id,
-                    department_name: dept?.name || '',
-                    ministry_id: modal.ministry_id,
-                    ministry_name: minObj?.name || '',
-                    head_office_id: modal.head_office_id,
-                    head_office_name: headObj?.name || '',
-                    office_type_id: modal.office_type_id,
-                    office_type_name: typeObj?.name || '',
-                  }
+                  ...f,
+                  name: modal.name.trim(),
+                  budget_id: englishBudgetId,
+                  department_id: modal.department_id,
+                  department_name: dept?.name || '',
+                  ministry_id: modal.ministry_id,
+                  ministry_name: minObj?.name || '',
+                  head_office_id: modal.head_office_id,
+                  head_office_name: headObj?.name || '',
+                  office_type_id: modal.office_type_id,
+                  office_type_name: typeObj?.name || '',
+                }
                 : f
             )
           )
@@ -282,18 +282,14 @@ export function FieldOfficesClient({
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-title">
             মাঠ পর্যায়ের সকল অফিস (Field Offices)
           </h1>
-          <p className="text-sm text-slate-500 mt-1 font-medium">
-            হেড অফিসের অধীনে সার্কেল ও মাঠ পর্যায়ের অফিসসমূহ পরিচালনা ও স্বয়ংক্রিয় ইউজার আইডি তৈরি
-          </p>
         </div>
 
         {statusMessage && (
           <div
-            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200 ${
-              statusMessage.type === 'success'
+            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200 ${statusMessage.type === 'success'
                 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                 : 'bg-rose-50 text-rose-800 border border-rose-200'
-            }`}
+              }`}
           >
             {statusMessage.type === 'success' ? (
               <CheckCircle2 className="h-4 w-4 text-emerald-600" />

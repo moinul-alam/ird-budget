@@ -43,9 +43,6 @@ export function FieldOfficesTable({
             <CardTitle className="text-lg font-bold text-slate-900">
               মাঠ পর্যায়ের অফিসের তালিকা
             </CardTitle>
-            <CardDescription className="text-xs text-slate-500 mt-0.5">
-              অফিস তৈরির সাথে সাথেই বাজেট আইডি হিসেবে স্বয়ংক্রিয় ইউজার ও ডিফল্ট পাসওয়ার্ড (১২৩৪৫) যুক্ত হয়
-            </CardDescription>
           </div>
         </div>
 
@@ -103,9 +100,6 @@ export function FieldOfficesTable({
             <h3 className="text-sm font-bold text-slate-700">
               কোনো মাঠ পর্যায়ের অফিস পাওয়া যায়নি
             </h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-              নতুন অফিস যুক্ত করতে &quot;নতুন মাঠ পর্যায়ের অফিস যোগ করুন&quot; বাটনে চাপুন।
-            </p>
             <div className="mt-4">
               <Button
                 size="sm"
@@ -122,7 +116,7 @@ export function FieldOfficesTable({
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                  <th className="py-3 px-4 w-16">ক্র.নং</th>
+                  <th className="py-3 px-4 w-16">ক্রম</th>
                   <th className="py-3 px-4">অফিসের নাম</th>
                   <th className="py-3 px-4">বাজেট আইডি</th>
                   <th className="py-3 px-4">হেড অফিস</th>

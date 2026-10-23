@@ -3,7 +3,6 @@ import {
   DepartmentItem,
   OfficeTypeHierarchyItem,
   OfficeLevelItem,
-  GroupBudgetSettingItem,
 } from '@/app/actions/admin-offices-config'
 
 export interface AdminOfficesConfigClientProps {
@@ -11,10 +10,9 @@ export interface AdminOfficesConfigClientProps {
   initialDepartments: DepartmentItem[]
   initialOfficeTypes: OfficeTypeHierarchyItem[]
   initialOfficeLevels: OfficeLevelItem[]
-  initialGroupSettings: GroupBudgetSettingItem[]
 }
 
-export type ConfigTabType = 'ministries' | 'departments' | 'office_types' | 'hierarchy' | 'groups'
+export type ConfigTabType = 'ministries' | 'departments' | 'office_types' | 'hierarchy'
 
 export interface MinistryModalState {
   open: boolean

@@ -28,12 +28,12 @@ import {
 } from 'lucide-react'
 import { useState, useTransition } from 'react'
 
-export interface Form10ClientProps {
+export interface Form12ClientProps {
   submissionId: number | null
   initialData: any
 }
 
-export function Form10Client({ submissionId, initialData }: Form10ClientProps) {
+export function Form12Client({ submissionId, initialData }: Form12ClientProps) {
   // Store return info record
   const [data, setData] = useState<{
     tin_count: number
@@ -105,7 +105,7 @@ export function Form10Client({ submissionId, initialData }: Form10ClientProps) {
 
   const handleSaveAll = async () => {
     if (!submissionId || !data) return
-    await saveFormReturnInfo(submissionId, {
+    return await saveFormReturnInfo(submissionId, {
       tin_count: data.tin_count,
       return_submitted_count: data.return_submitted_count,
     })
@@ -128,14 +128,14 @@ export function Form10Client({ submissionId, initialData }: Form10ClientProps) {
           <div className="flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-sm font-bold text-rose-950">
-                {strings.form10.title}
+                {strings.form12.title}
               </h3>
               <span className="text-xs font-black bg-rose-600 text-white px-2.5 py-0.5 rounded-full shadow-2xs">
-                {strings.form10.emphasisDisclaimer}
+                {strings.form12.emphasisDisclaimer}
               </span>
             </div>
             <p className="text-xs text-rose-800 mt-1 leading-relaxed">
-              {strings.form10.subtitle}
+              {strings.form12.subtitle}
             </p>
           </div>
           {!data && (
@@ -145,7 +145,7 @@ export function Form10Client({ submissionId, initialData }: Form10ClientProps) {
               className="bg-rose-600 hover:bg-rose-700 text-white shrink-0 gap-1.5 rounded-xl font-medium shadow-xs"
             >
               <Plus className="h-4 w-4" />
-              {strings.form10.addReturnInfo}
+              {strings.form12.addReturnInfo}
             </Button>
           )}
         </div>
@@ -155,7 +155,7 @@ export function Form10Client({ submissionId, initialData }: Form10ClientProps) {
           <div className="text-center py-16 px-4 border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
             <FileText className="mx-auto h-12 w-12 text-slate-300 mb-3" />
             <p className="text-slate-600 font-medium text-base mb-2">
-              {strings.form10.noReturnInfo}
+              {strings.form12.noReturnInfo}
             </p>
             <p className="text-xs text-slate-400 max-w-md mx-auto mb-5">
               কাস্টমস, ভ্যাট বা অন্যান্য অফিস হলে এই ফর্মটি পূরণ করার প্রয়োজন নেই। শুধুমাত্র আয়কর সার্কেল অফিসের ক্ষেত্রে তথ্য দিন।
@@ -167,7 +167,7 @@ export function Form10Client({ submissionId, initialData }: Form10ClientProps) {
               className="text-rose-700 border-rose-200 hover:bg-rose-50 rounded-xl"
             >
               <Plus className="h-4 w-4 mr-1.5" />
-              {strings.form10.addReturnInfo}
+              {strings.form12.addReturnInfo}
             </Button>
           </div>
         ) : (
@@ -197,14 +197,14 @@ export function Form10Client({ submissionId, initialData }: Form10ClientProps) {
                     className="text-blue-700 border-blue-200 hover:bg-blue-50 text-xs h-8 gap-1.5 rounded-lg"
                   >
                     <Edit2 className="h-3.5 w-3.5" />
-                    {strings.form10.editReturnInfo}
+                    {strings.form12.editReturnInfo}
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
                     onClick={() => setShowDeleteConfirm(true)}
                     className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 h-8 w-8 p-0 rounded-lg"
-                    title={strings.form10.deleteReturnInfo}
+                    title={strings.form12.deleteReturnInfo}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -220,10 +220,10 @@ export function Form10Client({ submissionId, initialData }: Form10ClientProps) {
                   </div>
                   <div>
                     <span className="text-xs text-blue-900 font-medium">
-                      {strings.form10.circleTinDisplay}
+                      {strings.form12.circleTinDisplay}
                     </span>
                     <p className="text-xl font-bold text-blue-950 font-mono mt-0.5">
-                      {toBanglaNumber(tinCount)} <span className="text-xs font-normal text-blue-700">{strings.form10.personUnit}</span>
+                      {toBanglaNumber(tinCount)} <span className="text-xs font-normal text-blue-700">{strings.form12.personUnit}</span>
                     </p>
                   </div>
                 </div>
@@ -235,10 +235,10 @@ export function Form10Client({ submissionId, initialData }: Form10ClientProps) {
                   </div>
                   <div>
                     <span className="text-xs text-emerald-900 font-medium">
-                      {strings.form10.circleReturnDisplay}
+                      {strings.form12.circleReturnDisplay}
                     </span>
                     <p className="text-xl font-bold text-emerald-950 font-mono mt-0.5">
-                      {toBanglaNumber(returnCount)} <span className="text-xs font-normal text-emerald-700">{strings.form10.personUnit}</span>
+                      {toBanglaNumber(returnCount)} <span className="text-xs font-normal text-emerald-700">{strings.form12.personUnit}</span>
                     </p>
                   </div>
                 </div>
@@ -250,10 +250,10 @@ export function Form10Client({ submissionId, initialData }: Form10ClientProps) {
                   </div>
                   <div>
                     <span className="text-xs text-amber-900 font-medium">
-                      {strings.form10.nonFilerDisplay}
+                      {strings.form12.nonFilerDisplay}
                     </span>
                     <p className="text-xl font-bold text-amber-950 font-mono mt-0.5">
-                      {toBanglaNumber(nonFilerCount)} <span className="text-xs font-normal text-amber-700">{strings.form10.personUnit}</span>
+                      {toBanglaNumber(nonFilerCount)} <span className="text-xs font-normal text-amber-700">{strings.form12.personUnit}</span>
                     </p>
                   </div>
                 </div>
@@ -269,7 +269,7 @@ export function Form10Client({ submissionId, initialData }: Form10ClientProps) {
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
               <FileText className="w-5 h-5 text-rose-600" />
-              {data ? strings.form10.editModalTitle : strings.form10.modalTitle}
+              {data ? strings.form12.editModalTitle : strings.form12.modalTitle}
             </DialogTitle>
           </DialogHeader>
 
@@ -277,7 +277,7 @@ export function Form10Client({ submissionId, initialData }: Form10ClientProps) {
             {/* সার্কেলের মোট টিআইএন এর সংখ্যা */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700">
-                {strings.form10.circleTinCount} <span className="text-rose-500">*</span>
+                {strings.form12.circleTinCount} <span className="text-rose-500">*</span>
               </Label>
               <Input
                 type="number"
@@ -292,7 +292,7 @@ export function Form10Client({ submissionId, initialData }: Form10ClientProps) {
             {/* সার্কেলে দাখিলকৃত মোট রিটার্নের সংখ্যা */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-slate-700">
-                {strings.form10.circleReturnCount} <span className="text-rose-500">*</span>
+                {strings.form12.circleReturnCount} <span className="text-rose-500">*</span>
               </Label>
               <Input
                 type="number"
@@ -307,7 +307,7 @@ export function Form10Client({ submissionId, initialData }: Form10ClientProps) {
             {/* Live Non-filer preview in modal */}
             {tinInput && returnInput && (
               <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between text-xs text-slate-700">
-                <span className="font-medium">{strings.form10.nonFilerDisplay}:</span>
+                <span className="font-medium">{strings.form12.nonFilerDisplay}:</span>
                 <span className="font-bold text-amber-800">
                   {toBanglaNumber(
                     Math.max(
@@ -315,7 +315,7 @@ export function Form10Client({ submissionId, initialData }: Form10ClientProps) {
                       (parseInt(tinInput, 10) || 0) - (parseInt(returnInput, 10) || 0)
                     )
                   )}{' '}
-                  {strings.form10.personUnit}
+                  {strings.form12.personUnit}
                 </span>
               </div>
             )}
@@ -351,11 +351,11 @@ export function Form10Client({ submissionId, initialData }: Form10ClientProps) {
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-rose-500" />
-              {strings.form10.confirmDeleteTitle}
+              {strings.form12.confirmDeleteTitle}
             </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-slate-500">
-            {strings.form10.confirmDeleteDesc}
+            {strings.form12.confirmDeleteDesc}
           </p>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button

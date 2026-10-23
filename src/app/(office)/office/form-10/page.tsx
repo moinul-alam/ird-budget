@@ -1,38 +1,32 @@
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import { Form7Client } from './form-7-client'
+import {
+  getOfficeTypeIdForOffice,
+  loadFormItEquipmentInitial,
+  loadItConfigsForOfficeType,
+} from '@/lib/office/load-form-data'
+import { Form10Client } from './form-10-client'
 
-export default async function Form7Page() {
+export default async function Form10Page() {
   const session = await getOfficeSession()
   if (!session) redirect('/')
 
-  const submissionId = session.submission_id || null
+  const submissionId = session.submission_id ?? null
+  const officeId = session.office_id ?? Number(session.id)
+  const officeTypeId = await getOfficeTypeIdForOffice(officeId)
 
-  const [typesRes, dataRes, itItemsRes] = await Promise.all([
-    Promise.resolve({ data: [] }),
-    Promise.resolve({ data: [] }),
-    Promise.resolve({ data: [] }),
+  // Equipment rows point at an admin_it_config entry, so the unit price always
+  // comes from the same config the row references. Nothing is hardcoded here.
+  const [itConfigs, initialData] = await Promise.all([
+    officeTypeId ? loadItConfigsForOfficeType(officeTypeId) : Promise.resolve([]),
+    submissionId ? loadFormItEquipmentInitial(submissionId) : Promise.resolve([]),
   ])
 
-  // Map it_items to admin prices (single source of truth)
-  const items = itItemsRes.data || []
-  const findPrice = (keyword: string) => {
-    return 0
-  }
-
-  const adminPrices = {
-    computer: findPrice('computer'),
-    printer: findPrice('printer'),
-    scanner: findPrice('scanner'),
-    photocopier: findPrice('accessor'), // Accessories/Photocopier — fallback
-  }
-
   return (
-    <Form7Client 
-      submissionId={submissionId} 
-      equipmentTypes={typesRes.data || []}
-      initialData={dataRes.data || []}
-      adminPrices={adminPrices}
+    <Form10Client
+      submissionId={submissionId}
+      itConfigs={itConfigs}
+      initialData={initialData}
     />
   )
 }

@@ -123,7 +123,7 @@ export function CodeModal({
       <DialogContent className="sm:max-w-md rounded-2xl p-6">
         <DialogHeader>
           <DialogTitle className="text-base font-bold text-slate-900">
-            {modal.id ? 'অর্থনৈতিক কোড সম্পাদনা' : 'নতুন অর্থনৈতিক কোড যুক্ত করুন'}
+            {modal.id ? 'ইকোনমিক কোড সম্পাদনা' : 'নতুন ইকোনমিক কোড যুক্ত করুন'}
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
@@ -266,11 +266,10 @@ export function ConfirmToggleAllDialog({
               setModal((prev) => ({ ...prev, open: false }))
             }}
             disabled={isPending}
-            className={`rounded-xl text-white font-bold text-xs ${
-              modal.enableAll
+            className={`rounded-xl text-white font-bold text-xs ${modal.enableAll
                 ? 'bg-emerald-600 hover:bg-emerald-700'
                 : 'bg-rose-600 hover:bg-rose-700'
-            }`}
+              }`}
           >
             {isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
             {modal.enableAll ? 'হ্যাঁ, সকল চালু করুন' : 'হ্যাঁ, সকল বন্ধ করুন'}

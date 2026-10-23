@@ -41,16 +41,13 @@ export function TabBudgetTypes({
             <CardTitle className="text-lg font-bold text-slate-900">
               বাজেটের ধরণ তালিকা
             </CardTitle>
-            <CardDescription className="text-xs text-slate-500 mt-0.5">
-              যেমন: প্রাক্কলিত বাজেট, সংশোধিত বাজেট
-            </CardDescription>
           </div>
           <Button
             onClick={() => setTypeModal({ open: true, name: '' })}
             className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5 shadow-xs"
           >
             <Plus className="h-4 w-4" />
-            নতুন বাজেটের ধরণ
+            নতুন ধরণ তৈরি
           </Button>
         </CardHeader>
 
@@ -80,7 +77,7 @@ export function TabBudgetTypes({
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                    <th className="py-3 px-4 w-20">ক্র.নং</th>
+                    <th className="py-3 px-4 w-20">ক্রম</th>
                     <th className="py-3 px-4">বাজেটের ধরণ</th>
                     <th className="py-3 px-4 text-center w-28">একশন</th>
                   </tr>

@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { toBanglaNumber } from '@/lib/bangla'
 import {
   Landmark,
   Building2,
   Briefcase,
   GitBranch,
-  Layers,
   CheckCircle2,
   AlertTriangle,
 } from 'lucide-react'
@@ -16,7 +16,6 @@ import {
   DepartmentItem,
   OfficeTypeHierarchyItem,
   OfficeLevelItem,
-  GroupBudgetSettingItem,
   saveMinistry,
   deleteMinistry,
   saveDepartment,
@@ -24,12 +23,8 @@ import {
   saveOfficeType,
   saveOfficeLevel,
   deleteOfficeLevel,
-  saveGroupBudgetSetting,
-  deleteGroupBudgetSetting,
   deleteOfficeType,
   getOfficeLevels,
-  getGroupBudgetSettings,
-  getOfficeTypes,
 } from '@/app/actions/admin-offices-config'
 import {
   AdminOfficesConfigClientProps,
@@ -38,7 +33,6 @@ import {
   DepartmentModalState,
   OfficeTypeModalState,
   HierarchyModalState,
-  GroupModalState,
   ConfirmModalState,
 } from './_types/offices-config'
 import { getLevelOrderBadge } from './_lib/helpers'
@@ -47,19 +41,38 @@ import { TabMinistries } from './_components/tab-ministries'
 import { TabDepartments } from './_components/tab-departments'
 import { TabOfficeTypes } from './_components/tab-office-types'
 import { TabOfficeLevels } from './_components/tab-office-levels'
-import { TabGroupBudget } from './_components/tab-group-budget'
 
 // Re-export getLevelOrderBadge in case external consumers import it from here
 export { getLevelOrderBadge }
+
+const CONFIG_TABS: ConfigTabType[] = ['ministries', 'departments', 'office_types', 'hierarchy']
+
+const isConfigTab = (value: string | null): value is ConfigTabType =>
+  value !== null && (CONFIG_TABS as string[]).includes(value)
 
 export function AdminOfficesConfigClient({
   initialMinistries,
   initialDepartments,
   initialOfficeTypes,
   initialOfficeLevels,
-  initialGroupSettings,
 }: AdminOfficesConfigClientProps) {
-  const [activeTab, setActiveTab] = useState<ConfigTabType>('ministries')
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+
+  // The active tab lives in the URL (?tab=office_types) rather than in component
+  // state. Saving calls a server action that revalidates this path and re-renders
+  // the segment, which drops local state and would otherwise bounce the user back
+  // to the first tab on every save.
+  const tabParam = searchParams.get('tab')
+  const activeTab: ConfigTabType = isConfigTab(tabParam) ? tabParam : 'ministries'
+  const setActiveTab = (tab: ConfigTabType) => {
+    if (tab === activeTab) return
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', tab)
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }
+
   const [isPending, startTransition] = useTransition()
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
@@ -67,12 +80,10 @@ export function AdminOfficesConfigClient({
   const [departments, setDepartments] = useState<DepartmentItem[]>(initialDepartments)
   const [officeTypes, setOfficeTypes] = useState<OfficeTypeHierarchyItem[]>(initialOfficeTypes)
   const [officeLevels, setOfficeLevels] = useState<OfficeLevelItem[]>(initialOfficeLevels)
-  const [groupSettings, setGroupSettings] = useState<GroupBudgetSettingItem[]>(initialGroupSettings)
 
   // Filtering dropdowns for relational views
   const [filterDeptForTypes, setFilterDeptForTypes] = useState<string>('all')
   const [filterTypeForHierarchy, setFilterTypeForHierarchy] = useState<string>('all')
-  const [filterTypeForGroups, setFilterTypeForGroups] = useState<string>('all')
 
   // Modals state
   const [minModal, setMinModal] = useState<MinistryModalState>({
@@ -99,19 +110,11 @@ export function AdminOfficesConfigClient({
     level_order: 1,
   })
 
-  const [groupModal, setGroupModal] = useState<GroupModalState>({
-    open: false,
-    department_id: '',
-    office_type_id: '',
-    office_level_id: '',
-    is_group_budget: true,
-  })
-
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
     open: false,
     title: '',
     description: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
   })
 
   const showStatus = (text: string, type: 'success' | 'error' = 'success') => {
@@ -186,12 +189,12 @@ export function AdminOfficesConfigClient({
             prev.map((d) =>
               d.id === depModal.id
                 ? {
-                    ...d,
-                    name: trimmed,
-                    budget_id: trimmedBudget,
-                    ministry_id: depModal.ministry_id,
-                    ministry_name: selectedMin?.name || '',
-                  }
+                  ...d,
+                  name: trimmed,
+                  budget_id: trimmedBudget,
+                  ministry_id: depModal.ministry_id,
+                  ministry_name: selectedMin?.name || '',
+                }
                 : d
             )
           )
@@ -245,11 +248,11 @@ export function AdminOfficesConfigClient({
             prev.map((ot) =>
               ot.id === officeTypeModal.id
                 ? {
-                    ...ot,
-                    name: officeTypeModal.name.trim(),
-                    department_id: officeTypeModal.department_id?.toString(),
-                    department_name: dep?.name || '',
-                  }
+                  ...ot,
+                  name: officeTypeModal.name.trim(),
+                  department_id: officeTypeModal.department_id?.toString(),
+                  department_name: dep?.name || '',
+                }
                 : ot
             )
           )
@@ -327,69 +330,6 @@ export function AdminOfficesConfigClient({
           } else {
             showStatus('স্তর সফলভাবে মুছে ফেলা হয়েছে')
             setOfficeLevels((prev) => prev.filter((item) => item.id !== lvl.id))
-          }
-        })
-      },
-    })
-  }
-
-  // Handle Tab 5 Save (Group setting)
-  const handleSaveGroupSetting = () => {
-    if (!groupModal.office_type_id) {
-      showStatus('অফিসের ধরণ নির্বাচন আবশ্যক', 'error')
-      return
-    }
-
-    startTransition(async () => {
-      const res = await saveGroupBudgetSetting({
-        id: groupModal.id,
-        office_type_id: groupModal.office_type_id,
-        office_level_id: groupModal.office_level_id,
-        is_group_budget: groupModal.is_group_budget,
-      })
-      if (res.error) {
-        showStatus(res.error, 'error')
-      } else {
-        showStatus('গ্রুপ বাজেট সেটিংস সফলভাবে আপডেট হয়েছে')
-        // Re-fetch group settings and office types
-        startTransition(async () => {
-          const [refreshedSettings, refreshedTypes] = await Promise.all([
-            getGroupBudgetSettings(),
-            getOfficeTypes(),
-          ])
-          setGroupSettings(refreshedSettings)
-          setOfficeTypes(refreshedTypes)
-        })
-        setGroupModal((prev) => ({ ...prev, open: false }))
-      }
-    })
-  }
-
-  // Handle Tab 5 Delete (Group setting)
-  const handleDeleteGroupSetting = (gs: GroupBudgetSettingItem) => {
-    setConfirmModal({
-      open: true,
-      title: 'গ্রুপ বাজেট থেকে অপসারণ',
-      description: `আপনি কি "${gs.office_type_name}${gs.office_level_name ? ` - ${gs.office_level_name}` : ''}" কে গ্রুপ বাজেট কনফিগারেশন থেকে অপসারণ করতে চান?`,
-      onConfirm: () => {
-        startTransition(async () => {
-          const res = await deleteGroupBudgetSetting(gs.id)
-          setConfirmModal((prev) => ({ ...prev, open: false }))
-          if (res.error) {
-            showStatus(res.error, 'error')
-          } else {
-            showStatus('গ্রুপ বাজেট সেটিং সফলভাবে মুছে ফেলা হয়েছে')
-            setGroupSettings((prev) => prev.filter((item) => item.id !== gs.id))
-            const othersRemain = groupSettings.some(
-              (g) => g.id !== gs.id && g.office_type_id === gs.office_type_id && g.is_group_budget
-            )
-            if (!othersRemain) {
-              setOfficeTypes((prev) =>
-                prev.map((item) =>
-                  item.id === gs.office_type_id ? { ...item, is_group_budget: false } : item
-                )
-              )
-            }
           }
         })
       },
@@ -492,52 +432,22 @@ export function AdminOfficesConfigClient({
     officeLevels.some((lvl) => lvl.office_type_id === ot.id)
   )
 
-  // Display group items calculation
-  const displayGroupItems: GroupBudgetSettingItem[] = (() => {
-    const list: GroupBudgetSettingItem[] = [...groupSettings.filter((g) => g.is_group_budget)]
-    for (const ot of officeTypes) {
-      if (ot.is_group_budget && !list.some((g) => g.office_type_id === ot.id)) {
-        const matchingLevels = officeLevels.filter((lvl) => lvl.office_type_id === ot.id).sort((a, b) => a.level_order - b.level_order)
-        list.push({
-          id: `legacy-${ot.id}`,
-          department_id: ot.department_id || '',
-          department_name: ot.department_name,
-          office_type_id: ot.id,
-          office_type_name: ot.name,
-          office_level_id: matchingLevels[0]?.id || '',
-          office_level_name: matchingLevels[0]?.level_name || '',
-          office_level_order: matchingLevels[0]?.level_order,
-          is_group_budget: true,
-        })
-      }
-    }
-    return list
-  })()
-
-  const officeTypesWithGroupBudget = officeTypes.filter((ot) =>
-    displayGroupItems.some((g) => g.office_type_id === ot.id)
-  )
-
-  const filteredGroupItemsForTab5 = displayGroupItems
-    .filter((g) => (filterTypeForGroups === 'all' ? true : String(g.office_type_id) === filterTypeForGroups))
-
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-title">
-            অফিস কনফিগারেশন
+            অরগানোগ্রামঃ   প্রাতিষ্ঠানিক হায়ারার্কি সেটাপ
           </h1>
         </div>
 
         {statusMessage && (
           <div
-            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200 ${
-              statusMessage.type === 'success'
-                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                : 'bg-rose-50 text-rose-800 border border-rose-200'
-            }`}
+            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in duration-200 ${statusMessage.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              : 'bg-rose-50 text-rose-800 border border-rose-200'
+              }`}
           >
             {statusMessage.type === 'success' ? (
               <CheckCircle2 className="h-4 w-4 text-emerald-600" />
@@ -554,14 +464,13 @@ export function AdminOfficesConfigClient({
         <nav className="flex space-x-1 sm:space-x-3 overflow-x-auto" aria-label="Tabs">
           <button
             onClick={() => setActiveTab('ministries')}
-            className={`py-3 px-3.5 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-              activeTab === 'ministries'
-                ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
-            }`}
+            className={`py-3 px-3.5 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${activeTab === 'ministries'
+              ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
+              : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+              }`}
           >
             <Landmark className="h-4 w-4" />
-            <span>১. মন্ত্রণালয় / বিভাগ</span>
+            <span>মন্ত্রণালয় / বিভাগ</span>
             <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-mono">
               {toBanglaNumber(ministries.length)}
             </span>
@@ -569,14 +478,13 @@ export function AdminOfficesConfigClient({
 
           <button
             onClick={() => setActiveTab('departments')}
-            className={`py-3 px-3.5 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-              activeTab === 'departments'
-                ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
-            }`}
+            className={`py-3 px-3.5 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${activeTab === 'departments'
+              ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
+              : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+              }`}
           >
             <Building2 className="h-4 w-4" />
-            <span>২. দপ্তর / সংস্থা</span>
+            <span>দপ্তর / সংস্থা</span>
             <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-mono">
               {toBanglaNumber(departments.length)}
             </span>
@@ -584,14 +492,13 @@ export function AdminOfficesConfigClient({
 
           <button
             onClick={() => setActiveTab('office_types')}
-            className={`py-3 px-3.5 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-              activeTab === 'office_types'
-                ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
-            }`}
+            className={`py-3 px-3.5 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${activeTab === 'office_types'
+              ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
+              : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+              }`}
           >
             <Briefcase className="h-4 w-4" />
-            <span>৩. অফিসের ধরণ</span>
+            <span>অফিসের ধরণ</span>
             <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-mono">
               {toBanglaNumber(officeTypes.length)}
             </span>
@@ -599,31 +506,15 @@ export function AdminOfficesConfigClient({
 
           <button
             onClick={() => setActiveTab('hierarchy')}
-            className={`py-3 px-3.5 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-              activeTab === 'hierarchy'
-                ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
-            }`}
+            className={`py-3 px-3.5 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${activeTab === 'hierarchy'
+              ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
+              : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+              }`}
           >
             <GitBranch className="h-4 w-4" />
-            <span>৪. মাঠ অফিসের স্তর</span>
+            <span>মাঠ অফিসের স্তর</span>
             <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-mono">
               {toBanglaNumber(officeLevels.length)}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('groups')}
-            className={`py-3 px-3.5 text-xs sm:text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap cursor-pointer ${
-              activeTab === 'groups'
-                ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
-            }`}
-          >
-            <Layers className="h-4 w-4" />
-            <span>৫. গ্রুপ বাজেট নির্ধারণ</span>
-            <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-slate-100 text-slate-600 font-mono">
-              {toBanglaNumber(displayGroupItems.length)}
             </span>
           </button>
         </nav>
@@ -692,25 +583,7 @@ export function AdminOfficesConfigClient({
         />
       )}
 
-      {/* Tab 5: Group Budget */}
-      {activeTab === 'groups' && (
-        <TabGroupBudget
-          displayGroupItems={displayGroupItems}
-          filteredGroupItems={filteredGroupItemsForTab5}
-          departments={departments}
-          officeTypes={officeTypes}
-          officeTypesWithGroupBudget={officeTypesWithGroupBudget}
-          officeLevels={officeLevels}
-          filterTypeForGroups={filterTypeForGroups}
-          setFilterTypeForGroups={setFilterTypeForGroups}
-          groupModal={groupModal}
-          setGroupModal={setGroupModal}
-          onSaveGroupSetting={handleSaveGroupSetting}
-          onDeleteGroupSetting={handleDeleteGroupSetting}
-          setActiveTab={setActiveTab}
-          isPending={isPending}
-        />
-      )}
+      {/* Tab 5: Group Budget has moved to /admin/offices-management/group-budget */}
 
       {/* Confirmation Dialog */}
       <ConfirmDeleteDialog

@@ -117,27 +117,24 @@ export function IndividualReportsClient({
               <button
                 type="button"
                 onClick={() => setDepartmentFilter('all')}
-                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
-                  departmentFilter === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'
-                }`}
+                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${departmentFilter === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'
+                  }`}
               >
                 সকল বিভাগ
               </button>
               <button
                 type="button"
                 onClick={() => setDepartmentFilter('tax')}
-                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
-                  departmentFilter === 'tax' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-500'
-                }`}
+                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${departmentFilter === 'tax' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-500'
+                  }`}
               >
                 আয়কর বিভাগ
               </button>
               <button
                 type="button"
                 onClick={() => setDepartmentFilter('vat')}
-                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
-                  departmentFilter === 'vat' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-500'
-                }`}
+                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${departmentFilter === 'vat' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-500'
+                  }`}
               >
                 কাস্টম্‌স ও ভ্যাট
               </button>
@@ -148,27 +145,24 @@ export function IndividualReportsClient({
               <button
                 type="button"
                 onClick={() => setStatusFilter('all')}
-                className={`px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer ${
-                  statusFilter === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'
-                }`}
+                className={`px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer ${statusFilter === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'
+                  }`}
               >
                 সকল স্ট্যাটাস
               </button>
               <button
                 type="button"
                 onClick={() => setStatusFilter('submitted')}
-                className={`px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer ${
-                  statusFilter === 'submitted' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-500'
-                }`}
+                className={`px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer ${statusFilter === 'submitted' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-500'
+                  }`}
               >
                 দাখিলকৃত
               </button>
               <button
                 type="button"
                 onClick={() => setStatusFilter('draft')}
-                className={`px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer ${
-                  statusFilter === 'draft' ? 'bg-amber-600 text-white shadow-2xs' : 'text-slate-500'
-                }`}
+                className={`px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer ${statusFilter === 'draft' ? 'bg-amber-600 text-white shadow-2xs' : 'text-slate-500'
+                  }`}
               >
                 খসড়া
               </button>
@@ -192,7 +186,7 @@ export function IndividualReportsClient({
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                  <th className="py-3 px-4 w-16">ক্র.নং</th>
+                  <th className="py-3 px-4 w-16">ক্রম</th>
                   <th className="py-3 px-4 w-32">বাজেট আইডি</th>
                   <th className="py-3 px-4">অফিসের নাম</th>
                   <th className="py-3 px-4">বিভাগ ও ধরণ</th>
@@ -234,13 +228,12 @@ export function IndividualReportsClient({
                       <td className="py-3.5 px-4 text-center">
                         <Badge
                           variant="outline"
-                          className={`text-xs font-bold gap-1 rounded-full px-2.5 py-0.5 ${
-                            off.status === 'submitted'
+                          className={`text-xs font-bold gap-1 rounded-full px-2.5 py-0.5 ${off.status === 'submitted'
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
                               : off.status === 'draft'
-                              ? 'bg-amber-50 text-amber-700 border-amber-300'
-                              : 'bg-slate-100 text-slate-500 border-slate-300'
-                          }`}
+                                ? 'bg-amber-50 text-amber-700 border-amber-300'
+                                : 'bg-slate-100 text-slate-500 border-slate-300'
+                            }`}
                         >
                           {off.status === 'submitted' ? (
                             <>

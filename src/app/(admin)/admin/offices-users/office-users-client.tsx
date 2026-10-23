@@ -185,7 +185,7 @@ export function OfficeUsersClient({
               <table className="w-full text-left text-sm text-slate-600">
                 <thead className="bg-slate-50/80 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100">
                   <tr>
-                    <th className="px-6 py-4 w-16">ক্র. নং</th>
+                    <th className="px-6 py-4 w-16">ক্রম</th>
                     <th className="px-6 py-4">অফিসের নাম</th>
                     <th className="px-6 py-4">বাজেট আইডি (লগিন আইডি)</th>
                     <th className="px-6 py-4">বর্তমান পাসওয়ার্ড</th>
@@ -213,8 +213,8 @@ export function OfficeUsersClient({
                         </td>
                         <td className="px-6 py-4 font-mono text-xs">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-semibold ${office.hasCustomPassword
-                              ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             }`}>
                             <KeyRound className="h-3 w-3 text-emerald-600" />
                             {office.currentPasswordHint}

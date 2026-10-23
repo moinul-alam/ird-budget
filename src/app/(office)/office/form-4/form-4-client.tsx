@@ -33,17 +33,26 @@ import { saveFormNewStaffRows, NewStaffRecord } from '@/app/actions/forms'
 import { Plus, Trash2, Edit2, UserPlus, AlertTriangle } from 'lucide-react'
 import { useState, useTransition, useMemo } from 'react'
 
+/**
+ * One row of `ref_grades`. The grade list is administrator-controlled, so the
+ * form never assumes a fixed 1–20 range or that the row id equals the grade
+ * number.
+ */
+export interface GradeRow {
+  id: number
+  grade_no: number
+  category: string
+}
+
 interface Form4ClientProps {
   initialData: NewStaffRecord[]
   submissionId: number | null
   fiscalYear: string
+  grades: GradeRow[]
 }
 
-const ALL_GRADES = Array.from({ length: 20 }, (_, i) => ({
-  id: i + 1,
-  label: `গ্রেড ${toBanglaNumber(i + 1)}`,
-  category: i + 1 <= 10 ? 'কর্মকর্তা' : 'কর্মচারী',
-}))
+const categoryLabel = (category: string) =>
+  category === 'officer' ? 'কর্মকর্তা' : 'কর্মচারী'
 
 /**
  * Calculates remaining months in a Bangladesh fiscal year (July 1 to June 30).
@@ -82,7 +91,12 @@ function calculateRemainingMonths(dateStr: string, fiscalYear: string): { months
   return { months, inRange: true }
 }
 
-export function Form4Client({ initialData, submissionId, fiscalYear }: Form4ClientProps) {
+export function Form4Client({ initialData, submissionId, fiscalYear, grades }: Form4ClientProps) {
+  const gradeById = useMemo(
+    () => new Map(grades.map((g) => [g.id, g])),
+    [grades]
+  )
+
   const [rows, setRows] = useState<NewStaffRecord[]>(() => initialData || [])
   const [isPending, startTransition] = useTransition()
 
@@ -122,7 +136,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear }: Form4Clie
 
   const openAddModal = () => {
     setEditingIndex(null)
-    setSelectedGrade(String(ALL_GRADES[0].id))
+    setSelectedGrade(grades[0]?.id ? String(grades[0].id) : '')
     setCountInput('')
     setBasicInput('')
     setDateInput('')
@@ -207,9 +221,21 @@ export function Form4Client({ initialData, submissionId, fiscalYear }: Form4Clie
     }
   }
 
-  // Separation into Officers (1-10) and Staff (11-20)
-  const officerRows = useMemo(() => rows.filter((r) => r.grade_id <= 10), [rows])
-  const staffRows = useMemo(() => rows.filter((r) => r.grade_id > 10), [rows])
+  // The officer/staff split comes from `ref_grades.category`, not a fixed
+  // grade-number range, so it stays correct if the admin edits the grade list.
+  const gradeNoOf = (row: NewStaffRecord) =>
+    gradeById.get(row.grade_id)?.grade_no ?? row.grade_id
+  const isOfficer = (row: NewStaffRecord) =>
+    gradeById.get(row.grade_id)?.category === 'officer'
+
+  const officerRows = useMemo(
+    () => rows.filter(isOfficer).sort((a, b) => gradeNoOf(a) - gradeNoOf(b)),
+    [rows, gradeById]
+  )
+  const staffRows = useMemo(
+    () => rows.filter((r) => !isOfficer(r)).sort((a, b) => gradeNoOf(a) - gradeNoOf(b)),
+    [rows, gradeById]
+  )
 
   const totals = useMemo(() => {
     const sumOfficers = officerRows.reduce(
@@ -243,7 +269,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear }: Form4Clie
 
   const handleSaveAll = async () => {
     if (!submissionId) return
-    await saveFormNewStaffRows(submissionId, rows)
+    return await saveFormNewStaffRows(submissionId, rows)
   }
 
   return (
@@ -300,7 +326,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear }: Form4Clie
                 <div className="bg-slate-100/80 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
                   <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                    কর্মকর্তা (গ্রেড ১ - ১০)
+                    কর্মকর্তা
                   </h3>
                   <span className="text-xs font-semibold text-slate-500">
                     মোট পদ: {toBanglaNumber(totals.officers.count)} টি
@@ -309,7 +335,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear }: Form4Clie
                 <Table>
                   <TableHeader className="bg-slate-50">
                     <TableRow>
-                      <TableHead className="w-16 text-center font-bold text-slate-700">ক্র. নং</TableHead>
+                      <TableHead className="w-16 text-center font-bold text-slate-700">ক্রম</TableHead>
                       <TableHead className="w-28 font-bold text-slate-700">গ্রেড</TableHead>
                       <TableHead className="text-right font-bold text-slate-700">পদের সংখ্যা</TableHead>
                       <TableHead className="text-right font-bold text-slate-700">মাসিক মূল বেতন</TableHead>
@@ -323,7 +349,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear }: Form4Clie
                     {officerRows.map((row, idx) => (
                       <TableRow key={idx} className="hover:bg-slate-50/70">
                         <TableCell className="text-center font-mono text-xs text-slate-500">{toBanglaNumber(idx + 1)}</TableCell>
-                        <TableCell className="font-bold font-mono text-slate-800">গ্রেড {toBanglaNumber(row.grade_id)}</TableCell>
+                        <TableCell className="font-bold font-mono text-slate-800">গ্রেড {toBanglaNumber(gradeNoOf(row))}</TableCell>
                         <TableCell className="text-right font-mono font-medium">{toBanglaNumber(row.count)}</TableCell>
                         <TableCell className="text-right font-mono font-medium text-slate-800">{toBanglaAmount(row.monthly_basic)}</TableCell>
                         <TableCell className="text-center font-mono text-xs">{row.expected_date ? toBanglaNumber(row.expected_date) : '—'}</TableCell>
@@ -378,7 +404,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear }: Form4Clie
                 <div className="bg-slate-100/80 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
                   <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                    কর্মচারী (গ্রেড ১১ - ২০)
+                    কর্মচারী
                   </h3>
                   <span className="text-xs font-semibold text-slate-500">
                     মোট পদ: {toBanglaNumber(totals.staff.count)} টি
@@ -387,7 +413,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear }: Form4Clie
                 <Table>
                   <TableHeader className="bg-slate-50">
                     <TableRow>
-                      <TableHead className="w-16 text-center font-bold text-slate-700">ক্র. নং</TableHead>
+                      <TableHead className="w-16 text-center font-bold text-slate-700">ক্রম</TableHead>
                       <TableHead className="w-28 font-bold text-slate-700">গ্রেড</TableHead>
                       <TableHead className="text-right font-bold text-slate-700">পদের সংখ্যা</TableHead>
                       <TableHead className="text-right font-bold text-slate-700">মাসিক মূল বেতন</TableHead>
@@ -401,7 +427,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear }: Form4Clie
                     {staffRows.map((row, idx) => (
                       <TableRow key={idx} className="hover:bg-slate-50/70">
                         <TableCell className="text-center font-mono text-xs text-slate-500">{toBanglaNumber(idx + 1)}</TableCell>
-                        <TableCell className="font-bold font-mono text-slate-800">গ্রেড {toBanglaNumber(row.grade_id)}</TableCell>
+                        <TableCell className="font-bold font-mono text-slate-800">গ্রেড {toBanglaNumber(gradeNoOf(row))}</TableCell>
                         <TableCell className="text-right font-mono font-medium">{toBanglaNumber(row.count)}</TableCell>
                         <TableCell className="text-right font-mono font-medium text-slate-800">{toBanglaAmount(row.monthly_basic)}</TableCell>
                         <TableCell className="text-center font-mono text-xs">{row.expected_date ? toBanglaNumber(row.expected_date) : '—'}</TableCell>
@@ -506,9 +532,9 @@ export function Form4Client({ initialData, submissionId, fiscalYear }: Form4Clie
                   <SelectValue placeholder="গ্রেড বাছাই করুন" />
                 </SelectTrigger>
                 <SelectContent>
-                  {ALL_GRADES.map((g) => (
+                  {grades.map((g) => (
                     <SelectItem key={g.id} value={String(g.id)}>
-                      {g.label} ({g.category})
+                      গ্রেড {toBanglaNumber(g.grade_no)} ({categoryLabel(g.category)})
                     </SelectItem>
                   ))}
                 </SelectContent>

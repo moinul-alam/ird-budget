@@ -1,6 +1,6 @@
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import { Form3Client } from './form-3-client'
+import { Form5Client } from './form-5-client'
 import {
   loadAllowanceTypes,
   loadFormAllowancesInitial,
@@ -20,7 +20,7 @@ export default async function Form3Page() {
   ])
 
   return (
-    <Form3Client
+    <Form5Client
       submissionId={submissionId}
       allowanceTypes={allowanceTypes}
       initialData={initialData}

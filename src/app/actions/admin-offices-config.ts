@@ -289,7 +289,11 @@ export async function getOfficeLevels(): Promise<OfficeLevelItem[]> {
   const levels = await prisma.coreOfficeLevel.findMany({
     include: {
       officeType: {
-        select: { name: true, departmentId: true },
+        select: {
+          name: true,
+          departmentId: true,
+          department: { select: { name: true } },
+        },
       },
     },
     orderBy: { levelOrder: 'asc' },
@@ -300,7 +304,7 @@ export async function getOfficeLevels(): Promise<OfficeLevelItem[]> {
     office_type_id: String(l.officeTypeId),
     office_type_name: l.officeType?.name,
     department_id: l.officeType?.departmentId ? String(l.officeType.departmentId) : '',
-    department_name: undefined,
+    department_name: l.officeType?.department?.name,
     level_name: l.levelName,
     level_order: l.levelOrder,
     created_at: l.createdAt.toISOString(),
@@ -421,7 +425,7 @@ export async function saveGroupBudgetSetting(data: {
       })
     }
 
-    revalidatePath('/admin/offices-config')
+    revalidatePath('/admin/offices-management/group-budget')
     return { success: true }
   } catch (error: any) {
     return { error: error.message }
@@ -437,7 +441,7 @@ export async function deleteGroupBudgetSetting(id: string) {
       where: { id: BigInt(id) },
     })
 
-    revalidatePath('/admin/offices-config')
+    revalidatePath('/admin/offices-management/group-budget')
     return { success: true }
   } catch (error: any) {
     return { error: error.message }

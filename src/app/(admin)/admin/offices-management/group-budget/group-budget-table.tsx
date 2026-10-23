@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { toBanglaNumber } from '@/lib/bangla'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -21,18 +22,15 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Layers, Plus, Edit2, Trash2, ArrowRight, Loader2 } from 'lucide-react'
 import {
-  DepartmentItem,
   OfficeTypeHierarchyItem,
   OfficeLevelItem,
   GroupBudgetSettingItem,
 } from '@/app/actions/admin-offices-config'
-import { GroupModalState, ConfigTabType } from '../_types/offices-config'
-import { getLevelOrderBadge } from '../_lib/helpers'
+import { GroupModalState } from '../../offices-config/_types/offices-config'
+import { getLevelOrderBadge } from '../../offices-config/_lib/helpers'
 
-interface TabGroupBudgetProps {
-  displayGroupItems: GroupBudgetSettingItem[]
+interface GroupBudgetTableProps {
   filteredGroupItems: GroupBudgetSettingItem[]
-  departments: DepartmentItem[]
   officeTypes: OfficeTypeHierarchyItem[]
   officeTypesWithGroupBudget: OfficeTypeHierarchyItem[]
   officeLevels: OfficeLevelItem[]
@@ -42,14 +40,11 @@ interface TabGroupBudgetProps {
   setGroupModal: React.Dispatch<React.SetStateAction<GroupModalState>>
   onSaveGroupSetting: () => void
   onDeleteGroupSetting: (gs: GroupBudgetSettingItem) => void
-  setActiveTab: (tab: ConfigTabType) => void
   isPending: boolean
 }
 
-export function TabGroupBudget({
-  displayGroupItems,
+export function GroupBudgetTable({
   filteredGroupItems,
-  departments,
   officeTypes,
   officeTypesWithGroupBudget,
   officeLevels,
@@ -59,9 +54,8 @@ export function TabGroupBudget({
   setGroupModal,
   onSaveGroupSetting,
   onDeleteGroupSetting,
-  setActiveTab,
   isPending,
-}: TabGroupBudgetProps) {
+}: GroupBudgetTableProps) {
   return (
     <>
       <Card className="border-slate-200 shadow-sm">
@@ -122,17 +116,16 @@ export function TabGroupBudget({
                 কোনো অফিসের ধরণ বিদ্যমান নেই
               </h3>
               <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                গ্রুপ বাজেট চিহ্নিত করতে প্রথমে ৩ নম্বর ট্যাবে অফিসের ধরণ যুক্ত করুন।
+                গ্রুপ বাজেট চিহ্নিত করতে প্রথমে অরগানোগ্রামে অফিসের ধরণ যুক্ত করুন।
               </p>
               <div className="mt-4">
-                <Button
-                  size="sm"
-                  onClick={() => setActiveTab('office_types')}
-                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5"
+                <Link
+                  href="/admin/offices-config"
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 text-xs font-bold"
                 >
-                  ৩. অফিসের ধরণের ট্যাবে যান
+                  অরগানোগ্রামে যান
                   <ArrowRight className="h-3.5 w-3.5" />
-                </Button>
+                </Link>
               </div>
             </div>
           ) : filteredGroupItems.length === 0 ? (
@@ -141,9 +134,6 @@ export function TabGroupBudget({
               <h3 className="text-sm font-bold text-slate-700">
                 কোনো গ্রুপ সেটিং তৈরি করা হয়নি
               </h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                নতুন গ্রুপ বাজেট অফিস চিহ্নিত করতে &quot;নতুন গ্রুপ সেটিং যুক্ত করুন&quot; বাটনে চাপুন।
-              </p>
               <div className="mt-4">
                 <Button
                   size="sm"
@@ -171,7 +161,7 @@ export function TabGroupBudget({
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                    <th className="py-3 px-4 w-20">ক্র. নং.</th>
+                    <th className="py-3 px-4 w-20">ক্রম.</th>
                     <th className="py-3 px-4">দপ্তর / সংস্থা</th>
                     <th className="py-3 px-4">অফিসের ধরণ</th>
                     <th className="py-3 px-4">অফিসের স্তর</th>
@@ -221,7 +211,7 @@ export function TabGroupBudget({
                             onClick={() => {
                               setGroupModal({
                                 open: true,
-                                id: g.id.startsWith('legacy-') ? undefined : g.id,
+                                id: g.id,
                                 department_id: g.department_id,
                                 office_type_id: g.office_type_id,
                                 office_level_id: g.office_level_id || '',
@@ -254,7 +244,7 @@ export function TabGroupBudget({
         </CardContent>
       </Card>
 
-      {/* MODAL 5: GROUP BUDGET SETTING */}
+      {/* MODAL: GROUP BUDGET SETTING */}
       <Dialog open={groupModal.open} onOpenChange={(open) => !open && setGroupModal((prev) => ({ ...prev, open: false }))}>
         <DialogContent className="sm:max-w-md rounded-2xl p-6">
           <DialogHeader>

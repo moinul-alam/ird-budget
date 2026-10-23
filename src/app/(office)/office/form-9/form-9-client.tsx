@@ -130,7 +130,7 @@ export function Form9Client({
 
   const handleSaveAll = async () => {
     if (!submissionId || !data) return
-    await saveFormHouseRent(submissionId, {
+    return await saveFormHouseRent(submissionId, {
       monthly_bill: data.monthly_bill,
       due: data.due,
       contract_start_date: data.contract_start_date,

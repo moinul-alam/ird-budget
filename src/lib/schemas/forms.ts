@@ -24,7 +24,7 @@ export const formStaffRowSchema = z.object({
 });
 export type FormStaffRow = z.infer<typeof formStaffRowSchema>;
 
-// Form 3: Allowances
+// Form 5: Allowances
 // Captures allowances per type (e.g. overtime, duty, dress, risk)
 export const formAllowanceRowSchema = z.object({
   allowance_type_id: z.number().int().positive(),
@@ -35,7 +35,7 @@ export const formAllowanceRowSchema = z.object({
 });
 export type FormAllowanceRow = z.infer<typeof formAllowanceRowSchema>;
 
-// Form 4: Leave Encashment & Rest/Recreation
+// Form 6: Leave Encashment & Rest/Recreation
 // Captures officer/staff leave encashment and rest/recreation allowances
 export const formLeaveSchema = z.object({
   leave_encashment_officer_basic: z.number().nonnegative().default(0),
@@ -47,7 +47,7 @@ export const formLeaveSchema = z.object({
 });
 export type FormLeave = z.infer<typeof formLeaveSchema>;
 
-// Form 5: Vehicles
+// Form 7: Vehicles
 // Captures vehicle count and expenses per vehicle/fuel config
 export const formVehicleRowSchema = z.object({
   vehicle_fuel_config_id: z.number().int().positive(),
@@ -57,7 +57,7 @@ export const formVehicleRowSchema = z.object({
 });
 export type FormVehicleRow = z.infer<typeof formVehicleRowSchema>;
 
-// Form 6: Vehicle Rent
+// Form 8: Vehicle Rent
 // Captures number of rented vehicles
 export const formVehicleRentRowSchema = z.object({
   vehicle_rent_config_id: z.number().int().positive(),
@@ -65,7 +65,7 @@ export const formVehicleRentRowSchema = z.object({
 });
 export type FormVehicleRentRow = z.infer<typeof formVehicleRentRowSchema>;
 
-// Form 7: IT Equipment
+// Form 10: IT Equipment
 // Captures existing/damaged IT equipment and requirements
 export const formITEquipmentRowSchema = z.object({
   equipment_type_id: z.number().int().positive(),
@@ -77,7 +77,7 @@ export const formITEquipmentRowSchema = z.object({
 });
 export type FormITEquipmentRow = z.infer<typeof formITEquipmentRowSchema>;
 
-// Form 8: Utilities
+// Form 11: Utilities
 // Captures annual cost and due for utilities (electricity, water, internet)
 export const formUtilityRowSchema = z.object({
   utility_type_id: z.number().int().positive(),
@@ -96,7 +96,7 @@ export const formHouseRentSchema = z.object({
 });
 export type FormHouseRent = z.infer<typeof formHouseRentSchema>;
 
-// Form 10: Return Info
+// Form 12: Return Info
 // Captures TIN counts and return counts for postal expense
 export const formReturnInfoSchema = z.object({
   tin_count: z.number().int().nonnegative().default(0),

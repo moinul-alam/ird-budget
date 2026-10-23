@@ -38,6 +38,11 @@ export interface FieldOfficeItem {
   created_at?: string
 }
 
+// Head offices are listed alphabetically with natural numeric ordering (১, ২, ৩ … ১০, ১১)
+// rather than by insertion order. Postgres has no Bengali collation configured, so the sort
+// happens here.
+const nameCollator = new Intl.Collator('bn', { numeric: true, sensitivity: 'base' })
+
 // -------------------------------------------------------------
 // HEAD OFFICES (parent_office_id IS NULL)
 // -------------------------------------------------------------
@@ -56,23 +61,25 @@ export async function getHeadOffices(): Promise<HeadOfficeItem[]> {
         select: { levelName: true, levelOrder: true },
       },
     },
-    orderBy: { id: 'desc' },
+    orderBy: { id: 'asc' },
   })
 
-  return offices.map((o) => ({
-    id: String(o.id),
-    name: o.name,
-    budget_id: o.budgetId,
-    department_id: o.departmentId ? String(o.departmentId) : '',
-    department_name: o.department?.name || '—',
-    ministry_id: '',
-    ministry_name: '',
-    office_type_id: o.officeTypeId ? String(o.officeTypeId) : '',
-    office_type_name: o.officeType?.name || '—',
-    office_level_id: o.officeLevelId ? String(o.officeLevelId) : undefined,
-    office_level_name: o.officeLevel?.levelName,
-    created_at: o.createdAt.toISOString(),
-  }))
+  return offices
+    .map((o) => ({
+      id: String(o.id),
+      name: o.name,
+      budget_id: o.budgetId,
+      department_id: o.departmentId ? String(o.departmentId) : '',
+      department_name: o.department?.name || '—',
+      ministry_id: '',
+      ministry_name: '',
+      office_type_id: o.officeTypeId ? String(o.officeTypeId) : '',
+      office_type_name: o.officeType?.name || '—',
+      office_level_id: o.officeLevelId ? String(o.officeLevelId) : undefined,
+      office_level_name: o.officeLevel?.levelName,
+      created_at: o.createdAt.toISOString(),
+    }))
+    .sort((a, b) => nameCollator.compare(a.name, b.name))
 }
 
 export async function saveHeadOffice(data: {
@@ -80,7 +87,6 @@ export async function saveHeadOffice(data: {
   name: string
   department_id: string
   office_type_id: string
-  office_level_id?: string
   budget_id?: string
 }) {
   const session = await getAdminSession()
@@ -93,6 +99,14 @@ export async function saveHeadOffice(data: {
   const trimmedBudget = data.budget_id ? data.budget_id.trim() : ''
 
   try {
+    // A head office always sits at the top level of its office type, so the level is
+    // resolved from the office type's hierarchy instead of being picked by the admin.
+    const topLevel = await prisma.coreOfficeLevel.findFirst({
+      where: { officeTypeId: BigInt(data.office_type_id) },
+      orderBy: [{ levelOrder: 'asc' }, { id: 'asc' }],
+      select: { id: true },
+    })
+
     // Verify budget_id uniqueness
     if (trimmedBudget) {
       const existing = await prisma.coreOffice.findFirst({
@@ -114,7 +128,7 @@ export async function saveHeadOffice(data: {
           budgetId: trimmedBudget || undefined,
           departmentId: BigInt(data.department_id),
           officeTypeId: BigInt(data.office_type_id),
-          officeLevelId: data.office_level_id ? BigInt(data.office_level_id) : null,
+          officeLevelId: topLevel ? topLevel.id : null,
         },
       })
     } else {
@@ -125,7 +139,7 @@ export async function saveHeadOffice(data: {
           budgetId: trimmedBudget,
           departmentId: BigInt(data.department_id),
           officeTypeId: BigInt(data.office_type_id),
-          officeLevelId: data.office_level_id ? BigInt(data.office_level_id) : null,
+          officeLevelId: topLevel ? topLevel.id : null,
           isActive: true,
         },
       })

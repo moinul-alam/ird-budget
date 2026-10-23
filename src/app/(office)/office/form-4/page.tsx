@@ -2,7 +2,7 @@ import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { getFormNewStaffRows, NewStaffRecord } from '@/app/actions/forms'
 import { Form4Client } from './form-4-client'
-import { loadSubmissionFiscalYear } from '@/lib/office/load-form-data'
+import { loadGrades, loadSubmissionFiscalYear } from '@/lib/office/load-form-data'
 
 export default async function Form4Page() {
   const session = await getOfficeSession()
@@ -13,8 +13,13 @@ export default async function Form4Page() {
   let initialData: NewStaffRecord[] = []
   let fiscalYear = '2026-2027'
 
+  const [loadedInitial, grades] = await Promise.all([
+    submissionId ? getFormNewStaffRows(submissionId) : Promise.resolve([]),
+    loadGrades(),
+  ])
+  initialData = loadedInitial
+
   if (submissionId) {
-    initialData = await getFormNewStaffRows(submissionId)
     const fy = await loadSubmissionFiscalYear(submissionId)
     if (fy) fiscalYear = fy
   }
@@ -24,6 +29,7 @@ export default async function Form4Page() {
       initialData={initialData}
       submissionId={submissionId}
       fiscalYear={fiscalYear}
+      grades={grades}
     />
   )
 }
