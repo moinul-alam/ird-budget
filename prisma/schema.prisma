@@ -1,0 +1,598 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// DOMAIN 1: CORE STRUCTURE (Admin manages)
+// ============================================================
+
+model CoreMinistry {
+  id        BigInt   @id @default(autoincrement())
+  code      String   @unique @db.VarChar(50)
+  name      String   @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  departments CoreDepartment[]
+
+  @@map("core_ministries")
+}
+
+model CoreDepartment {
+  id         BigInt   @id @default(autoincrement())
+  ministryId BigInt
+  name       String   @db.Text
+  code       String   @unique @db.VarChar(50)
+  createdAt  DateTime @default(now()) @db.Timestamptz
+  updatedAt  DateTime @updatedAt @db.Timestamptz
+
+  ministry    CoreMinistry     @relation(fields: [ministryId], references: [id], onDelete: Restrict)
+  officeTypes CoreOfficeType[]
+  offices     CoreOffice[]     @relation("DepartmentOffices")
+
+  @@map("core_departments")
+}
+
+model CoreOfficeType {
+  id            BigInt   @id @default(autoincrement())
+  departmentId  BigInt
+  name          String   @db.Text
+  isGroupBudget Boolean  @default(false)
+  sortOrder     Int      @default(1)
+  createdAt     DateTime @default(now()) @db.Timestamptz
+  updatedAt     DateTime @updatedAt @db.Timestamptz
+
+  department     CoreDepartment           @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  officeLevels   CoreOfficeLevel[]
+  offices        CoreOffice[]
+  vehicleConfigs AdminVehicleConfig[]
+  rentConfigs    AdminVehicleRentConfig[]
+  itConfigs      AdminItConfig[]
+  groupRules     AdminGroupBudgetRule[]
+
+  @@map("core_office_types")
+}
+
+model CoreOfficeLevel {
+  id           BigInt   @id @default(autoincrement())
+  officeTypeId BigInt
+  levelName    String   @db.Text
+  levelOrder   Int      @default(1)
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @updatedAt @db.Timestamptz
+
+  officeType   CoreOfficeType                   @relation(fields: [officeTypeId], references: [id], onDelete: Cascade)
+  offices      CoreOffice[]
+  codeMappings OfficeLevelEconomicCodeMapping[]
+  groupRules   AdminGroupBudgetRule[]
+
+  @@map("core_office_levels")
+}
+
+model CoreOffice {
+  id             BigInt   @id @default(autoincrement())
+  budgetId       String   @unique @db.VarChar(50)
+  name           String   @db.Text
+  departmentId   BigInt
+  officeTypeId   BigInt
+  officeLevelId  BigInt?
+  parentOfficeId BigInt?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now()) @db.Timestamptz
+  updatedAt      DateTime @updatedAt @db.Timestamptz
+
+  department   CoreDepartment     @relation(fields: [departmentId], references: [id], onDelete: Restrict, name: "DepartmentOffices")
+  officeType   CoreOfficeType     @relation(fields: [officeTypeId], references: [id], onDelete: Restrict)
+  officeLevel  CoreOfficeLevel?   @relation(fields: [officeLevelId], references: [id], onDelete: SetNull)
+  parentOffice CoreOffice?        @relation("OfficeHierarchy", fields: [parentOfficeId], references: [id], onDelete: SetNull)
+  childOffices CoreOffice[]       @relation("OfficeHierarchy")
+  officeUsers  OfficeUser[]
+  submissions  OfficeSubmission[]
+
+  @@map("core_offices")
+}
+
+model CoreBudgetCycle {
+  id         BigInt    @id @default(autoincrement())
+  fiscalYear String    @db.VarChar(20)
+  budgetType String    @db.VarChar(20)
+  title      String    @db.Text
+  status     String    @default("closed") @db.VarChar(20)
+  openedAt   DateTime? @db.Timestamptz
+  closedAt   DateTime? @db.Timestamptz
+  createdAt  DateTime  @default(now()) @db.Timestamptz
+  updatedAt  DateTime  @updatedAt @db.Timestamptz
+
+  submissions OfficeSubmission[]
+
+  @@unique([fiscalYear, budgetType])
+  @@map("core_budget_cycles")
+}
+
+// ============================================================
+// DOMAIN 2: REFERENCE DATA (Admin configures)
+// ============================================================
+
+model RefGrade {
+  id          Int      @id @default(autoincrement())
+  gradeNo     Int      @unique
+  category    String   @db.VarChar(20)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @db.Timestamptz
+
+  staffWorking     OfficeFormStaffWorking[]
+  staffSuspended   OfficeFormStaffSuspended[]
+  staffNewRecruits OfficeFormStaffNewRecruit[]
+
+  @@map("ref_grades")
+}
+
+model RefEconomicCode {
+  id         BigInt   @id @default(autoincrement())
+  code       String   @unique @db.VarChar(20)
+  name       String   @db.Text
+  category   String?  @db.VarChar(50)
+  isManual   Boolean  @default(true)
+  formulaKey String?  @db.VarChar(100)
+  sortOrder  Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now()) @db.Timestamptz
+  updatedAt  DateTime @updatedAt @db.Timestamptz
+
+  codeMappings OfficeLevelEconomicCodeMapping[]
+  budgetSheets OfficeBudgetSheet[]
+
+  @@map("ref_economic_codes")
+}
+
+model OfficeLevelEconomicCodeMapping {
+  id             BigInt   @id @default(autoincrement())
+  officeLevelId  BigInt
+  economicCodeId BigInt
+  isEnabled      Boolean  @default(true)
+  createdAt      DateTime @default(now()) @db.Timestamptz
+
+  officeLevel  CoreOfficeLevel @relation(fields: [officeLevelId], references: [id], onDelete: Cascade)
+  economicCode RefEconomicCode @relation(fields: [economicCodeId], references: [id], onDelete: Cascade)
+
+  @@unique([officeLevelId, economicCodeId])
+  @@index([officeLevelId, isEnabled])
+  @@index([economicCodeId])
+  @@map("office_level_economic_code_mapping")
+}
+
+model RefAllowanceType {
+  id                 BigInt   @id @default(autoincrement())
+  name               String   @unique @db.Text
+  isCalculated       Boolean  @default(false)
+  formulaKey         String?  @db.VarChar(100)
+  applicableCategory String?  @db.VarChar(20)
+  createdAt          DateTime @default(now()) @db.Timestamptz
+
+  allowances OfficeFormAllowance[]
+
+  @@map("ref_allowance_types")
+}
+
+model RefVehicleType {
+  id        BigInt   @id @default(autoincrement())
+  name      String   @unique @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  vehicleConfigs AdminVehicleConfig[]
+  rentConfigs    AdminVehicleRentConfig[]
+
+  @@map("ref_vehicle_types")
+}
+
+model RefFuelType {
+  id        BigInt   @id @default(autoincrement())
+  name      String   @unique @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  vehicleConfigs AdminVehicleConfig[]
+
+  @@map("ref_fuel_types")
+}
+
+model RefItEquipmentType {
+  id        BigInt   @id @default(autoincrement())
+  name      String   @unique @db.Text
+  hasToner  Boolean  @default(false)
+  isLumpsum Boolean  @default(false)
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  itConfigs AdminItConfig[]
+
+  @@map("ref_it_equipment_types")
+}
+
+model RefUtilityType {
+  id        BigInt   @id @default(autoincrement())
+  name      String   @unique @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  utilities OfficeFormUtility[]
+
+  @@map("ref_utility_types")
+}
+
+// ============================================================
+// DOMAIN 3: ADMIN CONFIGURATION (Rates & Defaults)
+// ============================================================
+
+model AdminRate {
+  id          BigInt   @id @default(autoincrement())
+  key         String   @unique @db.VarChar(50)
+  name        String   @db.Text
+  value       Decimal  @db.Decimal(14, 2)
+  unit        String   @default("টাকা") @db.VarChar(20)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
+
+  houseRents  OfficeFormHouseRent[]
+  returnInfos OfficeFormReturnInfo[]
+
+  @@map("admin_rates")
+}
+
+model AdminVehicleConfig {
+  id                         BigInt   @id @default(autoincrement())
+  officeTypeId               BigInt
+  vehicleTypeId              BigInt
+  fuelTypeId                 BigInt
+  monthlyFuelQuotaLiter      Decimal? @default(0) @db.Decimal(10, 2)
+  annualLubeAllowance        Decimal? @default(0) @db.Decimal(14, 2)
+  annualMaintenanceAllowance Decimal? @default(0) @db.Decimal(14, 2)
+  createdAt                  DateTime @default(now()) @db.Timestamptz
+  updatedAt                  DateTime @updatedAt @db.Timestamptz
+
+  officeType  CoreOfficeType          @relation(fields: [officeTypeId], references: [id], onDelete: Cascade)
+  vehicleType RefVehicleType          @relation(fields: [vehicleTypeId], references: [id], onDelete: Cascade)
+  fuelType    RefFuelType             @relation(fields: [fuelTypeId], references: [id], onDelete: Cascade)
+  vehicles    OfficeFormVehicleGovt[]
+
+  @@unique([officeTypeId, vehicleTypeId, fuelTypeId])
+  @@map("admin_vehicle_config")
+}
+
+model AdminVehicleRentConfig {
+  id              BigInt   @id @default(autoincrement())
+  officeTypeId    BigInt
+  vehicleTypeId   BigInt
+  monthlyRentRate Decimal? @default(0) @db.Decimal(14, 2)
+  createdAt       DateTime @default(now()) @db.Timestamptz
+  updatedAt       DateTime @updatedAt @db.Timestamptz
+
+  officeType  CoreOfficeType          @relation(fields: [officeTypeId], references: [id], onDelete: Cascade)
+  vehicleType RefVehicleType          @relation(fields: [vehicleTypeId], references: [id], onDelete: Cascade)
+  vehicles    OfficeFormVehicleRent[]
+
+  @@unique([officeTypeId, vehicleTypeId])
+  @@map("admin_vehicle_rent_config")
+}
+
+model AdminItConfig {
+  id              BigInt   @id @default(autoincrement())
+  officeTypeId    BigInt
+  equipmentTypeId BigInt
+  unitBudget      Decimal? @default(0) @db.Decimal(14, 2)
+  createdAt       DateTime @default(now()) @db.Timestamptz
+  updatedAt       DateTime @updatedAt @db.Timestamptz
+
+  officeType    CoreOfficeType          @relation(fields: [officeTypeId], references: [id], onDelete: Cascade)
+  equipmentType RefItEquipmentType      @relation(fields: [equipmentTypeId], references: [id], onDelete: Cascade)
+  equipments    OfficeFormItEquipment[]
+
+  @@unique([officeTypeId, equipmentTypeId])
+  @@map("admin_it_config")
+}
+
+// ============================================================
+// DOMAIN 4: OFFICE DATA (Offices fill forms)
+// ============================================================
+
+model OfficeUser {
+  id           BigInt    @id @default(autoincrement())
+  officeId     BigInt    @unique
+  passwordHash String    @db.Text
+  passwordHint String    @default("12345") @db.Text
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime? @db.Timestamptz
+  createdAt    DateTime  @default(now()) @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @db.Timestamptz
+
+  office CoreOffice @relation(fields: [officeId], references: [id], onDelete: Cascade)
+
+  @@map("office_users")
+}
+
+model OfficeSubmission {
+  id              BigInt    @id @default(autoincrement())
+  officeId        BigInt
+  cycleId         BigInt
+  status          String    @default("draft") @db.VarChar(20)
+  submittedAt     DateTime? @db.Timestamptz
+  reviewedBy      BigInt?
+  reviewedAt      DateTime? @db.Timestamptz
+  rejectionReason String?   @db.Text
+  createdAt       DateTime  @default(now()) @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @db.Timestamptz
+
+  office           CoreOffice                  @relation(fields: [officeId], references: [id], onDelete: Restrict)
+  cycle            CoreBudgetCycle             @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  reviewer         AdminUser?                  @relation(fields: [reviewedBy], references: [id])
+  formBasic        OfficeFormBasic?
+  staffWorking     OfficeFormStaffWorking[]
+  staffSuspended   OfficeFormStaffSuspended[]
+  staffNewRecruits OfficeFormStaffNewRecruit[]
+  allowances       OfficeFormAllowance[]
+  leaveEncashment  OfficeFormLeaveEncashment?
+  vehiclesGovt     OfficeFormVehicleGovt[]
+  vehiclesRent     OfficeFormVehicleRent[]
+  houseRent        OfficeFormHouseRent?
+  itEquipments     OfficeFormItEquipment[]
+  utilities        OfficeFormUtility[]
+  returnInfo       OfficeFormReturnInfo?
+  budgetSheets     OfficeBudgetSheet[]
+
+  @@unique([officeId, cycleId])
+  @@map("office_submissions")
+}
+
+model OfficeFormBasic {
+  id           BigInt   @id @default(autoincrement())
+  submissionId BigInt   @unique
+  headOfOffice String   @db.Text
+  designation  String?  @db.Text
+  phone        String?  @db.VarChar(30)
+  email        String?  @db.VarChar(100)
+  address      String?  @db.Text
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @updatedAt @db.Timestamptz
+
+  submission OfficeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("office_form_basic")
+}
+
+model OfficeFormStaffWorking {
+  id           BigInt   @id @default(autoincrement())
+  submissionId BigInt
+  gradeId      Int
+  staffCount   Int      @default(0)
+  monthlyBasic Decimal  @default(0) @db.Decimal(14, 2)
+  dueSalary    Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @updatedAt @db.Timestamptz
+
+  submission OfficeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  grade      RefGrade         @relation(fields: [gradeId], references: [gradeNo])
+
+  @@unique([submissionId, gradeId])
+  @@map("office_form_staff_working")
+}
+
+model OfficeFormStaffSuspended {
+  id                    BigInt   @id @default(autoincrement())
+  submissionId          BigInt
+  gradeId               Int
+  suspendedCount        Int      @default(0)
+  suspendedMonthlyBasic Decimal  @default(0) @db.Decimal(14, 2)
+  suspendedDueSalary    Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt             DateTime @default(now()) @db.Timestamptz
+  updatedAt             DateTime @updatedAt @db.Timestamptz
+
+  submission OfficeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  grade      RefGrade         @relation(fields: [gradeId], references: [gradeNo])
+
+  @@unique([submissionId, gradeId])
+  @@map("office_form_staff_suspended")
+}
+
+model OfficeFormStaffNewRecruit {
+  id              BigInt   @id @default(autoincrement())
+  submissionId    BigInt
+  gradeId         Int
+  recruitCount    Int      @default(0)
+  monthlyBasic    Decimal  @default(0) @db.Decimal(14, 2)
+  joiningDate     DateTime @db.Date
+  monthsRemaining Int      @default(12)
+  totalSalary     Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt       DateTime @default(now()) @db.Timestamptz
+  updatedAt       DateTime @updatedAt @db.Timestamptz
+
+  submission OfficeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  grade      RefGrade         @relation(fields: [gradeId], references: [gradeNo])
+
+  @@map("office_form_staff_new_recruit")
+}
+
+model OfficeFormAllowance {
+  id                BigInt    @id @default(autoincrement())
+  submissionId      BigInt
+  allowanceTypeId   BigInt
+  officerCount      Int       @default(0)
+  staffCount        Int       @default(0)
+  totalAnnualAmount Decimal   @default(0) @db.Decimal(14, 2)
+  effectiveDate     DateTime? @db.Date
+  createdAt         DateTime  @default(now()) @db.Timestamptz
+  updatedAt         DateTime  @updatedAt @db.Timestamptz
+
+  submission    OfficeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  allowanceType RefAllowanceType @relation(fields: [allowanceTypeId], references: [id])
+
+  @@unique([submissionId, allowanceTypeId])
+  @@map("office_form_allowances")
+}
+
+model OfficeFormLeaveEncashment {
+  id                          BigInt   @id @default(autoincrement())
+  submissionId                BigInt   @unique
+  leaveEncashmentOfficerBasic Decimal  @default(0) @db.Decimal(14, 2)
+  leaveEncashmentOfficerDue   Decimal  @default(0) @db.Decimal(14, 2)
+  leaveEncashmentStaffBasic   Decimal  @default(0) @db.Decimal(14, 2)
+  leaveEncashmentStaffDue     Decimal  @default(0) @db.Decimal(14, 2)
+  restRecreationAmount        Decimal  @default(0) @db.Decimal(14, 2)
+  restRecreationDue           Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt                   DateTime @default(now()) @db.Timestamptz
+  updatedAt                   DateTime @updatedAt @db.Timestamptz
+
+  submission OfficeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  @@map("office_form_leave_encashment")
+}
+
+model OfficeFormVehicleGovt {
+  id              BigInt   @id @default(autoincrement())
+  submissionId    BigInt
+  vehicleConfigId BigInt
+  vehicleCount    Int      @default(0)
+  maintenanceDue  Decimal? @db.Decimal(14, 2)
+  createdAt       DateTime @default(now()) @db.Timestamptz
+  updatedAt       DateTime @updatedAt @db.Timestamptz
+
+  submission OfficeSubmission   @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  config     AdminVehicleConfig @relation(fields: [vehicleConfigId], references: [id])
+
+  @@unique([submissionId, vehicleConfigId])
+  @@map("office_form_vehicles_govt")
+}
+
+model OfficeFormVehicleRent {
+  id                  BigInt   @id @default(autoincrement())
+  submissionId        BigInt
+  vehicleRentConfigId BigInt
+  vehicleCount        Int      @default(0)
+  createdAt           DateTime @default(now()) @db.Timestamptz
+  updatedAt           DateTime @updatedAt @db.Timestamptz
+
+  submission OfficeSubmission       @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  config     AdminVehicleRentConfig @relation(fields: [vehicleRentConfigId], references: [id])
+
+  @@unique([submissionId, vehicleRentConfigId])
+  @@map("office_form_vehicles_rent")
+}
+
+model OfficeFormHouseRent {
+  id           BigInt   @id @default(autoincrement())
+  submissionId BigInt   @unique
+  monthlyRent  Decimal  @default(0) @db.Decimal(14, 2)
+  vatRateId    BigInt?
+  arrearsDue   Decimal  @default(0) @db.Decimal(14, 2)
+  annualTotal  Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @updatedAt @db.Timestamptz
+
+  submission OfficeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  vatRate    AdminRate?       @relation(fields: [vatRateId], references: [id])
+
+  @@map("office_form_house_rent")
+}
+
+model OfficeFormItEquipment {
+  id               BigInt   @id @default(autoincrement())
+  submissionId     BigInt
+  itConfigId       BigInt
+  existingCount    Int      @default(0)
+  newDemandCount   Int      @default(0)
+  tonerCostMonthly Decimal? @db.Decimal(14, 2)
+  createdAt        DateTime @default(now()) @db.Timestamptz
+  updatedAt        DateTime @updatedAt @db.Timestamptz
+
+  submission OfficeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  config     AdminItConfig    @relation(fields: [itConfigId], references: [id])
+
+  @@unique([submissionId, itConfigId])
+  @@map("office_form_it_equipment")
+}
+
+model OfficeFormUtility {
+  id            BigInt   @id @default(autoincrement())
+  submissionId  BigInt
+  utilityTypeId BigInt
+  annualBill    Decimal  @default(0) @db.Decimal(14, 2)
+  arrearsDue    Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt     DateTime @default(now()) @db.Timestamptz
+  updatedAt     DateTime @updatedAt @db.Timestamptz
+
+  submission  OfficeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  utilityType RefUtilityType   @relation(fields: [utilityTypeId], references: [id])
+
+  @@unique([submissionId, utilityTypeId])
+  @@map("office_form_utilities")
+}
+
+model OfficeFormReturnInfo {
+  id                   BigInt   @id @default(autoincrement())
+  submissionId         BigInt   @unique
+  returnSubmittedCount Int      @default(0)
+  postalRateId         BigInt?
+  totalPostalDemand    Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt            DateTime @default(now()) @db.Timestamptz
+  updatedAt            DateTime @updatedAt @db.Timestamptz
+
+  submission OfficeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  postalRate AdminRate?       @relation(fields: [postalRateId], references: [id])
+
+  @@map("office_form_return_info")
+}
+
+model OfficeBudgetSheet {
+  id             BigInt   @id @default(autoincrement())
+  submissionId   BigInt
+  economicCodeId BigInt
+  autoValue      Decimal  @default(0) @db.Decimal(14, 2)
+  manualValue    Decimal? @db.Decimal(14, 2)
+  finalValue     Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt      DateTime @default(now()) @db.Timestamptz
+  updatedAt      DateTime @updatedAt @db.Timestamptz
+
+  submission   OfficeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  economicCode RefEconomicCode  @relation(fields: [economicCodeId], references: [id], onDelete: Restrict)
+
+  @@unique([submissionId, economicCodeId])
+  @@map("office_budget_sheet")
+}
+
+// ============================================================
+// DOMAIN 5: ADMIN USERS
+// ============================================================
+
+model AdminUser {
+  id           BigInt   @id @default(autoincrement())
+  username     String   @unique @db.VarChar(50)
+  passwordHash String   @db.Text
+  role         String   @db.VarChar(20)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @updatedAt @db.Timestamptz
+
+  submissions OfficeSubmission[]
+
+  @@map("admin_users")
+}
+
+model AdminGroupBudgetRule {
+  id            BigInt   @id @default(autoincrement())
+  officeTypeId  BigInt
+  officeLevelId BigInt?
+  isGroupBudget Boolean  @default(true)
+  createdAt     DateTime @default(now()) @db.Timestamptz
+  updatedAt     DateTime @updatedAt @db.Timestamptz
+
+  officeType  CoreOfficeType   @relation(fields: [officeTypeId], references: [id], onDelete: Cascade)
+  officeLevel CoreOfficeLevel? @relation(fields: [officeLevelId], references: [id], onDelete: Cascade)
+
+  @@unique([officeTypeId, officeLevelId])
+  @@map("admin_group_budget_rules")
+}

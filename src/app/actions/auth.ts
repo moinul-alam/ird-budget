@@ -1,6 +1,6 @@
 'use server'
 
-import { createOfficeClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db/client'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
@@ -15,126 +15,119 @@ function hashPassword(password: string): string {
 }
 
 // ----------------------------------------------------
-// Office Auth (Budget ID + Password via office_user_logins)
+// Office Auth (Budget ID + Password via office_users)
 // ----------------------------------------------------
 
 export async function getOrCreateOfficeSubmission(officeId: number) {
-  const supabase = createOfficeClient()
-
   // 1. Fetch active cycle
-  let { data: cycle } = await supabase
-    .from('core_budget_cycles')
-    .select('id')
-    .eq('status', 'open')
-    .order('id', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  let cycle = await prisma.coreBudgetCycle.findFirst({
+    where: { status: 'open' },
+    orderBy: { id: 'desc' },
+  })
 
   if (!cycle) {
     // Fallback to latest cycle
-    const { data: latest } = await supabase
-      .from('core_budget_cycles')
-      .select('id')
-      .order('id', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    cycle = latest
+    cycle = await prisma.coreBudgetCycle.findFirst({
+      orderBy: { id: 'desc' },
+    })
   }
 
   if (!cycle) return null
 
-  // 2. Find or create submission for this office and cycle in office_submissions
-  let { data: submission } = await supabase
-    .from('office_submissions')
-    .select('id, status')
-    .eq('office_id', officeId)
-    .eq('cycle_id', cycle.id)
-    .maybeSingle()
+  // 2. Find or create submission for this office and cycle
+  let submission = await prisma.officeSubmission.findUnique({
+    where: {
+      officeId_cycleId: {
+        officeId: BigInt(officeId),
+        cycleId: cycle.id,
+      },
+    },
+  })
 
   if (!submission) {
-    const { data: newSub } = await supabase
-      .from('office_submissions')
-      .insert({
-        office_id: officeId,
-        cycle_id: cycle.id,
+    submission = await prisma.officeSubmission.create({
+      data: {
+        officeId: BigInt(officeId),
+        cycleId: cycle.id,
         status: 'draft',
-      })
-      .select('id, status')
-      .maybeSingle()
-    submission = newSub
+      },
+    })
   }
 
-  return submission ? submission.id : null
+  return submission ? Number(submission.id) : null
 }
 
 export async function loginOffice(budgetId: string, passwordInput?: string) {
   try {
-    const supabase = createOfficeClient()
     const cleanBudgetId = budgetId.trim()
 
     // 1. Fetch office record
-    const { data: office, error: offErr } = await supabase
-      .from('core_offices')
-      .select('id, name, budget_id, is_active')
-      .eq('budget_id', cleanBudgetId)
-      .maybeSingle()
+    const office = await prisma.coreOffice.findUnique({
+      where: { budgetId: cleanBudgetId },
+      select: {
+        id: true,
+        name: true,
+        budgetId: true,
+        isActive: true,
+      },
+    })
 
-    if (offErr || !office) {
+    if (!office) {
       return { error: 'অফিস পাওয়া যায়নি', notFound: true }
     }
 
-    if (!office.is_active) {
+    if (!office.isActive) {
       return { error: 'অফিসটি নিষ্ক্রিয় রয়েছে। অনুগ্রহ করে অ্যাডমিনের সাথে যোগাযোগ করুন।' }
     }
 
-    // 2. Fetch login credentials from office_user_logins
-    let { data: loginRecord } = await supabase
-      .from('office_user_logins')
-      .select('id, password_hash, password_hint, is_active')
-      .eq('office_id', office.id)
-      .maybeSingle()
+    // 2. Fetch login credentials from office_users
+    let loginRecord = await prisma.officeUser.findUnique({
+      where: { officeId: office.id },
+      select: {
+        id: true,
+        passwordHash: true,
+        passwordHint: true,
+        isActive: true,
+      },
+    })
 
     // If login record doesn't exist yet, auto-create with default '12345'
     if (!loginRecord) {
       const defaultHash = hashPassword('12345')
-      const { data: newLogin } = await supabase
-        .from('office_user_logins')
-        .insert({
-          office_id: office.id,
-          budget_id: cleanBudgetId,
-          password_hash: defaultHash,
-          password_hint: '12345',
-          is_active: true,
-        })
-        .select('id, password_hash, password_hint, is_active')
-        .single()
-      loginRecord = newLogin
+      loginRecord = await prisma.officeUser.create({
+        data: {
+          officeId: office.id,
+          passwordHash: defaultHash,
+          passwordHint: '12345',
+          isActive: true,
+        },
+      })
     }
 
     // 3. Check password
     if (passwordInput !== undefined && passwordInput !== null) {
       const inputHash = hashPassword(passwordInput)
       const isMatch =
-        (loginRecord && loginRecord.password_hash === inputHash) ||
-        (loginRecord && loginRecord.password_hint === passwordInput) ||
+        (loginRecord && loginRecord.passwordHash === inputHash) ||
+        (loginRecord && loginRecord.passwordHint === passwordInput) ||
         passwordInput === '12345' ||
         passwordInput === 'budget26'
 
       if (!isMatch) {
-        return { error: 'পাসওয়ার্ডটি সঠিক নয়। সহায়তার জন্য অ্যাডমিনের সাথে যোগাযোগ করুন।' }
+        return { error: 'পাসওয়ার্ডটি সঠিক নয়। সহায়তার জন্য অ্যাডমিনের সাথে যোগাযোগ করুন।' }
       }
     }
 
     // 4. Update last login timestamp
     if (loginRecord) {
-      await supabase
-        .from('office_user_logins')
-        .update({ last_login_at: new Date().toISOString() })
-        .eq('id', loginRecord.id)
+      await prisma.officeUser.update({
+        where: { id: loginRecord.id },
+        data: { lastLoginAt: new Date() },
+      })
     }
 
     // 5. Resolve submission_id for the current cycle
-    const submissionId = await getOrCreateOfficeSubmission(office.id)
+    const submissionId = await getOrCreateOfficeSubmission(Number(office.id))
 
     // 6. Set custom cookie for office session
     const cookieStore = await cookies()
@@ -142,8 +135,8 @@ export async function loginOffice(budgetId: string, passwordInput?: string) {
       OFFICE_COOKIE,
       JSON.stringify({
         id: String(office.id),
-        office_id: office.id,
-        budget_id: office.budget_id,
+        office_id: Number(office.id),
+        budget_id: office.budgetId,
         name: office.name,
         submission_id: submissionId || undefined,
       }),
@@ -170,58 +163,54 @@ export async function registerOffice(formData: FormData) {
     const parentId = formData.get('parent_id') ? parseInt(formData.get('parent_id') as string, 10) : null
     const customPassword = (formData.get('password') as string)?.trim() || '12345'
 
-    const supabase = createOfficeClient()
-
     // 1. Check if budget_id exists
-    const { data: existing } = await supabase
-      .from('core_offices')
-      .select('id')
-      .eq('budget_id', budgetId)
-      .maybeSingle()
+    const existing = await prisma.coreOffice.findUnique({
+      where: { budgetId },
+      select: { id: true },
+    })
 
     if (existing) {
       return { error: 'বাজেট কোডটি ইতিমধ্যেই নিবন্ধিত' }
     }
 
     // 2. Fetch department_id from office_types
-    const { data: ot } = await supabase
-      .from('core_office_types')
-      .select('department_id')
-      .eq('id', typeId)
-      .single()
+    const ot = await prisma.coreOfficeType.findUnique({
+      where: { id: BigInt(typeId) },
+      select: { departmentId: true },
+    })
 
-    const deptId = ot?.department_id || 10
+    const deptId = ot?.departmentId || BigInt(10)
 
     // 3. Insert office
-    const { data: newOffice, error: insErr } = await supabase
-      .from('core_offices')
-      .insert({
+    const newOffice = await prisma.coreOffice.create({
+      data: {
         name,
-        budget_id: budgetId,
-        department_id: deptId,
-        office_type_id: typeId,
-        parent_office_id: parentId,
-        is_active: true,
-      })
-      .select('id, name, budget_id')
-      .single()
+        budgetId,
+        departmentId: deptId,
+        officeTypeId: BigInt(typeId),
+        parentOfficeId: parentId ? BigInt(parentId) : null,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        budgetId: true,
+      },
+    })
 
-    if (insErr || !newOffice) {
-      return { error: `সংরক্ষণ ব্যর্থ হয়েছে: ${insErr?.message || ''}` }
-    }
-
-    // 4. Create login record in office_user_logins
+    // 4. Create login record in office_users
     const pwdHash = hashPassword(customPassword)
-    await supabase.from('office_user_logins').insert({
-      office_id: newOffice.id,
-      budget_id: budgetId,
-      password_hash: pwdHash,
-      password_hint: customPassword,
-      is_active: true,
+    await prisma.officeUser.create({
+      data: {
+        officeId: newOffice.id,
+        passwordHash: pwdHash,
+        passwordHint: customPassword,
+        isActive: true,
+      },
     })
 
     // 5. Resolve active submission
-    const submissionId = await getOrCreateOfficeSubmission(newOffice.id)
+    const submissionId = await getOrCreateOfficeSubmission(Number(newOffice.id))
 
     // 6. Log them in
     const cookieStore = await cookies()
@@ -229,8 +218,8 @@ export async function registerOffice(formData: FormData) {
       OFFICE_COOKIE,
       JSON.stringify({
         id: String(newOffice.id),
-        office_id: newOffice.id,
-        budget_id: budgetId,
+        office_id: Number(newOffice.id),
+        budgetId,
         name,
         submission_id: submissionId || undefined,
       }),
@@ -274,28 +263,37 @@ export async function loginAdmin(formData: FormData) {
     return { error: parsed.error.issues[0].message }
   }
 
-  const supabase = createOfficeClient()
-
   // 1. Fetch user from admin_users table
-  const { data: user, error } = await supabase
-    .from('admin_users')
-    .select('id, username, password_hash, password_hint, role, is_active')
-    .ilike('username', parsed.data.username)
-    .maybeSingle()
+  const user = await prisma.adminUser.findFirst({
+    where: {
+      username: {
+        equals: parsed.data.username,
+        mode: 'insensitive',
+      },
+    },
+    select: {
+      id: true,
+      username: true,
+      passwordHash: true,
+      passwordHint: true,
+      role: true,
+      isActive: true,
+    },
+  })
 
-  if (error || !user) {
+  if (!user) {
     return { error: 'ইউজারনেম বা পাসওয়ার্ড সঠিক নয়' }
   }
 
-  if (!user.is_active) {
+  if (!user.isActive) {
     return { error: 'এই অ্যাকাউন্টটি নিষ্ক্রিয় করা হয়েছে।' }
   }
 
   // 2. Validate Password (hash or hint comparison)
   const inputHash = hashPassword(parsed.data.password)
   const isMatch =
-    user.password_hash === inputHash ||
-    user.password_hint === parsed.data.password ||
+    user.passwordHash === inputHash ||
+    user.passwordHint === parsed.data.password ||
     parsed.data.password === '123'
 
   if (!isMatch) {
@@ -304,7 +302,7 @@ export async function loginAdmin(formData: FormData) {
 
   // 3. Set secure HTTP-only signed admin session
   await setAdminSession({
-    id: user.id,
+    id: Number(user.id),
     username: user.username,
     role: user.role as 'admin' | 'superadmin',
   })

@@ -1,11 +1,9 @@
 'use server'
 
-import { createOfficeClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db/client'
 import { formBasicSchema } from '@/lib/schemas/forms'
 
 export async function saveFormBasic(submissionId: number, formData: FormData) {
-  const supabase = createOfficeClient()
-
   const parsed = formBasicSchema.safeParse({
     head_of_office: formData.get('head_of_office'),
     designation: formData.get('designation'),
@@ -19,30 +17,27 @@ export async function saveFormBasic(submissionId: number, formData: FormData) {
   }
 
   const payload = {
-    submission_id: submissionId,
-    ...parsed.data,
+    headOfOffice: parsed.data.head_of_office,
+    designation: parsed.data.designation,
+    phone: parsed.data.phone,
+    email: parsed.data.email,
+    address: parsed.data.address,
   }
 
-  const { data: existing } = await supabase
-    .from('office_form_basic')
-    .select('id')
-    .eq('submission_id', submissionId)
-    .maybeSingle()
+  try {
+    await prisma.officeFormBasic.upsert({
+      where: { submissionId: BigInt(submissionId) },
+      update: payload,
+      create: {
+        submissionId: BigInt(submissionId),
+        ...payload,
+      },
+    })
 
-  if (existing) {
-    const { error } = await supabase
-      .from('office_form_basic')
-      .update(payload)
-      .eq('id', existing.id)
-    if (error) return { error: error.message }
-  } else {
-    const { error } = await supabase
-      .from('office_form_basic')
-      .insert(payload)
-    if (error) return { error: error.message }
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
   }
-
-  return { success: true }
 }
 
 export async function saveFormStaffActiveRows(
@@ -54,32 +49,34 @@ export async function saveFormStaffActiveRows(
     due_salary: number
   }>
 ) {
-  const supabase = createOfficeClient()
-
-  for (const row of rows) {
-    const payload = {
-      submission_id: submissionId,
-      grade_id: row.grade_id,
-      staff_count: row.count,
-      monthly_basic: row.total_basic,
-      due_salary: row.due_salary,
+  try {
+    for (const row of rows) {
+      await prisma.officeFormStaffWorking.upsert({
+        where: {
+          submissionId_gradeId: {
+            submissionId: BigInt(submissionId),
+            gradeId: row.grade_id,
+          },
+        },
+        update: {
+          staffCount: row.count,
+          monthlyBasic: row.total_basic,
+          dueSalary: row.due_salary,
+        },
+        create: {
+          submissionId: BigInt(submissionId),
+          gradeId: row.grade_id,
+          staffCount: row.count,
+          monthlyBasic: row.total_basic,
+          dueSalary: row.due_salary,
+        },
+      })
     }
 
-    const { data: existing } = await supabase
-      .from('office_form_staff_working')
-      .select('id')
-      .eq('submission_id', submissionId)
-      .eq('grade_id', row.grade_id)
-      .maybeSingle()
-
-    if (existing) {
-      await supabase.from('office_form_staff_working').update(payload).eq('id', existing.id)
-    } else {
-      await supabase.from('office_form_staff_working').insert(payload)
-    }
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
   }
-
-  return { success: true }
 }
 
 export async function saveFormStaffSuspendedRows(
@@ -91,52 +88,66 @@ export async function saveFormStaffSuspendedRows(
     suspended_due_salary: number
   }>
 ) {
-  const supabase = createOfficeClient()
-
-  for (const row of rows) {
-    const payload = {
-      submission_id: submissionId,
-      grade_id: row.grade_id,
-      suspended_count: row.suspended_count,
-      suspended_monthly_basic: row.suspended_total_basic,
-      suspended_due_salary: row.suspended_due_salary,
+  try {
+    for (const row of rows) {
+      await prisma.officeFormStaffSuspended.upsert({
+        where: {
+          submissionId_gradeId: {
+            submissionId: BigInt(submissionId),
+            gradeId: row.grade_id,
+          },
+        },
+        update: {
+          suspendedCount: row.suspended_count,
+          suspendedMonthlyBasic: row.suspended_total_basic,
+          suspendedDueSalary: row.suspended_due_salary,
+        },
+        create: {
+          submissionId: BigInt(submissionId),
+          gradeId: row.grade_id,
+          suspendedCount: row.suspended_count,
+          suspendedMonthlyBasic: row.suspended_total_basic,
+          suspendedDueSalary: row.suspended_due_salary,
+        },
+      })
     }
 
-    const { data: existing } = await supabase
-      .from('office_form_staff_suspended')
-      .select('id')
-      .eq('submission_id', submissionId)
-      .eq('grade_id', row.grade_id)
-      .maybeSingle()
-
-    if (existing) {
-      await supabase.from('office_form_staff_suspended').update(payload).eq('id', existing.id)
-    } else {
-      await supabase.from('office_form_staff_suspended').insert(payload)
-    }
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
   }
-
-  return { success: true }
 }
 
 export async function deleteFormStaffActiveRow(submissionId: number, gradeId: number) {
-  const supabase = createOfficeClient()
-  await supabase
-    .from('office_form_staff_working')
-    .delete()
-    .eq('submission_id', submissionId)
-    .eq('grade_id', gradeId)
-  return { success: true }
+  try {
+    await prisma.officeFormStaffWorking.delete({
+      where: {
+        submissionId_gradeId: {
+          submissionId: BigInt(submissionId),
+          gradeId: gradeId,
+        },
+      },
+    })
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
+  }
 }
 
 export async function deleteFormStaffSuspendedRow(submissionId: number, gradeId: number) {
-  const supabase = createOfficeClient()
-  await supabase
-    .from('office_form_staff_suspended')
-    .delete()
-    .eq('submission_id', submissionId)
-    .eq('grade_id', gradeId)
-  return { success: true }
+  try {
+    await prisma.officeFormStaffSuspended.delete({
+      where: {
+        submissionId_gradeId: {
+          submissionId: BigInt(submissionId),
+          gradeId: gradeId,
+        },
+      },
+    })
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
+  }
 }
 
 export async function saveFormStaffRow(
@@ -151,53 +162,55 @@ export async function saveFormStaffRow(
     suspended_due_salary: number
   }
 ) {
-  const supabase = createOfficeClient()
+  try {
+    // Save active
+    await prisma.officeFormStaffWorking.upsert({
+      where: {
+        submissionId_gradeId: {
+          submissionId: BigInt(submissionId),
+          gradeId: gradeId,
+        },
+      },
+      update: {
+        staffCount: data.count,
+        monthlyBasic: data.total_basic,
+        dueSalary: data.due_salary,
+      },
+      create: {
+        submissionId: BigInt(submissionId),
+        gradeId: gradeId,
+        staffCount: data.count,
+        monthlyBasic: data.total_basic,
+        dueSalary: data.due_salary,
+      },
+    })
 
-  // Save active
-  const { data: exActive } = await supabase
-    .from('office_form_staff_working')
-    .select('id')
-    .eq('submission_id', submissionId)
-    .eq('grade_id', gradeId)
-    .maybeSingle()
+    // Save suspended
+    await prisma.officeFormStaffSuspended.upsert({
+      where: {
+        submissionId_gradeId: {
+          submissionId: BigInt(submissionId),
+          gradeId: gradeId,
+        },
+      },
+      update: {
+        suspendedCount: data.suspended_count,
+        suspendedMonthlyBasic: data.suspended_total_basic,
+        suspendedDueSalary: data.suspended_due_salary,
+      },
+      create: {
+        submissionId: BigInt(submissionId),
+        gradeId: gradeId,
+        suspendedCount: data.suspended_count,
+        suspendedMonthlyBasic: data.suspended_total_basic,
+        suspendedDueSalary: data.suspended_due_salary,
+      },
+    })
 
-  const activePayload = {
-    submission_id: submissionId,
-    grade_id: gradeId,
-    staff_count: data.count,
-    monthly_basic: data.total_basic,
-    due_salary: data.due_salary,
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
   }
-
-  if (exActive) {
-    await supabase.from('office_form_staff_working').update(activePayload).eq('id', exActive.id)
-  } else {
-    await supabase.from('office_form_staff_working').insert(activePayload)
-  }
-
-  // Save suspended
-  const { data: exSuspended } = await supabase
-    .from('office_form_staff_suspended')
-    .select('id')
-    .eq('submission_id', submissionId)
-    .eq('grade_id', gradeId)
-    .maybeSingle()
-
-  const suspendedPayload = {
-    submission_id: submissionId,
-    grade_id: gradeId,
-    suspended_count: data.suspended_count,
-    suspended_monthly_basic: data.suspended_total_basic,
-    suspended_due_salary: data.suspended_due_salary,
-  }
-
-  if (exSuspended) {
-    await supabase.from('office_form_staff_suspended').update(suspendedPayload).eq('id', exSuspended.id)
-  } else {
-    await supabase.from('office_form_staff_suspended').insert(suspendedPayload)
-  }
-
-  return { success: true }
 }
 
 export async function saveFormLeave(
@@ -211,33 +224,32 @@ export async function saveFormLeave(
     rest_recreation_due: number
   }
 ) {
-  const supabase = createOfficeClient()
+  try {
+    await prisma.officeFormLeaveEncashment.upsert({
+      where: { submissionId: BigInt(submissionId) },
+      update: {
+        leaveEncashmentOfficerBasic: data.leave_encashment_officer_basic,
+        leaveEncashmentOfficerDue: data.leave_encashment_officer_due,
+        leaveEncashmentStaffBasic: data.leave_encashment_staff_basic,
+        leaveEncashmentStaffDue: data.leave_encashment_staff_due,
+        restRecreationAmount: data.rest_recreation_amount,
+        restRecreationDue: data.rest_recreation_due,
+      },
+      create: {
+        submissionId: BigInt(submissionId),
+        leaveEncashmentOfficerBasic: data.leave_encashment_officer_basic,
+        leaveEncashmentOfficerDue: data.leave_encashment_officer_due,
+        leaveEncashmentStaffBasic: data.leave_encashment_staff_basic,
+        leaveEncashmentStaffDue: data.leave_encashment_staff_due,
+        restRecreationAmount: data.rest_recreation_amount,
+        restRecreationDue: data.rest_recreation_due,
+      },
+    })
 
-  const payload = {
-    submission_id: submissionId,
-    ...data,
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
   }
-
-  const { data: existing } = await supabase
-    .from('office_form_leave_encashment')
-    .select('id')
-    .eq('submission_id', submissionId)
-    .maybeSingle()
-
-  if (existing) {
-    const { error } = await supabase
-      .from('office_form_leave_encashment')
-      .update(payload)
-      .eq('id', existing.id)
-    if (error) return { error: error.message }
-  } else {
-    const { error } = await supabase
-      .from('office_form_leave_encashment')
-      .insert(payload)
-    if (error) return { error: error.message }
-  }
-
-  return { success: true }
 }
 
 export async function saveFormRestRecreation(
@@ -247,39 +259,37 @@ export async function saveFormRestRecreation(
     rest_recreation_due: number
   }
 ) {
-  const supabase = createOfficeClient()
+  try {
+    const existing = await prisma.officeFormLeaveEncashment.findUnique({
+      where: { submissionId: BigInt(submissionId) },
+    })
 
-  const { data: existing } = await supabase
-    .from('office_form_leave_encashment')
-    .select('*')
-    .eq('submission_id', submissionId)
-    .maybeSingle()
+    if (existing) {
+      await prisma.officeFormLeaveEncashment.update({
+        where: { submissionId: BigInt(submissionId) },
+        data: {
+          restRecreationAmount: data.rest_recreation_amount,
+          restRecreationDue: data.rest_recreation_due,
+        },
+      })
+    } else {
+      await prisma.officeFormLeaveEncashment.create({
+        data: {
+          submissionId: BigInt(submissionId),
+          leaveEncashmentOfficerBasic: 0,
+          leaveEncashmentOfficerDue: 0,
+          leaveEncashmentStaffBasic: 0,
+          leaveEncashmentStaffDue: 0,
+          restRecreationAmount: data.rest_recreation_amount,
+          restRecreationDue: data.rest_recreation_due,
+        },
+      })
+    }
 
-  if (existing) {
-    const { error } = await supabase
-      .from('office_form_leave_encashment')
-      .update({
-        rest_recreation_amount: data.rest_recreation_amount,
-        rest_recreation_due: data.rest_recreation_due,
-      })
-      .eq('id', existing.id)
-    if (error) return { error: error.message }
-  } else {
-    const { error } = await supabase
-      .from('office_form_leave_encashment')
-      .insert({
-        submission_id: submissionId,
-        leave_encashment_officer_basic: 0,
-        leave_encashment_officer_due: 0,
-        leave_encashment_staff_basic: 0,
-        leave_encashment_staff_due: 0,
-        rest_recreation_amount: data.rest_recreation_amount,
-        rest_recreation_due: data.rest_recreation_due,
-      })
-    if (error) return { error: error.message }
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
   }
-
-  return { success: true }
 }
 
 export async function saveFormAllowanceRow(
@@ -287,50 +297,44 @@ export async function saveFormAllowanceRow(
   allowanceTypeId: number,
   data: { count: number; total_basic: number; amount: number; due: number }
 ) {
-  const supabase = createOfficeClient()
+  try {
+    const isZero = data.count === 0 && data.total_basic === 0 && data.amount === 0 && data.due === 0
 
-  const isZero = data.count === 0 && data.total_basic === 0 && data.amount === 0 && data.due === 0
+    if (isZero) {
+      await prisma.officeFormAllowance.deleteMany({
+        where: {
+          submissionId: BigInt(submissionId),
+          allowanceTypeId: BigInt(allowanceTypeId),
+        },
+      })
+      return { success: true }
+    }
 
-  const allowanceName = `allowance_${allowanceTypeId}`
+    await prisma.officeFormAllowance.upsert({
+      where: {
+        submissionId_allowanceTypeId: {
+          submissionId: BigInt(submissionId),
+          allowanceTypeId: BigInt(allowanceTypeId),
+        },
+      },
+      update: {
+        officerCount: data.count,
+        staffCount: 0,
+        totalAnnualAmount: data.amount,
+      },
+      create: {
+        submissionId: BigInt(submissionId),
+        allowanceTypeId: BigInt(allowanceTypeId),
+        officerCount: data.count,
+        staffCount: 0,
+        totalAnnualAmount: data.amount,
+      },
+    })
 
-  if (isZero) {
-    await supabase
-      .from('office_form_allowances')
-      .delete()
-      .eq('submission_id', submissionId)
-      .eq('allowance_name', allowanceName)
     return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
   }
-
-  const payload = {
-    submission_id: submissionId,
-    allowance_name: allowanceName,
-    officer_count: data.count,
-    staff_count: 0,
-    total_annual_amount: data.amount,
-  }
-
-  const { data: existing } = await supabase
-    .from('office_form_allowances')
-    .select('id')
-    .eq('submission_id', submissionId)
-    .eq('allowance_name', allowanceName)
-    .maybeSingle()
-
-  if (existing) {
-    const { error } = await supabase
-      .from('office_form_allowances')
-      .update(payload)
-      .eq('id', existing.id)
-    if (error) return { error: error.message }
-  } else {
-    const { error } = await supabase
-      .from('office_form_allowances')
-      .insert(payload)
-    if (error) return { error: error.message }
-  }
-
-  return { success: true }
 }
 
 export async function saveFormUtilityRow(
@@ -338,52 +342,47 @@ export async function saveFormUtilityRow(
   utilityTypeId: number,
   data: { annual_cost: number; due: number }
 ) {
-  const supabase = createOfficeClient()
-  const utilityName = `util_${utilityTypeId}`
+  try {
+    await prisma.officeFormUtility.upsert({
+      where: {
+        submissionId_utilityTypeId: {
+          submissionId: BigInt(submissionId),
+          utilityTypeId: BigInt(utilityTypeId),
+        },
+      },
+      update: {
+        annualBill: data.annual_cost,
+        arrearsDue: data.due,
+      },
+      create: {
+        submissionId: BigInt(submissionId),
+        utilityTypeId: BigInt(utilityTypeId),
+        annualBill: data.annual_cost,
+        arrearsDue: data.due,
+      },
+    })
 
-  const payload = {
-    submission_id: submissionId,
-    utility_name: utilityName,
-    annual_bill: data.annual_cost,
-    arrears_due: data.due,
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
   }
-
-  const { data: existing } = await supabase
-    .from('office_form_utilities')
-    .select('id')
-    .eq('submission_id', submissionId)
-    .eq('utility_name', utilityName)
-    .maybeSingle()
-
-  if (existing) {
-    const { error } = await supabase
-      .from('office_form_utilities')
-      .update(payload)
-      .eq('id', existing.id)
-    if (error) return { error: error.message }
-  } else {
-    const { error } = await supabase
-      .from('office_form_utilities')
-      .insert(payload)
-    if (error) return { error: error.message }
-  }
-
-  return { success: true }
 }
 
 export async function deleteFormUtilityRow(
   submissionId: number,
   utilityTypeId: number
 ) {
-  const supabase = createOfficeClient()
-  const utilityName = `util_${utilityTypeId}`
-  const { error } = await supabase
-    .from('office_form_utilities')
-    .delete()
-    .eq('submission_id', submissionId)
-    .eq('utility_name', utilityName)
-  if (error) return { error: error.message }
-  return { success: true }
+  try {
+    await prisma.officeFormUtility.deleteMany({
+      where: {
+        submissionId: BigInt(submissionId),
+        utilityTypeId: BigInt(utilityTypeId),
+      },
+    })
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
+  }
 }
 
 export async function saveFormHouseRent(
@@ -395,91 +394,88 @@ export async function saveFormHouseRent(
     contract_end_date: string | null
   }
 ) {
-  const supabase = createOfficeClient()
+  try {
+    const vatRate = await prisma.adminRate.findFirst({
+      where: { key: 'vat_percentage' },
+    })
 
-  const payload = {
-    submission_id: submissionId,
-    monthly_rent: data.monthly_bill,
-    arrears_due: data.due,
-    vat_percentage: 15,
-    annual_total: (data.monthly_bill * 12) + data.due,
+    const vatPercentage = vatRate ? Number(vatRate.value) : 15
+
+    await prisma.officeFormHouseRent.upsert({
+      where: { submissionId: BigInt(submissionId) },
+      update: {
+        monthlyRent: data.monthly_bill,
+        arrearsDue: data.due,
+        vatRateId: vatRate?.id,
+        annualTotal: (data.monthly_bill * 12) + data.due,
+      },
+      create: {
+        submissionId: BigInt(submissionId),
+        monthlyRent: data.monthly_bill,
+        arrearsDue: data.due,
+        vatRateId: vatRate?.id,
+        annualTotal: (data.monthly_bill * 12) + data.due,
+      },
+    })
+
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
   }
-
-  const { data: existing } = await supabase
-    .from('office_form_house_rent')
-    .select('id')
-    .eq('submission_id', submissionId)
-    .maybeSingle()
-
-  if (existing) {
-    const { error } = await supabase
-      .from('office_form_house_rent')
-      .update(payload)
-      .eq('id', existing.id)
-    if (error) return { error: error.message }
-  } else {
-    const { error } = await supabase
-      .from('office_form_house_rent')
-      .insert(payload)
-    if (error) return { error: error.message }
-  }
-
-  return { success: true }
 }
 
 export async function saveFormReturnInfo(
   submissionId: number,
   data: { tin_count: number; return_submitted_count: number }
 ) {
-  const supabase = createOfficeClient()
+  try {
+    const postalRate = await prisma.adminRate.findFirst({
+      where: { key: 'postal_rate' },
+    })
 
-  const payload = {
-    submission_id: submissionId,
-    return_submitted_count: data.return_submitted_count,
-    postal_rate_per_return: 50,
-    total_postal_demand: data.return_submitted_count * 50,
+    const rate = postalRate ? Number(postalRate.value) : 50
+
+    await prisma.officeFormReturnInfo.upsert({
+      where: { submissionId: BigInt(submissionId) },
+      update: {
+        returnSubmittedCount: data.return_submitted_count,
+        postalRateId: postalRate?.id,
+        totalPostalDemand: data.return_submitted_count * rate,
+      },
+      create: {
+        submissionId: BigInt(submissionId),
+        returnSubmittedCount: data.return_submitted_count,
+        postalRateId: postalRate?.id,
+        totalPostalDemand: data.return_submitted_count * rate,
+      },
+    })
+
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
   }
-
-  const { data: existing } = await supabase
-    .from('office_form_return_info')
-    .select('id')
-    .eq('submission_id', submissionId)
-    .maybeSingle()
-
-  if (existing) {
-    const { error } = await supabase
-      .from('office_form_return_info')
-      .update(payload)
-      .eq('id', existing.id)
-    if (error) return { error: error.message }
-  } else {
-    const { error } = await supabase
-      .from('office_form_return_info')
-      .insert(payload)
-    if (error) return { error: error.message }
-  }
-
-  return { success: true }
 }
 
 export async function deleteFormHouseRent(submissionId: number) {
-  const supabase = createOfficeClient()
-  const { error } = await supabase
-    .from('office_form_house_rent')
-    .delete()
-    .eq('submission_id', submissionId)
-  if (error) return { error: error.message }
-  return { success: true }
+  try {
+    await prisma.officeFormHouseRent.delete({
+      where: { submissionId: BigInt(submissionId) },
+    })
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
+  }
 }
 
 export async function deleteFormReturnInfo(submissionId: number) {
-  const supabase = createOfficeClient()
-  const { error } = await supabase
-    .from('office_form_return_info')
-    .delete()
-    .eq('submission_id', submissionId)
-  if (error) return { error: error.message }
-  return { success: true }
+  try {
+    await prisma.officeFormReturnInfo.delete({
+      where: { submissionId: BigInt(submissionId) },
+    })
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
+  }
 }
 
 export async function saveFormVehicleRow(
@@ -492,40 +488,42 @@ export async function saveFormVehicleRow(
     additional_expense: number
   }
 ) {
-  const supabase = createOfficeClient()
-
-  const payload: any = {
-    submission_id: submissionId,
-    vehicle_type: `Vehicle ${data.vehicle_fuel_config_id}`,
-    fuel_type: 'Octane',
-    vehicle_count: data.count,
-    annual_maintenance_allowance: data.additional_expense,
-    maintenance_due: data.maintenance_cost || 0,
-  }
-
-  if (data.id) {
-    const { error } = await supabase
-      .from('office_form_vehicles_govt')
-      .update(payload)
-      .eq('id', data.id)
-    if (error) return { error: error.message }
-    return { success: true, id: data.id }
-  } else {
-    const { data: inserted, error } = await supabase
-      .from('office_form_vehicles_govt')
-      .insert(payload)
-      .select('id')
-      .single()
-    if (error) return { error: error.message }
-    return { success: true, id: inserted.id }
+  try {
+    if (data.id) {
+      const updated = await prisma.officeFormVehicleGovt.update({
+        where: { id: BigInt(data.id) },
+        data: {
+          vehicleConfigId: BigInt(data.vehicle_fuel_config_id),
+          vehicleCount: data.count,
+          maintenanceDue: data.maintenance_cost || 0,
+        },
+      })
+      return { success: true, id: Number(updated.id) }
+    } else {
+      const created = await prisma.officeFormVehicleGovt.create({
+        data: {
+          submissionId: BigInt(submissionId),
+          vehicleConfigId: BigInt(data.vehicle_fuel_config_id),
+          vehicleCount: data.count,
+          maintenanceDue: data.maintenance_cost || 0,
+        },
+      })
+      return { success: true, id: Number(created.id) }
+    }
+  } catch (error: any) {
+    return { error: error.message }
   }
 }
 
 export async function deleteFormVehicleRow(rowId: number) {
-  const supabase = createOfficeClient()
-  const { error } = await supabase.from('office_form_vehicles_govt').delete().eq('id', rowId)
-  if (error) return { error: error.message }
-  return { success: true }
+  try {
+    await prisma.officeFormVehicleGovt.delete({
+      where: { id: BigInt(rowId) },
+    })
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
+  }
 }
 
 export async function saveFormVehicleRentRow(
@@ -536,39 +534,40 @@ export async function saveFormVehicleRentRow(
     count: number
   }
 ) {
-  const supabase = createOfficeClient()
-
-  const payload = {
-    submission_id: submissionId,
-    vehicle_type: `Rent Vehicle ${data.vehicle_rent_config_id}`,
-    vehicle_count: data.count,
-    monthly_rent_rate: 0,
-    annual_total_rent: 0,
-  }
-
-  if (data.id) {
-    const { error } = await supabase
-      .from('office_form_vehicles_rent')
-      .update(payload)
-      .eq('id', data.id)
-    if (error) return { error: error.message }
-    return { success: true, id: data.id }
-  } else {
-    const { data: inserted, error } = await supabase
-      .from('office_form_vehicles_rent')
-      .insert(payload)
-      .select('id')
-      .single()
-    if (error) return { error: error.message }
-    return { success: true, id: inserted.id }
+  try {
+    if (data.id) {
+      const updated = await prisma.officeFormVehicleRent.update({
+        where: { id: BigInt(data.id) },
+        data: {
+          vehicleRentConfigId: BigInt(data.vehicle_rent_config_id),
+          vehicleCount: data.count,
+        },
+      })
+      return { success: true, id: Number(updated.id) }
+    } else {
+      const created = await prisma.officeFormVehicleRent.create({
+        data: {
+          submissionId: BigInt(submissionId),
+          vehicleRentConfigId: BigInt(data.vehicle_rent_config_id),
+          vehicleCount: data.count,
+        },
+      })
+      return { success: true, id: Number(created.id) }
+    }
+  } catch (error: any) {
+    return { error: error.message }
   }
 }
 
 export async function deleteFormVehicleRentRow(rowId: number) {
-  const supabase = createOfficeClient()
-  const { error } = await supabase.from('office_form_vehicles_rent').delete().eq('id', rowId)
-  if (error) return { error: error.message }
-  return { success: true }
+  try {
+    await prisma.officeFormVehicleRent.delete({
+      where: { id: BigInt(rowId) },
+    })
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
+  }
 }
 
 export async function saveFormITEquipmentRow(
@@ -582,112 +581,103 @@ export async function saveFormITEquipmentRow(
     unit_budget: number
   }
 ) {
-  const supabase = createOfficeClient()
+  try {
+    await prisma.officeFormItEquipment.upsert({
+      where: {
+        submissionId_itConfigId: {
+          submissionId: BigInt(submissionId),
+          itConfigId: BigInt(equipmentTypeId),
+        },
+      },
+      update: {
+        existingCount: data.existing_count,
+        newDemandCount: data.required_qty,
+        tonerCostMonthly: data.toner_cost,
+      },
+      create: {
+        submissionId: BigInt(submissionId),
+        itConfigId: BigInt(equipmentTypeId),
+        existingCount: data.existing_count,
+        newDemandCount: data.required_qty,
+        tonerCostMonthly: data.toner_cost,
+      },
+    })
 
-  const payload = {
-    submission_id: submissionId,
-    equipment_type: `IT Equip ${equipmentTypeId}`,
-    existing_count: data.existing_count,
-    new_demand_count: data.required_qty,
-    toner_cost_monthly: data.toner_cost,
-    annual_total_cost: (data.required_qty * data.unit_budget) + (data.toner_cost * 12),
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
   }
-
-  const { data: existing } = await supabase
-    .from('office_form_it_equipment')
-    .select('id')
-    .eq('submission_id', submissionId)
-    .eq('equipment_type', payload.equipment_type)
-    .maybeSingle()
-
-  if (existing) {
-    const { error } = await supabase
-      .from('office_form_it_equipment')
-      .update(payload)
-      .eq('id', existing.id)
-    if (error) return { error: error.message }
-  } else {
-    const { error } = await supabase
-      .from('office_form_it_equipment')
-      .insert(payload)
-    if (error) return { error: error.message }
-  }
-
-  return { success: true }
 }
 
 export async function deleteFormITEquipmentRow(
   submissionId: number,
   equipmentTypeId: number
 ) {
-  const supabase = createOfficeClient()
-  const eqName = `IT Equip ${equipmentTypeId}`
-  const { error } = await supabase
-    .from('office_form_it_equipment')
-    .delete()
-    .eq('submission_id', submissionId)
-    .eq('equipment_type', eqName)
-  if (error) return { error: error.message }
-  return { success: true }
+  try {
+    await prisma.officeFormItEquipment.deleteMany({
+      where: {
+        submissionId: BigInt(submissionId),
+        itConfigId: BigInt(equipmentTypeId),
+      },
+    })
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
+  }
 }
 
 export interface NewStaffRecord {
   grade_id: number
   count: number
   monthly_basic: number
-  expected_date: string // YYYY-MM-DD
+  expected_date: string
   remaining_months: number
   total_salary: number
 }
 
 export async function getFormNewStaffRows(submissionId: number): Promise<NewStaffRecord[]> {
-  const supabase = createOfficeClient()
-  const { data: records, error } = await supabase
-    .from('office_form_staff_new_recruits')
-    .select('*')
-    .eq('submission_id', submissionId)
-    .order('grade_id')
+  const records = await prisma.officeFormStaffNewRecruit.findMany({
+    where: { submissionId: BigInt(submissionId) },
+    orderBy: { gradeId: 'asc' },
+  })
 
-  if (error || !records) return []
-
-  return records.map((r: any) => ({
-    grade_id: Number(r.grade_id),
-    count: Number(r.recruit_count || 0),
-    monthly_basic: Number(r.monthly_basic || 0),
-    expected_date: r.joining_date || '',
-    remaining_months: Number(r.months_remaining || 12),
-    total_salary: Number(r.total_salary || 0),
+  return records.map((r) => ({
+    grade_id: r.gradeId,
+    count: r.recruitCount,
+    monthly_basic: Number(r.monthlyBasic),
+    expected_date: r.joiningDate?.toISOString().split('T')[0] || '',
+    remaining_months: r.monthsRemaining,
+    total_salary: Number(r.totalSalary),
   }))
 }
 
 export async function saveFormNewStaffRows(submissionId: number, rows: NewStaffRecord[]) {
-  const supabase = createOfficeClient()
-  
-  // Clean existing rows for this submission in office_form_staff_new_recruits
-  await supabase
-    .from('office_form_staff_new_recruits')
-    .delete()
-    .eq('submission_id', submissionId)
+  try {
+    // Clean existing rows
+    await prisma.officeFormStaffNewRecruit.deleteMany({
+      where: { submissionId: BigInt(submissionId) },
+    })
 
-  if (!rows || rows.length === 0) {
+    if (!rows || rows.length === 0) {
+      return { success: true }
+    }
+
+    const inserts = rows.map((r) => ({
+      submissionId: BigInt(submissionId),
+      gradeId: r.grade_id,
+      recruitCount: r.count,
+      monthlyBasic: r.monthly_basic,
+      joiningDate: r.expected_date ? new Date(r.expected_date) : new Date(),
+      monthsRemaining: r.remaining_months,
+      totalSalary: r.total_salary,
+    }))
+
+    await prisma.officeFormStaffNewRecruit.createMany({
+      data: inserts,
+    })
+
     return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
   }
-
-  const inserts = rows.map((r) => ({
-    submission_id: submissionId,
-    grade_id: r.grade_id,
-    recruit_count: r.count,
-    monthly_basic: r.monthly_basic,
-    joining_date: r.expected_date ? r.expected_date : null,
-    months_remaining: r.remaining_months,
-    total_salary: r.total_salary,
-  }))
-
-  const { error } = await supabase
-    .from('office_form_staff_new_recruits')
-    .insert(inserts)
-
-  if (error) return { success: false, error: error.message }
-
-  return { success: true }
 }

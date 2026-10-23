@@ -1,6 +1,6 @@
 'use server'
 
-import { createOfficeClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db/client'
 
 interface SelectOption {
   id: string
@@ -8,113 +8,95 @@ interface SelectOption {
 }
 
 export async function searchOffice(budgetId: string): Promise<{ found: boolean; office?: { id: string; name: string } }> {
-  const supabase = createOfficeClient()
-  const { data, error } = await supabase
-    .from('core_offices')
-    .select('id, name')
-    .eq('budget_id', budgetId.trim())
-    .maybeSingle()
+  const office = await prisma.coreOffice.findUnique({
+    where: { budgetId: budgetId.trim() },
+    select: { id: true, name: true },
+  })
 
-  if (error || !data) {
+  if (!office) {
     return { found: false }
   }
 
-  return { found: true, office: { id: String(data.id), name: data.name } }
+  return { found: true, office: { id: String(office.id), name: office.name } }
 }
 
 export async function getMinistriesList(): Promise<SelectOption[]> {
-  const supabase = createOfficeClient()
-  const { data, error } = await supabase
-    .from('core_ministries')
-    .select('id, name')
-    .order('id')
+  const ministries = await prisma.coreMinistry.findMany({
+    select: { id: true, name: true },
+    orderBy: { id: 'asc' },
+  })
 
-  if (error || !data) return []
-  return data.map((m: any) => ({ id: String(m.id), name: m.name }))
+  return ministries.map((m) => ({ id: String(m.id), name: m.name }))
 }
 
 export async function getDepartments(ministryId?: string): Promise<(SelectOption & { ministry_id?: string })[]> {
-  const supabase = createOfficeClient()
-  let query = supabase.from('core_departments').select('id, name, ministry_id').order('id')
+  const where = ministryId ? { ministryId: BigInt(ministryId) } : undefined
 
-  if (ministryId) {
-    query = query.eq('ministry_id', parseInt(ministryId, 10))
-  }
+  const departments = await prisma.coreDepartment.findMany({
+    where,
+    select: { id: true, name: true, ministryId: true },
+    orderBy: { id: 'asc' },
+  })
 
-  const { data, error } = await query
-  if (error || !data) return []
-
-  return data.map((d: any) => ({
+  return departments.map((d) => ({
     id: String(d.id),
     name: d.name,
-    ministry_id: String(d.ministry_id),
+    ministry_id: d.ministryId ? String(d.ministryId) : undefined,
   }))
 }
 
 export async function getParentOffices(departmentId: string): Promise<SelectOption[]> {
-  const supabase = createOfficeClient()
-  const deptIdNum = parseInt(departmentId, 10)
-  if (isNaN(deptIdNum)) return []
+  const deptIdNum = BigInt(departmentId)
 
-  const { data, error } = await supabase
-    .from('core_offices')
-    .select('id, name')
-    .eq('department_id', deptIdNum)
-    .order('id')
+  const offices = await prisma.coreOffice.findMany({
+    where: { departmentId: deptIdNum },
+    select: { id: true, name: true },
+    orderBy: { id: 'asc' },
+  })
 
-  if (error || !data) return []
-
-  return data.map((p: any) => ({
+  return offices.map((p) => ({
     id: String(p.id),
     name: p.name,
   }))
 }
 
 export async function getOfficeTypes(departmentId: string): Promise<SelectOption[]> {
-  const supabase = createOfficeClient()
-  const deptIdNum = parseInt(departmentId, 10)
-  if (isNaN(deptIdNum)) return []
+  const deptIdNum = BigInt(departmentId)
 
-  const { data, error } = await supabase
-    .from('core_office_types')
-    .select('id, name')
-    .eq('department_id', deptIdNum)
-    .order('sort_order', { ascending: true })
+  const types = await prisma.coreOfficeType.findMany({
+    where: { departmentId: deptIdNum },
+    select: { id: true, name: true },
+    orderBy: { sortOrder: 'asc' },
+  })
 
-  if (error || !data) return []
-
-  return data.map((t: any) => ({
+  return types.map((t) => ({
     id: String(t.id),
     name: t.name,
   }))
 }
 
 export async function getOfficeProfile(officeId: number) {
-  const supabase = createOfficeClient()
-  const { data: office, error } = await supabase
-    .from('core_offices')
-    .select(`
-      id,
-      name,
-      budget_id,
-      department_id,
-      office_type_id,
-      parent_office_id,
-      office_type:core_office_types(id, name, department_id, departments:core_departments(id, name)),
-      parent_office:parent_office_id(id, name)
-    `)
-    .eq('id', officeId)
-    .maybeSingle()
+  const office = await prisma.coreOffice.findUnique({
+    where: { id: BigInt(officeId) },
+    include: {
+      officeType: {
+        select: { id: true, name: true, departmentId: true },
+      },
+      parentOffice: {
+        select: { id: true, name: true },
+      },
+    },
+  })
 
-  if (error || !office) return null
+  if (!office) return null
 
   return {
-    id: office.id,
+    id: Number(office.id),
     name: office.name,
-    budgetId: office.budget_id,
-    officeTypeId: office.office_type_id,
-    parentOfficeId: office.parent_office_id,
-    departmentId: office.department_id,
+    budgetId: office.budgetId,
+    officeTypeId: Number(office.officeTypeId),
+    parentOfficeId: office.parentOfficeId ? Number(office.parentOfficeId) : null,
+    departmentId: Number(office.departmentId),
   }
 }
 
@@ -124,39 +106,34 @@ export async function updateOfficeProfile(data: {
   officeTypeId?: number
   parentOfficeId?: number | null
 }) {
-  const supabase = createOfficeClient()
-  
-  const updatePayload: any = {
-    name: data.name.trim(),
-    updated_at: new Date().toISOString(),
-  }
-  if (data.officeTypeId) {
-    updatePayload.office_type_id = data.officeTypeId
-  }
-  if (data.parentOfficeId !== undefined) {
-    updatePayload.parent_office_id = data.parentOfficeId
-  }
+  try {
+    const updatePayload: any = {
+      name: data.name.trim(),
+    }
+    if (data.officeTypeId) {
+      updatePayload.officeTypeId = BigInt(data.officeTypeId)
+    }
+    if (data.parentOfficeId !== undefined) {
+      updatePayload.parentOfficeId = data.parentOfficeId ? BigInt(data.parentOfficeId) : null
+    }
 
-  const { error } = await supabase
-    .from('core_offices')
-    .update(updatePayload)
-    .eq('id', data.officeId)
+    await prisma.coreOffice.update({
+      where: { id: BigInt(data.officeId) },
+      data: updatePayload,
+    })
 
-  if (error) {
+    return { success: true, cleanName: data.name.trim() }
+  } catch (error: any) {
     return { error: 'প্রোফাইল আপডেট করতে সমস্যা হয়েছে: ' + error.message }
   }
-
-  return { success: true, cleanName: data.name.trim() }
 }
 
 export async function getOfficeLevelsForType(officeTypeId: number) {
-  const supabase = createOfficeClient()
-  const { data, error } = await supabase
-    .from('admin_office_levels')
-    .select('id, level_name')
-    .eq('office_type_id', officeTypeId)
-    .order('level_order', { ascending: true })
+  const levels = await prisma.coreOfficeLevel.findMany({
+    where: { officeTypeId: BigInt(officeTypeId) },
+    select: { id: true, levelName: true },
+    orderBy: { levelOrder: 'asc' },
+  })
 
-  if (error || !data) return []
-  return data.map((l: any) => ({ id: String(l.id), name: l.level_name }))
+  return levels.map((l) => ({ id: String(l.id), name: l.levelName }))
 }

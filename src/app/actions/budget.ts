@@ -1,6 +1,6 @@
 'use server'
 
-import { createOfficeClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db/client'
 import { getBudgetContext } from '@/lib/budget/fetcher'
 import { calculateAll } from '@/lib/budget/calculate'
 import defaultCodesData from '@/lib/budget/default-codes.json'
@@ -25,41 +25,10 @@ interface BudgetSheetDataResponse {
   missingForms?: string[]
 }
 
-// Helper to parse manual budget overrides from form_basic.address tag
-function parseManualValuesFromAddress(address: string | null | undefined, submissionId: number): Record<string, number> {
-  if (!address) return {}
-  try {
-    const subTag = `:::manual_budget_${submissionId}=`
-    const genericTag = `:::manual_budget=`
-    const activeTag = address.includes(subTag) ? subTag : address.includes(genericTag) ? genericTag : null
-    if (!activeTag) return {}
-    const raw = address.split(activeTag)[1]?.split(':::')[0]
-    if (!raw) return {}
-    return JSON.parse(decodeURIComponent(raw)) || {}
-  } catch {
-    return {}
-  }
-}
-
-// Helper to encode manual budget overrides into form_basic.address tag
-function encodeManualValuesIntoAddress(address: string | null | undefined, submissionId: number, manualMap: Record<string, number>): string {
-  const baseAddress = (address || '').split(':::manual_budget_')[0]?.split(':::manual_budget=')[0] || ''
-  const subTag = `:::manual_budget_${submissionId}=`
-  const encoded = encodeURIComponent(JSON.stringify(manualMap))
-  return `${baseAddress}${subTag}${encoded}`
-}
-
 /**
- * Loads and orchestrates the complete budget sheet rows for a submission:
- * 1. Loads codes from core_expense_codes (falling back to default-codes.json)
- * 2. Fetches submission form context and rates
- * 3. Calculates formula values for all auto codes
- * 4. Merges manual overrides from office_budget_sheet
- * 5. Returns sorted rows with error messaging if anything is incomplete
+ * Loads and orchestrates the complete budget sheet rows for a submission
  */
 export async function getBudgetSheetData(submissionId: number): Promise<BudgetSheetDataResponse> {
-  const supabase = createOfficeClient()
-
   if (!submissionId) {
     return {
       success: false,
@@ -74,29 +43,22 @@ export async function getBudgetSheetData(submissionId: number): Promise<BudgetSh
     // 1. Fetch form context & rates
     const ctx = await getBudgetContext(submissionId)
 
-    // 2. Fetch expense codes (fallback to default-codes.json)
-    let { data: dbCodes, error: codeErr } = await supabase
-      .from('core_economic_codes')
-      .select('id, code, name, is_manual, sort_order')
-
-    if (codeErr || !dbCodes || dbCodes.length === 0) {
-      const fallbackRes = await supabase
-        .from('core_expense_codes')
-        .select('id, code, name, is_manual, sort_order')
-      if (fallbackRes.data && fallbackRes.data.length > 0) {
-        dbCodes = fallbackRes.data
-      }
-    }
+    // 2. Fetch economic codes (fallback to default-codes.json)
+    let dbCodes = await prisma.refEconomicCode.findMany({
+      select: { id: true, code: true, name: true, isManual: true, sortOrder: true },
+      where: { isActive: true },
+      orderBy: { sortOrder: 'asc' },
+    })
 
     let activeCodes: Array<{ id: number; code: string; name: string; is_manual: boolean; sort_order: number }> = []
 
     if (dbCodes && dbCodes.length > 0) {
-      activeCodes = dbCodes.map((c: any) => ({
-        id: c.id,
+      activeCodes = dbCodes.map((c) => ({
+        id: Number(c.id),
         code: c.code,
         name: c.name || '',
-        is_manual: Boolean(c.is_manual),
-        sort_order: Number(c.sort_order || 0),
+        is_manual: c.isManual,
+        sort_order: Number(c.sortOrder || 0),
       }))
     } else {
       activeCodes = (defaultCodesData as any[]).map((c, idx) => ({
@@ -116,17 +78,15 @@ export async function getBudgetSheetData(submissionId: number): Promise<BudgetSh
     const calculatedValues = calculateAll(formulaCodes, ctx)
 
     // 4. Fetch manual overrides from office_budget_sheet table
-    const { data: dbBudgetSheet } = await supabase
-      .from('office_budget_sheet')
-      .select('code_id, manual_value')
-      .eq('submission_id', submissionId)
+    const dbBudgetSheet = await prisma.officeBudgetSheet.findMany({
+      where: { submissionId: BigInt(submissionId) },
+      select: { economicCodeId: true, manualValue: true },
+    })
 
     const manualOverridesFromDb: Record<number, number> = {}
-    if (dbBudgetSheet && dbBudgetSheet.length > 0) {
-      for (const bs of dbBudgetSheet) {
-        if (bs.manual_value !== null && bs.manual_value !== undefined) {
-          manualOverridesFromDb[bs.code_id] = Number(bs.manual_value)
-        }
+    for (const bs of dbBudgetSheet) {
+      if (bs.manualValue !== null && bs.manualValue !== undefined) {
+        manualOverridesFromDb[Number(bs.economicCodeId)] = Number(bs.manualValue)
       }
     }
 
@@ -150,7 +110,7 @@ export async function getBudgetSheetData(submissionId: number): Promise<BudgetSh
     const totalAuto = rows.reduce((sum, r) => sum + (r.auto_value || 0), 0)
     const totalManual = rows.reduce((sum, r) => sum + (r.manual_value ?? r.auto_value ?? 0), 0)
 
-    // Check which core forms might still be empty to provide helpful feedback
+    // Check which core forms might still be empty
     const missingForms: string[] = []
     if (!ctx.staff || ctx.staff.length === 0) missingForms.push('কর্মকর্তা/কর্মচারীর বেতন (ফরম ২/৩)')
     if (!ctx.utilities || ctx.utilities.length === 0) missingForms.push('ইউটিলিটি ও অন্যান্য বিল (ফরম ১১)')
@@ -204,8 +164,6 @@ export async function saveManualValue(
   codeIdentifier: string | number,
   manualValue: number | null
 ) {
-  const supabase = createOfficeClient()
-
   if (!submissionId) {
     return { success: false, error: 'বাজেট আইডি পাওয়া যায়নি' }
   }
@@ -214,15 +172,14 @@ export async function saveManualValue(
     let codeIdNum = typeof codeIdentifier === 'number' ? codeIdentifier : parseInt(codeIdentifier, 10)
 
     if (isNaN(codeIdNum)) {
-      // Lookup code by code string in core_expense_codes
-      const { data: cData } = await supabase
-        .from('core_expense_codes')
-        .select('id')
-        .eq('code', String(codeIdentifier))
-        .maybeSingle()
+      // Lookup code by code string
+      const cData = await prisma.refEconomicCode.findFirst({
+        where: { code: String(codeIdentifier) },
+        select: { id: true },
+      })
 
       if (cData?.id) {
-        codeIdNum = cData.id
+        codeIdNum = Number(cData.id)
       }
     }
 
@@ -230,22 +187,25 @@ export async function saveManualValue(
       return { success: false, error: 'কোড শনাক্তকারী অকার্যকর' }
     }
 
-    const { error: upsertErr } = await supabase
-      .from('office_budget_sheet')
-      .upsert(
-        {
-          submission_id: submissionId,
-          code_id: codeIdNum,
-          auto_value: 0,
-          manual_value: manualValue,
-          final_value: manualValue || 0,
+    await prisma.officeBudgetSheet.upsert({
+      where: {
+        submissionId_economicCodeId: {
+          submissionId: BigInt(submissionId),
+          economicCodeId: BigInt(codeIdNum),
         },
-        { onConflict: 'submission_id,code_id' }
-      )
-
-    if (upsertErr) {
-      return { success: false, error: `সংরক্ষণ ত্রুটি: ${upsertErr.message}` }
-    }
+      },
+      update: {
+        manualValue: manualValue,
+        finalValue: manualValue || 0,
+      },
+      create: {
+        submissionId: BigInt(submissionId),
+        economicCodeId: BigInt(codeIdNum),
+        autoValue: 0,
+        manualValue: manualValue,
+        finalValue: manualValue || 0,
+      },
+    })
 
     return { success: true }
   } catch (err: any) {
@@ -258,21 +218,21 @@ export async function saveManualValue(
  * Submit budget sheet
  */
 export async function submitBudget(submissionId: number) {
-  const supabase = createOfficeClient()
-
   if (!submissionId) {
     return { success: false, error: 'বাজেট আইডি পাওয়া যায়নি' }
   }
 
-  // Change submission status to 'submitted'
-  const { error } = await supabase
-    .from('office_submissions')
-    .update({ status: 'submitted', submitted_at: new Date().toISOString() })
-    .eq('id', submissionId)
+  try {
+    await prisma.officeSubmission.update({
+      where: { id: BigInt(submissionId) },
+      data: {
+        status: 'submitted',
+        submittedAt: new Date(),
+      },
+    })
 
-  if (error) {
+    return { success: true }
+  } catch (error: any) {
     return { success: false, error: `বাজেট দাখিল ব্যর্থ হয়েছে: ${error.message}` }
   }
-
-  return { success: true }
 }

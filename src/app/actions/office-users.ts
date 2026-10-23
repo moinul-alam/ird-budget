@@ -1,6 +1,6 @@
 'use server'
 
-import { createOfficeClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db/client'
 import { getAdminSession } from '@/lib/auth-admin'
 import { revalidatePath } from 'next/cache'
 import crypto from 'crypto'
@@ -26,40 +26,52 @@ export async function getAllOfficeUsersList(): Promise<{ offices: OfficeUserItem
     throw new Error('অননুমোদিত প্রবেশাধিকার')
   }
 
-  const supabase = createOfficeClient()
+  const offices = await prisma.coreOffice.findMany({
+    select: {
+      id: true,
+      budgetId: true,
+      name: true,
+      createdAt: true,
+      officeType: {
+        select: {
+          name: true,
+        },
+      },
+      parentOffice: {
+        select: {
+          name: true,
+        },
+      },
+      officeUser: {
+        select: {
+          passwordHint: true,
+        },
+      },
+    },
+    orderBy: {
+      id: 'asc',
+    },
+  })
 
-  const { data: offices, error } = await supabase
-    .from('core_offices')
-    .select(`
-      id,
-      budget_id,
-      name,
-      created_at,
-      office_type:office_type_id(name),
-      parent_office:parent_office_id(name),
-      login:office_user_logins(password_hint)
-    `)
-    .order('id', { ascending: true })
-
-  if (error || !offices || offices.length === 0) {
+  if (!offices || offices.length === 0) {
     return { offices: [], defaultPassword: '12345' }
   }
 
   const defaultPassword = '12345'
 
-  const list: OfficeUserItem[] = offices.map((o: any) => {
-    const hint = (Array.isArray(o.login) ? o.login[0]?.password_hint : o.login?.password_hint) || defaultPassword
+  const list: OfficeUserItem[] = offices.map((o) => {
+    const hint = o.officeUser?.passwordHint || defaultPassword
     const hasCustomPassword = hint !== defaultPassword
 
     return {
-      id: o.id,
-      budgetId: o.budget_id,
+      id: Number(o.id),
+      budgetId: o.budgetId,
       name: o.name,
-      officeType: o.office_type?.name || 'N/A',
-      parentOffice: o.parent_office?.name || '—',
+      officeType: o.officeType?.name || 'N/A',
+      parentOffice: o.parentOffice?.name || '—',
       hasCustomPassword,
       currentPasswordHint: hint,
-      created_at: o.created_at,
+      created_at: o.createdAt.toISOString(),
     }
   })
 
@@ -80,24 +92,27 @@ export async function updateOfficePassword(
     return { error: 'অনুগ্রহ করে একটি পাসওয়ার্ড লিখুন।' }
   }
 
-  const supabase = createOfficeClient()
   const pwdHash = hashPassword(cleanPwd)
 
-  const { error: upsertErr } = await supabase
-    .from('office_user_logins')
-    .upsert({
-      office_id: officeId,
-      password_hash: pwdHash,
-      password_hint: cleanPwd,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'office_id' })
+  try {
+    await prisma.officeUser.upsert({
+      where: { officeId: BigInt(officeId) },
+      update: {
+        passwordHash: pwdHash,
+        passwordHint: cleanPwd,
+      },
+      create: {
+        officeId: BigInt(officeId),
+        passwordHash: pwdHash,
+        passwordHint: cleanPwd,
+      },
+    })
 
-  if (upsertErr) {
-    return { error: 'পাসওয়ার্ড পরিবর্তন ব্যর্থ হয়েছে: ' + upsertErr.message }
+    revalidatePath('/admin/offices-users')
+    return { success: true }
+  } catch (error: any) {
+    return { error: 'পাসওয়ার্ড পরিবর্তন ব্যর্থ হয়েছে: ' + error.message }
   }
-
-  revalidatePath('/admin/offices-users')
-  return { success: true }
 }
 
 export async function resetOfficePassword(officeId: number) {
@@ -113,21 +128,17 @@ export async function resetAllOfficesPassword(targetPassword = '12345') {
   const cleanPwd = targetPassword.trim() || '12345'
   const pwdHash = hashPassword(cleanPwd)
 
-  const supabase = createOfficeClient()
-
-  const { error } = await supabase
-    .from('office_user_logins')
-    .update({
-      password_hash: pwdHash,
-      password_hint: cleanPwd,
-      updated_at: new Date().toISOString(),
+  try {
+    await prisma.officeUser.updateMany({
+      data: {
+        passwordHash: pwdHash,
+        passwordHint: cleanPwd,
+      },
     })
-    .neq('id', 0)
 
-  if (error) {
+    revalidatePath('/admin/offices-users')
+    return { success: true }
+  } catch (error: any) {
     return { error: 'সকল পাসওয়ার্ড রিসেট ব্যর্থ হয়েছে: ' + error.message }
   }
-
-  revalidatePath('/admin/offices-users')
-  return { success: true }
 }

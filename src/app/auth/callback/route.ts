@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server' // createClient uses the server Supabase client
+
+// NOTE: This file uses Supabase Auth which is not used in this application.
+// Custom auth is implemented for admin and office users.
+// Keeping this file commented out in case Supabase Auth is needed in the future.
+
+/*
+import { createClient } from '@/lib/supabase/server'
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  // if "next" is in param, use it as the redirect URL
   const next = searchParams.get('next') ?? '/'
 
   if (code) {
@@ -15,6 +20,11 @@ export async function GET(request: Request) {
     }
   }
 
-  // return the user to an error page with instructions
   return NextResponse.redirect(`${origin}/auth/auth-code-error`)
+}
+*/
+
+export async function GET(request: Request) {
+  // Return error since Supabase Auth is not configured
+  return NextResponse.redirect(new URL('/auth/auth-code-error', request.url))
 }

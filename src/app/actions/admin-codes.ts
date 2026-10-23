@@ -1,23 +1,23 @@
 'use server'
 
-import { createOfficeClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db/client'
 import { getAdminSession } from '@/lib/auth-admin'
 import { revalidatePath } from 'next/cache'
 
 export interface BudgetCategoryItem {
   id: string
-  code: string // e.g. '3111'
-  title: string // e.g. 'নগদ মজুরি ও বেতন'
+  code: string
+  title: string
   hierarchy_order: number
 }
 
 export interface ExpenseCodeFullItem {
   id: number
-  code: string // e.g. '3111101'
+  code: string
   name: string
-  parent_code: string // e.g. '3111'
-  parent_title: string // e.g. 'নগদ মজুরি ও বেতন'
-  hierarchy_order: number // sort_order
+  parent_code: string
+  parent_title: string
+  hierarchy_order: number
   formula_key?: string | null
   is_manual?: boolean
   enabled?: boolean
@@ -36,30 +36,41 @@ const DEFAULT_CATEGORIES: BudgetCategoryItem[] = [
 ]
 
 // -------------------------------------------------------------------
-// CATEGORIES (Left side of Tab 1)
+// CATEGORIES (stored in ref_economic_codes.category field)
 // -------------------------------------------------------------------
 export async function getBudgetCategories(): Promise<BudgetCategoryItem[]> {
-  const supabase = createOfficeClient()
-  const { data: profiles } = await supabase.from('admin_profiles').select('id, username').limit(1)
+  // Get unique categories from economic codes
+  const codes = await prisma.refEconomicCode.findMany({
+    where: { category: { not: null } },
+    select: { category: true },
+    distinct: ['category'],
+  })
 
-  if (!profiles || profiles.length === 0) {
+  if (codes.length === 0) {
     return DEFAULT_CATEGORIES
   }
 
-  const root = profiles[0]
-  if (root.username.includes(':::categories=')) {
-    try {
-      const encoded = root.username.split(':::categories=')[1].split(':::')[0]
-      const parsed = JSON.parse(decodeURIComponent(encoded))
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.sort((a, b) => a.hierarchy_order - b.hierarchy_order)
-      }
-    } catch {
-      // fallback
-    }
+  // Map categories to budget categories
+  const categoryNameMap: Record<string, string> = {
+    'Salary': 'নগদ মজুরি ও বেতন',
+    'Admin': 'প্রশাসনিক ব্যয়',
+    'Fuel': 'পেট্রোল, অয়েল ও লুব্রিকেন্ট',
+    'Travel': 'ভ্রমণ ও বদলি',
+    'Printing': 'মুদ্রণ ও মনিহারি',
+    'Supply': 'সাধারণ সরবরাহ ও কাঁচামাল',
+    'Maintenance': 'মেরামত ও সংরক্ষণ',
+    'Transfer': 'আবর্তক স্থানান্তর',
+    'Equipment': 'যন্ত্রপাতি ও সরঞ্জামাদি',
   }
 
-  return DEFAULT_CATEGORIES
+  return codes
+    .map((c, idx) => ({
+      id: `cat-${c.category}`,
+      code: c.category || 'OTHER',
+      title: categoryNameMap[c.category || ''] || c.category || 'অন্যান্য ব্যয়',
+      hierarchy_order: idx + 1,
+    }))
+    .sort((a, b) => a.hierarchy_order - b.hierarchy_order)
 }
 
 export async function saveBudgetCategory(data: {
@@ -71,174 +82,55 @@ export async function saveBudgetCategory(data: {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
-  const trimmedCode = data.code.trim()
-  const trimmedTitle = data.title.trim()
-  if (!trimmedCode || !trimmedTitle) return { error: 'ক্যাটাগরি কোড ও নাম আবশ্যক' }
-
-  const supabase = createOfficeClient()
-  const { data: profiles } = await supabase.from('admin_profiles').select('*').limit(1)
-  if (!profiles || profiles.length === 0) return { error: 'অ্যাডমিন প্রোফাইল পাওয়া যায়নি' }
-
-  const root = profiles[0]
-  const currentCategories = await getBudgetCategories()
-  const list = [...currentCategories]
-
-  if (data.id) {
-    const idx = list.findIndex((c) => c.id === data.id)
-    if (idx !== -1) {
-      list[idx] = {
-        id: data.id,
-        code: trimmedCode,
-        title: trimmedTitle,
-        hierarchy_order: data.hierarchy_order || 1,
-      }
-    }
-  } else {
-    list.push({
-      id: `cat-${trimmedCode}`,
-      code: trimmedCode,
-      title: trimmedTitle,
-      hierarchy_order: data.hierarchy_order || list.length + 1,
-    })
-  }
-
-  list.sort((a, b) => a.hierarchy_order - b.hierarchy_order)
-
-  // Encode back into username
-  let rawUsername = root.username
-  if (rawUsername.includes(':::categories=')) {
-    const parts = rawUsername.split(':::categories=')
-    const before = parts[0]
-    const afterSegments = parts[1].split(':::').slice(1).join(':::')
-    rawUsername = afterSegments ? `${before}:::${afterSegments}` : before
-  }
-
-  const encoded = encodeURIComponent(JSON.stringify(list))
-  const newUsername = `${rawUsername}:::categories=${encoded}`
-
-  const { error } = await supabase
-    .from('admin_profiles')
-    .update({ username: newUsername })
-    .eq('id', root.id)
-
-  if (error) return { error: error.message }
-
-  revalidatePath('/admin/codes')
-  return { success: true }
+  // Categories are derived from ref_economic_codes.category
+  // This is a no-op in the new schema - categories are managed via economic codes
+  return { error: 'ক্যাটাগরি পরিচালনা অর্থনৈতিক কোডের মাধ্যমে করুন' }
 }
 
 export async function deleteBudgetCategory(id: string) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
-  const supabase = createOfficeClient()
-  const { data: profiles } = await supabase.from('admin_profiles').select('*').limit(1)
-  if (!profiles || profiles.length === 0) return { error: 'অ্যাডমিন প্রোফাইল পাওয়া যায়নি' }
-
-  const root = profiles[0]
-  const currentCategories = await getBudgetCategories()
-  const list = currentCategories.filter((c) => c.id !== id)
-
-  let rawUsername = root.username
-  if (rawUsername.includes(':::categories=')) {
-    const parts = rawUsername.split(':::categories=')
-    const before = parts[0]
-    const afterSegments = parts[1].split(':::').slice(1).join(':::')
-    rawUsername = afterSegments ? `${before}:::${afterSegments}` : before
-  }
-
-  const encoded = encodeURIComponent(JSON.stringify(list))
-  const newUsername = `${rawUsername}:::categories=${encoded}`
-
-  const { error } = await supabase
-    .from('admin_profiles')
-    .update({ username: newUsername })
-    .eq('id', root.id)
-
-  if (error) return { error: error.message }
-
-  revalidatePath('/admin/codes')
-  return { success: true }
+  // Categories are derived from ref_economic_codes.category
+  return { error: 'ক্যাটাগরি পরিচালনা অর্থনৈতিক কোডের মাধ্যমে করুন' }
 }
 
 // -------------------------------------------------------------------
-// ECONOMIC CODES (Right side of Tab 1) & Tab 2 (Enabling/Disabling)
+// ECONOMIC CODES & MAPPING
 // -------------------------------------------------------------------
 
 /**
- * Get enabled code IDs for a specific office level from admin_code_level_mapping.
- * Returns null if no custom mapping exists (meaning "use defaults / all enabled").
+ * Get enabled code IDs for a specific office level from office_level_economic_code_mapping.
  */
-async function getLevelEnabledCodeIds(
-  officeTypeId: number,
-  officeLevelId: string
-): Promise<number[] | null> {
-  const supabase = createOfficeClient()
-  const { data, error } = await supabase
-    .from('admin_code_level_mapping')
-    .select('code_id, is_enabled')
-    .eq('office_type_id', officeTypeId)
-    .eq('office_level_id', parseInt(officeLevelId, 10))
+async function getLevelEnabledCodeIds(officeLevelId: string): Promise<Set<number>> {
+  const mappings = await prisma.officeLevelEconomicCodeMapping.findMany({
+    where: {
+      officeLevelId: BigInt(officeLevelId),
+      isEnabled: true,
+    },
+    select: { economicCodeId: true },
+  })
 
-  if (error) {
-    console.error('[getLevelEnabledCodeIds] error:', error.message)
-    return null
-  }
-  if (!data || data.length === 0) return null
-
-  return data.filter((r: any) => r.is_enabled).map((r: any) => r.code_id)
+  return new Set(mappings.map((m) => Number(m.economicCodeId)))
 }
 
 export async function getExpenseCodesWithCategoryAndMapping(
   officeTypeId: number,
   officeLevelId?: string
 ) {
-  const supabase = createOfficeClient()
-
-  // 1. Fetch all expense codes from core_economic_codes (or core_expense_codes)
-  let { data: codes, error } = await supabase
-    .from('core_economic_codes')
-    .select('*')
-    .order('sort_order', { ascending: true })
-
-  if (error || !codes) {
-    const fallbackRes = await supabase
-      .from('core_expense_codes')
-      .select('*')
-      .order('sort_order', { ascending: true })
-    codes = fallbackRes.data || []
-  }
+  // Fetch all economic codes
+  const codes = await prisma.refEconomicCode.findMany({
+    where: { isActive: true },
+    orderBy: { sortOrder: 'asc' },
+  })
 
   let enabledCodeIds = new Set<number>()
 
   if (officeLevelId) {
-    const levelCodes = await getLevelEnabledCodeIds(officeTypeId, officeLevelId)
-    if (levelCodes !== null) {
-      // Custom mapping exists — use it
-      enabledCodeIds = new Set<number>(levelCodes)
-    } else {
-      // No custom mapping yet — fall back to code_type_mapping or all enabled
-      const { data: typeMappings } = await supabase
-        .from('code_type_mapping')
-        .select('code_id')
-        .eq('office_type_id', officeTypeId)
-      if (typeMappings && typeMappings.length > 0) {
-        enabledCodeIds = new Set<number>(typeMappings.map((m: any) => m.code_id))
-      } else {
-        enabledCodeIds = new Set<number>((codes || []).map((c: any) => c.id))
-      }
-    }
+    enabledCodeIds = await getLevelEnabledCodeIds(officeLevelId)
   } else {
-    // No level selected — use code_type_mapping or all enabled
-    const { data: typeMappings } = await supabase
-      .from('code_type_mapping')
-      .select('code_id')
-      .eq('office_type_id', officeTypeId)
-    if (typeMappings && typeMappings.length > 0) {
-      enabledCodeIds = new Set<number>(typeMappings.map((m: any) => m.code_id))
-    } else {
-      enabledCodeIds = new Set<number>((codes || []).map((c: any) => c.id))
-    }
+    // No level selected - use all codes
+    enabledCodeIds = new Set(codes.map((c) => Number(c.id)))
   }
 
   const categoryNameMap: Record<string, string> = {
@@ -253,20 +145,20 @@ export async function getExpenseCodesWithCategoryAndMapping(
     '4112': 'যন্ত্রপাতি ও সরঞ্জামাদি',
   }
 
-  const list: ExpenseCodeFullItem[] = (codes || []).map((c: any) => {
-    const pCode = c.parent_code || (c.code ? c.code.substring(0, 4) : '')
-    const pTitle = c.parent_title || categoryNameMap[pCode] || 'অন্যান্য ব্যয়'
+  const list: ExpenseCodeFullItem[] = codes.map((c) => {
+    const pCode = c.code ? c.code.substring(0, 4) : ''
+    const pTitle = c.category || categoryNameMap[pCode] || 'অন্যান্য ব্যয়'
 
     return {
-      id: c.id,
+      id: Number(c.id),
       code: c.code,
       name: c.name,
       parent_code: pCode,
       parent_title: pTitle,
-      hierarchy_order: c.sort_order || 0,
-      formula_key: c.formula_key,
-      is_manual: c.is_manual ?? false,
-      enabled: enabledCodeIds.has(c.id),
+      hierarchy_order: c.sortOrder || 0,
+      formula_key: c.formulaKey,
+      is_manual: c.isManual,
+      enabled: enabledCodeIds.has(Number(c.id)),
     }
   })
 
@@ -291,90 +183,70 @@ export async function saveEconomicCode(data: {
   const trimmedName = data.name.trim()
   if (!trimmedCode || !trimmedName) return { error: 'কোড ও বিবরণ আবশ্যক' }
 
-  const supabase = createOfficeClient()
-
-  const targetTable = 'core_economic_codes'
-
-  if (data.id) {
-    let { error } = await supabase
-      .from(targetTable)
-      .update({
-        code: trimmedCode,
-        name: trimmedName,
-        parent_code: data.parent_code,
-        parent_title: data.parent_title,
-        sort_order: data.hierarchy_order || 1,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', data.id)
-
-    if (error) {
-      // Fallback to core_expense_codes
-      await supabase
-        .from('core_expense_codes')
-        .update({
+  try {
+    if (data.id) {
+      await prisma.refEconomicCode.update({
+        where: { id: BigInt(data.id) },
+        data: {
           code: trimmedCode,
           name: trimmedName,
-          sort_order: data.hierarchy_order || 1,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', data.id)
-    }
-  } else {
-    let { error } = await supabase.from(targetTable).insert({
-      code: trimmedCode,
-      name: trimmedName,
-      parent_code: data.parent_code,
-      parent_title: data.parent_title,
-      sort_order: data.hierarchy_order || 1,
-      is_manual: true,
-      is_active: true,
-    })
-
-    if (error) {
-      await supabase.from('core_expense_codes').insert({
-        code: trimmedCode,
-        name: trimmedName,
-        sort_order: data.hierarchy_order || 1,
-        is_manual: true,
-        is_active: true,
+          category: data.parent_code,
+          sortOrder: data.hierarchy_order || 1,
+        },
+      })
+    } else {
+      await prisma.refEconomicCode.create({
+        data: {
+          code: trimmedCode,
+          name: trimmedName,
+          category: data.parent_code,
+          sortOrder: data.hierarchy_order || 1,
+          isManual: true,
+          isActive: true,
+        },
       })
     }
-  }
 
-  revalidatePath('/admin/codes')
-  revalidatePath('/office/budget-sheet')
-  return { success: true }
+    revalidatePath('/admin/codes')
+    revalidatePath('/office/budget-sheet')
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
+  }
 }
 
 export async function deleteEconomicCode(id: number) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
-  const supabase = createOfficeClient()
+  try {
+    // Integrity Check: Check if any office has active budget data for this code
+    const activeEntries = await prisma.officeBudgetSheet.findFirst({
+      where: {
+        economicCodeId: BigInt(id),
+        OR: [
+          { autoValue: { gt: 0 } },
+          { manualValue: { gt: 0 } },
+        ],
+      },
+    })
 
-  // Integrity Check: Check if any office has entered data or active budget exists for this code
-  const { data: activeEntries } = await supabase
-    .from('office_budget_sheet')
-    .select('id, auto_value, manual_value')
-    .eq('code_id', id)
-    .or('auto_value.gt.0,manual_value.gt.0')
-    .limit(1)
-
-  if (activeEntries && activeEntries.length > 0) {
-    return {
-      error: 'এই কোডে বিভিন্ন অফিসের সক্রিয় বাজেট তথ্য বিদ্যমান রয়েছে! ডাটার নিরাপত্তার স্বার্থে এটি মুছে ফেলা সম্ভব নয়।'
+    if (activeEntries) {
+      return {
+        error: 'এই কোডে বিভিন্ন অফিসের সক্রিয় বাজেট তথ্য বিদ্যমান রয়েছে! ডাটার নিরাপত্তার স্বার্থে এটি মুছে ফেলা সম্ভব নয়।'
+      }
     }
-  }
 
-  let { error } = await supabase.from('core_economic_codes').delete().eq('id', id)
-  if (error) {
-    await supabase.from('core_expense_codes').delete().eq('id', id)
-  }
+    await prisma.refEconomicCode.delete({
+      where: { id: BigInt(id) },
+    })
 
-  revalidatePath('/admin/codes')
-  revalidatePath('/office/budget-sheet')
-  return { success: true }
+    revalidatePath('/admin/codes')
+    revalidatePath('/office/budget-sheet')
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
+  }
 }
 
 export async function toggleCodeForOfficeType(
@@ -386,48 +258,32 @@ export async function toggleCodeForOfficeType(
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
-  const supabase = createOfficeClient()
-
-  if (officeLevelId) {
-    const lvlIdNum = parseInt(officeLevelId, 10)
-    // Upsert into admin_code_level_mapping
-    const { error } = await supabase
-      .from('admin_code_level_mapping')
-      .upsert(
-        {
-          office_type_id: officeTypeId,
-          office_level_id: lvlIdNum,
-          code_id: codeId,
-          is_enabled: enable,
-        },
-        { onConflict: 'office_type_id,office_level_id,code_id' }
-      )
-    if (error) {
-      console.error('[toggleCodeForOfficeType] level upsert error:', error)
-      return { error: error.message }
-    }
-  } else {
-    if (enable) {
-      const { error } = await supabase.from('code_type_mapping').insert({
-        office_type_id: officeTypeId,
-        code_id: codeId,
-      })
-      if (error && !error.message.includes('duplicate')) {
-        return { error: error.message }
-      }
-    } else {
-      const { error } = await supabase
-        .from('code_type_mapping')
-        .delete()
-        .eq('office_type_id', officeTypeId)
-        .eq('code_id', codeId)
-      if (error) return { error: error.message }
-    }
+  if (!officeLevelId) {
+    return { error: 'অফিস লেভেল নির্বাচন আবশ্যক' }
   }
 
-  revalidatePath('/admin/codes')
-  revalidatePath('/office/budget-sheet')
-  return { success: true }
+  try {
+    await prisma.officeLevelEconomicCodeMapping.upsert({
+      where: {
+        officeLevelId_economicCodeId: {
+          officeLevelId: BigInt(officeLevelId),
+          economicCodeId: BigInt(codeId),
+        },
+      },
+      update: { isEnabled: enable },
+      create: {
+        officeLevelId: BigInt(officeLevelId),
+        economicCodeId: BigInt(codeId),
+        isEnabled: enable,
+      },
+    })
+
+    revalidatePath('/admin/codes')
+    revalidatePath('/office/budget-sheet')
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
+  }
 }
 
 export async function toggleBulkCodesForOfficeType(
@@ -440,45 +296,33 @@ export async function toggleBulkCodesForOfficeType(
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
   if (!codeIds || codeIds.length === 0) return { error: 'কোনো কোড নির্বাচন করা হয়নি' }
 
-  const supabase = createOfficeClient()
-
-  if (officeLevelId) {
-    const lvlIdNum = parseInt(officeLevelId, 10)
-    // Upsert all codes into admin_code_level_mapping
-    const rows = codeIds.map((cid) => ({
-      office_type_id: officeTypeId,
-      office_level_id: lvlIdNum,
-      code_id: cid,
-      is_enabled: enable,
-    }))
-    const { error } = await supabase
-      .from('admin_code_level_mapping')
-      .upsert(rows, { onConflict: 'office_type_id,office_level_id,code_id' })
-    if (error) {
-      console.error('[toggleBulkCodesForOfficeType] level upsert error:', error)
-      return { error: `ডাটাবেস ত্রুটি: ${error.message}` }
-    }
-  } else {
-    if (enable) {
-      const rows = codeIds.map((cid) => ({
-        office_type_id: officeTypeId,
-        code_id: cid,
-      }))
-      const { error } = await supabase.from('code_type_mapping').upsert(rows, { onConflict: 'code_id,office_type_id' })
-      if (error && !error.message.includes('duplicate')) {
-        return { error: error.message }
-      }
-    } else {
-      const { error } = await supabase
-        .from('code_type_mapping')
-        .delete()
-        .eq('office_type_id', officeTypeId)
-        .in('code_id', codeIds)
-      if (error) return { error: error.message }
-    }
+  if (!officeLevelId) {
+    return { error: 'অফিস লেভেল নির্বাচন আবশ্যক' }
   }
 
-  revalidatePath('/admin/codes')
-  revalidatePath('/office/budget-sheet')
-  return { success: true }
+  try {
+    // Upsert all codes
+    for (const codeId of codeIds) {
+      await prisma.officeLevelEconomicCodeMapping.upsert({
+        where: {
+          officeLevelId_economicCodeId: {
+            officeLevelId: BigInt(officeLevelId),
+            economicCodeId: BigInt(codeId),
+          },
+        },
+        update: { isEnabled: enable },
+        create: {
+          officeLevelId: BigInt(officeLevelId),
+          economicCodeId: BigInt(codeId),
+          isEnabled: enable,
+        },
+      })
+    }
+
+    revalidatePath('/admin/codes')
+    revalidatePath('/office/budget-sheet')
+    return { success: true }
+  } catch (error: any) {
+    return { error: error.message }
+  }
 }

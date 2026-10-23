@@ -1,38 +1,74 @@
-import { createOfficeClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db/client'
 import type { BudgetContext } from './calculate'
 
 /**
  * Fetches all form data for a given submission and shapes it into
- * the BudgetContext expected by the calculation engine using the redesigned tables.
+ * the BudgetContext expected by the calculation engine using the new schema.
  */
 export async function getBudgetContext(submissionId: number): Promise<BudgetContext> {
-  const supabase = createOfficeClient()
-
   // Run all queries in parallel against normalized tables
   const [
-    { data: staffWorking },
-    { data: staffNewRecruits },
-    { data: leave },
-    { data: utilities },
-    { data: houseRent },
-    { data: vehiclesGovt },
-    { data: vehicleRent },
-    { data: returnInfo },
-    { data: itEquipment },
-    { data: submission },
-    { data: ratesData },
+    staffWorking,
+    staffNewRecruits,
+    leave,
+    utilities,
+    houseRent,
+    vehiclesGovt,
+    vehicleRent,
+    returnInfo,
+    itEquipment,
+    submission,
+    ratesData,
   ] = await Promise.all([
-    supabase.from('office_form_staff_working').select('*').eq('submission_id', submissionId),
-    supabase.from('office_form_staff_new_recruits').select('*').eq('submission_id', submissionId),
-    supabase.from('office_form_leave_encashment').select('*').eq('submission_id', submissionId).maybeSingle(),
-    supabase.from('office_form_utilities').select('*').eq('submission_id', submissionId),
-    supabase.from('office_form_house_rent').select('*').eq('submission_id', submissionId).maybeSingle(),
-    supabase.from('office_form_vehicles_govt').select('*').eq('submission_id', submissionId),
-    supabase.from('office_form_vehicles_rent').select('*').eq('submission_id', submissionId),
-    supabase.from('office_form_return_info').select('*').eq('submission_id', submissionId).maybeSingle(),
-    supabase.from('office_form_it_equipment').select('*').eq('submission_id', submissionId),
-    supabase.from('office_submissions').select('office_id, core_offices(office_type_id, core_office_types(name))').eq('id', submissionId).maybeSingle(),
-    supabase.from('admin_rates').select('key, value'),
+    prisma.officeFormStaffWorking.findMany({
+      where: { submissionId: BigInt(submissionId) },
+    }),
+    prisma.officeFormStaffNewRecruit.findMany({
+      where: { submissionId: BigInt(submissionId) },
+    }),
+    prisma.officeFormLeaveEncashment.findUnique({
+      where: { submissionId: BigInt(submissionId) },
+    }),
+    prisma.officeFormUtility.findMany({
+      where: { submissionId: BigInt(submissionId) },
+    }),
+    prisma.officeFormHouseRent.findUnique({
+      where: { submissionId: BigInt(submissionId) },
+    }),
+    prisma.officeFormVehicleGovt.findMany({
+      where: { submissionId: BigInt(submissionId) },
+      include: {
+        config: {
+          include: {
+            fuelType: true,
+          },
+        },
+      },
+    }),
+    prisma.officeFormVehicleRent.findMany({
+      where: { submissionId: BigInt(submissionId) },
+    }),
+    prisma.officeFormReturnInfo.findUnique({
+      where: { submissionId: BigInt(submissionId) },
+    }),
+    prisma.officeFormItEquipment.findMany({
+      where: { submissionId: BigInt(submissionId) },
+    }),
+    prisma.officeSubmission.findUnique({
+      where: { id: BigInt(submissionId) },
+      include: {
+        office: {
+          include: {
+            officeType: {
+              select: { name: true },
+            },
+          },
+        },
+      },
+    }),
+    prisma.adminRate.findMany({
+      select: { key: true, value: true },
+    }),
   ])
 
   // Get rates
@@ -56,56 +92,56 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
   }
 
   // Office type name
-  const officeTypeName: string = (submission as any)?.core_offices?.core_office_types?.name || ''
+  const officeTypeName: string = submission?.office?.officeType?.name || ''
 
   // Format Staff Working
-  const formattedStaff = (staffWorking || []).map((s: any) => ({
-    category: s.grade_id <= 9 ? ('officer' as const) : ('staff' as const),
-    total_basic: Number(s.monthly_basic || 0),
-    count: Number(s.staff_count || 0),
+  const formattedStaff = staffWorking.map((s) => ({
+    category: s.gradeId <= 9 ? ('officer' as const) : ('staff' as const),
+    total_basic: Number(s.monthlyBasic || 0),
+    count: Number(s.staffCount || 0),
   }))
 
-  // Format New Recruits directly from office_form_staff_new_recruits
-  const formattedNewStaff = (staffNewRecruits || []).map((p: any) => ({
-    category: p.grade_id <= 9 ? ('officer' as const) : ('staff' as const),
-    total_salary: Number(p.total_salary || 0),
+  // Format New Recruits
+  const formattedNewStaff = staffNewRecruits.map((p) => ({
+    category: p.gradeId <= 9 ? ('officer' as const) : ('staff' as const),
+    total_salary: Number(p.totalSalary || 0),
   }))
 
   // Format Utilities
-  const formattedUtilities = (utilities || []).map((u: any) => ({
-    type_name: u.utility_name || '',
-    annual_cost: Number(u.annual_bill || 0),
+  const formattedUtilities = utilities.map((u) => ({
+    type_name: u.utilityType?.name || '',
+    annual_cost: Number(u.annualBill || 0),
   }))
 
   // Format Vehicles
-  const formattedVehicles = (vehiclesGovt || []).map((v: any) => {
-    const fType = (v.fuel_type || '').toLowerCase()
+  const formattedVehicles = vehiclesGovt.map((v) => {
+    const fType = v.config?.fuelType?.name || ''
     let rateKey = 'fuel_price_octane'
-    if (fType.includes('diesel') || fType.includes('ডিজেল')) rateKey = 'fuel_price_diesel'
-    if (fType.includes('cng') || fType.includes('gas') || fType.includes('গ্যাস') || fType.includes('সিএনজি')) rateKey = 'fuel_price_cng'
+    if (fType.toLowerCase().includes('diesel') || fType.includes('ডিজেল')) rateKey = 'fuel_price_diesel'
+    if (fType.toLowerCase().includes('cng') || fType.includes('gas') || fType.includes('গ্যাস') || fType.includes('সিএনজি')) rateKey = 'fuel_price_cng'
 
     return {
       rate_key: rateKey,
-      fuel_name: v.fuel_type || '',
-      count: Number(v.vehicle_count || 1),
-      monthly_fuel_allowance: Number(v.monthly_fuel_quota_liter || 0),
-      annual_lube_allowance: Number(v.annual_lube_allowance || 0),
-      annual_maintenance_allowance: Number(v.annual_maintenance_allowance || 0),
-      maintenance_cost: Number(v.maintenance_due || 0),
+      fuel_name: fType,
+      count: Number(v.vehicleCount || 1),
+      monthly_fuel_allowance: Number(v.config?.monthlyFuelQuotaLiter || 0),
+      annual_lube_allowance: Number(v.config?.annualLubeAllowance || 0),
+      annual_maintenance_allowance: Number(v.config?.annualMaintenanceAllowance || 0),
+      maintenance_cost: Number(v.maintenanceDue || 0),
     }
   })
 
   // Format Vehicle Rent
-  const formattedVehicleRent = (vehicleRent || []).map((v: any) => ({
-    count: Number(v.vehicle_count || 1),
-    monthly_rent_allowance: Number(v.monthly_rent_rate || 0),
+  const formattedVehicleRent = vehicleRent.map((v) => ({
+    count: Number(v.vehicleCount || 1),
+    monthly_rent_allowance: Number(v.config?.monthlyRentRate || 0),
   }))
 
   // Format IT Equipment
-  const formattedITEquipment = (itEquipment || []).map((eq: any) => ({
-    equipment_name: eq.equipment_type || '',
-    existing_count: Number(eq.existing_count || 0),
-    toner_cost: Number(eq.toner_cost_monthly || 0),
+  const formattedITEquipment = itEquipment.map((eq) => ({
+    equipment_name: eq.config?.equipmentType?.name || '',
+    existing_count: Number(eq.existingCount || 0),
+    toner_cost: Number(eq.tonerCostMonthly || 0),
   }))
 
   return {
@@ -113,19 +149,19 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
     staff: formattedStaff,
     newStaff: formattedNewStaff,
     leave: leave ? {
-      leave_encashment_officer_basic: Number(leave.leave_encashment_officer_basic || 0),
-      leave_encashment_staff_basic: Number(leave.leave_encashment_staff_basic || 0),
-      rest_recreation_amount: Number(leave.rest_recreation_amount || 0),
+      leave_encashment_officer_basic: Number(leave.leaveEncashmentOfficerBasic || 0),
+      leave_encashment_staff_basic: Number(leave.leaveEncashmentStaffBasic || 0),
+      rest_recreation_amount: Number(leave.restRecreationAmount || 0),
     } : null,
     utilities: formattedUtilities,
     houseRent: houseRent ? {
-      monthly_bill: Number(houseRent.monthly_rent || 0),
-      due: Number(houseRent.arrears_due || 0),
+      monthly_bill: Number(houseRent.monthlyRent || 0),
+      due: Number(houseRent.arrearsDue || 0),
     } : null,
     vehicles: formattedVehicles,
     vehicleRent: formattedVehicleRent,
     returnInfo: returnInfo ? {
-      return_submitted_count: Number(returnInfo.return_submitted_count || 0),
+      return_submitted_count: Number(returnInfo.returnSubmittedCount || 0),
     } : null,
     itEquipment: formattedITEquipment,
     rates,

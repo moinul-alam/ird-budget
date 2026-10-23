@@ -1,6 +1,6 @@
 'use server'
 
-import { createOfficeClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db/client'
 import { getAdminSession } from '@/lib/auth-admin'
 import { revalidatePath } from 'next/cache'
 import crypto from 'crypto'
@@ -24,23 +24,25 @@ export async function getAdminUsersList(): Promise<AdminUserItem[]> {
     throw new Error('অননুমোদিত প্রবেশাধিকার')
   }
 
-  const supabase = createOfficeClient()
+  const users = await prisma.adminUser.findMany({
+    select: {
+      id: true,
+      username: true,
+      role: true,
+      isActive: true,
+      createdAt: true,
+    },
+    orderBy: {
+      id: 'asc',
+    },
+  })
 
-  const { data: users, error } = await supabase
-    .from('admin_users')
-    .select('id, username, role, is_active, created_at')
-    .order('id', { ascending: true })
-
-  if (error || !users) {
-    return []
-  }
-
-  return users.map((u: any) => ({
-    id: u.id,
+  return users.map((u) => ({
+    id: Number(u.id),
     username: u.username,
     role: u.role as 'admin' | 'superadmin',
-    active: Boolean(u.is_active),
-    created_at: u.created_at,
+    active: u.isActive,
+    created_at: u.createdAt.toISOString(),
     assignedOfficeTypeIds: [],
   }))
 }
@@ -63,35 +65,36 @@ export async function createAdminUser(
   const cleanPwd = (password || '123').trim()
   const pwdHash = hashPassword(cleanPwd)
 
-  const supabase = createOfficeClient()
-
   // Check duplicate username
-  const { data: existing } = await supabase
-    .from('admin_users')
-    .select('id')
-    .ilike('username', cleanUser)
-    .maybeSingle()
+  const existing = await prisma.adminUser.findFirst({
+    where: {
+      username: {
+        equals: cleanUser,
+        mode: 'insensitive',
+      },
+    },
+  })
 
   if (existing) {
     return { error: 'এই ইউজারনেমটি ইতিমধ্যেই ব্যবহার করা হয়েছে।' }
   }
 
-  const { error: insErr } = await supabase
-    .from('admin_users')
-    .insert({
-      username: cleanUser,
-      password_hash: pwdHash,
-      password_hint: cleanPwd,
-      role,
-      is_active: true,
+  try {
+    await prisma.adminUser.create({
+      data: {
+        username: cleanUser,
+        passwordHash: pwdHash,
+        passwordHint: cleanPwd,
+        role,
+        isActive: true,
+      },
     })
 
-  if (insErr) {
-    return { error: 'সংরক্ষণ ব্যর্থ হয়েছে: ' + insErr.message }
+    revalidatePath('/admin/users')
+    return { success: true }
+  } catch (error: any) {
+    return { error: 'সংরক্ষণ ব্যর্থ হয়েছে: ' + error.message }
   }
-
-  revalidatePath('/admin/users')
-  return { success: true }
 }
 
 export async function updateAdminUserRole(
@@ -105,28 +108,25 @@ export async function updateAdminUserRole(
     return { error: 'শুধুমাত্র সুপারঅ্যাডমিন ইউজার রোল পরিবর্তন করতে পারবেন।' }
   }
 
-  const supabase = createOfficeClient()
-
   const updatePayload: any = {
     role: newRole,
-    is_active: active,
-    updated_at: new Date().toISOString(),
+    isActive: active,
   }
 
   if (newPassword && newPassword.trim()) {
-    updatePayload.password_hash = hashPassword(newPassword.trim())
-    updatePayload.password_hint = newPassword.trim()
+    updatePayload.passwordHash = hashPassword(newPassword.trim())
+    updatePayload.passwordHint = newPassword.trim()
   }
 
-  const { error: updErr } = await supabase
-    .from('admin_users')
-    .update(updatePayload)
-    .eq('id', adminId)
+  try {
+    await prisma.adminUser.update({
+      where: { id: BigInt(adminId) },
+      data: updatePayload,
+    })
 
-  if (updErr) {
-    return { error: 'আপডেট ব্যর্থ হয়েছে: ' + updErr.message }
+    revalidatePath('/admin/users')
+    return { success: true }
+  } catch (error: any) {
+    return { error: 'আপডেট ব্যর্থ হয়েছে: ' + error.message }
   }
-
-  revalidatePath('/admin/users')
-  return { success: true }
 }
