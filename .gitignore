@@ -110,3 +110,4 @@ $RECYCLE.BIN/
 *.njsproj
 *.sln
 *.sw?
+.env.example

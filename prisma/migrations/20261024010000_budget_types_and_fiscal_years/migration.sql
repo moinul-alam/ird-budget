@@ -76,12 +76,6 @@ ALTER TABLE "core_budget_cycles" ALTER COLUMN "fiscal_year_id" SET NOT NULL;
 ALTER TABLE "core_budget_cycles" ALTER COLUMN "budget_type_id" SET NOT NULL;
 
 -- CreateIndex
-CREATE INDEX "core_budget_cycles_fiscal_year_id_idx" ON "core_budget_cycles"("fiscal_year_id");
-
--- CreateIndex
-CREATE INDEX "core_budget_cycles_budget_type_id_idx" ON "core_budget_cycles"("budget_type_id");
-
--- CreateIndex
 CREATE UNIQUE INDEX "core_budget_cycles_fiscal_year_id_budget_type_id_key" ON "core_budget_cycles"("fiscal_year_id", "budget_type_id");
 
 -- AddForeignKey
