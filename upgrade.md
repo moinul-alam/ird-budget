@@ -635,12 +635,15 @@ BEGIN
   FOREACH t IN ARRAY tables LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', t);
     EXECUTE format('DROP POLICY IF EXISTS "Allow all on %s" ON public.%I;', t, t);
-    EXECUTE format('CREATE POLICY "Allow all on %s" ON public.%I FOR ALL TO anon, authenticated USING (true) WITH CHECK (true);', t, t);
+    EXECUTE format('CREATE POLICY "Allow all on %s" ON public.%I FOR ALL TO authenticated USING (true) WITH CHECK (true);', t, t);
   END LOOP;
 END $$;
 
-GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+-- Grant permissions to authenticated users only (not anon)
+-- Authenticated = admin users + office users who logged in
+-- Service role = Supabase backend services
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated, service_role;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO authenticated, service_role;
 ```
 
 **Instructions:**
