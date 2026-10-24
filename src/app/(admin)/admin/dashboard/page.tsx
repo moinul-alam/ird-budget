@@ -32,7 +32,10 @@ export default async function AdminDashboardPage() {
     },
   })
 
-  const activeCycle = cycles.find((c) => c.status === 'open') || cycles[0] || null
+  //const activeCycle = cycles.find((c) => c.status === 'open') || cycles[0] || null
+
+  const activeCycle = cycles.find((c: any) => c.status === 'open') || cycles[0] || null
+
 
   // 2. Fetch all offices with department and office_types
   const offices = await prisma.coreOffice.findMany({
