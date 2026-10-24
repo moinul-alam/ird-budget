@@ -14,6 +14,8 @@ export default async function BudgetSheetPage() {
   let initialError: string | null = null
   let initialMissingForms: string[] = []
   let officeLevel = ''
+  let officeName = ''
+  let headOfficeName = ''
 
   if (submissionId) {
     const result = await getBudgetSheetData(submissionId)
@@ -22,6 +24,8 @@ export default async function BudgetSheetPage() {
       initialTotalManual = result.totalManual
       initialMissingForms = result.missingForms || []
       officeLevel = result.officeLevel || ''
+      officeName = result.officeName || ''
+      headOfficeName = result.headOfficeName || ''
     } else {
       initialError = result.error || 'বাজেট তথ্য লোড করা যায়নি।'
     }
@@ -37,6 +41,8 @@ export default async function BudgetSheetPage() {
       initialError={initialError}
       initialMissingForms={initialMissingForms}
       officeLevel={officeLevel}
+      officeName={officeName}
+      headOfficeName={headOfficeName}
     />
   )
 }

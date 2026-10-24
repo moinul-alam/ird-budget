@@ -24,6 +24,8 @@ import { Fragment, useState, useTransition, useMemo } from 'react'
 import { recalculateBudget, saveManualValue, submitBudget, type BudgetSheetRowItem } from '@/app/actions/budget'
 import { useRouter } from 'next/navigation'
 import { useFormLock } from '@/components/form-lock-provider'
+import { ReportDownloader } from '@/components/report-downloader'
+import type { ReportRow, ReportSpec } from '@/lib/report/export'
 
 interface BudgetSheetClientProps {
   initialRows: BudgetSheetRowItem[]
@@ -33,6 +35,10 @@ interface BudgetSheetClientProps {
   initialMissingForms?: string[]
   /** The office's level name, shown as a summary card. */
   officeLevel: string
+  /** Office name for the download header. */
+  officeName: string
+  /** Head quarter / department for the download header. */
+  headOfficeName: string
 }
 
 /** Short labels for the form hint's links. */
@@ -67,6 +73,8 @@ export function BudgetSheetClient({
   initialError,
   initialMissingForms = [],
   officeLevel,
+  officeName,
+  headOfficeName,
 }: BudgetSheetClientProps) {
   const [rows, setRows] = useState<BudgetSheetRowItem[]>(initialRows)
   const [isPending, startTransition] = useTransition()
@@ -225,6 +233,57 @@ export function BudgetSheetClient({
   // Continuous serial across the whole table (১ … n), carried over group boundaries.
   let serial = 0
 
+  /**
+   * The downloadable report mirrors what is on screen right now: the visible rows
+   * (search/filter applied) with the same category breaks, plus the grand total.
+   */
+  const reportSpec = useMemo<ReportSpec>(() => {
+    const reportRows: ReportRow[] = []
+    let index = 0
+
+    for (const group of groups) {
+      const sectionLabel = [group.category_code, group.category_name].filter(Boolean).join('  ')
+      if (sectionLabel) reportRows.push({ section: sectionLabel })
+
+      for (const row of group.rows) {
+        index += 1
+        const effective = row.manual_value !== null ? row.manual_value : (row.auto_value || 0)
+        reportRows.push({
+          cells: {
+            serial: toBanglaNumber(index),
+            code: row.code,
+            name: row.name,
+            amount: toBanglaAmount(effective),
+          },
+        })
+      }
+    }
+
+    reportRows.push({
+      emphasis: true,
+      cells: {
+        serial: '',
+        code: '',
+        name: strings.budgetSheet.totalRow,
+        amount: toBanglaAmount(totalManual),
+      },
+    })
+
+    return {
+      title: strings.budgetSheet.title,
+      officeName,
+      headOfficeName,
+      fileName: [strings.budgetSheet.title, officeName].filter(Boolean).join('-'),
+      columns: [
+        { key: 'serial', label: strings.budgetSheet.serialColumn, align: 'center', width: 0.6 },
+        { key: 'code', label: strings.budgetSheet.codeColumn, align: 'left', width: 1.1 },
+        { key: 'name', label: strings.budgetSheet.nameColumn, align: 'left', width: 3.4 },
+        { key: 'amount', label: strings.budgetSheet.amountColumn, align: 'right', width: 1.6 },
+      ],
+      rows: reportRows,
+    }
+  }, [groups, totalManual, officeName, headOfficeName])
+
   return (
     <div className="p-4 sm:p-6 lg:p-10 max-w-6xl mx-auto space-y-6">
       {/* Top Header */}
@@ -249,6 +308,8 @@ export function BudgetSheetClient({
             )}
             {isPending ? strings.budgetSheet.recalculating : strings.budgetSheet.recalculateButton}
           </Button>
+
+          <ReportDownloader spec={reportSpec} />
         </div>
       </div>
 
@@ -295,10 +356,10 @@ export function BudgetSheetClient({
         <Card className="border-slate-200 shadow-xs bg-white">
           <CardHeader>
             <CardDescription className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              {strings.budgetSheet.totalFinalLabel}
+              {strings.budgetSheet.officeLevelLabel}
             </CardDescription>
-            <CardTitle className="text-2xl font-black text-emerald-700 font-mono">
-              ৳ {toBanglaAmount(totalManual)}
+            <CardTitle className="text-2xl font-black text-slate-800">
+              {officeLevel || '—'}
             </CardTitle>
           </CardHeader>
         </Card>
@@ -317,10 +378,10 @@ export function BudgetSheetClient({
         <Card className="border-slate-200 shadow-xs bg-white">
           <CardHeader>
             <CardDescription className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              {strings.budgetSheet.officeLevelLabel}
+              {strings.budgetSheet.totalFinalLabel}
             </CardDescription>
-            <CardTitle className="text-2xl font-black text-slate-800">
-              {officeLevel || '—'}
+            <CardTitle className="text-2xl font-black text-emerald-700 font-mono">
+              ৳ {toBanglaAmount(totalManual)}
             </CardTitle>
           </CardHeader>
         </Card>

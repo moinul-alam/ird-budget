@@ -32,6 +32,10 @@ interface BudgetSheetDataResponse {
   totalManual: number
   /** The office's level name, shown as context on the sheet header. */
   officeLevel: string
+  /** Office name, used as the report/download header. */
+  officeName: string
+  /** Head quarter (department for a head office, parent office for a field office). */
+  headOfficeName: string
   missingForms?: string[]
 }
 
@@ -47,6 +51,8 @@ export async function getBudgetSheetData(submissionId: number): Promise<BudgetSh
       totalAuto: 0,
       totalManual: 0,
       officeLevel: '',
+      officeName: '',
+      headOfficeName: '',
     }
   }
 
@@ -57,9 +63,27 @@ export async function getBudgetSheetData(submissionId: number): Promise<BudgetSh
 
     const submission = await prisma.officeSubmission.findUnique({
       where: { id: BigInt(submissionId) },
-      select: { office: { select: { officeLevel: { select: { levelName: true } } } } },
+      select: {
+        office: {
+          select: {
+            name: true,
+            parentOfficeId: true,
+            officeLevel: { select: { levelName: true } },
+            department: { select: { name: true } },
+            parentOffice: { select: { name: true } },
+          },
+        },
+      },
     })
-    const officeLevel = submission?.office?.officeLevel?.levelName || ''
+    const office = submission?.office
+    const officeLevel = office?.officeLevel?.levelName || ''
+    // A head office (no parent) reports its department; a field office its parent.
+    const headOfficeName = office
+      ? office.parentOfficeId === null
+        ? office.department?.name ?? ''
+        : office.parentOffice?.name ?? ''
+      : ''
+    const officeName = office?.name || ''
 
     const rows: BudgetSheetRowItem[] = sheet.map((r) => ({
       id: r.id,
@@ -92,6 +116,8 @@ export async function getBudgetSheetData(submissionId: number): Promise<BudgetSh
       totalAuto,
       totalManual,
       officeLevel,
+      officeName,
+      headOfficeName,
       missingForms,
     }
   } catch (err: any) {
@@ -103,6 +129,8 @@ export async function getBudgetSheetData(submissionId: number): Promise<BudgetSh
       totalAuto: 0,
       totalManual: 0,
       officeLevel: '',
+      officeName: '',
+      headOfficeName: '',
     }
   }
 }

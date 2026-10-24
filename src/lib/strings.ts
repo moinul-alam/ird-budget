@@ -446,6 +446,16 @@ export const strings = {
     recalculating: 'পুনরায় গণনা হচ্ছে...',
   },
 
+  report: {
+    download: 'ডাউনলোড',
+    asPdf: 'পিডিএফ (.pdf)',
+    asExcel: 'এক্সেল (.xlsx)',
+    preparing: 'তৈরি হচ্ছে...',
+    failed: 'রিপোর্ট তৈরি করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।',
+    departmentName: 'অভ্যন্তরীণ সম্পদ বিভাগ',
+    reportLabel: 'প্রতিবেদন',
+  },
+
   dashboard: {
     title: 'ড্যাশবোর্ড',
     welcome: 'স্বাগতম',

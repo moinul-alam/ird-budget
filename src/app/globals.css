@@ -136,3 +136,13 @@
     font-family: 'Anek Bangla', sans-serif !important;
   }
 }
+
+/* Indeterminate bar used by the global page loader skeleton. */
+@keyframes loader-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
