@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/client'
+import { computeSubmissionSheet } from '@/lib/budget/sheet'
 
 export async function getOfficeTypeIdForOffice(officeId: number): Promise<number | null> {
   const office = await prisma.coreOffice.findUnique({
@@ -9,25 +10,52 @@ export async function getOfficeTypeIdForOffice(officeId: number): Promise<number
 }
 
 export async function loadFormBasicInitial(submissionId: number) {
-  const row = await prisma.officeFormBasic.findUnique({
-    where: { submissionId: BigInt(submissionId) },
-  })
-  if (!row) return null
-  return {
+  const toInitial = (row: {
+    headOfOffice: string
+    designation: string | null
+    phone: string | null
+    email: string | null
+    address: string | null
+  }) => ({
     head_of_office: row.headOfOffice,
     designation: row.designation ?? '',
     phone: row.phone ?? '',
     email: row.email ?? '',
     address: row.address ?? '',
-  }
+  })
+
+  const row = await prisma.officeFormBasic.findUnique({
+    where: { submissionId: BigInt(submissionId) },
+  })
+  if (row) return toInitial(row)
+
+  // Nothing saved in this cycle yet: fall back to the office's most recent
+  // form so the office's details carry over from its previous submission.
+  const submission = await prisma.officeSubmission.findUnique({
+    where: { id: BigInt(submissionId) },
+    select: { officeId: true },
+  })
+  if (!submission) return null
+
+  const previous = await prisma.officeFormBasic.findFirst({
+    where: { submission: { officeId: submission.officeId } },
+    orderBy: { updatedAt: 'desc' },
+  })
+  return previous ? toInitial(previous) : null
 }
 
 export async function loadGrades() {
-  const grades = await prisma.refGrade.findMany({ orderBy: { gradeNo: 'asc' } })
+  const grades = await prisma.refGrade.findMany({
+    orderBy: { gradeNo: 'asc' },
+    include: { category: { select: { categoryName: true, categoryNameBn: true } } },
+  })
   return grades.map((g) => ({
     id: g.id,
     grade_no: g.gradeNo,
-    category: g.category,
+    // The category comes from ref_employee_categories through the FK, so the
+    // officer/staff split follows the table rather than a grade-number guess.
+    category: g.category.categoryName,
+    category_bn: g.category.categoryNameBn,
   }))
 }
 
@@ -123,24 +151,32 @@ export async function loadFormLeaveEncashmentInitial(submissionId: number) {
 }
 
 export async function loadVehicleFuelConfigsForOfficeType(officeTypeId: number) {
+  // Rows with a NULL office type are the global defaults the settings page
+  // manages; every office type inherits them alongside its own rows.
+  // A config names the fuel category, not a fuel: the office picks the exact fuel.
+  // Lubricant and maintenance belong to the vehicle type, not to the category.
   const configs = await prisma.adminVehicleConfig.findMany({
-    where: { officeTypeId: BigInt(officeTypeId) },
+    where: {
+      OR: [{ officeTypeId: BigInt(officeTypeId) }, { officeTypeId: null }],
+    },
     include: {
-      vehicleType: { select: { id: true, name: true } },
-      fuelType: { select: { id: true, name: true } },
+      vehicleType: { include: { allowanceConfig: true } },
+      fuelCategory: { select: { id: true, categoryNameBn: true } },
     },
     orderBy: { id: 'asc' },
   })
   return configs.map((c) => ({
     id: Number(c.id),
-    office_type_id: Number(c.officeTypeId),
+    office_type_id: c.officeTypeId === null ? null : Number(c.officeTypeId),
     car_type_id: Number(c.vehicleTypeId),
-    fuel_type_id: Number(c.fuelTypeId),
+    fuel_category_id: Number(c.fuelCategoryId),
     car_type: { id: Number(c.vehicleType.id), name: c.vehicleType.name },
-    fuel_type: { id: Number(c.fuelType.id), name: c.fuelType.name },
+    fuel_category: { id: Number(c.fuelCategory.id), name_bn: c.fuelCategory.categoryNameBn },
     monthly_fuel_quota_liter: Number(c.monthlyFuelQuotaLiter),
-    annual_lube_allowance: Number(c.annualLubeAllowance),
-    annual_maintenance_allowance: Number(c.annualMaintenanceAllowance),
+    annual_lube_allowance: Number(c.vehicleType.allowanceConfig?.annualLubeAllowance || 0),
+    annual_maintenance_allowance: Number(
+      c.vehicleType.allowanceConfig?.annualMaintenanceAllowance || 0
+    ),
   }))
 }
 
@@ -148,10 +184,11 @@ export async function loadFormVehiclesGovtInitial(submissionId: number) {
   const rows = await prisma.officeFormVehicleGovt.findMany({
     where: { submissionId: BigInt(submissionId) },
     include: {
+      fuelType: { select: { id: true, name: true, categoryId: true } },
       config: {
         include: {
           vehicleType: { select: { id: true, name: true } },
-          fuelType: { select: { id: true, name: true } },
+          fuelCategory: { select: { id: true, categoryNameBn: true } },
         },
       },
     },
@@ -160,30 +197,42 @@ export async function loadFormVehiclesGovtInitial(submissionId: number) {
   return rows.map((r) => ({
     id: Number(r.id),
     vehicle_fuel_config_id: Number(r.vehicleConfigId),
+    fuel_type_id: Number(r.fuelTypeId),
     count: r.vehicleCount,
     maintenance_cost: Number(r.maintenanceDue),
     additional_expense: Number(r.additionalExpense),
+    fuel_type: {
+      id: Number(r.fuelType.id),
+      name: r.fuelType.name,
+      category_id: Number(r.fuelType.categoryId),
+    },
     vehicle_fuel_config: r.config
       ? {
           id: Number(r.config.id),
           car_type_id: Number(r.config.vehicleTypeId),
-          fuel_type_id: Number(r.config.fuelTypeId),
+          fuel_category_id: Number(r.config.fuelCategoryId),
           car_type: { id: Number(r.config.vehicleType.id), name: r.config.vehicleType.name },
-          fuel_type: { id: Number(r.config.fuelType.id), name: r.config.fuelType.name },
+          fuel_category: {
+            id: Number(r.config.fuelCategory.id),
+            name_bn: r.config.fuelCategory.categoryNameBn,
+          },
         }
       : undefined,
   }))
 }
 
 export async function loadVehicleRentConfigsForOfficeType(officeTypeId: number) {
+  // NULL office type marks a global default row (see loadVehicleFuelConfigs…).
   const configs = await prisma.adminVehicleRentConfig.findMany({
-    where: { officeTypeId: BigInt(officeTypeId) },
+    where: {
+      OR: [{ officeTypeId: BigInt(officeTypeId) }, { officeTypeId: null }],
+    },
     include: { vehicleType: { select: { id: true, name: true } } },
     orderBy: { id: 'asc' },
   })
   return configs.map((c) => ({
     id: Number(c.id),
-    office_type_id: Number(c.officeTypeId),
+    office_type_id: c.officeTypeId === null ? null : Number(c.officeTypeId),
     car_type_id: Number(c.vehicleTypeId),
     car_type: { id: Number(c.vehicleType.id), name: c.vehicleType.name },
     monthly_rent_allowance: Number(c.monthlyRentRate),
@@ -212,9 +261,30 @@ export async function loadFormVehiclesRentInitial(submissionId: number) {
   }))
 }
 
+/**
+ * The office-rent VAT rate. /admin/settings tab 1 is where it is edited, so the
+ * `office_rent_vat_percent` tile wins; the legacy admin_rates row only remains
+ * as a fallback for databases that predate the tile. With neither present the rate
+ * reads as 0 — no percentage is compiled in.
+ */
 export async function loadVatPercentage(): Promise<number> {
+  const tile = await prisma.adminSalaryConfig.findUnique({
+    where: { key: 'office_rent_vat_percent' },
+    select: { value: true },
+  })
+  if (tile) return Number(tile.value)
+
   const rate = await prisma.adminRate.findFirst({ where: { key: 'vat_percentage' } })
-  return rate ? Number(rate.value) : 15
+  return rate ? Number(rate.value) : 0
+}
+
+/** The administrator's monthly দায়িত্ব ভাতা rate (form 5 previews it live). */
+export async function loadDutyAllowanceMonthlyRate(): Promise<number> {
+  const tile = await prisma.adminSalaryConfig.findUnique({
+    where: { key: 'duty_allowance' },
+    select: { value: true },
+  })
+  return tile ? Number(tile.value) : 0
 }
 
 export async function loadFormHouseRentInitial(submissionId: number) {
@@ -243,26 +313,43 @@ export async function loadFormUtilitiesInitial(submissionId: number) {
   }))
 }
 
+/**
+ * The equipment a form 10 card can budget for, one entry per global equipment
+ * type (`/admin/settings?tab=equipment`). The per-office-type row is only an
+ * optional override: the unit price the administrator edits on the equipment
+ * type is what the form uses, so a card is never priced at 0 merely because no
+ * `admin_it_config` row has been created for the office type yet. That row is
+ * created on demand when the office saves (`saveFormITEquipmentRow`), which is
+ * why `id` may be null here.
+ */
 export async function loadItConfigsForOfficeType(officeTypeId: number) {
-  const configs = await prisma.adminItConfig.findMany({
-    where: { officeTypeId: BigInt(officeTypeId) },
-    include: { equipmentType: { select: { id: true, name: true } } },
-    orderBy: { id: 'asc' },
+  const [equipmentTypes, overrides] = await Promise.all([
+    prisma.refItEquipmentType.findMany({ orderBy: { id: 'asc' } }),
+    prisma.adminItConfig.findMany({ where: { officeTypeId: BigInt(officeTypeId) } }),
+  ])
+
+  const overrideByEquipmentType = new Map(
+    overrides.map((o) => [Number(o.equipmentTypeId), o])
+  )
+
+  return equipmentTypes.map((t) => {
+    const override = overrideByEquipmentType.get(Number(t.id))
+    return {
+      id: override ? Number(override.id) : null,
+      office_type_id: officeTypeId,
+      equipment_type_id: Number(t.id),
+      equipment_type_name: t.name,
+      unit_budget: Number(override?.unitBudget ?? 0),
+      unit_price: Number(t.unitPrice),
+    }
   })
-  return configs.map((c) => ({
-    id: Number(c.id),
-    office_type_id: Number(c.officeTypeId),
-    equipment_type_id: Number(c.equipmentTypeId),
-    equipment_type_name: c.equipmentType.name,
-    unit_budget: Number(c.unitBudget ?? 0),
-  }))
 }
 
 export async function loadFormItEquipmentInitial(submissionId: number) {
   const rows = await prisma.officeFormItEquipment.findMany({
     where: { submissionId: BigInt(submissionId) },
     include: {
-      config: { include: { equipmentType: { select: { id: true, name: true } } } },
+      config: { include: { equipmentType: { select: { id: true, name: true, unitPrice: true } } } },
     },
   })
   return rows.map((r) => ({
@@ -273,7 +360,20 @@ export async function loadFormItEquipmentInitial(submissionId: number) {
     toner_cost: Number(r.tonerCostMonthly),
     required_qty: r.newDemandCount,
     unit_budget: Number(r.config.unitBudget ?? 0),
+    unit_price: Number(r.config.equipmentType.unitPrice),
   }))
+}
+
+/**
+ * The বেতন-ভাতা মাস tile: how many months a year the budget multiplies monthly
+ * figures by. Form 6 and form 10 read it from here rather than assuming twelve.
+ */
+export async function loadSalaryMonths(): Promise<number> {
+  const tile = await prisma.adminSalaryConfig.findUnique({
+    where: { key: 'salary_months' },
+    select: { value: true },
+  })
+  return tile ? Number(tile.value) : 0
 }
 
 export async function loadFormReturnInfoInitial(submissionId: number) {
@@ -303,7 +403,7 @@ export async function loadOfficeDashboardStats(submissionId: number) {
     utilities,
     returnInfo,
     submission,
-    budgetSum,
+    sheet,
   ] = await Promise.all([
     prisma.officeFormBasic.findUnique({ where: { submissionId: sid }, select: { id: true } }),
     prisma.officeFormStaffWorking.count({ where: { submissionId: sid } }),
@@ -328,10 +428,9 @@ export async function loadOfficeDashboardStats(submissionId: number) {
         },
       },
     }),
-    prisma.officeBudgetSheet.aggregate({
-      where: { submissionId: sid },
-      _sum: { finalValue: true },
-    }),
+    // The sheet is the same code-wise vector every report reads, so the dashboard
+    // total can never disagree with what the office sees on the budget sheet.
+    computeSubmissionSheet(submissionId),
   ])
 
   const completedForms = new Set<string>()
@@ -355,7 +454,8 @@ export async function loadOfficeDashboardStats(submissionId: number) {
     submissionStatus: (submission?.status === 'submitted' ? 'submitted' : 'draft') as
       | 'draft'
       | 'submitted',
-    totalBudgetAmount: Number(budgetSum._sum.finalValue ?? 0),
+    submittedAt: submission?.submittedAt ? submission.submittedAt.toISOString() : null,
+    totalBudgetAmount: sheet.total,
     cycleInfo: cycle
       ? {
           fiscal_year: cycle.fiscalYear.year,

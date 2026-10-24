@@ -413,11 +413,11 @@ export async function saveFormHouseRent(
   }
 ) {
   try {
+    // The rate row is only kept as the FK target of `vat_rate_id`; the VAT
+    // percentage itself is read from /admin/settings (see loadVatPercentage).
     const vatRate = await prisma.adminRate.findFirst({
       where: { key: 'vat_percentage' },
     })
-
-    const vatPercentage = vatRate ? Number(vatRate.value) : 15
 
     const contractStartDate = data.contract_start_date
       ? new Date(data.contract_start_date)
@@ -458,26 +458,38 @@ export async function saveFormReturnInfo(
   data: { tin_count: number; return_submitted_count: number }
 ) {
   try {
-    const postalRate = await prisma.adminRate.findFirst({
+    // Same precedence as the budget engine: the /admin/settings card wins and the
+    // legacy admin_rates row is only a fallback. The stored mirror matches code
+    // 3211119, which reads both the per-notice cost and the notices per non-filer
+    // from the ডাক card.
+    const tile = await prisma.adminSalaryConfig.findUnique({
       where: { key: 'postal_rate' },
+      select: { value: true, secondaryValue: true },
+    })
+    const legacyRate = await prisma.adminRate.findFirst({
+      where: { key: 'postal_expense_rate' },
     })
 
-    const rate = postalRate ? Number(postalRate.value) : 50
+    // No compiled-in rate either: whatever the tables do not supply reads as 0.
+    const rate = tile ? Number(tile.value) : legacyRate ? Number(legacyRate.value) : 0
+    const notices = Number(tile?.secondaryValue) || 0
+    const nonFilerCount = Math.max(0, data.tin_count - data.return_submitted_count)
+    const totalPostalDemand = nonFilerCount * notices * rate
 
     await prisma.officeFormReturnInfo.upsert({
       where: { submissionId: BigInt(submissionId) },
       update: {
         tinCount: data.tin_count,
         returnSubmittedCount: data.return_submitted_count,
-        postalRateId: postalRate?.id,
-        totalPostalDemand: data.return_submitted_count * rate,
+        postalRateId: legacyRate?.id,
+        totalPostalDemand,
       },
       create: {
         submissionId: BigInt(submissionId),
         tinCount: data.tin_count,
         returnSubmittedCount: data.return_submitted_count,
-        postalRateId: postalRate?.id,
-        totalPostalDemand: data.return_submitted_count * rate,
+        postalRateId: legacyRate?.id,
+        totalPostalDemand,
       },
     })
 
@@ -514,35 +526,48 @@ export async function saveFormVehicleRow(
   data: {
     id?: number
     vehicle_fuel_config_id: number
+    /** The fuel the office declares it buys — the config names only its category. */
+    fuel_type_id: number
     count: number
     maintenance_cost?: number
     additional_expense: number
   }
 ) {
   try {
+    const payload = {
+      vehicleConfigId: BigInt(data.vehicle_fuel_config_id),
+      fuelTypeId: BigInt(data.fuel_type_id),
+      vehicleCount: data.count,
+      maintenanceDue: data.maintenance_cost || 0,
+      additionalExpense: data.additional_expense || 0,
+    }
+
     if (data.id) {
       const updated = await prisma.officeFormVehicleGovt.update({
         where: { id: BigInt(data.id) },
-        data: {
-          vehicleConfigId: BigInt(data.vehicle_fuel_config_id),
-          vehicleCount: data.count,
-          maintenanceDue: data.maintenance_cost || 0,
-          additionalExpense: data.additional_expense || 0,
-        },
+        data: payload,
       })
       return { success: true, id: Number(updated.id) }
-    } else {
-      const created = await prisma.officeFormVehicleGovt.create({
-        data: {
+    }
+
+    // No id yet, but the row may already be stored: the modal saves on its own and
+    // the form's Save then re-sends every row. Upserting on the natural key the
+    // database enforces keeps that second pass from colliding with the first.
+    const saved = await prisma.officeFormVehicleGovt.upsert({
+      where: {
+        submissionId_vehicleConfigId_fuelTypeId: {
           submissionId: BigInt(submissionId),
           vehicleConfigId: BigInt(data.vehicle_fuel_config_id),
-          vehicleCount: data.count,
-          maintenanceDue: data.maintenance_cost || 0,
-          additionalExpense: data.additional_expense || 0,
+          fuelTypeId: BigInt(data.fuel_type_id),
         },
-      })
-      return { success: true, id: Number(created.id) }
-    }
+      },
+      update: payload,
+      create: {
+        submissionId: BigInt(submissionId),
+        ...payload,
+      },
+    })
+    return { success: true, id: Number(saved.id) }
   } catch (error: any) {
     return { error: error.message }
   }
@@ -577,16 +602,25 @@ export async function saveFormVehicleRentRow(
         },
       })
       return { success: true, id: Number(updated.id) }
-    } else {
-      const created = await prisma.officeFormVehicleRent.create({
-        data: {
+    }
+
+    // Same shape as saveFormVehicleRow: the modal saves on its own and the form's
+    // Save re-sends every row, so an insert must tolerate the row already existing.
+    const saved = await prisma.officeFormVehicleRent.upsert({
+      where: {
+        submissionId_vehicleRentConfigId: {
           submissionId: BigInt(submissionId),
           vehicleRentConfigId: BigInt(data.vehicle_rent_config_id),
-          vehicleCount: data.count,
         },
-      })
-      return { success: true, id: Number(created.id) }
-    }
+      },
+      update: { vehicleCount: data.count },
+      create: {
+        submissionId: BigInt(submissionId),
+        vehicleRentConfigId: BigInt(data.vehicle_rent_config_id),
+        vehicleCount: data.count,
+      },
+    })
+    return { success: true, id: Number(saved.id) }
   } catch (error: any) {
     return { error: error.message }
   }
@@ -603,9 +637,39 @@ export async function deleteFormVehicleRentRow(rowId: number) {
   }
 }
 
+/**
+ * The `admin_it_config` row for an office type's equipment, created on first use.
+ * Form 10 keys its rows by that id, but the administrator manages equipment
+ * prices on the equipment type itself, so the row is a thin per-office-type link
+ * that is gap-filled the moment an office saves anything against it.
+ */
+async function resolveItConfigId(submissionId: number, equipmentTypeId: number) {
+  const submission = await prisma.officeSubmission.findUnique({
+    where: { id: BigInt(submissionId) },
+    select: { office: { select: { officeTypeId: true } } },
+  })
+  if (!submission) return null
+
+  const officeTypeId = submission.office.officeTypeId
+  const config = await prisma.adminItConfig.upsert({
+    where: {
+      officeTypeId_equipmentTypeId: {
+        officeTypeId,
+        equipmentTypeId: BigInt(equipmentTypeId),
+      },
+    },
+    update: {},
+    create: {
+      officeTypeId,
+      equipmentTypeId: BigInt(equipmentTypeId),
+    },
+  })
+  return config.id
+}
+
 export async function saveFormITEquipmentRow(
   submissionId: number,
-  itConfigId: number,
+  equipmentTypeId: number,
   data: {
     existing_count: number
     damaged_count: number
@@ -614,11 +678,14 @@ export async function saveFormITEquipmentRow(
   }
 ) {
   try {
+    const itConfigId = await resolveItConfigId(submissionId, equipmentTypeId)
+    if (!itConfigId) return { error: 'অফিসের তথ্য পাওয়া যায়নি' }
+
     await prisma.officeFormItEquipment.upsert({
       where: {
         submissionId_itConfigId: {
           submissionId: BigInt(submissionId),
-          itConfigId: BigInt(itConfigId),
+          itConfigId,
         },
       },
       update: {
@@ -629,7 +696,7 @@ export async function saveFormITEquipmentRow(
       },
       create: {
         submissionId: BigInt(submissionId),
-        itConfigId: BigInt(itConfigId),
+        itConfigId,
         existingCount: data.existing_count,
         damagedCount: data.damaged_count,
         newDemandCount: data.required_qty,
@@ -645,13 +712,32 @@ export async function saveFormITEquipmentRow(
 
 export async function deleteFormITEquipmentRow(
   submissionId: number,
-  itConfigId: number
+  equipmentTypeId: number
 ) {
   try {
+    // Deleting must not bring a config row into existence, so the lookup is a
+    // plain read here rather than the save path's gap-filling upsert.
+    const submission = await prisma.officeSubmission.findUnique({
+      where: { id: BigInt(submissionId) },
+      select: { office: { select: { officeTypeId: true } } },
+    })
+    if (!submission) return { error: 'অফিসের তথ্য পাওয়া যায়নি' }
+
+    const config = await prisma.adminItConfig.findUnique({
+      where: {
+        officeTypeId_equipmentTypeId: {
+          officeTypeId: submission.office.officeTypeId,
+          equipmentTypeId: BigInt(equipmentTypeId),
+        },
+      },
+      select: { id: true },
+    })
+    if (!config) return { success: true }
+
     await prisma.officeFormItEquipment.deleteMany({
       where: {
         submissionId: BigInt(submissionId),
-        itConfigId: BigInt(itConfigId),
+        itConfigId: config.id,
       },
     })
     return { success: true }

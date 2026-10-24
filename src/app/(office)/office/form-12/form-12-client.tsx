@@ -134,9 +134,6 @@ export function Form12Client({ submissionId, initialData }: Form12ClientProps) {
                 {strings.form12.emphasisDisclaimer}
               </span>
             </div>
-            <p className="text-xs text-rose-800 mt-1 leading-relaxed">
-              {strings.form12.subtitle}
-            </p>
           </div>
           {!data && (
             <Button
@@ -154,21 +151,23 @@ export function Form12Client({ submissionId, initialData }: Form12ClientProps) {
         {!data ? (
           <div className="text-center py-16 px-4 border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
             <FileText className="mx-auto h-12 w-12 text-slate-300 mb-3" />
-            <p className="text-slate-600 font-medium text-base mb-2">
-              {strings.form12.noReturnInfo}
-            </p>
-            <p className="text-xs text-slate-400 max-w-md mx-auto mb-5">
-              কাস্টমস, ভ্যাট বা অন্যান্য অফিস হলে এই ফর্মটি পূরণ করার প্রয়োজন নেই। শুধুমাত্র আয়কর সার্কেল অফিসের ক্ষেত্রে তথ্য দিন।
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={openAddModal}
-              className="text-rose-700 border-rose-200 hover:bg-rose-50 rounded-xl"
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              {strings.form12.addReturnInfo}
-            </Button>
+            <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 border border-rose-200 mb-5 max-w-lg">
+              <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />
+              <p className="text-sm font-bold text-rose-800">
+                {strings.form12.cautionNotice}
+              </p>
+            </div>
+            <div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={openAddModal}
+                className="text-rose-700 border-rose-200 hover:bg-rose-50 rounded-xl"
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                {strings.form12.addReturnInfo}
+              </Button>
+            </div>
           </div>
         ) : (
           /* Entered Information Cards */

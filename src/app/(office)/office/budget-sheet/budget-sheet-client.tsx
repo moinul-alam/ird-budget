@@ -17,11 +17,13 @@ import {
   Filter,
   Save,
   Info,
+  Lock,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useState, useTransition, useMemo } from 'react'
 import { recalculateBudget, saveManualValue, submitBudget, type BudgetSheetRowItem } from '@/app/actions/budget'
 import { useRouter } from 'next/navigation'
+import { useFormLock } from '@/components/form-lock-provider'
 
 interface BudgetSheetClientProps {
   initialRows: BudgetSheetRowItem[]
@@ -49,6 +51,7 @@ export function BudgetSheetClient({
   const [filterType, setFilterType] = useState<'all' | 'auto' | 'manual' | 'has_value'>('all')
 
   const router = useRouter()
+  const { locked, notice: lockNotice } = useFormLock()
 
   // Recalculate handler
   const handleRecalculate = () => {
@@ -335,7 +338,7 @@ export function BudgetSheetClient({
                 বাজেট বিবরণী ছক
               </CardTitle>
               <CardDescription className="text-xs text-slate-500 mt-0.5">
-                স্বয়ংক্রিয় কোডগুলোতে সরাসরি ফর্ম থেকে হিসাব প্রদর্শিত হচ্ছে এবং ম্যানুয়াল কোডে প্রয়োজনানুযায়ী বরাদ্দ পূরণ করতে পারেন।
+                স্বয়ংক্রিয় কোডগুলোতে সরাসরি ফর্ম থেকে হিসাব প্রদর্শিত হচ্ছে এবং ম্যানুয়াল কোডে প্রয়োজনানুযায়ী বরাদ্দ পূরণ করতে পারেন। কিছু স্বয়ংক্রিয় খাতে (যেমন ডাক) প্রাক্কলিত হিসাব দেখানো হয়, প্রয়োজনে সেটিও সংশোধন করা যাবে।
               </CardDescription>
             </div>
             {isSavingManual && (
@@ -374,6 +377,9 @@ export function BudgetSheetClient({
                 ) : (
                   filteredRows.map((row) => {
                     const isManualType = row.is_manual
+                    // Some computed codes still take an office input, because the
+                    // engine can only estimate them (e.g. ডাক).
+                    const canOverride = !isManualType && row.allow_manual_override
                     const effectiveValue = row.manual_value !== null ? row.manual_value : (row.auto_value || 0)
 
                     return (
@@ -418,7 +424,11 @@ export function BudgetSheetClient({
 
                         {/* Final / Manual Entry */}
                         <td className="py-2.5 px-4 text-right">
-                          {isManualType ? (
+                          {locked ? (
+                            <div className="font-mono font-bold px-2 text-slate-900 text-sm">
+                              {toBanglaAmount(effectiveValue)}
+                            </div>
+                          ) : isManualType ? (
                             <div className="flex items-center justify-end gap-1.5">
                               <Input
                                 type="number"
@@ -428,6 +438,20 @@ export function BudgetSheetClient({
                                 onChange={(e) => handleManualChange(row.code, e.target.value)}
                                 placeholder="০"
                               />
+                            </div>
+                          ) : canOverride ? (
+                            <div className="flex flex-col items-end gap-1">
+                              <Input
+                                type="number"
+                                min="0"
+                                className="w-36 text-right font-mono font-bold h-9 bg-white text-slate-900 border-dashed border-blue-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                value={row.manual_value ?? ''}
+                                onChange={(e) => handleManualChange(row.code, e.target.value)}
+                                placeholder={toBanglaAmount(row.auto_value)}
+                              />
+                              <span className="text-[10px] font-semibold text-slate-400">
+                                স্বয়ংক্রিয় হিসাব: {toBanglaAmount(row.auto_value)}
+                              </span>
                             </div>
                           ) : (
                             <div className="font-mono font-bold px-2 text-slate-900 text-sm">
@@ -465,14 +489,21 @@ export function BudgetSheetClient({
           {strings.previous} (ফরম ১২)
         </Link>
 
-        <Button
-          className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 shadow-sm"
-          onClick={handleSubmit}
-          disabled={isPending || !submissionId || rows.length === 0}
-        >
-          {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-          বাজেট দাখিল করুন (Submit Budget)
-        </Button>
+        {locked ? (
+          <div className="flex items-center gap-2 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
+            <Lock className="h-4 w-4 shrink-0" />
+            {lockNotice}
+          </div>
+        ) : (
+          <Button
+            className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 shadow-sm"
+            onClick={handleSubmit}
+            disabled={isPending || !submissionId || rows.length === 0}
+          >
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            বাজেট দাখিল করুন (Submit Budget)
+          </Button>
+        )}
       </div>
     </div>
   )

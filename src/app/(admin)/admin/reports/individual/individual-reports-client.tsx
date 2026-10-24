@@ -2,23 +2,14 @@
 
 import { useState, useMemo } from 'react'
 import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { groupCodesByCategory } from '@/lib/budget/group-codes'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import {
-  Search,
-  FileSpreadsheet,
-  Building2,
-  CheckCircle2,
-  Clock,
-  ArrowRight,
-  ExternalLink,
-  Filter
-} from 'lucide-react'
+import { Search, CheckCircle2, Clock, FileSpreadsheet, X } from 'lucide-react'
 
-interface OfficeReportItem {
+export interface OfficeReportItem {
   id: number
   budget_id: string
   name: string
@@ -27,18 +18,168 @@ interface OfficeReportItem {
   is_group_budget: boolean
   status: 'submitted' | 'draft' | 'not_started'
   submitted_at?: string | null
-  total_budget: number
-  submission_id?: number | null
+  submission_id: number | null
+}
+
+/** One economical code of a single office's budget, ready to render. */
+export interface OfficeCodeRow {
+  code: string
+  name: string
+  category_id: number | null
+  category_name: string
+  category_sort_order: number
+  sort_order: number
+  amount: number
+}
+
+interface DetailProps {
+  office: OfficeReportItem
+  rows: OfficeCodeRow[]
+  total: number
+}
+
+/** The drill-down: one office's code-wise budget and its grand total. */
+function OfficeDetail({ detail }: { detail: DetailProps }) {
+  const groups = groupCodesByCategory(detail.rows)
+  let rowNumber = 0
+
+  return (
+    <Card className="border-blue-200 shadow-sm overflow-hidden">
+      <CardHeader className="border-b border-blue-100 bg-blue-50/50 pb-3 flex flex-row items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <FileSpreadsheet className="h-4 w-4 text-blue-700" />
+            <CardTitle className="text-base font-bold text-slate-900">
+              {detail.office.name}
+            </CardTitle>
+            <Badge
+              variant="outline"
+              className="text-[11px] font-bold rounded-full px-2.5 py-0.5 bg-white text-blue-700 border-blue-300 font-mono"
+            >
+              {detail.office.budget_id}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={`text-[11px] font-bold rounded-full px-2.5 py-0.5 ${
+                detail.office.status === 'submitted'
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                  : detail.office.status === 'draft'
+                    ? 'bg-amber-50 text-amber-700 border-amber-300'
+                    : 'bg-slate-100 text-slate-500 border-slate-300'
+              }`}
+            >
+              {detail.office.status === 'submitted'
+                ? 'দাখিলকৃত'
+                : detail.office.status === 'draft'
+                  ? 'খসড়া'
+                  : 'শুরু করেনি'}
+            </Badge>
+          </div>
+          <p className="text-xs text-slate-500 mt-1">
+            {detail.office.department_name} • {detail.office.office_type_name}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <span className="text-[11px] font-bold text-slate-500 uppercase block">সর্বমোট</span>
+            <span className="text-lg font-black text-blue-800 font-mono">
+              ৳ {toBanglaAmount(detail.total)}
+            </span>
+          </div>
+          <Link
+            href="/admin/reports/individual"
+            className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-slate-800 border border-transparent hover:border-slate-200"
+            title="বন্ধ করুন"
+          >
+            <X className="h-4 w-4" />
+          </Link>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="overflow-x-auto max-h-[32rem]">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead className="sticky top-0">
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+                <th className="py-3 px-4 w-16">ক্রম</th>
+                <th className="py-3 px-4 w-32">কোড</th>
+                <th className="py-3 px-4">খরচের বিবরণ</th>
+                <th className="py-3 px-4 w-48 text-right">পরিমাণ (৳)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {groups.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="py-8 text-center text-slate-400">
+                    কোনো তথ্য পাওয়া যায়নি।
+                  </td>
+                </tr>
+              ) : (
+                groups.map((group) => (
+                  <FragmentRows key={`cat-${group.category_id}`}>
+                    <tr className="bg-slate-50/60">
+                      <td colSpan={3} className="py-2 px-4 font-bold text-slate-700">
+                        {group.category_name || 'অন্যান্য'}
+                      </td>
+                      <td className="py-2 px-4 font-mono font-bold text-slate-700 text-right">
+                        {toBanglaAmount(group.subtotal)}
+                      </td>
+                    </tr>
+                    {group.codes.map((code) => {
+                      rowNumber += 1
+                      return (
+                        <tr key={code.code} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-2.5 px-4 font-mono font-semibold text-slate-500">
+                            {toBanglaNumber(rowNumber)}
+                          </td>
+                          <td className="py-2.5 px-4 font-mono font-bold text-blue-700">
+                            {code.code}
+                          </td>
+                          <td className="py-2.5 px-4 font-medium text-slate-800">{code.name}</td>
+                          <td className="py-2.5 px-4 font-mono font-bold text-slate-900 text-right">
+                            {code.amount ? toBanglaAmount(code.amount) : '—'}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </FragmentRows>
+                ))
+              )}
+            </tbody>
+            <tfoot>
+              <tr className="bg-blue-50/70 border-t-2 border-blue-200">
+                <td colSpan={3} className="py-3 px-4 font-bold text-slate-900 text-sm">
+                  সর্বমোট
+                </td>
+                <td className="py-3 px-4 font-mono font-black text-blue-800 text-sm text-right">
+                  {toBanglaAmount(detail.total)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+/** A Fragment wrapper so grouped rows can carry a key without an extra DOM node. */
+function FragmentRows({ children }: { children: React.ReactNode }) {
+  return <>{children}</>
 }
 
 export function IndividualReportsClient({
   offices,
   fiscalYear,
   cycleName,
+  selectedOffice,
+  detail,
 }: {
   offices: OfficeReportItem[]
   fiscalYear: string
   cycleName: string
+  selectedOffice: OfficeReportItem | null
+  detail: DetailProps | null
 }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [departmentFilter, setDepartmentFilter] = useState<'all' | 'tax' | 'vat'>('all')
@@ -54,8 +195,8 @@ export function IndividualReportsClient({
 
       if (!matchesSearch) return false
 
-      if (departmentFilter === 'tax' && !off.department_name.includes('আয়কর')) return false
-      if (departmentFilter === 'vat' && off.department_name.includes('আয়কর')) return false
+      if (departmentFilter === 'tax' && !off.department_name.includes('আয়কর')) return false
+      if (departmentFilter === 'vat' && off.department_name.includes('আয়কর')) return false
 
       if (statusFilter !== 'all' && off.status !== statusFilter) return false
 
@@ -64,10 +205,6 @@ export function IndividualReportsClient({
   }, [offices, searchQuery, departmentFilter, statusFilter])
 
   const submittedCount = useMemo(() => offices.filter((o) => o.status === 'submitted').length, [offices])
-  const totalAmount = useMemo(
-    () => filteredOffices.reduce((sum, o) => sum + (o.total_budget || 0), 0),
-    [filteredOffices]
-  )
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -76,26 +213,37 @@ export function IndividualReportsClient({
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-lg border border-blue-200">
-              {cycleName} • {fiscalYear}
+              {cycleName || 'কোনো চক্র নেই'} {fiscalYear ? `• ${fiscalYear}` : ''}
             </span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900">
             অফিসভিত্তিক প্রতিবেদন (Individual Office Reports)
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            সকল অফিসের বাজেট দাখিল তথ্য ও বিস্তারিত বাজেট শিট অনুসন্ধান ও পর্যালোচনা
+            যেকোনো অফিস নির্বাচন করে তার কোডভিত্তিক বাজেট ও সর্বমোট দেখুন
           </p>
         </div>
 
-        <div className="p-3 bg-white border border-slate-200 rounded-2xl shadow-2xs flex items-center gap-4">
-          <div>
-            <span className="text-[11px] font-bold text-slate-500 uppercase block">মোট বাজেট (ফিল্টারকৃত)</span>
-            <span className="text-xl font-black text-blue-700 font-mono">
-              ৳ {toBanglaAmount(totalAmount)}
-            </span>
-          </div>
+        <div className="p-3 bg-white border border-slate-200 rounded-2xl shadow-2xs">
+          <span className="text-[11px] font-bold text-slate-500 uppercase block">
+            {detail ? 'নির্বাচিত অফিসের সর্বমোট' : 'মোট অফিস'}
+          </span>
+          <span className="text-xl font-black text-blue-700 font-mono">
+            {detail ? `৳ ${toBanglaAmount(detail.total)}` : toBanglaNumber(offices.length)}
+          </span>
         </div>
       </div>
+
+      {/* Drill-down */}
+      {detail ? (
+        <OfficeDetail detail={detail} />
+      ) : selectedOffice ? (
+        <Card className="border-amber-200 bg-amber-50/50 shadow-sm">
+          <CardContent className="py-6 text-center text-sm font-semibold text-amber-800">
+            “{selectedOffice.name}” এখনো কোনো বাজেট দাখিল করেনি, তাই কোনো তথ্য নেই।
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* Search and Filters */}
       <Card className="border-slate-200 shadow-sm bg-white">
@@ -107,7 +255,7 @@ export function IndividualReportsClient({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="বাজেট আইডি অথবা অফিসের নাম দিয়ে খুঁজুন (যেমন: 101, কর অঞ্চল-১১)..."
+                placeholder="বাজেট আইডি অথবা অফিসের নাম দিয়ে খুঁজুন (যেমন: 101, কর অঞ্চল-১১)..."
                 className="pl-9 rounded-xl border-slate-200 text-xs h-10"
               />
             </div>
@@ -128,7 +276,7 @@ export function IndividualReportsClient({
                 className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${departmentFilter === 'tax' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-500'
                   }`}
               >
-                আয়কর বিভাগ
+                আয়কর বিভাগ
               </button>
               <button
                 type="button"
@@ -164,7 +312,7 @@ export function IndividualReportsClient({
                 className={`px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer ${statusFilter === 'draft' ? 'bg-amber-600 text-white shadow-2xs' : 'text-slate-500'
                   }`}
               >
-                খসড়া
+                খসড়া
               </button>
             </div>
           </div>
@@ -190,68 +338,79 @@ export function IndividualReportsClient({
                   <th className="py-3 px-4 w-32">বাজেট আইডি</th>
                   <th className="py-3 px-4">অফিসের নাম</th>
                   <th className="py-3 px-4">বিভাগ ও ধরণ</th>
-                  <th className="py-3 px-4">সর্বমোট বাজেট</th>
                   <th className="py-3 px-4 text-center">দাখিল স্ট্যাটাস</th>
+                  <th className="py-3 px-4 text-center w-28">বিস্তারিত</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredOffices.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-slate-400">
-                      কোনো অফিস পাওয়া যায়নি। অনুসন্ধানের শব্দ পরিবর্তন করে চেষ্টা করুন।
+                      কোনো অফিস পাওয়া যায়নি। অনুসন্ধানের শব্দ পরিবর্তন করে চেষ্টা করুন।
                     </td>
                   </tr>
                 ) : (
-                  filteredOffices.map((off, idx) => (
-                    <tr key={off.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-semibold text-slate-500">
-                        {toBanglaNumber(idx + 1)}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-blue-700 text-sm">
-                        {off.budget_id}
-                      </td>
-                      <td className="py-3.5 px-4 font-bold text-slate-900 text-sm">
-                        {off.name}
-                        {off.is_group_budget && (
-                          <span className="ml-2 px-2 py-0.5 bg-purple-50 text-purple-700 text-[10px] font-bold rounded-md border border-purple-200">
-                            গ্রুপ বাজেট
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="block font-medium text-slate-700">{off.department_name}</span>
-                        <span className="text-[11px] text-slate-400">{off.office_type_name}</span>
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900 text-sm">
-                        {off.total_budget > 0 ? `৳ ${toBanglaAmount(off.total_budget)}` : '—'}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        <Badge
-                          variant="outline"
-                          className={`text-xs font-bold gap-1 rounded-full px-2.5 py-0.5 ${off.status === 'submitted'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                              : off.status === 'draft'
-                                ? 'bg-amber-50 text-amber-700 border-amber-300'
-                                : 'bg-slate-100 text-slate-500 border-slate-300'
-                            }`}
-                        >
-                          {off.status === 'submitted' ? (
-                            <>
-                              <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                              <span>দাখিলকৃত</span>
-                            </>
-                          ) : off.status === 'draft' ? (
-                            <>
-                              <Clock className="h-3 w-3 text-amber-600" />
-                              <span>খসড়া</span>
-                            </>
-                          ) : (
-                            <span>শুরু করেনি</span>
+                  filteredOffices.map((off, idx) => {
+                    const isSelected = selectedOffice?.id === off.id
+                    return (
+                      <tr
+                        key={off.id}
+                        className={`transition-colors ${isSelected ? 'bg-blue-50/70' : 'hover:bg-slate-50/70'}`}
+                      >
+                        <td className="py-3.5 px-4 font-mono font-semibold text-slate-500">
+                          {toBanglaNumber(idx + 1)}
+                        </td>
+                        <td className="py-3.5 px-4 font-mono font-bold text-blue-700 text-sm">
+                          {off.budget_id}
+                        </td>
+                        <td className="py-3.5 px-4 font-bold text-slate-900 text-sm">
+                          {off.name}
+                          {off.is_group_budget && (
+                            <span className="ml-2 px-2 py-0.5 bg-purple-50 text-purple-700 text-[10px] font-bold rounded-md border border-purple-200">
+                              গ্রুপ বাজেট
+                            </span>
                           )}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="block font-medium text-slate-700">{off.department_name}</span>
+                          <span className="text-[11px] text-slate-400">{off.office_type_name}</span>
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <Badge
+                            variant="outline"
+                            className={`text-xs font-bold gap-1 rounded-full px-2.5 py-0.5 ${off.status === 'submitted'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                : off.status === 'draft'
+                                  ? 'bg-amber-50 text-amber-700 border-amber-300'
+                                  : 'bg-slate-100 text-slate-500 border-slate-300'
+                              }`}
+                          >
+                            {off.status === 'submitted' ? (
+                              <>
+                                <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                <span>দাখিলকৃত</span>
+                              </>
+                            ) : off.status === 'draft' ? (
+                              <>
+                                <Clock className="h-3 w-3 text-amber-600" />
+                                <span>খসড়া</span>
+                              </>
+                            ) : (
+                              <span>শুরু করেনি</span>
+                            )}
+                          </Badge>
+                        </td>
+                        <td className="py-3.5 px-4 text-center">
+                          <Link
+                            href={`/admin/reports/individual?office=${off.id}`}
+                            className="inline-flex items-center rounded-lg border border-slate-200 px-2.5 py-1 text-[11px] font-bold text-blue-700 hover:bg-blue-50 hover:border-blue-200 transition-colors"
+                          >
+                            দেখুন
+                          </Link>
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>

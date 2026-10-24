@@ -88,18 +88,6 @@ export function Form11Client({
     return utilityTypes.filter((t) => !usedTypeIds.has(t.id))
   }, [utilityTypes, rows, editingIndex])
 
-  // Summary Totals
-  const totals = useMemo(() => {
-    return rows.reduce(
-      (acc, r) => {
-        acc.annual_cost += r.annual_cost
-        acc.due += r.due
-        return acc
-      },
-      { annual_cost: 0, due: 0 }
-    )
-  }, [rows])
-
   // Open modal for add
   const handleOpenAdd = () => {
     setEditingIndex(null)
@@ -201,9 +189,6 @@ export function Form11Client({
               <Zap className="w-5 h-5 text-amber-500" />
               {strings.form11.title}
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {strings.form11.subtitle}
-            </p>
           </div>
           <Button
             type="button"
@@ -292,20 +277,6 @@ export function Form11Client({
                     </TableRow>
                   ))}
                 </TableBody>
-                <tfoot className="bg-slate-50/90 border-t-2 border-slate-200 font-bold text-slate-900">
-                  <tr>
-                    <td colSpan={2} className="p-4 text-right border-r border-slate-200">
-                      {strings.total}:
-                    </td>
-                    <td className="p-4 text-right text-blue-700 font-mono text-base">
-                      {toBanglaAmount(totals.annual_cost)}
-                    </td>
-                    <td className="p-4 text-right text-rose-600 font-mono text-base">
-                      {totals.due > 0 ? toBanglaAmount(totals.due) : '—'}
-                    </td>
-                    <td></td>
-                  </tr>
-                </tfoot>
               </Table>
             </div>
           </div>

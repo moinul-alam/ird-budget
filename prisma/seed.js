@@ -230,6 +230,8 @@ async function seedEconomicCodes() {
       name: item.name,
       categoryId: categoryId ?? null,
       isManual: item.is_manual ?? true,
+      // A computed code that still takes an office input (currently only ডাক).
+      allowManualOverride: item.allow_manual_override ?? false,
       sortOrder: item.sort_order ?? 0,
       isActive: true,
     }
@@ -252,28 +254,66 @@ async function seedEconomicCodes() {
 // ---------------------------------------------------------------------------
 // Forms 2, 3 and 4 write one row per grade and the staff tables reference
 // ref_grades.grade_no directly, so every grade a form offers must exist here.
-// Grades 1–9 are officer grades and 10–20 are staff (see budget-system-PRD.md).
-const SEED_GRADES = Array.from({ length: 20 }, (_, i) => ({
-  gradeNo: i + 1,
-  category: i + 1 <= 9 ? 'officer' : 'staff',
-}))
+// Grades 1–10 are officer grades and 11–20 are staff.
+const SEED_EMPLOYEE_CATEGORIES = [
+  { categoryName: 'officer', categoryNameBn: 'কর্মকর্তা' },
+  { categoryName: 'staff', categoryNameBn: 'কর্মচারী' },
+]
 
-async function seedGrades() {
+async function seedEmployeeCategories() {
   let created = 0
 
-  for (const item of SEED_GRADES) {
-    const existing = await prisma.refGrade.findUnique({
-      where: { gradeNo: item.gradeNo },
+  for (const item of SEED_EMPLOYEE_CATEGORIES) {
+    const existing = await prisma.refEmployeeCategory.findUnique({
+      where: { categoryName: item.categoryName },
       select: { id: true },
     })
     if (existing) continue
+
+    await prisma.refEmployeeCategory.create({ data: item })
+    created += 1
+  }
+
+  console.log(
+    `  ref_employee_categories: ${created} created, ${SEED_EMPLOYEE_CATEGORIES.length - created} already present`
+  )
+}
+
+async function seedGrades() {
+  const categories = await prisma.refEmployeeCategory.findMany({
+    select: { id: true, categoryName: true },
+  })
+  const categoryIdByName = new Map(categories.map((c) => [c.categoryName, c.id]))
+
+  const seedGrades = Array.from({ length: 20 }, (_, i) => ({
+    gradeNo: i + 1,
+    categoryId: categoryIdByName.get(i + 1 <= 10 ? 'officer' : 'staff')!,
+  }))
+
+  let created = 0
+
+  for (const item of seedGrades) {
+    const existing = await prisma.refGrade.findUnique({
+      where: { gradeNo: item.gradeNo },
+      select: { id: true, categoryId: true },
+    })
+    if (existing) {
+      // Keep the officer/staff boundary correct on re-runs instead of only on first insert.
+      if (existing.categoryId !== item.categoryId) {
+        await prisma.refGrade.update({
+          where: { gradeNo: item.gradeNo },
+          data: { categoryId: item.categoryId },
+        })
+      }
+      continue
+    }
 
     await prisma.refGrade.create({ data: item })
     created += 1
   }
 
   console.log(
-    `  ref_grades          : ${created} created, ${SEED_GRADES.length - created} already present`
+    `  ref_grades          : ${created} created, ${seedGrades.length - created} already present`
   )
 }
 
@@ -322,11 +362,39 @@ const SEED_VEHICLE_TYPES = ['মোটরসাইকেল', 'জিপ', 'ম�
 // engine charges per litre / cubic metre. The defaults match the figures the
 // engine used to assume (admin_rates fuel_price_*) so a fresh database produces
 // the same budgets as before the price moved into this table.
-const SEED_FUEL_TYPES = [
-  { name: 'অকটেন', unitPrice: 130 },
-  { name: 'ডিজেল', unitPrice: 110 },
-  { name: 'সিএনজি', unitPrice: 45 },
+// `category` decides which of the two fuel codes the cost lands in — 3243301
+// (পেট্রোল, অয়েল ও লুব্রিকেন্ট) for `oil`, 3243302 (গ্যাস ও জ্বালানী) for `gas`.
+// It is the stable `category_name` of a ref_fuel_categories row; that row must be
+// seeded first (see SEED_FUEL_CATEGORIES below).
+const SEED_FUEL_CATEGORIES = [
+  { categoryName: 'oil', categoryNameBn: 'তেল' },
+  { categoryName: 'gas', categoryNameBn: 'গ্যাস' },
 ]
+
+const SEED_FUEL_TYPES = [
+  { name: 'অকটেন', unitPrice: 130, categoryName: 'oil' },
+  { name: 'ডিজেল', unitPrice: 110, categoryName: 'oil' },
+  { name: 'সিএনজি', unitPrice: 45, categoryName: 'gas' },
+]
+
+async function seedFuelCategories() {
+  let created = 0
+
+  for (const item of SEED_FUEL_CATEGORIES) {
+    const existing = await prisma.refFuelCategory.findUnique({
+      where: { categoryName: item.categoryName },
+      select: { id: true },
+    })
+    if (existing) continue
+
+    await prisma.refFuelCategory.create({ data: item })
+    created += 1
+  }
+
+  console.log(
+    `  ref_fuel_categories : ${created} created, ${SEED_FUEL_CATEGORIES.length - created} already present`
+  )
+}
 
 async function seedVehicleTypes() {
   let created = 0
@@ -347,11 +415,25 @@ async function seedVehicleTypes() {
 async function seedFuelTypes() {
   let created = 0
 
+  const categories = await prisma.refFuelCategory.findMany({
+    select: { id: true, categoryName: true },
+  })
+  const categoryIds = new Map(categories.map((c) => [c.categoryName, c.id]))
+
   for (const item of SEED_FUEL_TYPES) {
     const existing = await prisma.refFuelType.findUnique({ where: { name: item.name }, select: { id: true } })
     if (existing) continue
 
-    await prisma.refFuelType.create({ data: item })
+    const categoryId = categoryIds.get(item.categoryName)
+    if (!categoryId) {
+      throw new Error(
+        `ref_fuel_categories has no "${item.categoryName}" — run seedFuelCategories() before seedFuelTypes().`
+      )
+    }
+
+    await prisma.refFuelType.create({
+      data: { name: item.name, unitPrice: item.unitPrice, categoryId },
+    })
     created += 1
   }
 
@@ -430,7 +512,7 @@ const SEED_SALARY_CONFIG = [
   { key: 'salary_months', labelBn: 'বেতন-ভাতা মাস', descriptionBn: 'বাজেট গুণক মাস সংখ্যা', unitBn: 'মাস', inputType: 'number', valueFormat: 'number', value: 12, sortOrder: 1 },
   { key: 'duty_allowance', labelBn: 'দায়িত্ব ভাতা', descriptionBn: 'মাসিক হার', unitBn: 'টাকা/মাস', inputType: 'number', valueFormat: 'amount', value: 1500, sortOrder: 2 },
   { key: 'transport_allowance', labelBn: 'যাতায়াত ভাতা', descriptionBn: 'গ্রেড অনুযায়ী মাসিক হার', unitBn: 'টাকা/মাস', inputType: 'grade', valueFormat: 'amount', value: 0, fromGrade: 1, toGrade: 20, sortOrder: 3 },
-  { key: 'education_allowance', labelBn: 'শিক্ষা ভাতা', descriptionBn: 'সন্তান প্রতি মাসিক হার', unitBn: 'টাকা/মাস', inputType: 'number', valueFormat: 'amount', value: 500, sortOrder: 4 },
+  { key: 'education_allowance', labelBn: 'শিক্ষা ভাতা', descriptionBn: 'জনপ্রতি মাসিক হার', unitBn: 'টাকা/মাস', inputType: 'number', valueFormat: 'amount', value: 500, sortOrder: 4 },
   { key: 'house_rent', labelBn: 'বাড়ি ভাড়া ভাতা', descriptionBn: 'গ্রেড অনুযায়ী মূল বেতনের শতকরা হার', unitBn: '% মূলবেতন', inputType: 'slab', valueFormat: 'percent', value: 0, sortOrder: 5 },
   { key: 'medical_allowance', labelBn: 'চিকিৎসা ভাতা', descriptionBn: 'কর্মকর্তা/কর্মচারী মাসিক হার', unitBn: 'টাকা/মাস', inputType: 'number', valueFormat: 'amount', value: 1500, sortOrder: 6 },
   { key: 'mobile_allowance', labelBn: 'মোবাইল/সেলফোন ভাতা', descriptionBn: 'গ্রেড অনুযায়ী মাসিক ভাতা', unitBn: 'স্ল্যাব', inputType: 'slab', valueFormat: 'amount', value: 0, sortOrder: 7 },
@@ -442,6 +524,7 @@ const SEED_SALARY_CONFIG = [
   { key: 'noboborsho_percent', labelBn: 'বাংলা নববর্ষ ভাতা', descriptionBn: 'মূল বেতনের শতকরা হার', unitBn: 'বেসিকের', inputType: 'number', valueFormat: 'percent', value: 20, sortOrder: 13 },
   { key: 'festival_bonus_multiplier', labelBn: 'উৎসব ভাতা', descriptionBn: 'বাৎসরিক বোনাস সংখ্যা', unitBn: 'টি বেসিক', inputType: 'number', valueFormat: 'number', value: 2, sortOrder: 14 },
   { key: 'office_rent_vat_percent', labelBn: 'অফিস ভাড়ার ভ্যাট হার', descriptionBn: 'ভাড়া বাবদ ভ্যাটের শতকরা হার', unitBn: 'ভাড়ার ওপর', inputType: 'number', valueFormat: 'percent', value: 15, sortOrder: 15 },
+  { key: 'postal_rate', labelBn: 'ডাক ব্যয়', descriptionBn: 'প্রতি ডাকের ব্যয় × নন-ফাইলার প্রতি ডাকের সংখ্যা', unitBn: 'টাকা/ডাক', inputType: 'number', valueFormat: 'amount', value: 50, secondaryLabelBn: 'ডাকের সংখ্যা', secondaryUnitBn: 'টি', secondaryValue: 2, sortOrder: 16 },
 ]
 
 const SEED_SALARY_SLABS = [
@@ -489,18 +572,18 @@ async function seedSalaryConfig() {
 // Admin rates
 // ---------------------------------------------------------------------------
 // Every admin_rates key the application reads must exist, otherwise the budget
-// engine and the house-rent / return-info forms fall back to hardcoded values.
+// engine and the return-info form fall back to hardcoded values. Do not re-add
+// `house_rent_percent` or `postal_rate`: both were superseded by the tab-1
+// `house_rent` slab and by `postal_expense_rate`, and nothing reads them.
 const SEED_RATES = [
   { key: 'medical_allowance_monthly', name: 'মাসিক চিকিৎসা ভাতা', value: 1500, unit: 'টাকা', description: 'প্রতি কর্মকর্তা/কর্মচারীর মাসিক চিকিৎসা ভাতা' },
-  { key: 'house_rent_percent', name: 'বাসা ভাড়ার হার', value: 50, unit: '%', description: 'মূল বেতনের শতাংশ হিসেবে বাসা ভাড়া' },
   { key: 'festival_bonus_multiplier', name: 'উৎসব বোনাস গুণক', value: 2, unit: 'গুণ', description: 'উৎসব বোনাস = মূল বেতন × গুণক' },
   { key: 'provident_fund_percent', name: 'ভবিষ্যৎ তহবিলের হার', value: 10, unit: '%', description: 'মূল বেতনের শতাংশ হিসেবে ভবিষ্যৎ তহবিল' },
-  { key: 'education_allowance', name: 'শিক্ষা ভাতা', value: 500, unit: 'টাকা', description: 'সন্তানদের শিক্ষা ভাতা' },
+  { key: 'education_allowance', name: 'শিক্ষা ভাতা', value: 500, unit: 'টাকা', description: 'জনপ্রতি মাসিক শিক্ষা ভাতা' },
   { key: 'fuel_price_octane', name: 'অকটেনের দাম', value: 130, unit: 'টাকা/লিটার', description: 'প্রতি লিটার অকটেনের দাম' },
   { key: 'fuel_price_diesel', name: 'ডিজেলের দাম', value: 110, unit: 'টাকা/লিটার', description: 'প্রতি লিটার ডিজেলের দাম' },
   { key: 'fuel_price_cng', name: 'সিএনজি গ্যাসের দাম', value: 45, unit: 'টাকা/কেজি', description: 'প্রতি কেজি সিএনজি গ্যাসের দাম' },
   { key: 'vat_percentage', name: 'ভ্যাটের হার', value: 15, unit: '%', description: 'অফিস ভাড়ার উপর ভ্যাট (form 9)' },
-  { key: 'postal_rate', name: 'ডাক খরচের হার', value: 50, unit: 'টাকা', description: 'প্রতি রিটার্নে ডাক খরচ (form 12)' },
   { key: 'postal_expense_rate', name: 'ডাক ব্যয়ের হার', value: 50, unit: 'টাকা', description: 'বাজেট হিসাবে প্রতি রিটার্নে ডাক ব্যয়' },
 ]
 
@@ -533,9 +616,11 @@ async function main() {
   await seedFiscalYears()
   await seedEconomicCodes()
   await seedBudgetCycle()
+  await seedEmployeeCategories()
   await seedGrades()
   await seedAllowanceTypes()
   await seedVehicleTypes()
+  await seedFuelCategories()
   await seedFuelTypes()
   await seedItEquipmentTypes()
   await seedUtilityTypes()

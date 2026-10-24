@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { Form5Client } from './form-5-client'
 import {
   loadAllowanceTypes,
+  loadDutyAllowanceMonthlyRate,
   loadFormAllowancesInitial,
   loadFormRestRecreationInitial,
 } from '@/lib/office/load-form-data'
@@ -13,10 +14,11 @@ export default async function Form3Page() {
 
   const submissionId = session.submission_id || null
 
-  const [allowanceTypes, initialData, initialLeaveData] = await Promise.all([
+  const [allowanceTypes, initialData, initialLeaveData, dutyMonthlyRate] = await Promise.all([
     loadAllowanceTypes(),
     submissionId ? loadFormAllowancesInitial(submissionId) : Promise.resolve([]),
     submissionId ? loadFormRestRecreationInitial(submissionId) : Promise.resolve(null),
+    loadDutyAllowanceMonthlyRate(),
   ])
 
   return (
@@ -25,6 +27,7 @@ export default async function Form3Page() {
       allowanceTypes={allowanceTypes}
       initialData={initialData}
       initialLeaveData={initialLeaveData}
+      dutyMonthlyRate={dutyMonthlyRate}
     />
   )
 }

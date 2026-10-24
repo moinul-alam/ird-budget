@@ -1,70 +1,118 @@
 import {
-  SalaryCodeConfig,
+  SalaryTileItem,
+  SalarySlabItem,
+  SalaryValueFormat,
   VehicleTypeItem,
   FuelTypeItem,
+  FuelCategoryItem,
   VehicleConfigItem,
   VehicleRentConfigItem,
   UtilityTypeItem,
+  ItEquipmentTypeItem,
 } from '@/app/actions/admin-settings'
 
 export interface AdminSettingsClientProps {
-  initialSalaryConfig: SalaryCodeConfig
+  initialSalaryConfig: SalaryTileItem[]
+  initialSalarySlabs: SalarySlabItem[]
   initialVehicleTypes: VehicleTypeItem[]
   initialFuelTypes: FuelTypeItem[]
+  fuelCategories: FuelCategoryItem[]
   initialFuelConfigs: VehicleConfigItem[]
   initialRentConfigs: VehicleRentConfigItem[]
   initialUtilityTypes: UtilityTypeItem[]
+  initialItItems: ItEquipmentTypeItem[]
+  grades: number[]
 }
 
-export type SettingsTabKey = 'salaries' | 'vehicles' | 'fuels' | 'vehicleFuel' | 'vehicleRent' | 'equipment' | 'utility'
+export type SettingsTabKey =
+  | 'salaries'
+  | 'vehicles'
+  | 'fuels'
+  | 'vehicleFuel'
+  | 'vehicleRent'
+  | 'equipment'
+  | 'utility'
 
-export interface NumberModalState {
+export const SETTINGS_TAB_KEYS: SettingsTabKey[] = [
+  'salaries',
+  'vehicles',
+  'fuels',
+  'vehicleFuel',
+  'vehicleRent',
+  'equipment',
+  'utility',
+]
+
+/** Editor for tiles whose `input_type` is 'number'. */
+export interface SalaryNumberModalState {
   open: boolean
-  field: keyof SalaryCodeConfig | null
+  tileId: number | null
   title: string
   unit: string
   value: number
+  /**
+   * Rate × quantity cards (e.g. ডাক) carry a second field. Null for an ordinary
+   * single-value card, which keeps the editor as it was.
+   */
+  secondaryLabel: string | null
+  secondaryUnit: string
+  secondaryValue: number
 }
 
-export interface GradeModalState {
+/** Editor for tiles whose `input_type` is 'grade'. */
+export interface SalaryGradeModalState {
   open: boolean
-  field:
-    | 'transport_allowance'
-    | 'telephone_allowance'
-    | 'tiffin_allowance'
-    | 'wash_allowance'
-    | 'entertainment_allowance'
-    | 'special_benefit_allowance'
-    | null
+  tileId: number | null
   title: string
-  rate: number
+  value: number
   fromGrade: number
   toGrade: number
+}
+
+/** Editor for tiles whose `input_type` is 'slab' (admin_salary_slabs). */
+export interface SalarySlabModalState {
+  open: boolean
+  configKey: string | null
+  title: string
+  valueFormat: SalaryValueFormat
+  slabs: Array<{ from_grade: number; to_grade: number; value: number }>
 }
 
 export interface VehicleTypeModalState {
   open: boolean
   id?: number
   name: string
-  order: number
 }
 
 export interface FuelTypeModalState {
   open: boolean
   id?: number
   name: string
-  price: number
-  order: number
+  unit_price: number
+  /** `ref_fuel_categories` এর আইডি — তেল (3243301) নাকি গ্যাস (3243302) কোডে ব্যয়টি যাবে। */
+  category_id: number
 }
 
+/** One fuel category's monthly litre quota inside the vehicle type's single form. */
+export interface VehicleFuelConfigSectionState {
+  /** `ref_fuel_categories` এর আইডি — তেল (3243301) নাকি গ্যাস (3243302) কোডে ব্যয়টি যাবে। */
+  categoryId: number
+  monthlyFuel: number
+}
+
+/**
+ * A vehicle type is configured as a whole: one lubricant and one maintenance allowance for
+ * the type, plus a litre quota per fuel category — so the admin fills it once instead of
+ * once per category.
+ */
 export interface VehicleFuelConfigModalState {
   open: boolean
-  id?: number
-  carTypeId: string
-  fuelTypeId: string
-  monthlyFuel: number
+  /** Editing targets the vehicle type, not a single category row. */
+  vehicleTypeId: string
+  /** এক ধরনের যানবাহনের জন্য একটিই — জ্বালানি (তেল / গ্যাস) ভেদে আলাদা নয়। */
   annualLube: number
   annualMaint: number
+  sections: VehicleFuelConfigSectionState[]
 }
 
 export interface VehicleRentConfigModalState {
@@ -78,12 +126,12 @@ export interface EquipmentModalState {
   open: boolean
   itemId: number | null
   title: string
-  price: number
+  name: string
+  unit_price: number
 }
 
 export interface UtilityModalState {
   open: boolean
   id?: number
   name: string
-  order: number
 }

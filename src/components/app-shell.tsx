@@ -7,22 +7,11 @@ import { logoutOffice as logout } from '@/app/actions/auth'
 import { updateOfficeProfile, getOfficeProfile } from '@/app/actions/office'
 import {
   LayoutDashboard,
-  FileText,
-  Users,
-  Gift,
-  CalendarDays,
-  Car,
-  CarFront,
-  Monitor,
-  Zap,
-  Building2,
-  Mail,
   BarChart3,
   LogOut,
   Menu,
   ChevronDown,
   User,
-  UserPlus,
   History,
   CheckCircle,
   Building,
@@ -43,38 +32,29 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { toBanglaNumber } from '@/lib/bangla'
+import { FORM_ITEMS, FORM_SHADES, FORM_COUNT } from '@/lib/office/forms'
+import { useFormGuard } from '@/components/form-guard-provider'
 import { useState, useRef, useEffect, useTransition } from 'react'
-
-// Organized 12 forms serial list
-export const FORM_NAV_ITEMS = [
-  { href: '/office/form-1', num: 1, label: '১. ' + strings.forms.form1.short, title: strings.forms.form1.title, icon: FileText },
-  { href: '/office/form-2', num: 2, label: '২. ' + strings.forms.form2.short, title: strings.forms.form2.title, icon: Users },
-  { href: '/office/form-3', num: 3, label: '৩. ' + strings.forms.form3.short, title: strings.forms.form3.title, icon: Users },
-  { href: '/office/form-4', num: 4, label: '৪. ' + strings.forms.form4.short, title: strings.forms.form4.title, icon: UserPlus },
-  { href: '/office/form-5', num: 5, label: '৫. ' + strings.forms.form5.short, title: strings.forms.form5.title, icon: Gift },
-  { href: '/office/form-6', num: 6, label: '৬. ' + strings.forms.form6.short, title: strings.forms.form6.title, icon: CalendarDays },
-  { href: '/office/form-7', num: 7, label: '৭. ' + strings.forms.form7.short, title: strings.forms.form7.title, icon: Car },
-  { href: '/office/form-8', num: 8, label: '৮. ' + strings.forms.form8.short, title: strings.forms.form8.title, icon: CarFront },
-  { href: '/office/form-9', num: 9, label: '৯. ' + strings.forms.form9.short, title: strings.forms.form9.title, icon: Building2 },
-  { href: '/office/form-10', num: 10, label: '১০. ' + strings.forms.form10.short, title: strings.forms.form10.title, icon: Monitor },
-  { href: '/office/form-11', num: 11, label: '১১. ' + strings.forms.form11.short, title: strings.forms.form11.title, icon: Zap },
-  { href: '/office/form-12', num: 12, label: '১২. ' + strings.forms.form12.short, title: strings.forms.form12.title, icon: Mail },
-] as const
 
 export function AppShell({
   children,
   user,
+  hasOpenCycle,
 }: {
   children: React.ReactNode
   user: { id: string; name: string; office_id?: number; budget_id?: string; submission_id?: number }
+  /** When no cycle is open the forms are presented but not actionable. */
+  hasOpenCycle: boolean
 }) {
   const pathname = usePathname()
   const router = useRouter()
+  const { requestNavigation } = useFormGuard()
 
   // Drawer open/collapse state (Desktop & Mobile) - default expanded on login/dashboard
   const [drawerOpen, setDrawerOpen] = useState(true)
-  // Forms submenu accordion in drawer
-  const [formsSubmenuOpen, setFormsSubmenuOpen] = useState(true)
+  // Forms submenu accordion in drawer — collapsed until a cycle is open
+  const [formsSubmenuOpen, setFormsSubmenuOpen] = useState(hasOpenCycle)
   
   // Profile dropdown menu in top bar
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
@@ -141,6 +121,25 @@ export function AppShell({
     })
   }
 
+  // Drawer navigation goes through the form guard: if the form on screen holds
+  // unsaved edits, the office is asked before the page changes.
+  const handleNav =
+    (href: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+      if (
+        e.defaultPrevented ||
+        e.button !== 0 ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.shiftKey ||
+        e.altKey
+      ) {
+        return
+      }
+      e.preventDefault()
+      if (window.innerWidth < 1024) setDrawerOpen(false)
+      requestNavigation(href)
+    }
+
   // Theme colors for USER: slate-900 with rich indigo/blue accents
   const brandDarkBg = 'bg-slate-900 text-white'
 
@@ -162,6 +161,7 @@ export function AppShell({
           <Link
             href="/dashboard"
             prefetch={true}
+            onClick={handleNav('/dashboard')}
             className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
               pathname === '/dashboard'
                 ? 'bg-blue-600 text-white shadow-xs'
@@ -229,7 +229,7 @@ export function AppShell({
                   className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-bold text-slate-700 hover:text-blue-700 hover:bg-blue-50/80 rounded-xl transition-colors cursor-pointer text-left"
                 >
                   <History className="h-4 w-4 text-amber-600" />
-                  দাখিলকৃত বাজেটসমূহ
+                  {strings.dashboard.submittedBudgets}
                 </button>
               </div>
 
@@ -280,7 +280,7 @@ export function AppShell({
                 >
                   <span className="flex items-center gap-2">
                     <Layers className="h-3.5 w-3.5 text-blue-400" />
-                    ফর্মসমূহ (১১ টি)
+                    {strings.dashboard.budgetForms} ({toBanglaNumber(FORM_COUNT)} টি)
                   </span>
                   <ChevronDown
                     className={`h-3.5 w-3.5 transition-transform duration-200 ${
@@ -291,25 +291,28 @@ export function AppShell({
 
                 {formsSubmenuOpen && (
                   <div className="mt-1 space-y-0.5 pl-2 border-l border-slate-800 ml-3">
-                    {FORM_NAV_ITEMS.map((item) => {
-                      const Icon = item.icon
+                    {FORM_ITEMS.map((item, idx) => {
                       const isActive = pathname === item.href
+                      const shade = FORM_SHADES[idx]
                       return (
                         <Link
                           key={item.href}
                           href={item.href}
                           prefetch={true}
-                          className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+                          className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all ${
                             isActive
                               ? 'bg-blue-600/30 text-blue-300 font-bold border border-blue-500/30'
                               : 'text-slate-400 hover:bg-slate-800/70 hover:text-white'
                           }`}
-                          onClick={() => {
-                            if (window.innerWidth < 1024) setDrawerOpen(false)
-                          }}
+                          onClick={handleNav(item.href)}
                         >
-                          <Icon className={`h-3.5 w-3.5 shrink-0 ${isActive ? 'text-blue-400' : 'text-slate-500'}`} />
-                          <span className="truncate">{item.label}</span>
+                          <span
+                            className="h-6 w-6 shrink-0 rounded-lg flex items-center justify-center text-[11px] font-extrabold font-mono"
+                            style={shade}
+                          >
+                            {toBanglaNumber(item.num)}
+                          </span>
+                          <span className="truncate">{item.title}</span>
                         </Link>
                       )
                     })}
@@ -317,33 +320,33 @@ export function AppShell({
                 )}
               </div>
 
-              {/* চূড়ান্ত বাজেট (Final Budget Sheet) */}
-              <div className="pt-2">
-                <Link
-                  href="/office/budget-sheet"
-                  prefetch={true}
-                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                    pathname === '/office/budget-sheet'
-                      ? 'bg-emerald-600 text-white shadow-sm'
-                      : 'text-emerald-400 hover:bg-slate-800/80 hover:text-emerald-300'
-                  }`}
-                  onClick={() => {
-                    if (window.innerWidth < 1024) setDrawerOpen(false)
-                  }}
-                >
-                  <BarChart3 className="h-4 w-4 shrink-0 text-emerald-400" />
-                  <span>চূড়ান্ত বাজেট</span>
-                </Link>
-              </div>
+              {/* চূড়ান্ত বাজেট (Final Budget Sheet) — only while a cycle is open */}
+              {hasOpenCycle && (
+                <div className="pt-2">
+                  <Link
+                    href="/office/budget-sheet"
+                    prefetch={true}
+                    className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                      pathname === '/office/budget-sheet'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-emerald-400 hover:bg-slate-800/80 hover:text-emerald-300'
+                    }`}
+                    onClick={handleNav('/office/budget-sheet')}
+                  >
+                    <BarChart3 className="h-4 w-4 shrink-0 text-emerald-400" />
+                    <span>{strings.dashboard.finalBudget}</span>
+                  </Link>
+                </div>
+              )}
 
-              {/* বাজেটসমূহ (Previous Submissions History) */}
+              {/* দাখিলকৃত বাজেটসমূহ (Previous Submissions History) */}
               <button
                 type="button"
                 onClick={() => setBudgetsModalOpen(true)}
                 className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all cursor-pointer text-left"
               >
                 <History className="h-4 w-4 shrink-0 text-amber-400" />
-                <span>বাজেটসমূহ (দাখিলকৃত)</span>
+                <span>{strings.dashboard.submittedBudgets}</span>
               </button>
             </div>
 

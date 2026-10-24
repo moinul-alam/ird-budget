@@ -11,10 +11,12 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Save, Loader2, CheckCircle, ArrowLeft, ArrowRight, RotateCcw, AlertTriangle } from 'lucide-react'
+import { Save, Loader2, CheckCircle, ArrowLeft, ArrowRight, RotateCcw, AlertTriangle, Lock } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
+import { useFormLock } from '@/components/form-lock-provider'
+import { useFormGuard, useRegisterFormGuard } from '@/components/form-guard-provider'
 
 /**
  * Server actions in src/app/actions/forms.ts report failure by returning
@@ -31,6 +33,11 @@ interface FormShellProps {
   children: React.ReactNode
   onSave?: () => Promise<FormSaveResult>
   onReset?: () => Promise<void> | void
+  /**
+   * True while the form holds edits that are not yet stored. Used to warn the
+   * office before they leave the form behind.
+   */
+  dirty?: boolean
 }
 
 export function FormShell({
@@ -41,8 +48,11 @@ export function FormShell({
   children,
   onSave,
   onReset,
+  dirty = false,
 }: FormShellProps) {
   const router = useRouter()
+  const { locked, notice: lockNotice } = useFormLock()
+  const { requestNavigation } = useFormGuard()
   const [isPending, startTransition] = useTransition()
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -53,6 +63,32 @@ export function FormShell({
     if (!result || typeof result !== 'object') return null
     return 'error' in result && result.error ? result.error : null
   }
+
+  // Keep the latest accessors in refs so the guard is registered once per mount
+  // while still seeing the form's current dirty flag and save handler.
+  const dirtyRef = useRef(dirty)
+  dirtyRef.current = dirty
+  const onSaveRef = useRef(onSave)
+  onSaveRef.current = onSave
+
+  useRegisterFormGuard({
+    isDirty: () => dirtyRef.current,
+    save: async () => {
+      const handler = onSaveRef.current
+      return handler ? failed(await handler()) : null
+    },
+  })
+
+  // Any navigation away from the form is routed through the guard, so unsaved
+  // edits can be saved or discarded deliberately instead of silently dropped.
+  const handleNavClick =
+    (href: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+        return
+      }
+      e.preventDefault()
+      requestNavigation(href)
+    }
 
   const handleSaveOnly = () => {
     if (!onSave) return
@@ -104,10 +140,15 @@ export function FormShell({
     try {
       if (onReset) {
         await onReset()
-      } else {
-        router.refresh()
+        setIsResetting(false)
+        setResetModalOpen(false)
+        return
       }
-    } finally {
+      // Client forms keep their draft in local state, so router.refresh() alone
+      // would leave the typed values on screen. Reloading re-mounts each form
+      // with the values currently stored in the database — a true reset.
+      window.location.reload()
+    } catch {
       setIsResetting(false)
       setResetModalOpen(false)
     }
@@ -123,10 +164,11 @@ export function FormShell({
             <Link
               href={prevHref}
               prefetch={true}
+              onClick={handleNavClick(prevHref)}
               className={buttonVariants({
                 variant: 'outline',
                 size: 'sm',
-                className: 'rounded-xl text-xs font-semibold gap-1.5 border-slate-200 hover:bg-slate-50',
+                className: 'rounded-xl text-xs font-semibold gap-1.5 border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900',
               })}
             >
               <ArrowLeft className="h-4 w-4" />
@@ -159,10 +201,11 @@ export function FormShell({
             <Link
               href={nextHref}
               prefetch={true}
+              onClick={handleNavClick(nextHref)}
               className={buttonVariants({
-                variant: 'outline',
+                variant: 'default',
                 size: 'sm',
-                className: 'rounded-xl text-xs font-semibold gap-1.5 border-slate-200 hover:bg-slate-50',
+                className: 'rounded-xl text-xs font-semibold gap-1.5 bg-blue-600 text-white hover:bg-blue-700',
               })}
             >
               <span>{strings.next}</span>
@@ -174,9 +217,19 @@ export function FormShell({
         </div>
       </div>
 
-      {/* Form Content */}
+      {/* Locked notice: shown once the office has submitted its budget */}
+      {locked && (
+        <div className="flex items-start gap-2.5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800">
+          <Lock className="h-4 w-4 mt-0.5 shrink-0" />
+          <p className="text-xs sm:text-sm font-bold leading-relaxed">{lockNotice}</p>
+        </div>
+      )}
+
+      {/* Form Content — inert while locked so no field can be edited */}
       <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
-        {children}
+        <div inert={locked || undefined} className={locked ? 'pointer-events-none select-none' : undefined}>
+          {children}
+        </div>
       </div>
 
       {/* Validation / save failure */}
@@ -191,7 +244,8 @@ export function FormShell({
       )}
 
       {/* Bottom Center 3 Action Buttons: [Reset] [Save] [Save and Next] */}
-      <div className="py-4 flex flex-wrap items-center justify-center gap-3 sm:gap-4 border-t border-slate-200/60">
+      {!locked && (
+        <div className="py-4 flex flex-wrap items-center justify-center gap-3 sm:gap-4 border-t border-slate-200/60">
         {/* 1. Reset Button */}
         <Button
           type="button"
@@ -248,7 +302,8 @@ export function FormShell({
             <ArrowRight className="h-4 w-4 ml-1" />
           </Link>
         )}
-      </div>
+        </div>
+      )}
 
       {/* Safety Confirmation Dialog for Reset */}
       <Dialog open={resetModalOpen} onOpenChange={setResetModalOpen}>
@@ -262,7 +317,7 @@ export function FormShell({
                 আপনি কি নিশ্চিতভাবে এই ফর্মটি রিসেট করতে চান?
               </DialogTitle>
             </div>
-            <DialogDescription className="text-xs text-slate-500 leading-relaxed pt-1">
+            <DialogDescription className="text-xs text-slate-600 leading-relaxed pt-1">
               রিসেট করলে এই ফর্মে সম্প্রতি দেওয়া অসঙ্গতিপূর্ণ বা অপূর্ণ তথ্য পূর্বাবস্থায় ফিরে যাবে।
             </DialogDescription>
           </DialogHeader>
@@ -280,7 +335,7 @@ export function FormShell({
               variant="destructive"
               onClick={handleConfirmReset}
               disabled={isResetting}
-              className="rounded-xl text-xs font-bold gap-1.5 bg-rose-600 hover:bg-rose-700"
+              className="rounded-xl text-xs font-bold gap-1.5 bg-rose-600 text-white hover:bg-rose-700"
             >
               {isResetting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
               হ্যাঁ, রিসেট করুন

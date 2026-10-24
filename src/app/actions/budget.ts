@@ -1,8 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/db/client'
-import { getBudgetContext } from '@/lib/budget/fetcher'
-import { calculateAll } from '@/lib/budget/calculate'
+import { computeSubmissionSheet } from '@/lib/budget/sheet'
 
 export interface BudgetSheetRowItem {
   id: number
@@ -12,6 +11,8 @@ export interface BudgetSheetRowItem {
   auto_value: number
   manual_value: number | null
   is_manual: boolean
+  /** Computed by the engine but overridable by the office (e.g. ডাক). */
+  allow_manual_override: boolean
   sort_order: number
 }
 
@@ -39,67 +40,24 @@ export async function getBudgetSheetData(submissionId: number): Promise<BudgetSh
   }
 
   try {
-    // 1. Fetch form context & rates
-    const ctx = await getBudgetContext(submissionId)
+    // The sheet is compiled in one place (src/lib/budget/sheet.ts) so the reports,
+    // which read the same rows, can never disagree with what the office sees here.
+    const { rows: sheet, total, context: ctx } = await computeSubmissionSheet(submissionId)
 
-    // 2. Fetch economic codes
-    const dbCodes = await prisma.refEconomicCode.findMany({
-      select: { id: true, code: true, name: true, isManual: true, sortOrder: true },
-      where: { isActive: true },
-      orderBy: { sortOrder: 'asc' },
-    })
-
-    // Economic codes are reference data. An empty table means there is nothing to
-    // show — never substitute a hardcoded list, because the synthetic row ids would
-    // not exist in ref_economic_codes and would corrupt manual-value lookups.
-    const activeCodes: Array<{ id: number; code: string; name: string; is_manual: boolean; sort_order: number }> =
-      dbCodes.map((c) => ({
-        id: Number(c.id),
-        code: c.code,
-        name: c.name || '',
-        is_manual: c.isManual,
-        sort_order: Number(c.sortOrder || 0),
-      }))
-
-    // Sort by sort_order
-    activeCodes.sort((a, b) => a.sort_order - b.sort_order)
-
-    // 3. Compute auto values
-    const formulaCodes = activeCodes.filter((c) => !c.is_manual).map((c) => c.code)
-    const calculatedValues = calculateAll(formulaCodes, ctx)
-
-    // 4. Fetch manual overrides from office_budget_sheet table
-    const dbBudgetSheet = await prisma.officeBudgetSheet.findMany({
-      where: { submissionId: BigInt(submissionId) },
-      select: { economicCodeId: true, manualValue: true },
-    })
-
-    const manualOverridesFromDb: Record<number, number> = {}
-    for (const bs of dbBudgetSheet) {
-      if (bs.manualValue !== null && bs.manualValue !== undefined) {
-        manualOverridesFromDb[Number(bs.economicCodeId)] = Number(bs.manualValue)
-      }
-    }
-
-    // 5. Build final row items
-    const rows: BudgetSheetRowItem[] = activeCodes.map((c) => {
-      const autoVal = c.is_manual ? 0 : (calculatedValues[c.code] || 0)
-      const manualVal: number | null = manualOverridesFromDb[c.id] !== undefined ? manualOverridesFromDb[c.id] : null
-
-      return {
-        id: c.id,
-        code_id: c.id,
-        code: c.code,
-        name: c.name,
-        auto_value: autoVal,
-        manual_value: manualVal,
-        is_manual: c.is_manual,
-        sort_order: c.sort_order,
-      }
-    })
+    const rows: BudgetSheetRowItem[] = sheet.map((r) => ({
+      id: r.id,
+      code_id: r.id,
+      code: r.code,
+      name: r.name,
+      auto_value: r.auto_value,
+      manual_value: r.manual_value,
+      is_manual: r.is_manual,
+      allow_manual_override: r.allow_manual_override,
+      sort_order: r.sort_order,
+    }))
 
     const totalAuto = rows.reduce((sum, r) => sum + (r.auto_value || 0), 0)
-    const totalManual = rows.reduce((sum, r) => sum + (r.manual_value ?? r.auto_value ?? 0), 0)
+    const totalManual = total
 
     // Check which core forms might still be empty
     const missingForms: string[] = []
@@ -225,5 +183,38 @@ export async function submitBudget(submissionId: number) {
     return { success: true }
   } catch (error: any) {
     return { success: false, error: `বাজেট দাখিল ব্যর্থ হয়েছে: ${error.message}` }
+  }
+}
+
+/**
+ * Re-open a submitted budget for editing. `submitted_at` is left in place so the
+ * dashboard can tell an in-progress revision from a never-submitted form.
+ */
+export async function unlockBudget(submissionId: number) {
+  if (!submissionId) {
+    return { success: false, error: 'বাজেট আইডি পাওয়া যায়নি' }
+  }
+
+  try {
+    const sub = await prisma.officeSubmission.findUnique({
+      where: { id: BigInt(submissionId) },
+      select: { status: true },
+    })
+
+    if (!sub) {
+      return { success: false, error: 'বাজেট দাখিল পাওয়া যায়নি' }
+    }
+    if (sub.status !== 'submitted') {
+      return { success: false, error: 'বাজেট ইতিমধ্যে সম্পাদনাযোগ্য অবস্থায় আছে' }
+    }
+
+    await prisma.officeSubmission.update({
+      where: { id: BigInt(submissionId) },
+      data: { status: 'draft' },
+    })
+
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: `বাজেট আনলক ব্যর্থ হয়েছে: ${error.message}` }
   }
 }

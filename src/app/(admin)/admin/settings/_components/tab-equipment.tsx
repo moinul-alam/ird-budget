@@ -2,7 +2,8 @@
 
 import { toBanglaAmount } from '@/lib/bangla'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { NumberField } from './number-field'
+import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import {
   Dialog,
@@ -11,15 +12,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Monitor, Printer, Scan, Copy, Edit2, Loader2 } from 'lucide-react'
+import { Monitor, Printer, Scan, Copy, Package, Edit2, Loader2, type LucideIcon } from 'lucide-react'
 import { ItEquipmentTypeItem } from '@/app/actions/admin-settings'
-
-interface EquipmentModalState {
-  open: boolean
-  itemId: number | null
-  title: string
-  price: number
-}
+import { EquipmentModalState } from '../_types/settings'
 
 interface TabEquipmentProps {
   itItems: ItEquipmentTypeItem[]
@@ -29,12 +24,20 @@ interface TabEquipmentProps {
   saving: boolean
 }
 
-const EQUIP_UI = [
-  { keyword: 'computer', label: 'কম্পিউটার', modalTitle: 'প্রতি কম্পিউটারের মূল্য', icon: Monitor, color: 'blue' },
-  { keyword: 'printer', label: 'প্রিন্টার', modalTitle: 'প্রতি প্রিন্টারের মূল্য', icon: Printer, color: 'emerald' },
-  { keyword: 'scanner', label: 'স্ক্যানার', modalTitle: 'প্রতি স্ক্যানারের মূল্য', icon: Scan, color: 'amber' },
-  { keyword: 'accessor', label: 'ফটোকপিয়ার / আনুষঙ্গিক', modalTitle: 'প্রতি ফটোকপিয়ারের মূল্য', icon: Copy, color: 'purple' },
+// Purely presentational: the equipment row holds no icon, so the icon/accent is
+// chosen by name here; anything unrecognised falls back to a generic style.
+const EQUIP_UI: Array<{ keyword: string; icon: LucideIcon; bar: string; tint: string }> = [
+  { keyword: 'কম্পিউটার', icon: Monitor, bar: 'bg-blue-500', tint: 'bg-blue-50 text-blue-600' },
+  { keyword: 'প্রিন্টার', icon: Printer, bar: 'bg-emerald-500', tint: 'bg-emerald-50 text-emerald-600' },
+  { keyword: 'স্ক্যানার', icon: Scan, bar: 'bg-amber-500', tint: 'bg-amber-50 text-amber-600' },
+  { keyword: 'ফটোকপিয়ার', icon: Copy, bar: 'bg-purple-500', tint: 'bg-purple-50 text-purple-600' },
 ]
+
+const FALLBACK_UI = { icon: Package, bar: 'bg-slate-400', tint: 'bg-slate-100 text-slate-600' }
+
+function equipmentUi(name: string) {
+  return EQUIP_UI.find(ui => name.includes(ui.keyword)) ?? FALLBACK_UI
+}
 
 export function TabEquipment({
   itItems,
@@ -43,31 +46,28 @@ export function TabEquipment({
   onSaveEquipment,
   saving,
 }: TabEquipmentProps) {
-  const findItem = (keyword: string) => itItems.find(i => i.name?.toLowerCase().includes(keyword))
-
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {EQUIP_UI.map((ui) => {
-          const item = findItem(ui.keyword)
-          const price = 0 // Price would be fetched from rates table in a full implementation
+        {itItems.map((item) => {
+          const ui = equipmentUi(item.name)
           const Icon = ui.icon
           return (
-            <Card key={ui.keyword} className="rounded-2xl border-slate-200/80 bg-white shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-              <div className={`h-1.5 w-full bg-${ui.color}-500`} />
+            <Card key={item.id} className="rounded-2xl border-slate-200/80 bg-white shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
+              <div className={`h-1.5 w-full ${ui.bar}`} />
               <CardHeader className="pb-3 flex flex-row items-start justify-between">
                 <div>
-                  <CardTitle className="text-base font-extrabold text-slate-800">{ui.label}</CardTitle>
+                  <CardTitle className="text-base font-extrabold text-slate-800">{item.name}</CardTitle>
                   <CardDescription className="text-xs text-slate-500 mt-0.5">প্রতি ইউনিটের প্রাক্কলিত মূল্য</CardDescription>
                 </div>
-                <div className={`p-2.5 bg-${ui.color}-50 text-${ui.color}-600 rounded-xl`}>
+                <div className={`p-2.5 rounded-xl ${ui.tint}`}>
                   <Icon className="h-6 w-6" />
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="flex items-baseline justify-between mt-2">
                   <span className="text-3xl font-extrabold text-slate-800 font-mono">
-                    {toBanglaAmount(price)}
+                    {toBanglaAmount(item.unit_price)}
                   </span>
                   <span className="text-xs font-semibold text-slate-400">টাকা/একক</span>
                 </div>
@@ -76,9 +76,10 @@ export function TabEquipment({
                   size="sm"
                   onClick={() => setEquipModal({
                     open: true,
-                    itemId: item?.id || null,
-                    title: ui.modalTitle,
-                    price: price,
+                    itemId: item.id,
+                    title: item.name,
+                    name: item.name,
+                    unit_price: item.unit_price,
                   })}
                   className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-1.5"
                 >
@@ -101,11 +102,10 @@ export function TabEquipment({
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-3 py-3">
-              <Input
-                type="number"
-                placeholder="দর লিখুন"
-                value={equipModal.price}
-                onChange={(e) => setEquipModal(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
+              <Label className="text-sm font-bold text-slate-700">প্রতি ইউনিটের মূল্য (টাকা)</Label>
+              <NumberField
+                value={equipModal.unit_price}
+                onValueChange={(unit_price) => setEquipModal(prev => ({ ...prev, unit_price }))}
                 className="rounded-xl border-slate-200 font-mono text-lg font-bold"
               />
             </div>

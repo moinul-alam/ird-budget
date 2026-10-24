@@ -136,7 +136,7 @@ export function TabEnableCodes({
   return (
     <div className="space-y-6">
       {/* Info Banner */}
-      <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-xs text-amber-800">
+      <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-800">
         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mt-0.5 shrink-0 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
         </svg>
@@ -146,9 +146,9 @@ export function TabEnableCodes({
             href="/admin/offices-config"
             className="font-bold text-blue-700 underline underline-offset-2 hover:text-blue-900 transition-colors"
           >
-            অফিস কনফিগারেশন
+            অর্গানোগ্রাম
           </a>{' '}
-          পৃষ্ঠা থেকে <span className="font-bold">৪. মাঠ অফিসের স্তর</span> ট্যাবে স্তর তৈরি করুন।
+          মেনুর <span className="font-bold">মাঠ অফিসের স্তর</span> অপশনে স্তর তৈরি করুন।
         </p>
       </div>
 
@@ -370,10 +370,10 @@ export function TabEnableCodes({
                     <tr
                       key={c.id}
                       className={`hover:bg-slate-50/60 transition-colors ${selectedCodeIds.includes(c.id)
-                          ? 'bg-blue-50/40'
-                          : c.enabled
-                            ? 'bg-white'
-                            : 'bg-slate-50/40 opacity-75'
+                        ? 'bg-blue-50/40'
+                        : c.enabled
+                          ? 'bg-white'
+                          : 'bg-slate-50/40 opacity-75'
                         }`}
                     >
                       <td className="py-3 px-3 text-center">

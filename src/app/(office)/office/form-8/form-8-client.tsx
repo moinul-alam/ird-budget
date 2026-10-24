@@ -167,11 +167,13 @@ export function Form8Client({
           vehicle_rent_config_id: configId,
           count,
         })
-        if (res.success && res.id && !existingRow?.id) {
+        // Stamp the row with the id the database gave it, matched by the rent
+        // config that identifies the row, so the form's Save updates it rather
+        // than inserting it a second time.
+        if (res.success && res.id) {
+          const savedId = res.id
           setRows((prev) =>
-            prev.map((r, i) =>
-              i === prev.length - 1 ? { ...r, id: res.id } : r
-            )
+            prev.map((r) => (r.vehicle_rent_config_id === configId ? { ...r, id: savedId } : r))
           )
         }
       })
@@ -195,6 +197,7 @@ export function Form8Client({
     if (!submissionId) return
     for (const row of rows) {
       const res = await saveFormVehicleRentRow(submissionId, {
+        id: row.id,
         vehicle_rent_config_id: row.vehicle_rent_config_id,
         count: row.count,
       })

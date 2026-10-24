@@ -9,14 +9,15 @@ import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogFooter,
+  DialogTitle,
 } from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
@@ -31,6 +32,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { saveFormStaffSuspendedRows, deleteFormStaffSuspendedRow } from '@/app/actions/forms'
 import { Plus, Trash2, Edit2, UserX, AlertTriangle } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useState, useTransition, useMemo } from 'react'
 
 export interface SuspendedStaffRow {
@@ -43,12 +45,14 @@ export interface SuspendedStaffRow {
 /**
  * One row of `ref_grades`. The grade list is administrator-controlled, so the
  * form never assumes a fixed 1–20 range or that the row id equals the grade
- * number.
+ * number. `category_bn` is the Bengali label of the grade's employee category
+ * (কর্মকর্তা / কর্মচারী) read from `ref_employee_categories` through the FK.
  */
 export interface GradeRow {
   id: number
   grade_no: number
   category: string
+  category_bn: string
 }
 
 interface Form3ClientProps {
@@ -57,27 +61,72 @@ interface Form3ClientProps {
   grades: GradeRow[]
 }
 
-const categoryLabel = (category: string) =>
-  category === 'officer' ? 'কর্মকর্তা' : 'কর্মচারী'
+/**
+ * Colour profile of this form. Forms 2, 3 and 4 share one layout — only these
+ * class strings differ, so the three stay structurally identical while reading
+ * as distinct colours (2 blue, 3 orange, 4 green).
+ */
+const accent = {
+  solidButton: 'bg-orange-600 hover:bg-orange-700 text-white',
+  softIcon: 'bg-orange-100 text-orange-600',
+  emptyButton: 'text-orange-600 border-orange-200 hover:bg-orange-50',
+  rowAction: 'text-slate-500 hover:text-orange-600 hover:bg-orange-50',
+  focus: 'focus-visible:border-orange-500 focus-visible:ring-orange-500/25',
+  officerDot: 'bg-orange-600',
+  staffDot: 'bg-orange-300',
+  officerHeader: 'bg-orange-50/70 border-orange-100',
+  staffHeader: 'bg-slate-100/80 border-slate-200',
+  card: 'bg-gradient-to-br from-slate-50 to-orange-50/40 border-orange-100',
+  officerRow: 'border-orange-200/70 bg-orange-50/40',
+  staffRow: 'border-slate-200 bg-slate-50/70',
+  officerValue: 'text-orange-700',
+  staffValue: 'text-slate-800',
+}
+
+/** One cell of the bottom সারসংক্ষেপ. */
+function SummaryBox({
+  label,
+  value,
+  valueClass,
+}: {
+  label: string
+  value: string
+  valueClass?: string
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5">
+      <span className="block text-[11px] font-medium text-slate-500">{label}</span>
+      <span className={cn('mt-0.5 block font-mono text-lg font-bold text-slate-800', valueClass)}>
+        {value}
+      </span>
+    </div>
+  )
+}
 
 export function Form3Client({ initialData, submissionId, grades }: Form3ClientProps) {
-  const gradeById = useMemo(
-    () => new Map(grades.map((g) => [g.id, g])),
-    [grades]
+  const gradeById = useMemo(() => new Map(grades.map((g) => [g.id, g])), [grades])
+
+  const initialRows = useMemo<SuspendedStaffRow[]>(
+    () =>
+      (initialData || [])
+        .filter(
+          (r) =>
+            r.suspended_count > 0 || r.suspended_total_basic > 0 || r.suspended_due_salary > 0
+        )
+        .map((r) => ({
+          grade_id: r.grade_id,
+          suspended_count: r.suspended_count || 0,
+          suspended_total_basic: r.suspended_total_basic || 0,
+          suspended_due_salary: r.suspended_due_salary || 0,
+        }))
+        .sort((a, b) => a.grade_id - b.grade_id),
+    [initialData]
   )
 
-  const [rows, setRows] = useState<SuspendedStaffRow[]>(() => {
-    // Only pre-fill rows that have suspended staff data
-    return (initialData || [])
-      .filter((r) => r.suspended_count > 0 || r.suspended_total_basic > 0 || r.suspended_due_salary > 0)
-      .map((r) => ({
-        grade_id: r.grade_id,
-        suspended_count: r.suspended_count || 0,
-        suspended_total_basic: r.suspended_total_basic || 0,
-        suspended_due_salary: r.suspended_due_salary || 0,
-      }))
-      .sort((a, b) => a.grade_id - b.grade_id)
-  })
+  const [rows, setRows] = useState<SuspendedStaffRow[]>(initialRows)
+  // Last state known to be stored in the database — the diff against `rows`
+  // is what tells the shell there is something worth saving.
+  const [savedRows, setSavedRows] = useState<SuspendedStaffRow[]>(initialRows)
 
   const [isPending, startTransition] = useTransition()
 
@@ -95,6 +144,11 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
   // Confirmation on delete
   const [gradeToDelete, setGradeToDelete] = useState<number | null>(null)
 
+  const dirty = useMemo(
+    () => JSON.stringify(rows) !== JSON.stringify(savedRows),
+    [rows, savedRows]
+  )
+
   // Has user typed anything in modal
   const hasModalDirtyData = useMemo(() => {
     return Boolean(
@@ -108,12 +162,17 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
   // Available grades (not yet added, except currently editing)
   const availableGrades = useMemo(() => {
     const used = new Set(
-      rows
-        .filter((r) => r.grade_id !== editingGradeId)
-        .map((r) => r.grade_id)
+      rows.filter((r) => r.grade_id !== editingGradeId).map((r) => r.grade_id)
     )
     return grades.filter((g) => !used.has(g.id))
   }, [grades, rows, editingGradeId])
+
+  // The dropdown is grouped by the employee category that comes from the
+  // reference table, so the boundary is never a guess at a grade number here.
+  const officerGrades = availableGrades.filter((g) => g.category === 'officer')
+  const staffGrades = availableGrades.filter((g) => g.category !== 'officer')
+
+  const gradeLabel = (g: GradeRow) => `গ্রেড ${toBanglaNumber(g.grade_no)} (${g.category_bn})`
 
   const openAddModal = () => {
     setEditingGradeId(null)
@@ -186,7 +245,13 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
   const handleConfirmDelete = () => {
     if (!gradeToDelete) return
     const gradeId = gradeToDelete
-    setRows((prev) => prev.filter((r) => r.grade_id !== gradeId).sort((a, b) => a.grade_id - b.grade_id))
+    const next = rows
+      .filter((r) => r.grade_id !== gradeId)
+      .sort((a, b) => a.grade_id - b.grade_id)
+    setRows(next)
+    // The row is removed from the database right away, so it is not an unsaved
+    // change once the request lands.
+    setSavedRows(next)
     setGradeToDelete(null)
 
     if (submissionId) {
@@ -217,44 +282,48 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
   const summary = useMemo(() => {
     let officerCount = 0
     let officerBasic = 0
+    let officerDue = 0
     let staffCount = 0
     let staffBasic = 0
+    let staffDue = 0
 
     rows.forEach((r) => {
       if (isOfficer(r)) {
         officerCount += r.suspended_count || 0
         officerBasic += r.suspended_total_basic || 0
+        officerDue += r.suspended_due_salary || 0
       } else {
         staffCount += r.suspended_count || 0
         staffBasic += r.suspended_total_basic || 0
+        staffDue += r.suspended_due_salary || 0
       }
     })
 
-    return {
-      officerCount,
-      officerBasic,
-      staffCount,
-      staffBasic,
-    }
-  }, [rows])
+    return { officerCount, officerBasic, officerDue, staffCount, staffBasic, staffDue }
+  }, [rows, gradeById])
 
   // Save entire form state to database
   const handleSaveAll = async () => {
     if (!submissionId) return
-    return await saveFormStaffSuspendedRows(submissionId, rows)
+    const result = await saveFormStaffSuspendedRows(submissionId, rows)
+    if (!result || typeof result !== 'object' || !('error' in result) || !result.error) {
+      setSavedRows(rows)
+    }
+    return result
   }
 
   return (
     <FormShell
-      title={strings.forms.form3.title}
+      title={strings.form3.title}
       formNumber={3}
       prevHref="/office/form-2"
       nextHref="/office/form-4"
       onSave={submissionId ? handleSaveAll : undefined}
+      dirty={dirty}
     >
       <div className="p-6 lg:p-8 space-y-6">
         {/* Top Action */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
           <div>
             <h2 className="text-base font-bold text-slate-800">
               সাময়িক বরখাস্তকৃত কর্মকর্তা ও কর্মচারীর বেতন বিবরণী
@@ -266,7 +335,7 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
           <Button
             type="button"
             onClick={openAddModal}
-            className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 gap-1.5"
+            className={cn('shrink-0 gap-1.5 rounded-xl', accent.solidButton)}
             disabled={availableGrades.length === 0}
           >
             <Plus className="h-4 w-4" />
@@ -276,7 +345,7 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
 
         {/* Data Tables or Empty State */}
         {rows.length === 0 ? (
-          <div className="text-center py-12 px-4 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+          <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-4 py-12 text-center">
             <UserX className="mx-auto h-12 w-12 text-slate-300 mb-3" />
             <p className="text-slate-600 font-medium text-base mb-2">
               {strings.form3.emptyState}
@@ -285,7 +354,7 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
               type="button"
               variant="outline"
               onClick={openAddModal}
-              className="mt-2 text-blue-600 border-blue-200 hover:bg-blue-50"
+              className={cn('mt-2 rounded-xl', accent.emptyButton)}
             >
               <Plus className="h-4 w-4 mr-1.5" />
               {strings.form3.addButton}
@@ -293,12 +362,12 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Officer Table (Grade 1 - 10) */}
+            {/* Officer Table */}
             {officerRows.length > 0 && (
-              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
-                <div className="bg-slate-100/80 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
-                  <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+                <div className={cn('flex items-center justify-between border-b px-4 py-2.5', accent.officerHeader)}>
+                  <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                    <span className={cn('h-2 w-2 rounded-full', accent.officerDot)} />
                     {strings.form3.officerTableTitle}
                   </h3>
                   <span className="text-xs font-semibold text-slate-500">
@@ -318,7 +387,7 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
                   <TableBody>
                     {officerRows.map((row) => (
                       <TableRow key={row.grade_id} className="hover:bg-slate-50/70">
-                        <TableCell className="font-bold font-mono text-slate-800">
+                        <TableCell className="font-mono font-bold text-slate-800">
                           গ্রেড {toBanglaNumber(gradeNoOf(row))}
                         </TableCell>
                         <TableCell className="text-right font-mono font-medium">
@@ -337,7 +406,7 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
                               variant="ghost"
                               size="sm"
                               onClick={() => openEditModal(row)}
-                              className="text-slate-500 hover:text-amber-600 hover:bg-amber-50 h-8 w-8 p-0"
+                              className={cn('h-8 w-8 p-0', accent.rowAction)}
                               title="সম্পাদনা করুন"
                             >
                               <Edit2 className="h-3.5 w-3.5" />
@@ -347,7 +416,7 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
                               variant="ghost"
                               size="sm"
                               onClick={() => setGradeToDelete(row.grade_id)}
-                              className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
+                              className="h-8 w-8 p-0 text-slate-400 hover:bg-red-50 hover:text-red-600"
                               title="মুছে ফেলুন"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -361,12 +430,12 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
               </div>
             )}
 
-            {/* Staff Table (Grade 11 - 20) */}
+            {/* Staff Table */}
             {staffRows.length > 0 && (
-              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
-                <div className="bg-amber-50/60 px-4 py-2.5 border-b border-amber-100 flex items-center justify-between">
-                  <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-orange-600"></span>
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+                <div className={cn('flex items-center justify-between border-b px-4 py-2.5', accent.staffHeader)}>
+                  <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                    <span className={cn('h-2 w-2 rounded-full', accent.staffDot)} />
                     {strings.form3.staffTableTitle}
                   </h3>
                   <span className="text-xs font-semibold text-slate-500">
@@ -386,7 +455,7 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
                   <TableBody>
                     {staffRows.map((row) => (
                       <TableRow key={row.grade_id} className="hover:bg-slate-50/70">
-                        <TableCell className="font-bold font-mono text-slate-800">
+                        <TableCell className="font-mono font-bold text-slate-800">
                           গ্রেড {toBanglaNumber(gradeNoOf(row))}
                         </TableCell>
                         <TableCell className="text-right font-mono font-medium">
@@ -405,7 +474,7 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
                               variant="ghost"
                               size="sm"
                               onClick={() => openEditModal(row)}
-                              className="text-slate-500 hover:text-amber-600 hover:bg-amber-50 h-8 w-8 p-0"
+                              className={cn('h-8 w-8 p-0', accent.rowAction)}
                               title="সম্পাদনা করুন"
                             >
                               <Edit2 className="h-3.5 w-3.5" />
@@ -415,7 +484,7 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
                               variant="ghost"
                               size="sm"
                               onClick={() => setGradeToDelete(row.grade_id)}
-                              className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
+                              className="h-8 w-8 p-0 text-slate-400 hover:bg-red-50 hover:text-red-600"
                               title="মুছে ফেলুন"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -431,45 +500,61 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
           </div>
         )}
 
-        {/* Summary Card */}
+        {/* Summary Card — one row per employee category, three boxes inside each */}
         {rows.length > 0 && (
-          <Card className="bg-gradient-to-br from-slate-50 to-amber-50/30 border border-amber-100 shadow-xs">
-            <CardContent className="p-5">
-              <h3 className="text-sm font-bold text-slate-700 mb-3 uppercase tracking-wider">
-                বরখাস্তকৃত কর্মকর্তা/কর্মচারীর বিবরণী সারসংক্ষেপ
+          <Card className={cn('border shadow-xs', accent.card)}>
+            <CardContent className="space-y-4 p-5">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">
+                {strings.form3.summaryTitle}
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="p-3 bg-white rounded-xl border border-slate-200">
-                  <span className="text-xs text-slate-500 font-medium block">
-                    {strings.form3.officerCountLabel}:
-                  </span>
-                  <span className="text-xl font-bold text-slate-800 font-mono mt-0.5 block">
-                    {toBanglaNumber(summary.officerCount)} জন
-                  </span>
-                </div>
-                <div className="p-3 bg-white rounded-xl border border-slate-200">
-                  <span className="text-xs text-slate-500 font-medium block">
-                    {strings.form3.officerBasicLabel}:
-                  </span>
-                  <span className="text-xl font-bold text-amber-700 font-mono mt-0.5 block">
-                    {toBanglaAmount(summary.officerBasic)}
+
+              {/* কর্মকর্তা */}
+              <div className={cn('rounded-2xl border p-3.5', accent.officerRow)}>
+                <div className="mb-3 flex items-center gap-2">
+                  <span className={cn('h-2.5 w-2.5 rounded-full', accent.officerDot)} />
+                  <span className="text-xs font-bold text-slate-700">
+                    {strings.form3.officerRowLabel}
                   </span>
                 </div>
-                <div className="p-3 bg-white rounded-xl border border-slate-200">
-                  <span className="text-xs text-slate-500 font-medium block">
-                    {strings.form3.staffCountLabel}:
-                  </span>
-                  <span className="text-xl font-bold text-slate-800 font-mono mt-0.5 block">
-                    {toBanglaNumber(summary.staffCount)} জন
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <SummaryBox
+                    label={strings.form3.officerCountLabel}
+                    value={`${toBanglaNumber(summary.officerCount)} ${strings.form3.personUnit}`}
+                  />
+                  <SummaryBox
+                    label={strings.form3.monthlyBasicSummaryLabel}
+                    value={`${toBanglaAmount(summary.officerBasic)} টাকা`}
+                    valueClass={accent.officerValue}
+                  />
+                  <SummaryBox
+                    label={strings.form3.dueSummaryLabel}
+                    value={summary.officerDue ? `${toBanglaAmount(summary.officerDue)} টাকা` : '—'}
+                  />
+                </div>
+              </div>
+
+              {/* কর্মচারী */}
+              <div className={cn('rounded-2xl border p-3.5', accent.staffRow)}>
+                <div className="mb-3 flex items-center gap-2">
+                  <span className={cn('h-2.5 w-2.5 rounded-full', accent.staffDot)} />
+                  <span className="text-xs font-bold text-slate-700">
+                    {strings.form3.staffRowLabel}
                   </span>
                 </div>
-                <div className="p-3 bg-white rounded-xl border border-slate-200">
-                  <span className="text-xs text-slate-500 font-medium block">
-                    {strings.form3.staffBasicLabel}:
-                  </span>
-                  <span className="text-xl font-bold text-orange-700 font-mono mt-0.5 block">
-                    {toBanglaAmount(summary.staffBasic)}
-                  </span>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <SummaryBox
+                    label={strings.form3.staffCountLabel}
+                    value={`${toBanglaNumber(summary.staffCount)} ${strings.form3.personUnit}`}
+                  />
+                  <SummaryBox
+                    label={strings.form3.monthlyBasicSummaryLabel}
+                    value={`${toBanglaAmount(summary.staffBasic)} টাকা`}
+                    valueClass={accent.staffValue}
+                  />
+                  <SummaryBox
+                    label={strings.form3.dueSummaryLabel}
+                    value={summary.staffDue ? `${toBanglaAmount(summary.staffDue)} টাকা` : '—'}
+                  />
                 </div>
               </div>
             </CardContent>
@@ -478,63 +563,111 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
       </div>
 
       {/* ADD / EDIT MODAL */}
-      <Dialog open={isModalOpen} onOpenChange={(open) => {
-        if (!open) handleRequestClose()
-      }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-slate-800">
-              {editingGradeId !== null ? strings.form3.editModalTitle : strings.form3.modalTitle}
-            </DialogTitle>
-          </DialogHeader>
+      <Dialog
+        open={isModalOpen}
+        onOpenChange={(open) => {
+          if (!open) handleRequestClose()
+        }}
+      >
+        <DialogContent className="rounded-3xl sm:max-w-lg">
+          <div className="flex items-start gap-3">
+            <div className={cn('shrink-0 rounded-2xl p-2.5', accent.softIcon)}>
+              <UserX className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="text-base font-extrabold text-slate-900">
+                {editingGradeId !== null ? strings.form3.editModalTitle : strings.form3.modalTitle}
+              </DialogTitle>
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                {strings.form3.modalSubtitle}
+              </p>
+            </div>
+          </div>
 
-          <div className="space-y-4 py-2">
-            {/* Grade Selector */}
+          <div className="space-y-4">
+            {/* Grade Selector — grouped by employee category */}
             <div className="space-y-1.5">
-              <Label htmlFor="grade_select_2b">{strings.form3.gradeColumn}</Label>
+              <Label htmlFor="grade_select_2b" className="text-xs font-bold text-slate-700">
+                {strings.form3.gradeColumn}
+              </Label>
               <Select value={selectedGrade} onValueChange={(val) => setSelectedGrade(val ?? '')}>
-                <SelectTrigger id="grade_select_2b" className="w-full">
-                  <SelectValue placeholder={strings.form3.selectGrade} />
+                <SelectTrigger id="grade_select_2b" className={cn('h-10 w-full rounded-xl', accent.focus)}>
+                  <SelectValue placeholder={strings.form3.selectGrade}>
+                    {(value: any) => {
+                      const grade = value ? gradeById.get(Number(value)) : undefined
+                      return grade ? gradeLabel(grade) : strings.form3.selectGrade
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
-                  {availableGrades.map((g) => (
-                    <SelectItem key={g.id} value={String(g.id)}>
-                      গ্রেড {toBanglaNumber(g.grade_no)} ({categoryLabel(g.category)})
-                    </SelectItem>
-                  ))}
+                <SelectContent className="rounded-xl">
+                  {officerGrades.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel className="font-bold text-slate-500">
+                        {strings.form3.officerRowLabel}
+                      </SelectLabel>
+                      {officerGrades.map((g) => (
+                        <SelectItem key={g.id} value={String(g.id)} className="rounded-lg py-2">
+                          {gradeLabel(g)}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                  {staffGrades.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel className="font-bold text-slate-500">
+                        {strings.form3.staffRowLabel}
+                      </SelectLabel>
+                      {staffGrades.map((g) => (
+                        <SelectItem key={g.id} value={String(g.id)} className="rounded-lg py-2">
+                          {gradeLabel(g)}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
                 </SelectContent>
               </Select>
+              <p className="text-[11px] text-slate-400">{strings.form3.gradeHint}</p>
             </div>
 
-            {/* Count */}
-            <div className="space-y-1.5">
-              <Label htmlFor="count_input_2b">{strings.form3.countColumn}</Label>
-              <Input
-                id="count_input_2b"
-                type="number"
-                min="0"
-                placeholder="যেমন: ১"
-                value={countInput}
-                onChange={(e) => setCountInput(e.target.value)}
-              />
-            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {/* Count */}
+              <div className="space-y-1.5">
+                <Label htmlFor="count_input_2b" className="text-xs font-bold text-slate-700">
+                  {strings.form3.countColumn}
+                </Label>
+                <Input
+                  id="count_input_2b"
+                  type="number"
+                  min="0"
+                  placeholder="যেমন: ১"
+                  value={countInput}
+                  onChange={(e) => setCountInput(e.target.value)}
+                  className={cn('h-10 rounded-xl font-mono', accent.focus)}
+                />
+              </div>
 
-            {/* Total Basic */}
-            <div className="space-y-1.5">
-              <Label htmlFor="basic_input_2b">{strings.form3.basicColumn}</Label>
-              <Input
-                id="basic_input_2b"
-                type="number"
-                min="0"
-                placeholder="যেমন: ৩৫০00"
-                value={basicInput}
-                onChange={(e) => setBasicInput(e.target.value)}
-              />
+              {/* Total Basic */}
+              <div className="space-y-1.5">
+                <Label htmlFor="basic_input_2b" className="text-xs font-bold text-slate-700">
+                  {strings.form3.basicColumn}
+                </Label>
+                <Input
+                  id="basic_input_2b"
+                  type="number"
+                  min="0"
+                  placeholder="যেমন: ৩৫০০০"
+                  value={basicInput}
+                  onChange={(e) => setBasicInput(e.target.value)}
+                  className={cn('h-10 rounded-xl font-mono', accent.focus)}
+                />
+              </div>
             </div>
 
             {/* Due Salary */}
             <div className="space-y-1.5">
-              <Label htmlFor="due_input_2b">{strings.form3.modalDueSalaryColumn}</Label>
+              <Label htmlFor="due_input_2b" className="text-xs font-bold text-slate-700">
+                {strings.form3.modalDueSalaryColumn}
+              </Label>
               <Input
                 id="due_input_2b"
                 type="number"
@@ -542,15 +675,17 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
                 placeholder="ঐচ্ছিক (বকেয়া থাকলে)"
                 value={dueInput}
                 onChange={(e) => setDueInput(e.target.value)}
+                className={cn('h-10 rounded-xl font-mono', accent.focus)}
               />
             </div>
           </div>
 
-          <DialogFooter className="flex sm:justify-between gap-2 pt-2">
+          <DialogFooter className="rounded-b-3xl gap-2 sm:gap-0">
             <Button
               type="button"
               variant="outline"
               onClick={handleRequestClose}
+              className="rounded-xl text-xs font-semibold"
             >
               {strings.close}
             </Button>
@@ -558,7 +693,7 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
               type="button"
               onClick={handleSaveModalRow}
               disabled={!selectedGrade || (!countInput && !basicInput)}
-              className="bg-amber-600 hover:bg-amber-700 text-white"
+              className={cn('rounded-xl text-xs font-bold', accent.solidButton)}
             >
               {editingGradeId !== null ? 'সংরক্ষণ করুন' : 'যোগ করুন'}
             </Button>
@@ -568,25 +703,27 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
 
       {/* CONFIRM CLOSE MODAL */}
       <Dialog open={showConfirmClose} onOpenChange={setShowConfirmClose}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <div className="flex items-center gap-2 text-amber-600 mb-1">
+        <DialogContent className="rounded-3xl sm:max-w-sm">
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 rounded-2xl bg-amber-100 p-2.5 text-amber-600">
               <AlertTriangle className="h-5 w-5" />
-              <DialogTitle className="text-base font-bold text-slate-800">
+            </div>
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="text-base font-extrabold text-slate-900">
                 {strings.form3.confirmCloseTitle}
               </DialogTitle>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                {strings.form3.confirmCloseDesc}
+              </p>
             </div>
-            <p className="text-sm text-slate-500">
-              {strings.form3.confirmCloseDesc}
-            </p>
-          </DialogHeader>
+          </div>
 
-          <DialogFooter className="flex flex-row justify-end gap-2 pt-3">
+          <DialogFooter className="rounded-b-3xl gap-2 sm:gap-0">
             <Button
               type="button"
               variant="outline"
               onClick={resetModalFields}
-              className="text-slate-600"
+              className="rounded-xl text-xs font-semibold"
             >
               {strings.form3.discardAndClose}
             </Button>
@@ -596,7 +733,7 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
                 setShowConfirmClose(false)
                 handleSaveModalRow()
               }}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className={cn('rounded-xl text-xs font-bold', accent.solidButton)}
             >
               {strings.form3.saveAndClose}
             </Button>
@@ -605,38 +742,43 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
       </Dialog>
 
       {/* CONFIRM DELETE MODAL */}
-      <Dialog open={gradeToDelete !== null} onOpenChange={(open) => {
-        if (!open) setGradeToDelete(null)
-      }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <div className="flex items-center gap-2 text-red-600 mb-1">
+      <Dialog
+        open={gradeToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setGradeToDelete(null)
+        }}
+      >
+        <DialogContent className="rounded-3xl sm:max-w-sm">
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 rounded-2xl bg-red-100 p-2.5 text-red-600">
               <Trash2 className="h-5 w-5" />
-              <DialogTitle className="text-base font-bold text-slate-800">
+            </div>
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="text-base font-extrabold text-slate-900">
                 {strings.form3.confirmDeleteTitle}
               </DialogTitle>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                {gradeToDelete
+                  ? `গ্রেড ${toBanglaNumber(gradeById.get(gradeToDelete)?.grade_no ?? gradeToDelete)} এর `
+                  : ''}
+                {strings.form3.confirmDeleteDesc}
+              </p>
             </div>
-            <p className="text-sm text-slate-500">
-              {gradeToDelete
-                ? `গ্রেড ${toBanglaNumber(gradeById.get(gradeToDelete)?.grade_no ?? gradeToDelete)} এর `
-                : ''}
-              {strings.form3.confirmDeleteDesc}
-            </p>
-          </DialogHeader>
+          </div>
 
-          <DialogFooter className="flex flex-row justify-end gap-2 pt-3">
+          <DialogFooter className="rounded-b-3xl gap-2 sm:gap-0">
             <Button
               type="button"
               variant="outline"
               onClick={() => setGradeToDelete(null)}
-              className="text-slate-600"
+              className="rounded-xl text-xs font-semibold"
             >
               {strings.cancel}
             </Button>
             <Button
               type="button"
               onClick={handleConfirmDelete}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="rounded-xl bg-red-600 text-xs font-bold text-white hover:bg-red-700"
             >
               মুছে ফেলুন
             </Button>

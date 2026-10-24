@@ -9,14 +9,15 @@ import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogFooter,
+  DialogTitle,
 } from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
@@ -31,6 +32,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { saveFormStaffActiveRows, deleteFormStaffActiveRow } from '@/app/actions/forms'
 import { Plus, Trash2, Edit2, Users, AlertTriangle } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useState, useTransition, useMemo } from 'react'
 
 export interface ActiveStaffRow {
@@ -43,12 +45,14 @@ export interface ActiveStaffRow {
 /**
  * One row of `ref_grades`. The grade list is administrator-controlled, so the
  * form never assumes a fixed 1–20 range or that the row id equals the grade
- * number.
+ * number. `category_bn` is the Bengali label of the grade's employee category
+ * (কর্মকর্তা / কর্মচারী) read from `ref_employee_categories` through the FK.
  */
 export interface GradeRow {
   id: number
   grade_no: number
   category: string
+  category_bn: string
 }
 
 interface Form2ClientProps {
@@ -57,20 +61,63 @@ interface Form2ClientProps {
   grades: GradeRow[]
 }
 
-const categoryLabel = (category: string) =>
-  category === 'officer' ? 'কর্মকর্তা' : 'কর্মচারী'
+/**
+ * Colour profile of this form. Forms 2, 3 and 4 share one layout — only these
+ * class strings differ, so the three stay structurally identical while reading
+ * as distinct colours (2 blue, 3 orange, 4 green).
+ */
+const accent = {
+  solidButton: 'bg-blue-600 hover:bg-blue-700 text-white',
+  softIcon: 'bg-blue-100 text-blue-600',
+  emptyButton: 'text-blue-600 border-blue-200 hover:bg-blue-50',
+  rowAction: 'text-slate-500 hover:text-blue-600 hover:bg-blue-50',
+  focus: 'focus-visible:border-blue-500 focus-visible:ring-blue-500/25',
+  officerDot: 'bg-blue-600',
+  staffDot: 'bg-blue-300',
+  officerHeader: 'bg-blue-50/70 border-blue-100',
+  staffHeader: 'bg-slate-100/80 border-slate-200',
+  card: 'bg-gradient-to-br from-slate-50 to-blue-50/40 border-blue-100',
+  officerRow: 'border-blue-200/70 bg-blue-50/40',
+  staffRow: 'border-slate-200 bg-slate-50/70',
+  officerValue: 'text-blue-700',
+  staffValue: 'text-slate-800',
+}
+
+/** One cell of the bottom সারসংক্ষেপ. */
+function SummaryBox({
+  label,
+  value,
+  valueClass,
+}: {
+  label: string
+  value: string
+  valueClass?: string
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5">
+      <span className="block text-[11px] font-medium text-slate-500">{label}</span>
+      <span className={cn('mt-0.5 block font-mono text-lg font-bold text-slate-800', valueClass)}>
+        {value}
+      </span>
+    </div>
+  )
+}
 
 export function Form2Client({ initialData, submissionId, grades }: Form2ClientProps) {
-  const gradeById = useMemo(
-    () => new Map(grades.map((g) => [g.id, g])),
-    [grades]
+  const gradeById = useMemo(() => new Map(grades.map((g) => [g.id, g])), [grades])
+
+  const initialRows = useMemo(
+    () =>
+      (initialData || [])
+        .filter((r) => r.count > 0 || r.total_basic > 0 || r.due_salary > 0)
+        .sort((a, b) => a.grade_id - b.grade_id),
+    [initialData]
   )
 
-  const [rows, setRows] = useState<ActiveStaffRow[]>(() => {
-    return (initialData || [])
-      .filter((r) => (r.count > 0 || r.total_basic > 0 || r.due_salary > 0))
-      .sort((a, b) => a.grade_id - b.grade_id)
-  })
+  const [rows, setRows] = useState<ActiveStaffRow[]>(initialRows)
+  // Last state known to be stored in the database — the diff against `rows`
+  // is what tells the shell there is something worth saving.
+  const [savedRows, setSavedRows] = useState<ActiveStaffRow[]>(initialRows)
 
   const [isPending, startTransition] = useTransition()
 
@@ -88,6 +135,11 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
   // Confirmation on delete
   const [gradeToDelete, setGradeToDelete] = useState<number | null>(null)
 
+  const dirty = useMemo(
+    () => JSON.stringify(rows) !== JSON.stringify(savedRows),
+    [rows, savedRows]
+  )
+
   // Has user typed anything in modal
   const hasModalDirtyData = useMemo(() => {
     return Boolean(
@@ -101,12 +153,17 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
   // Available grades for adding (excluding already added grades, except the one currently editing)
   const availableGrades = useMemo(() => {
     const used = new Set(
-      rows
-        .filter((r) => r.grade_id !== editingGradeId)
-        .map((r) => r.grade_id)
+      rows.filter((r) => r.grade_id !== editingGradeId).map((r) => r.grade_id)
     )
     return grades.filter((g) => !used.has(g.id))
   }, [grades, rows, editingGradeId])
+
+  // The dropdown is grouped by the employee category that comes from the
+  // reference table, so the boundary is never a guess at a grade number here.
+  const officerGrades = availableGrades.filter((g) => g.category === 'officer')
+  const staffGrades = availableGrades.filter((g) => g.category !== 'officer')
+
+  const gradeLabel = (g: GradeRow) => `গ্রেড ${toBanglaNumber(g.grade_no)} (${g.category_bn})`
 
   const openAddModal = () => {
     setEditingGradeId(null)
@@ -179,7 +236,13 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
   const handleConfirmDelete = () => {
     if (!gradeToDelete) return
     const gradeId = gradeToDelete
-    setRows((prev) => prev.filter((r) => r.grade_id !== gradeId).sort((a, b) => a.grade_id - b.grade_id))
+    const next = rows
+      .filter((r) => r.grade_id !== gradeId)
+      .sort((a, b) => a.grade_id - b.grade_id)
+    setRows(next)
+    // The row is removed from the database right away, so it is not an unsaved
+    // change once the request lands.
+    setSavedRows(next)
     setGradeToDelete(null)
 
     if (submissionId) {
@@ -210,31 +273,34 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
   const summary = useMemo(() => {
     let officerCount = 0
     let officerBasic = 0
+    let officerDue = 0
     let staffCount = 0
     let staffBasic = 0
+    let staffDue = 0
 
     rows.forEach((r) => {
       if (isOfficer(r)) {
         officerCount += r.count || 0
         officerBasic += r.total_basic || 0
+        officerDue += r.due_salary || 0
       } else {
         staffCount += r.count || 0
         staffBasic += r.total_basic || 0
+        staffDue += r.due_salary || 0
       }
     })
 
-    return {
-      officerCount,
-      officerBasic,
-      staffCount,
-      staffBasic,
-    }
+    return { officerCount, officerBasic, officerDue, staffCount, staffBasic, staffDue }
   }, [rows, gradeById])
 
   // Save entire form state to database
   const handleSaveAll = async () => {
     if (!submissionId) return
-    return await saveFormStaffActiveRows(submissionId, rows)
+    const result = await saveFormStaffActiveRows(submissionId, rows)
+    if (!result || typeof result !== 'object' || !('error' in result) || !result.error) {
+      setSavedRows(rows)
+    }
+    return result
   }
 
   return (
@@ -244,10 +310,11 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
       prevHref="/office/form-1"
       nextHref="/office/form-3"
       onSave={submissionId ? handleSaveAll : undefined}
+      dirty={dirty}
     >
       <div className="p-6 lg:p-8 space-y-6">
         {/* Top Action */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
           <div>
             <h2 className="text-base font-bold text-slate-800">
               কর্মকর্তা ও কর্মচারীর বেতন বিবরণী (কর্মরত)
@@ -259,7 +326,7 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
           <Button
             type="button"
             onClick={openAddModal}
-            className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 gap-1.5"
+            className={cn('shrink-0 gap-1.5 rounded-xl', accent.solidButton)}
             disabled={availableGrades.length === 0}
           >
             <Plus className="h-4 w-4" />
@@ -269,7 +336,7 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
 
         {/* Data Tables or Empty State */}
         {rows.length === 0 ? (
-          <div className="text-center py-12 px-4 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+          <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-4 py-12 text-center">
             <Users className="mx-auto h-12 w-12 text-slate-300 mb-3" />
             <p className="text-slate-600 font-medium text-base mb-2">
               {strings.form2.emptyState}
@@ -278,7 +345,7 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
               type="button"
               variant="outline"
               onClick={openAddModal}
-              className="mt-2 text-blue-600 border-blue-200 hover:bg-blue-50"
+              className={cn('mt-2 rounded-xl', accent.emptyButton)}
             >
               <Plus className="h-4 w-4 mr-1.5" />
               {strings.form2.addButton}
@@ -286,12 +353,12 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Officer Table (Grade 1 - 10) */}
+            {/* Officer Table */}
             {officerRows.length > 0 && (
-              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
-                <div className="bg-slate-100/80 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
-                  <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+                <div className={cn('flex items-center justify-between border-b px-4 py-2.5', accent.officerHeader)}>
+                  <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                    <span className={cn('h-2 w-2 rounded-full', accent.officerDot)} />
                     {strings.form2.officerTableTitle}
                   </h3>
                   <span className="text-xs font-semibold text-slate-500">
@@ -311,7 +378,7 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
                   <TableBody>
                     {officerRows.map((row) => (
                       <TableRow key={row.grade_id} className="hover:bg-slate-50/70">
-                        <TableCell className="font-bold font-mono text-slate-800">
+                        <TableCell className="font-mono font-bold text-slate-800">
                           গ্রেড {toBanglaNumber(gradeNoOf(row))}
                         </TableCell>
                         <TableCell className="text-right font-mono font-medium">
@@ -330,7 +397,7 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
                               variant="ghost"
                               size="sm"
                               onClick={() => openEditModal(row)}
-                              className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 h-8 w-8 p-0"
+                              className={cn('h-8 w-8 p-0', accent.rowAction)}
                               title="সম্পাদনা করুন"
                             >
                               <Edit2 className="h-3.5 w-3.5" />
@@ -340,7 +407,7 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
                               variant="ghost"
                               size="sm"
                               onClick={() => setGradeToDelete(row.grade_id)}
-                              className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
+                              className="h-8 w-8 p-0 text-slate-400 hover:bg-red-50 hover:text-red-600"
                               title="মুছে ফেলুন"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -354,12 +421,12 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
               </div>
             )}
 
-            {/* Staff Table (Grade 11 - 20) */}
+            {/* Staff Table */}
             {staffRows.length > 0 && (
-              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
-                <div className="bg-slate-100/80 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
-                  <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+                <div className={cn('flex items-center justify-between border-b px-4 py-2.5', accent.staffHeader)}>
+                  <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                    <span className={cn('h-2 w-2 rounded-full', accent.staffDot)} />
                     {strings.form2.staffTableTitle}
                   </h3>
                   <span className="text-xs font-semibold text-slate-500">
@@ -379,7 +446,7 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
                   <TableBody>
                     {staffRows.map((row) => (
                       <TableRow key={row.grade_id} className="hover:bg-slate-50/70">
-                        <TableCell className="font-bold font-mono text-slate-800">
+                        <TableCell className="font-mono font-bold text-slate-800">
                           গ্রেড {toBanglaNumber(gradeNoOf(row))}
                         </TableCell>
                         <TableCell className="text-right font-mono font-medium">
@@ -398,7 +465,7 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
                               variant="ghost"
                               size="sm"
                               onClick={() => openEditModal(row)}
-                              className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 h-8 w-8 p-0"
+                              className={cn('h-8 w-8 p-0', accent.rowAction)}
                               title="সম্পাদনা করুন"
                             >
                               <Edit2 className="h-3.5 w-3.5" />
@@ -408,7 +475,7 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
                               variant="ghost"
                               size="sm"
                               onClick={() => setGradeToDelete(row.grade_id)}
-                              className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
+                              className="h-8 w-8 p-0 text-slate-400 hover:bg-red-50 hover:text-red-600"
                               title="মুছে ফেলুন"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -424,45 +491,61 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
           </div>
         )}
 
-        {/* Summary Card */}
+        {/* Summary Card — one row per employee category, three boxes inside each */}
         {rows.length > 0 && (
-          <Card className="bg-gradient-to-br from-slate-50 to-blue-50/30 border border-blue-100 shadow-xs">
-            <CardContent className="p-5">
-              <h3 className="text-sm font-bold text-slate-700 mb-3 uppercase tracking-wider">
-                বেতন তথ্যের সারসংক্ষেপ
+          <Card className={cn('border shadow-xs', accent.card)}>
+            <CardContent className="space-y-4 p-5">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">
+                {strings.form2.summaryTitle}
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="p-3 bg-white rounded-xl border border-slate-200">
-                  <span className="text-xs text-slate-500 font-medium block">
-                    {strings.form2.officerCountLabel}:
-                  </span>
-                  <span className="text-xl font-bold text-slate-800 font-mono mt-0.5 block">
-                    {toBanglaNumber(summary.officerCount)} জন
-                  </span>
-                </div>
-                <div className="p-3 bg-white rounded-xl border border-slate-200">
-                  <span className="text-xs text-slate-500 font-medium block">
-                    {strings.form2.officerBasicLabel}:
-                  </span>
-                  <span className="text-xl font-bold text-indigo-700 font-mono mt-0.5 block">
-                    {toBanglaAmount(summary.officerBasic)}
+
+              {/* কর্মকর্তা */}
+              <div className={cn('rounded-2xl border p-3.5', accent.officerRow)}>
+                <div className="mb-3 flex items-center gap-2">
+                  <span className={cn('h-2.5 w-2.5 rounded-full', accent.officerDot)} />
+                  <span className="text-xs font-bold text-slate-700">
+                    {strings.form2.officerRowLabel}
                   </span>
                 </div>
-                <div className="p-3 bg-white rounded-xl border border-slate-200">
-                  <span className="text-xs text-slate-500 font-medium block">
-                    {strings.form2.staffCountLabel}:
-                  </span>
-                  <span className="text-xl font-bold text-slate-800 font-mono mt-0.5 block">
-                    {toBanglaNumber(summary.staffCount)} জন
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <SummaryBox
+                    label={strings.form2.officerCountLabel}
+                    value={`${toBanglaNumber(summary.officerCount)} ${strings.form2.personUnit}`}
+                  />
+                  <SummaryBox
+                    label={strings.form2.monthlyBasicSummaryLabel}
+                    value={`${toBanglaAmount(summary.officerBasic)} টাকা`}
+                    valueClass={accent.officerValue}
+                  />
+                  <SummaryBox
+                    label={strings.form2.dueSummaryLabel}
+                    value={summary.officerDue ? `${toBanglaAmount(summary.officerDue)} টাকা` : '—'}
+                  />
+                </div>
+              </div>
+
+              {/* কর্মচারী */}
+              <div className={cn('rounded-2xl border p-3.5', accent.staffRow)}>
+                <div className="mb-3 flex items-center gap-2">
+                  <span className={cn('h-2.5 w-2.5 rounded-full', accent.staffDot)} />
+                  <span className="text-xs font-bold text-slate-700">
+                    {strings.form2.staffRowLabel}
                   </span>
                 </div>
-                <div className="p-3 bg-white rounded-xl border border-slate-200">
-                  <span className="text-xs text-slate-500 font-medium block">
-                    {strings.form2.staffBasicLabel}:
-                  </span>
-                  <span className="text-xl font-bold text-emerald-700 font-mono mt-0.5 block">
-                    {toBanglaAmount(summary.staffBasic)}
-                  </span>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <SummaryBox
+                    label={strings.form2.staffCountLabel}
+                    value={`${toBanglaNumber(summary.staffCount)} ${strings.form2.personUnit}`}
+                  />
+                  <SummaryBox
+                    label={strings.form2.monthlyBasicSummaryLabel}
+                    value={`${toBanglaAmount(summary.staffBasic)} টাকা`}
+                    valueClass={accent.staffValue}
+                  />
+                  <SummaryBox
+                    label={strings.form2.dueSummaryLabel}
+                    value={summary.staffDue ? `${toBanglaAmount(summary.staffDue)} টাকা` : '—'}
+                  />
                 </div>
               </div>
             </CardContent>
@@ -471,63 +554,111 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
       </div>
 
       {/* ADD / EDIT MODAL */}
-      <Dialog open={isModalOpen} onOpenChange={(open) => {
-        if (!open) handleRequestClose()
-      }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-slate-800">
-              {editingGradeId !== null ? strings.form2.editModalTitle : strings.form2.modalTitle}
-            </DialogTitle>
-          </DialogHeader>
+      <Dialog
+        open={isModalOpen}
+        onOpenChange={(open) => {
+          if (!open) handleRequestClose()
+        }}
+      >
+        <DialogContent className="rounded-3xl sm:max-w-lg">
+          <div className="flex items-start gap-3">
+            <div className={cn('shrink-0 rounded-2xl p-2.5', accent.softIcon)}>
+              <Users className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="text-base font-extrabold text-slate-900">
+                {editingGradeId !== null ? strings.form2.editModalTitle : strings.form2.modalTitle}
+              </DialogTitle>
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                {strings.form2.modalSubtitle}
+              </p>
+            </div>
+          </div>
 
-          <div className="space-y-4 py-2">
-            {/* Grade Selector */}
+          <div className="space-y-4">
+            {/* Grade Selector — grouped by employee category */}
             <div className="space-y-1.5">
-              <Label htmlFor="grade_select">{strings.form2.gradeColumn}</Label>
+              <Label htmlFor="grade_select" className="text-xs font-bold text-slate-700">
+                {strings.form2.gradeColumn}
+              </Label>
               <Select value={selectedGrade} onValueChange={(val) => setSelectedGrade(val ?? '')}>
-                <SelectTrigger id="grade_select" className="w-full">
-                  <SelectValue placeholder={strings.form2.selectGrade} />
+                <SelectTrigger id="grade_select" className={cn('h-10 w-full rounded-xl', accent.focus)}>
+                  <SelectValue placeholder={strings.form2.selectGrade}>
+                    {(value: any) => {
+                      const grade = value ? gradeById.get(Number(value)) : undefined
+                      return grade ? gradeLabel(grade) : strings.form2.selectGrade
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
-                  {availableGrades.map((g) => (
-                    <SelectItem key={g.id} value={String(g.id)}>
-                      গ্রেড {toBanglaNumber(g.grade_no)} ({categoryLabel(g.category)})
-                    </SelectItem>
-                  ))}
+                <SelectContent className="rounded-xl">
+                  {officerGrades.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel className="font-bold text-slate-500">
+                        {strings.form2.officerRowLabel}
+                      </SelectLabel>
+                      {officerGrades.map((g) => (
+                        <SelectItem key={g.id} value={String(g.id)} className="rounded-lg py-2">
+                          {gradeLabel(g)}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
+                  {staffGrades.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel className="font-bold text-slate-500">
+                        {strings.form2.staffRowLabel}
+                      </SelectLabel>
+                      {staffGrades.map((g) => (
+                        <SelectItem key={g.id} value={String(g.id)} className="rounded-lg py-2">
+                          {gradeLabel(g)}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
                 </SelectContent>
               </Select>
+              <p className="text-[11px] text-slate-400">{strings.form2.gradeHint}</p>
             </div>
 
-            {/* Count */}
-            <div className="space-y-1.5">
-              <Label htmlFor="count_input">{strings.form2.countColumn}</Label>
-              <Input
-                id="count_input"
-                type="number"
-                min="0"
-                placeholder="যেমন: ৩"
-                value={countInput}
-                onChange={(e) => setCountInput(e.target.value)}
-              />
-            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {/* Count */}
+              <div className="space-y-1.5">
+                <Label htmlFor="count_input" className="text-xs font-bold text-slate-700">
+                  {strings.form2.countColumn}
+                </Label>
+                <Input
+                  id="count_input"
+                  type="number"
+                  min="0"
+                  placeholder="যেমন: ৩"
+                  value={countInput}
+                  onChange={(e) => setCountInput(e.target.value)}
+                  className={cn('h-10 rounded-xl font-mono', accent.focus)}
+                />
+              </div>
 
-            {/* Total Basic */}
-            <div className="space-y-1.5">
-              <Label htmlFor="basic_input">{strings.form2.basicColumn}</Label>
-              <Input
-                id="basic_input"
-                type="number"
-                min="0"
-                placeholder="যেমন: ১০৫০০০"
-                value={basicInput}
-                onChange={(e) => setBasicInput(e.target.value)}
-              />
+              {/* Total Basic */}
+              <div className="space-y-1.5">
+                <Label htmlFor="basic_input" className="text-xs font-bold text-slate-700">
+                  {strings.form2.basicColumn}
+                </Label>
+                <Input
+                  id="basic_input"
+                  type="number"
+                  min="0"
+                  placeholder="যেমন: ১০৫০০০"
+                  value={basicInput}
+                  onChange={(e) => setBasicInput(e.target.value)}
+                  className={cn('h-10 rounded-xl font-mono', accent.focus)}
+                />
+              </div>
             </div>
 
             {/* Due Salary */}
             <div className="space-y-1.5">
-              <Label htmlFor="due_input">{strings.form2.modalDueSalaryColumn}</Label>
+              <Label htmlFor="due_input" className="text-xs font-bold text-slate-700">
+                {strings.form2.modalDueSalaryColumn}
+              </Label>
               <Input
                 id="due_input"
                 type="number"
@@ -535,15 +666,17 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
                 placeholder="ঐচ্ছিক (বকেয়া থাকলে)"
                 value={dueInput}
                 onChange={(e) => setDueInput(e.target.value)}
+                className={cn('h-10 rounded-xl font-mono', accent.focus)}
               />
             </div>
           </div>
 
-          <DialogFooter className="flex sm:justify-between gap-2 pt-2">
+          <DialogFooter className="rounded-b-3xl gap-2 sm:gap-0">
             <Button
               type="button"
               variant="outline"
               onClick={handleRequestClose}
+              className="rounded-xl text-xs font-semibold"
             >
               {strings.close}
             </Button>
@@ -551,7 +684,7 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
               type="button"
               onClick={handleSaveModalRow}
               disabled={!selectedGrade || (!countInput && !basicInput)}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className={cn('rounded-xl text-xs font-bold', accent.solidButton)}
             >
               {editingGradeId !== null ? 'সংরক্ষণ করুন' : 'যোগ করুন'}
             </Button>
@@ -561,25 +694,27 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
 
       {/* CONFIRM CLOSE MODAL (Prompt when accidentally closing with entered data) */}
       <Dialog open={showConfirmClose} onOpenChange={setShowConfirmClose}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <div className="flex items-center gap-2 text-amber-600 mb-1">
+        <DialogContent className="rounded-3xl sm:max-w-sm">
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 rounded-2xl bg-amber-100 p-2.5 text-amber-600">
               <AlertTriangle className="h-5 w-5" />
-              <DialogTitle className="text-base font-bold text-slate-800">
+            </div>
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="text-base font-extrabold text-slate-900">
                 {strings.form2.confirmCloseTitle}
               </DialogTitle>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                {strings.form2.confirmCloseDesc}
+              </p>
             </div>
-            <p className="text-sm text-slate-500">
-              {strings.form2.confirmCloseDesc}
-            </p>
-          </DialogHeader>
+          </div>
 
-          <DialogFooter className="flex flex-row justify-end gap-2 pt-3">
+          <DialogFooter className="rounded-b-3xl gap-2 sm:gap-0">
             <Button
               type="button"
               variant="outline"
               onClick={resetModalFields}
-              className="text-slate-600"
+              className="rounded-xl text-xs font-semibold"
             >
               {strings.form2.discardAndClose}
             </Button>
@@ -589,7 +724,7 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
                 setShowConfirmClose(false)
                 handleSaveModalRow()
               }}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className={cn('rounded-xl text-xs font-bold', accent.solidButton)}
             >
               {strings.form2.saveAndClose}
             </Button>
@@ -598,38 +733,43 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
       </Dialog>
 
       {/* CONFIRM DELETE MODAL */}
-      <Dialog open={gradeToDelete !== null} onOpenChange={(open) => {
-        if (!open) setGradeToDelete(null)
-      }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <div className="flex items-center gap-2 text-red-600 mb-1">
+      <Dialog
+        open={gradeToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setGradeToDelete(null)
+        }}
+      >
+        <DialogContent className="rounded-3xl sm:max-w-sm">
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 rounded-2xl bg-red-100 p-2.5 text-red-600">
               <Trash2 className="h-5 w-5" />
-              <DialogTitle className="text-base font-bold text-slate-800">
+            </div>
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="text-base font-extrabold text-slate-900">
                 {strings.form2.confirmDeleteTitle}
               </DialogTitle>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                {gradeToDelete
+                  ? `গ্রেড ${toBanglaNumber(gradeById.get(gradeToDelete)?.grade_no ?? gradeToDelete)} এর `
+                  : ''}
+                {strings.form2.confirmDeleteDesc}
+              </p>
             </div>
-            <p className="text-sm text-slate-500">
-              {gradeToDelete
-                ? `গ্রেড ${toBanglaNumber(gradeById.get(gradeToDelete)?.grade_no ?? gradeToDelete)} এর `
-                : ''}
-              {strings.form2.confirmDeleteDesc}
-            </p>
-          </DialogHeader>
+          </div>
 
-          <DialogFooter className="flex flex-row justify-end gap-2 pt-3">
+          <DialogFooter className="rounded-b-3xl gap-2 sm:gap-0">
             <Button
               type="button"
               variant="outline"
               onClick={() => setGradeToDelete(null)}
-              className="text-slate-600"
+              className="rounded-xl text-xs font-semibold"
             >
               {strings.cancel}
             </Button>
             <Button
               type="button"
               onClick={handleConfirmDelete}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="rounded-xl bg-red-600 text-xs font-bold text-white hover:bg-red-700"
             >
               মুছে ফেলুন
             </Button>

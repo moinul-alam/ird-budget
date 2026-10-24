@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { saveFormAllowanceRow, saveFormRestRecreation } from '@/app/actions/forms'
 import { Plus, Edit2, Trash2, CheckCircle2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useState, useTransition } from 'react'
 import { calculateAllowance } from '@/lib/budget/calculate'
 
@@ -43,6 +44,8 @@ export interface Form5ClientProps {
     rest_recreation_amount?: number
     rest_recreation_due?: number
   } | null
+  /** Administrator rate the calculated দায়িত্ব ভাতা card is projected from. */
+  dutyMonthlyRate?: number
 }
 
 interface AllowanceRowData {
@@ -50,8 +53,21 @@ interface AllowanceRowData {
   total_basic: number
   amount: number
   due: number
-  date?: string
 }
+
+/**
+ * Light accent for each card's title bar — one tint per card position, so the
+ * allowances read as distinct at a glance without the tint competing with the
+ * figures underneath.
+ */
+const titleAccents = [
+  'bg-blue-50/80 border-blue-100',
+  'bg-emerald-50/80 border-emerald-100',
+  'bg-amber-50/80 border-amber-100',
+  'bg-violet-50/80 border-violet-100',
+  'bg-rose-50/80 border-rose-100',
+  'bg-cyan-50/80 border-cyan-100',
+]
 
 // The leave form collects this one allowance too and the budget engine reads it
 // from the leave table, so it is written to both places.
@@ -62,6 +78,7 @@ export function Form5Client({
   allowanceTypes,
   initialData,
   initialLeaveData,
+  dutyMonthlyRate = 0,
 }: Form5ClientProps) {
   const typesById = new Map<number, AllowanceTypeRow>(allowanceTypes.map((t) => [t.id, t]))
 
@@ -76,7 +93,6 @@ export function Form5Client({
         total_basic: Number(row.total_basic) || 0,
         amount: Number(row.amount) || 0,
         due: Number(row.due) || 0,
-        date: row.date || '',
       }
     })
 
@@ -89,7 +105,6 @@ export function Form5Client({
         total_basic: map[rest.id]?.total_basic ?? 0,
         amount: recreationAmount,
         due: recreationDue,
-        date: map[rest.id]?.date ?? '',
       }
     }
 
@@ -104,7 +119,6 @@ export function Form5Client({
   const [basicInput, setBasicInput] = useState('')
   const [amountInput, setAmountInput] = useState('')
   const [dueInput, setDueInput] = useState('')
-  const [dateInput, setDateInput] = useState('')
 
   // Delete Confirmation State
   const [keyToDelete, setKeyToDelete] = useState<number | null>(null)
@@ -118,7 +132,6 @@ export function Form5Client({
     setBasicInput(existing?.total_basic ? String(existing.total_basic) : '')
     setAmountInput(existing?.amount ? String(existing.amount) : '')
     setDueInput(existing?.due ? String(existing.due) : '')
-    setDateInput(existing?.date || '')
   }
 
   const closeModal = () => {
@@ -127,7 +140,6 @@ export function Form5Client({
     setBasicInput('')
     setAmountInput('')
     setDueInput('')
-    setDateInput('')
   }
 
   // Writes one allowance to its table (and to the leave table for rest &
@@ -148,7 +160,6 @@ export function Form5Client({
       total_basic: row.total_basic,
       amount: row.amount,
       due: row.due,
-      date: row.date,
       applicable_category: type.applicable_category,
     })
   }
@@ -163,7 +174,7 @@ export function Form5Client({
 
     // Calculated allowances derive their amount instead of taking one.
     if (activeType.is_calculated) {
-      amount = calculateAllowance(activeType.name, count, totalBasic)
+      amount = calculateAllowance(activeType.name, count, totalBasic, dutyMonthlyRate)
     }
 
     const updatedRow: AllowanceRowData = {
@@ -171,7 +182,6 @@ export function Form5Client({
       total_basic: totalBasic,
       amount,
       due,
-      date: dateInput,
     }
 
     setAllowanceData((prev) => ({ ...prev, [activeType.id]: updatedRow }))
@@ -244,8 +254,8 @@ export function Form5Client({
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {allowanceTypes.map((type) => {
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {allowanceTypes.map((type, index) => {
               const data = allowanceData[type.id]
               const filled = hasData(type.id)
 
@@ -258,19 +268,24 @@ export function Form5Client({
                       : 'border-slate-200 bg-slate-50/50 hover:bg-white hover:border-slate-300'
                   }`}
                 >
-                  <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/80 px-5 pt-4">
+                  <CardHeader
+                    className={cn(
+                      'border-b px-4 py-2.5',
+                      titleAccents[index % titleAccents.length]
+                    )}
+                  >
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-base font-bold text-slate-800 flex items-center gap-2">
+                      <CardTitle className="text-sm font-bold text-slate-800 flex items-center gap-2">
                         {filled && <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />}
                         {type.label_bn}
                       </CardTitle>
                     </div>
                   </CardHeader>
 
-                  <CardContent className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                  <CardContent className="p-4 flex-1 flex flex-col justify-between space-y-3">
                     {filled ? (
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between py-1 border-b border-slate-100">
+                      <div className="space-y-1.5 text-sm">
+                        <div className="flex justify-between py-0.5 border-b border-slate-100">
                           <span className="text-slate-500">{type.count_label_bn}</span>
                           <span className="font-bold font-mono text-slate-800">
                             {toBanglaNumber(data.count)} {strings.form5.personUnit}
@@ -278,7 +293,7 @@ export function Form5Client({
                         </div>
 
                         {type.has_basic && (
-                          <div className="flex justify-between py-1 border-b border-slate-100">
+                          <div className="flex justify-between py-0.5 border-b border-slate-100">
                             <span className="text-slate-500">{strings.form5.totalBasicMonthly}</span>
                             <span className="font-bold font-mono text-slate-800">
                               {toBanglaAmount(data.total_basic)}
@@ -287,7 +302,7 @@ export function Form5Client({
                         )}
 
                         {type.has_amount && (
-                          <div className="flex justify-between py-1 border-b border-slate-100">
+                          <div className="flex justify-between py-0.5 border-b border-slate-100">
                             <span className="text-slate-500">{strings.form5.amount}</span>
                             <span className="font-bold font-mono text-slate-800">
                               {toBanglaAmount(data.amount)}
@@ -296,38 +311,29 @@ export function Form5Client({
                         )}
 
                         {type.has_due && (
-                          <div className="flex justify-between py-1">
+                          <div className="flex justify-between py-0.5">
                             <span className="text-slate-500">{strings.form5.due}</span>
                             <span className="font-bold font-mono text-slate-700">
                               {data.due ? toBanglaAmount(data.due) : '—'}
                             </span>
                           </div>
                         )}
-
-                        {data.date && (
-                          <div className="flex justify-between py-1 border-t border-slate-100 text-xs">
-                            <span className="text-slate-500">প্রদানের তারিখ:</span>
-                            <span className="font-semibold font-mono text-blue-700">
-                              {toBanglaNumber(data.date)}
-                            </span>
-                          </div>
-                        )}
                       </div>
                     ) : (
-                      <div className="py-4 text-center">
+                      <div className="py-3 text-center">
                         <p className="text-xs text-slate-400">তথ্য যুক্ত করা হয়নি</p>
                       </div>
                     )}
 
                     {/* Action button */}
-                    <div className="pt-2">
+                    <div>
                       {filled ? (
                         <div className="flex items-center gap-2">
                           <Button
                             type="button"
                             variant="outline"
                             onClick={() => openModal(type)}
-                            className="flex-1 text-blue-700 border-blue-200 hover:bg-blue-50 text-xs h-9 gap-1.5"
+                            className="flex-1 text-blue-700 border-blue-200 hover:bg-blue-50 text-xs h-8 gap-1.5"
                           >
                             <Edit2 className="h-3.5 w-3.5" />
                             {strings.form5.editAllowance}
@@ -336,7 +342,7 @@ export function Form5Client({
                             type="button"
                             variant="ghost"
                             onClick={() => setKeyToDelete(type.id)}
-                            className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-9 w-9 p-0"
+                            className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
                             title={strings.form5.deleteAllowance}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -347,7 +353,7 @@ export function Form5Client({
                           type="button"
                           variant="outline"
                           onClick={() => openModal(type)}
-                          className="w-full text-blue-600 border-blue-200 hover:bg-blue-50 text-xs h-9 gap-1.5 font-semibold"
+                          className="w-full text-blue-600 border-blue-200 hover:bg-blue-50 text-xs h-8 gap-1.5 font-semibold"
                         >
                           <Plus className="h-3.5 w-3.5" />
                           {strings.form5.addAllowance}
@@ -435,18 +441,6 @@ export function Form5Client({
                   />
                 </div>
               )}
-
-              {/* Effective / payment date */}
-              <div className="space-y-1.5">
-                <Label htmlFor="allowance_date">প্রযোজ্য/প্রদানের তারিখ (ঐচ্ছিক)</Label>
-                <Input
-                  id="allowance_date"
-                  type="date"
-                  value={dateInput}
-                  onChange={(e) => setDateInput(e.target.value)}
-                  className="font-mono text-sm"
-                />
-              </div>
             </div>
           )}
 

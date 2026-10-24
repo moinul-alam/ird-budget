@@ -35,6 +35,8 @@ import { useState, useTransition, useMemo } from 'react'
 export interface Form7VehicleRow {
   id?: number
   vehicle_fuel_config_id: number
+  /** অফিস যে নির্দিষ্ট জ্বালানি নির্বাচন করেছে — দরটি এর থেকেই আসে। */
+  fuel_type_id: number
   vehicle_type_name: string
   fuel_type_name: string
   count: number
@@ -62,10 +64,14 @@ export function Form7Client({
     return (initialData || []).map((v) => {
       const cfg = v.vehicle_fuel_config || fuelConfigs.find((c) => c.id === v.vehicle_fuel_config_id)
       const carName = cleanTypeName(cfg?.car_type?.name || '')
-      const fuelName = cleanTypeName(cfg?.fuel_type?.name || '')
+      // The fuel is the office's own declaration, not the config's: a config names only
+      // the category, so the exact fuel has to be read from the row.
+      const fuel = v.fuel_type || fuelTypes.find((f) => f.id === v.fuel_type_id)
+      const fuelName = cleanTypeName(fuel?.name || '')
       return {
         id: v.id,
         vehicle_fuel_config_id: v.vehicle_fuel_config_id,
+        fuel_type_id: v.fuel_type_id,
         vehicle_type_name: carName,
         fuel_type_name: fuelName,
         count: v.count || 0,
@@ -88,17 +94,20 @@ export function Form7Client({
   // Delete Confirmation State
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null)
 
-  // Find matching vehicle_fuel_config based on chosen car and fuel
+  // Find matching vehicle_fuel_config for the chosen car and fuel. The config names the
+  // fuel category, so the fuel's category is what locates it — ডিজেল and অকটেন both
+  // resolve to the same oil config.
   const currentConfig = useMemo(() => {
     if (!selectedCarTypeId || !selectedFuelTypeId) return null
     const carId = parseInt(selectedCarTypeId, 10)
-    const fuelId = parseInt(selectedFuelTypeId, 10)
+    const fuelCategoryId = fuelTypes.find((f) => f.id === parseInt(selectedFuelTypeId, 10))?.category_id
+    if (!fuelCategoryId) return null
     return (
       fuelConfigs.find(
-        (c) => c.car_type_id === carId && c.fuel_type_id === fuelId
+        (c) => c.car_type_id === carId && c.fuel_category_id === fuelCategoryId
       ) || null
     )
-  }, [selectedCarTypeId, selectedFuelTypeId, fuelConfigs])
+  }, [selectedCarTypeId, selectedFuelTypeId, fuelConfigs, fuelTypes])
 
   // Maintenance cost is auto-filled from config
   const autoMaintenanceCost = useMemo(() => {
@@ -122,8 +131,8 @@ export function Form7Client({
     const cfg = fuelConfigs.find((c) => c.id === row.vehicle_fuel_config_id)
     if (cfg) {
       setSelectedCarTypeId(String(cfg.car_type_id))
-      setSelectedFuelTypeId(String(cfg.fuel_type_id))
     }
+    setSelectedFuelTypeId(String(row.fuel_type_id))
     setCountInput(row.count ? String(row.count) : '')
     setAdditionalInput(row.additional_expense ? String(row.additional_expense) : '')
     setIsModalOpen(true)
@@ -143,14 +152,9 @@ export function Form7Client({
     const carId = parseInt(selectedCarTypeId, 10)
     const fuelId = parseInt(selectedFuelTypeId, 10)
 
-    // Lookup config
-    let configId = currentConfig?.id
-    if (!configId) {
-      const match = fuelConfigs.find(
-        (c) => c.car_type_id === carId && c.fuel_type_id === fuelId
-      )
-      configId = match?.id
-    }
+    // The config carries the litre quota, lube and maintenance for this vehicle on this
+    // fuel's category; without one there is no allowance to attach the row to.
+    const configId = currentConfig?.id
     if (!configId) return
 
     const carObj = carTypes.find((c) => c.id === carId)
@@ -165,6 +169,7 @@ export function Form7Client({
     const newRow: Form7VehicleRow = {
       id: existingRow?.id,
       vehicle_fuel_config_id: configId,
+      fuel_type_id: fuelId,
       vehicle_type_name: cleanTypeName(carObj?.name || ''),
       fuel_type_name: cleanTypeName(fuelObj?.name || ''),
       count,
@@ -189,14 +194,20 @@ export function Form7Client({
         const res = await saveFormVehicleRow(submissionId, {
           id: existingRow?.id,
           vehicle_fuel_config_id: configId,
+          fuel_type_id: fuelId,
           count,
           maintenance_cost: maintenance,
           additional_expense: additional,
         })
-        if (res.success && res.id && !existingRow?.id) {
+        // Stamp the row with the id the database gave it, matched by the config +
+        // fuel pair that identifies the row, so the form's Save can update it
+        // instead of trying to insert it a second time.
+        if (res.success && res.id) {
+          const savedId = res.id
+          const key = `${newRow.vehicle_fuel_config_id}:${newRow.fuel_type_id}`
           setRows((prev) =>
-            prev.map((r, i) =>
-              i === prev.length - 1 ? { ...r, id: res.id } : r
+            prev.map((r) =>
+              `${r.vehicle_fuel_config_id}:${r.fuel_type_id}` === key ? { ...r, id: savedId } : r
             )
           )
         }
@@ -217,11 +228,23 @@ export function Form7Client({
     }
   }
 
+  // The per-vehicle annual rate lives on the vehicle type's allowance config,
+  // which is what the budget engine multiplies by the vehicle count. Reading the
+  // same source here keeps the table from drifting away from the sheet.
+  const perVehicleMaintenance = (row: Form7VehicleRow) =>
+    Number(
+      fuelConfigs.find((c) => c.id === row.vehicle_fuel_config_id)?.annual_maintenance_allowance ??
+        row.maintenance_cost ??
+        0
+    )
+
   const handleSaveAll = async () => {
     if (!submissionId) return
     for (const row of rows) {
       const res = await saveFormVehicleRow(submissionId, {
+        id: row.id,
         vehicle_fuel_config_id: row.vehicle_fuel_config_id,
+        fuel_type_id: row.fuel_type_id,
         count: row.count,
         maintenance_cost: row.maintenance_cost,
         additional_expense: row.additional_expense,
@@ -284,57 +307,61 @@ export function Form7Client({
                   <TableHead className="w-36 font-bold text-slate-700">{strings.form7.vehicleType}</TableHead>
                   <TableHead className="w-32 font-bold text-slate-700">{strings.form7.fuelType}</TableHead>
                   <TableHead className="text-right font-bold text-slate-700">{strings.form7.countLabel}</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">{strings.form7.maintenanceCost}</TableHead>
+                  <TableHead className="text-right font-bold text-slate-700">{strings.form7.maintenanceTotal}</TableHead>
                   <TableHead className="text-right font-bold text-slate-700">{strings.form7.additionalExpense}</TableHead>
                   <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((row, idx) => (
-                  <TableRow key={row.id || idx} className="hover:bg-slate-50/70">
-                    <TableCell className="font-bold text-slate-800">
-                      {row.vehicle_type_name || '—'}
-                    </TableCell>
-                    <TableCell>
-                      <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
-                        {row.fuel_type_name || '—'}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-medium">
-                      {toBanglaNumber(row.count)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono font-medium text-slate-800">
-                      {row.maintenance_cost ? toBanglaAmount(row.maintenance_cost) : '—'}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-slate-600">
-                      {row.additional_expense ? toBanglaAmount(row.additional_expense) : '০'}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEditModal(row, idx)}
-                          className="text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 h-8 w-8 p-0"
-                          title={strings.form7.editVehicle}
-                        >
-                          <Edit2 className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setDeleteIndex(idx)}
-                          className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
-                          title={strings.form7.deleteVehicle}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {rows.map((row, idx) => {
+                  const maintenanceTotal = perVehicleMaintenance(row) * row.count
+
+                  return (
+                    <TableRow key={row.id || idx} className="hover:bg-slate-50/70">
+                      <TableCell className="font-bold text-slate-800">
+                        {row.vehicle_type_name || '—'}
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                          {row.fuel_type_name || '—'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-medium">
+                        {toBanglaNumber(row.count)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-medium text-slate-800">
+                        {maintenanceTotal ? toBanglaAmount(maintenanceTotal) : '—'}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-slate-600">
+                        {row.additional_expense ? toBanglaAmount(row.additional_expense) : '০'}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditModal(row, idx)}
+                            className="text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 h-8 w-8 p-0"
+                            title={strings.form7.editVehicle}
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeleteIndex(idx)}
+                            className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
+                            title={strings.form7.deleteVehicle}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           </div>

@@ -124,17 +124,37 @@ model CoreBudgetCycle {
 // DOMAIN 2: REFERENCE DATA (Admin configures)
 // ============================================================
 
+/**
+ * The two employee categories a pay grade belongs to: কর্মকর্তা (officer) and
+ * কর্মচারী (staff). Held as reference data rather than a free-text tag so the
+ * grade list — and every calculation that splits officers from staff — follows
+ * one table instead of a guess at a grade-number boundary.
+ */
+model RefEmployeeCategory {
+  id             BigInt   @id @default(autoincrement())
+  categoryName   String   @unique @map("category_name") @db.VarChar(20)
+  categoryNameBn String   @map("category_name_bn") @db.Text
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  grades RefGrade[]
+
+  @@map("ref_employee_categories")
+}
+
 model RefGrade {
   id          Int      @id @default(autoincrement())
   gradeNo     Int      @unique @map("grade_no")
-  category    String   @db.VarChar(20)
+  categoryId  BigInt   @map("category_id")
   description String?  @db.Text
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  category RefEmployeeCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
   staffWorking     OfficeFormStaffWorking[]
   staffSuspended   OfficeFormStaffSuspended[]
   staffNewRecruits OfficeFormStaffNewRecruit[]
 
+  @@index([categoryId])
   @@map("ref_grades")
 }
 
@@ -184,6 +204,10 @@ model RefEconomicCode {
   name       String   @db.Text
   categoryId BigInt?  @map("category_id")
   isManual   Boolean  @default(true) @map("is_manual")
+  // A code the engine computes but the office may still override in the budget
+  // sheet (currently only ডাক, whose amount depends on a count the engine can
+  // only estimate). Manual codes ignore this flag — they always take an input.
+  allowManualOverride Boolean @default(false) @map("allow_manual_override")
   formulaKey String?  @map("formula_key") @db.VarChar(100)
   sortOrder  Int      @default(0) @map("sort_order")
   isActive   Boolean  @default(true) @map("is_active")
@@ -239,18 +263,38 @@ model RefVehicleType {
 
   vehicleConfigs AdminVehicleConfig[]
   rentConfigs    AdminVehicleRentConfig[]
+  /// প্রতি ধরনের জন্য একটিই লুব্রিকেন্ট ও রক্ষণাবেক্ষণ বরাদ্দ।
+  allowanceConfig AdminVehicleAllowanceConfig?
 
   @@map("ref_vehicle_types")
 }
 
-model RefFuelType {
-  id        BigInt   @id @default(autoincrement())
-  name      String   @unique @db.Text
-  unitPrice Decimal  @default(0) @map("unit_price") @db.Decimal(14, 2)
-  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+model RefFuelCategory {
+  id             BigInt   @id @default(autoincrement())
+  /// স্থায়ী কী ('oil' / 'gas') — ইঞ্জিন দুটি জ্বালানি কোড (3243301 / 3243302) এই মান দিয়ে আলাদা করে।
+  categoryName   String   @unique @map("category_name") @db.VarChar(20)
+  /// ব্যবহারকারীকে দেখানো বাংলা নাম (তেল / গ্যাস)।
+  categoryNameBn String   @map("category_name_bn") @db.Text
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
 
+  fuelTypes      RefFuelType[]
   vehicleConfigs AdminVehicleConfig[]
 
+  @@map("ref_fuel_categories")
+}
+
+model RefFuelType {
+  id         BigInt   @id @default(autoincrement())
+  name       String   @unique @db.Text
+  unitPrice  Decimal  @default(0) @map("unit_price") @db.Decimal(14, 2)
+  /// জ্বালানির ধরন (তেল / গ্যাস) — 3243301 ও 3243302 কোড দুটি এভাবে আলাদা হয়।
+  categoryId BigInt   @map("category_id")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  category       RefFuelCategory        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  officeVehicles OfficeFormVehicleGovt[]
+
+  @@index([categoryId])
   @@map("ref_fuel_types")
 }
 
@@ -302,19 +346,26 @@ model AdminRate {
 // grade-banded table whose rows live in AdminSalarySlab (`'slab'`). The tile
 // list itself is data, so adding a row here adds a tile with no code change.
 model AdminSalaryConfig {
-  id            BigInt   @id @default(autoincrement())
-  key           String   @unique @db.VarChar(50)
-  labelBn       String   @map("label_bn") @db.Text
-  descriptionBn String?  @map("description_bn") @db.Text
-  unitBn        String   @default("") @map("unit_bn") @db.VarChar(30)
-  inputType     String   @default("number") @map("input_type") @db.VarChar(20)
-  valueFormat   String   @default("number") @map("value_format") @db.VarChar(20)
-  value         Decimal  @default(0) @db.Decimal(14, 2)
-  fromGrade     Int?     @map("from_grade")
-  toGrade       Int?     @map("to_grade")
-  sortOrder     Int      @default(0) @map("sort_order")
-  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  id               BigInt   @id @default(autoincrement())
+  key              String   @unique @db.VarChar(50)
+  labelBn          String   @map("label_bn") @db.Text
+  descriptionBn    String?  @map("description_bn") @db.Text
+  unitBn           String   @default("") @map("unit_bn") @db.VarChar(30)
+  inputType        String   @default("number") @map("input_type") @db.VarChar(20)
+  valueFormat      String   @default("number") @map("value_format") @db.VarChar(20)
+  value            Decimal  @default(0) @db.Decimal(14, 2)
+  fromGrade        Int?     @map("from_grade")
+  toGrade          Int?     @map("to_grade")
+  // Some cards are a rate × quantity pair rather than a single number (ডাক = per-notice
+  // cost × notices served per non-filer). `secondaryLabelBn` marks such a card and names
+  // the companion value; a card without it renders exactly one input. Both values are the
+  // administrator's to set, so no multiplier is compiled into the engine.
+  secondaryLabelBn String?  @map("secondary_label_bn") @db.Text
+  secondaryUnitBn  String   @default("") @map("secondary_unit_bn") @db.VarChar(30)
+  secondaryValue   Decimal  @default(0) @map("secondary_value") @db.Decimal(14, 2)
+  sortOrder        Int      @default(0) @map("sort_order")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   slabs AdminSalarySlab[]
 
@@ -339,20 +390,37 @@ model AdminVehicleConfig {
   id                         BigInt   @id @default(autoincrement())
   officeTypeId               BigInt?  @map("office_type_id")
   vehicleTypeId              BigInt   @map("vehicle_type_id")
-  fuelTypeId                 BigInt   @map("fuel_type_id")
+  /// জ্বালানির ধরন (তেল / গ্যাস) — একই ধরনের সব জ্বালানি একই অর্থনৈতিক কোডে ব্যয় হয়,
+  /// তাই কনফিগারেশনটি নির্দিষ্ট জ্বালানের বদলে ধরন চেনে।
+  fuelCategoryId             BigInt   @map("fuel_category_id")
   monthlyFuelQuotaLiter      Decimal? @default(0) @map("monthly_fuel_quota_liter") @db.Decimal(10, 2)
+  createdAt                  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  officeType   CoreOfficeType?         @relation(fields: [officeTypeId], references: [id], onDelete: Cascade)
+  vehicleType  RefVehicleType          @relation(fields: [vehicleTypeId], references: [id], onDelete: Cascade)
+  fuelCategory RefFuelCategory         @relation(fields: [fuelCategoryId], references: [id], onDelete: Restrict)
+  vehicles     OfficeFormVehicleGovt[]
+
+  @@unique([vehicleTypeId, fuelCategoryId])
+  @@index([fuelCategoryId])
+  @@map("admin_vehicle_config")
+}
+
+/// প্রতি ধরনের যানবাহনের জন্য একটিই লুব্রিকেন্ট ও রক্ষণাবেক্ষণ বরাদ্দ। একটি জিপ যেমন
+/// তেল ও গ্যাস দুটোই ব্যবহার করতে পারে, তবু বরাদ্দটি একবারই — জ্বালানি অনুযায়ী শুধু
+/// মাসিক পরিমাণটুকুই আলাদা, তাই সেটি admin_vehicle_config-এ থাকে।
+model AdminVehicleAllowanceConfig {
+  id                         BigInt   @id @default(autoincrement())
+  vehicleTypeId              BigInt   @unique @map("vehicle_type_id")
   annualLubeAllowance        Decimal? @default(0) @map("annual_lube_allowance") @db.Decimal(14, 2)
   annualMaintenanceAllowance Decimal? @default(0) @map("annual_maintenance_allowance") @db.Decimal(14, 2)
   createdAt                  DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt                  DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  officeType  CoreOfficeType?         @relation(fields: [officeTypeId], references: [id], onDelete: Cascade)
-  vehicleType RefVehicleType          @relation(fields: [vehicleTypeId], references: [id], onDelete: Cascade)
-  fuelType    RefFuelType             @relation(fields: [fuelTypeId], references: [id], onDelete: Cascade)
-  vehicles    OfficeFormVehicleGovt[]
+  vehicleType RefVehicleType @relation(fields: [vehicleTypeId], references: [id], onDelete: Cascade)
 
-  @@unique([vehicleTypeId, fuelTypeId])
-  @@map("admin_vehicle_config")
+  @@map("admin_vehicle_allowance_config")
 }
 
 model AdminVehicleRentConfig {
@@ -548,6 +616,9 @@ model OfficeFormVehicleGovt {
   id                BigInt   @id @default(autoincrement())
   submissionId      BigInt   @map("submission_id")
   vehicleConfigId   BigInt   @map("vehicle_config_id")
+  /// অফিস যে নির্দিষ্ট জ্বালানিটি কিনে — দরটি এখান থেকেই আসে, আর কনফিগারেশনের ধরন
+  /// (তেল / গ্যাস) ঠিক করে ব্যয়টি 3243301 না 3243302 কোডে যাবে।
+  fuelTypeId        BigInt   @map("fuel_type_id")
   vehicleCount      Int      @default(0) @map("vehicle_count")
   maintenanceDue    Decimal? @map("maintenance_due") @db.Decimal(14, 2)
   additionalExpense Decimal  @default(0) @map("additional_expense") @db.Decimal(14, 2)
@@ -556,8 +627,10 @@ model OfficeFormVehicleGovt {
 
   submission OfficeSubmission   @relation(fields: [submissionId], references: [id], onDelete: Cascade)
   config     AdminVehicleConfig @relation(fields: [vehicleConfigId], references: [id])
+  fuelType   RefFuelType        @relation(fields: [fuelTypeId], references: [id], onDelete: Restrict)
 
-  @@unique([submissionId, vehicleConfigId])
+  @@unique([submissionId, vehicleConfigId, fuelTypeId], map: "office_form_vehicles_govt_submission_config_fuel_key")
+  @@index([fuelTypeId])
   @@map("office_form_vehicles_govt")
 }
 

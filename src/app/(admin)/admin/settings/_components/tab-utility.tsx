@@ -43,11 +43,11 @@ export function TabUtility({
               ইউটিলিটির তালিকা
             </CardTitle>
             <CardDescription className="text-xs text-slate-500">
-              অফিসসমূহের বাজেট তৈরির জন্য ইউটিলিটি সেবাসমূহ ও তাদের প্রদর্শন ক্রম নির্ধারণ করুন
+              অফিসসমূহের বাজেট তৈরির জন্য ইউটিলিটি সেবাসমূহ নির্ধারণ করুন
             </CardDescription>
           </div>
           <Button
-            onClick={() => setUtilityModal({ open: true, name: '', order: utilityTypes.length + 1 })}
+            onClick={() => setUtilityModal({ open: true, name: '' })}
             className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
           >
             <Plus className="h-4 w-4" />
@@ -84,7 +84,7 @@ export function TabUtility({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setUtilityModal({ open: true, id: u.id, name: u.name, order: idx + 1 })}
+                          onClick={() => setUtilityModal({ open: true, id: u.id, name: u.name })}
                           className="rounded-xl border-slate-200 text-xs font-semibold"
                         >
                           <Edit2 className="h-3 w-3 mr-1" />
@@ -127,15 +127,6 @@ export function TabUtility({
                   value={utilityModal.name}
                   onChange={(e) => setUtilityModal(prev => ({ ...prev, name: e.target.value }))}
                   className="rounded-xl border-slate-200 font-medium"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-bold text-slate-700">প্রদর্শন ক্রম</Label>
-                <Input
-                  type="number"
-                  value={utilityModal.order}
-                  onChange={(e) => setUtilityModal(prev => ({ ...prev, order: parseInt(e.target.value, 10) || 1 }))}
-                  className="rounded-xl border-slate-200 font-mono"
                 />
               </div>
             </div>

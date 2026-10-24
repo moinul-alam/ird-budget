@@ -9,14 +9,15 @@ import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogFooter,
+  DialogTitle,
 } from '@/components/ui/dialog'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
@@ -31,17 +32,20 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { saveFormNewStaffRows, NewStaffRecord } from '@/app/actions/forms'
 import { Plus, Trash2, Edit2, UserPlus, AlertTriangle } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useState, useTransition, useMemo } from 'react'
 
 /**
  * One row of `ref_grades`. The grade list is administrator-controlled, so the
  * form never assumes a fixed 1–20 range or that the row id equals the grade
- * number.
+ * number. `category_bn` is the Bengali label of the grade's employee category
+ * (কর্মকর্তা / কর্মচারী) read from `ref_employee_categories` through the FK.
  */
 export interface GradeRow {
   id: number
   grade_no: number
   category: string
+  category_bn: string
 }
 
 interface Form4ClientProps {
@@ -51,8 +55,47 @@ interface Form4ClientProps {
   grades: GradeRow[]
 }
 
-const categoryLabel = (category: string) =>
-  category === 'officer' ? 'কর্মকর্তা' : 'কর্মচারী'
+/**
+ * Colour profile of this form. Forms 2, 3 and 4 share one layout — only these
+ * class strings differ, so the three stay structurally identical while reading
+ * as distinct colours (2 blue, 3 orange, 4 green).
+ */
+const accent = {
+  solidButton: 'bg-emerald-600 hover:bg-emerald-700 text-white',
+  softIcon: 'bg-emerald-100 text-emerald-600',
+  emptyButton: 'text-emerald-600 border-emerald-200 hover:bg-emerald-50',
+  rowAction: 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50',
+  focus: 'focus-visible:border-emerald-500 focus-visible:ring-emerald-500/25',
+  officerDot: 'bg-emerald-600',
+  staffDot: 'bg-emerald-300',
+  officerHeader: 'bg-emerald-50/70 border-emerald-100',
+  staffHeader: 'bg-slate-100/80 border-slate-200',
+  card: 'bg-gradient-to-br from-slate-50 to-emerald-50/40 border-emerald-100',
+  officerRow: 'border-emerald-200/70 bg-emerald-50/40',
+  staffRow: 'border-slate-200 bg-slate-50/70',
+  officerValue: 'text-emerald-700',
+  staffValue: 'text-slate-800',
+}
+
+/** One cell of the bottom সারসংক্ষেপ. */
+function SummaryBox({
+  label,
+  value,
+  valueClass,
+}: {
+  label: string
+  value: string
+  valueClass?: string
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5">
+      <span className="block text-[11px] font-medium text-slate-500">{label}</span>
+      <span className={cn('mt-0.5 block font-mono text-lg font-bold text-slate-800', valueClass)}>
+        {value}
+      </span>
+    </div>
+  )
+}
 
 /**
  * Calculates remaining months in a Bangladesh fiscal year (July 1 to June 30).
@@ -92,12 +135,20 @@ function calculateRemainingMonths(dateStr: string, fiscalYear: string): { months
 }
 
 export function Form4Client({ initialData, submissionId, fiscalYear, grades }: Form4ClientProps) {
-  const gradeById = useMemo(
-    () => new Map(grades.map((g) => [g.id, g])),
-    [grades]
+  const gradeById = useMemo(() => new Map(grades.map((g) => [g.id, g])), [grades])
+
+  const initialRows = useMemo(
+    () =>
+      (initialData || [])
+        .filter((r) => r.count > 0 || r.monthly_basic > 0 || r.total_salary > 0)
+        .sort((a, b) => a.grade_id - b.grade_id),
+    [initialData]
   )
 
-  const [rows, setRows] = useState<NewStaffRecord[]>(() => initialData || [])
+  const [rows, setRows] = useState<NewStaffRecord[]>(initialRows)
+  // Last state known to be stored in the database — the diff against `rows`
+  // is what tells the shell there is something worth saving.
+  const [savedRows, setSavedRows] = useState<NewStaffRecord[]>(initialRows)
   const [isPending, startTransition] = useTransition()
 
   // Modal State
@@ -114,16 +165,25 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
   // Confirmation on delete
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null)
 
+  const dirty = useMemo(
+    () => JSON.stringify(rows) !== JSON.stringify(savedRows),
+    [rows, savedRows]
+  )
+
+  // নবনিয়োগ is staff-only: grades 11–20, i.e. every grade whose category is
+  // not কর্মকর্তা, as resolved from the reference table — never a grade guess.
+  const staffGrades = useMemo(() => grades.filter((g) => g.category !== 'officer'), [grades])
+  const gradeLabel = (g: GradeRow) => `গ্রেড ${toBanglaNumber(g.grade_no)} (${g.category_bn})`
+
   // Compute remaining months live for modal
   const modalDateInfo = useMemo(() => {
     return calculateRemainingMonths(dateInput, fiscalYear)
   }, [dateInput, fiscalYear])
 
   const modalTotalSalary = useMemo(() => {
-    const c = parseInt(countInput, 10) || 0
     const b = parseFloat(basicInput) || 0
-    return c * b * modalDateInfo.months
-  }, [countInput, basicInput, modalDateInfo.months])
+    return b * modalDateInfo.months
+  }, [basicInput, modalDateInfo.months])
 
   const hasModalDirtyData = useMemo(() => {
     return Boolean(
@@ -136,7 +196,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
 
   const openAddModal = () => {
     setEditingIndex(null)
-    setSelectedGrade(grades[0]?.id ? String(grades[0].id) : '')
+    setSelectedGrade(staffGrades[0]?.id ? String(staffGrades[0].id) : '')
     setCountInput('')
     setBasicInput('')
     setDateInput('')
@@ -164,6 +224,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
     setShowConfirmClose(false)
   }
 
+  // Handle modal close request
   const handleRequestClose = () => {
     if (hasModalDirtyData) {
       setShowConfirmClose(true)
@@ -172,46 +233,41 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
     }
   }
 
+  // Save row from modal — kept in local state, persisted by the shell save.
   const handleSaveModalRow = () => {
     const gradeId = parseInt(selectedGrade, 10)
     if (!gradeId || isNaN(gradeId)) return
 
-    const count = parseInt(countInput, 10) || 0
-    const monthlyBasic = parseFloat(basicInput) || 0
     const { months } = calculateRemainingMonths(dateInput, fiscalYear)
-    const totalSalary = count * monthlyBasic * months
+    const monthlyBasic = parseFloat(basicInput) || 0
 
     const newRow: NewStaffRecord = {
       grade_id: gradeId,
-      count,
+      count: parseInt(countInput, 10) || 0,
       monthly_basic: monthlyBasic,
       expected_date: dateInput,
       remaining_months: months,
-      total_salary: totalSalary,
+      total_salary: monthlyBasic * months,
     }
 
-    let nextRows: NewStaffRecord[] = []
-    if (editingIndex !== null) {
-      nextRows = [...rows]
-      nextRows[editingIndex] = newRow
-    } else {
-      nextRows = [...rows, newRow]
-    }
+    setRows((prev) => {
+      if (editingIndex !== null) {
+        const next = [...prev]
+        next[editingIndex] = newRow
+        return next
+      }
+      return [...prev, newRow]
+    })
 
-    setRows(nextRows)
     resetModalFields()
-
-    if (submissionId) {
-      startTransition(async () => {
-        await saveFormNewStaffRows(submissionId, nextRows)
-      })
-    }
   }
 
+  // Delete row with confirmation — removed from the database right away.
   const handleConfirmDelete = () => {
     if (deleteIndex === null) return
     const nextRows = rows.filter((_, idx) => idx !== deleteIndex)
     setRows(nextRows)
+    setSavedRows(nextRows)
     setDeleteIndex(null)
 
     if (submissionId) {
@@ -238,6 +294,9 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
   )
 
   const totals = useMemo(() => {
+    // `monthly_basic` is the grade's total monthly basic — the same figure forms
+    // 2 and 3 store — so the one-month total is a plain sum. `total_salary` is
+    // that figure stretched over the row's remaining months.
     const sumOfficers = officerRows.reduce(
       (acc, r) => ({
         count: acc.count + (r.count || 0),
@@ -267,66 +326,77 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
     }
   }, [officerRows, staffRows])
 
+  // Rows may carry different dates, so the summary shows the range.
+  const expectedDateText = useMemo(() => {
+    const dates = rows.map((r) => r.expected_date).filter(Boolean).sort()
+    if (dates.length === 0) return ''
+    if (dates.length === 1) return toBanglaNumber(dates[0])
+    return `${toBanglaNumber(dates[0])} – ${toBanglaNumber(dates[dates.length - 1])}`
+  }, [rows])
+
+  // Save entire form state to database
   const handleSaveAll = async () => {
     if (!submissionId) return
-    return await saveFormNewStaffRows(submissionId, rows)
+    const result = await saveFormNewStaffRows(submissionId, rows)
+    if (!result || typeof result !== 'object' || !('error' in result) || !result.error) {
+      setSavedRows(rows)
+    }
+    return result
   }
 
   return (
     <FormShell
-      title={strings.forms.form4.title}
+      title={strings.form4.title}
       formNumber={4}
       prevHref="/office/form-3"
       nextHref="/office/form-5"
       onSave={submissionId ? handleSaveAll : undefined}
+      dirty={dirty}
     >
       <div className="p-6 lg:p-8 space-y-6">
         {/* Top Action */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
           <div>
-            <h2 className="text-base font-bold text-slate-800">
-              বেতন বিবরণী (নবনিয়োগপ্রাপ্ত কর্মচারী)
-            </h2>
+            <h2 className="text-base font-bold text-slate-800">{strings.form4.title}</h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              অর্থবছর {toBanglaNumber(fiscalYear)}-এ সম্ভাব্য নিয়োগপ্রাপ্তদের নিয়োগের তারিখ ও মূল বেতন প্রদান করুন।
+              অর্থবছর {toBanglaNumber(fiscalYear)}-এ {strings.form4.subtitle}
             </p>
           </div>
           <Button
             type="button"
             onClick={openAddModal}
-            className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 gap-1.5"
+            className={cn('shrink-0 gap-1.5 rounded-xl', accent.solidButton)}
+            disabled={staffGrades.length === 0}
           >
             <Plus className="h-4 w-4" />
-            নতুন নিয়োগ যোগ করুন
+            {strings.form4.addButton}
           </Button>
         </div>
 
-        {/* Empty State or Tables */}
+        {/* Data Tables or Empty State */}
         {rows.length === 0 ? (
-          <div className="text-center py-12 px-4 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+          <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-4 py-12 text-center">
             <UserPlus className="mx-auto h-12 w-12 text-slate-300 mb-3" />
-            <p className="text-slate-600 font-medium text-base mb-2">
-              কোনো নবনিয়োগ তথ্য যোগ করা হয়নি
-            </p>
+            <p className="text-slate-600 font-medium text-base mb-2">{strings.form4.emptyState}</p>
             <Button
               type="button"
               variant="outline"
               onClick={openAddModal}
-              className="mt-2 text-blue-600 border-blue-200 hover:bg-blue-50"
+              className={cn('mt-2 rounded-xl', accent.emptyButton)}
             >
               <Plus className="h-4 w-4 mr-1.5" />
-              নিয়োগ তথ্য যোগ করুন
+              {strings.form4.addButtonEmpty}
             </Button>
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Officers Table */}
+            {/* Officer Table */}
             {officerRows.length > 0 && (
-              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
-                <div className="bg-slate-100/80 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
-                  <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                    কর্মকর্তা
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+                <div className={cn('flex items-center justify-between border-b px-4 py-2.5', accent.officerHeader)}>
+                  <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                    <span className={cn('h-2 w-2 rounded-full', accent.officerDot)} />
+                    {strings.form4.officerRowLabel}
                   </h3>
                   <span className="text-xs font-semibold text-slate-500">
                     মোট পদ: {toBanglaNumber(totals.officers.count)} টি
@@ -336,24 +406,32 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                   <TableHeader className="bg-slate-50">
                     <TableRow>
                       <TableHead className="w-16 text-center font-bold text-slate-700">ক্রম</TableHead>
-                      <TableHead className="w-28 font-bold text-slate-700">গ্রেড</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">পদের সংখ্যা</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">মাসিক মূল বেতন</TableHead>
-                      <TableHead className="text-center font-bold text-slate-700">সম্ভাব্য নিয়োগের তারিখ</TableHead>
-                      <TableHead className="text-center font-bold text-slate-700">অবশিষ্ট মাস</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">মোট সম্ভাব্য বেতন (টাকা)</TableHead>
+                      <TableHead className="w-28 font-bold text-slate-700">{strings.form4.gradeColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form4.countColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form4.basicColumn}</TableHead>
+                      <TableHead className="text-center font-bold text-slate-700">{strings.form4.dateColumn}</TableHead>
+                      <TableHead className="text-center font-bold text-slate-700">{strings.form4.monthsColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form4.totalSalaryColumn}</TableHead>
                       <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {officerRows.map((row, idx) => (
                       <TableRow key={idx} className="hover:bg-slate-50/70">
-                        <TableCell className="text-center font-mono text-xs text-slate-500">{toBanglaNumber(idx + 1)}</TableCell>
-                        <TableCell className="font-bold font-mono text-slate-800">গ্রেড {toBanglaNumber(gradeNoOf(row))}</TableCell>
+                        <TableCell className="text-center font-mono text-xs text-slate-500">
+                          {toBanglaNumber(idx + 1)}
+                        </TableCell>
+                        <TableCell className="font-mono font-bold text-slate-800">
+                          গ্রেড {toBanglaNumber(gradeNoOf(row))}
+                        </TableCell>
                         <TableCell className="text-right font-mono font-medium">{toBanglaNumber(row.count)}</TableCell>
-                        <TableCell className="text-right font-mono font-medium text-slate-800">{toBanglaAmount(row.monthly_basic)}</TableCell>
-                        <TableCell className="text-center font-mono text-xs">{row.expected_date ? toBanglaNumber(row.expected_date) : '—'}</TableCell>
-                        <TableCell className="text-center font-semibold text-blue-700 font-mono">
+                        <TableCell className="text-right font-mono font-medium text-slate-800">
+                          {toBanglaAmount(row.monthly_basic)}
+                        </TableCell>
+                        <TableCell className="text-center font-mono text-xs">
+                          {row.expected_date ? toBanglaNumber(row.expected_date) : '—'}
+                        </TableCell>
+                        <TableCell className={cn('text-center font-mono font-semibold', accent.officerValue)}>
                           {toBanglaNumber(row.remaining_months)} মাস
                         </TableCell>
                         <TableCell className="text-right font-mono font-bold text-slate-900">
@@ -365,8 +443,8 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 h-8 w-8 p-0"
                               onClick={() => openEditModal(rows.indexOf(row))}
+                              className={cn('h-8 w-8 p-0', accent.rowAction)}
                               title="সম্পাদনা করুন"
                             >
                               <Edit2 className="h-3.5 w-3.5" />
@@ -375,8 +453,8 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
                               onClick={() => setDeleteIndex(rows.indexOf(row))}
+                              className="h-8 w-8 p-0 text-slate-400 hover:bg-red-50 hover:text-red-600"
                               title="মুছে ফেলুন"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -385,13 +463,15 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                         </TableCell>
                       </TableRow>
                     ))}
-                    <TableRow className="bg-slate-50/90 font-bold text-slate-800 border-t">
-                      <TableCell colSpan={2} className="text-right pr-4">উপমোট (কর্মকর্তা):</TableCell>
+                    <TableRow className="border-t bg-slate-50/90 font-bold text-slate-800">
+                      <TableCell colSpan={2} className="text-right pr-4">{strings.form4.subTotalOfficer}</TableCell>
                       <TableCell className="text-right font-mono">{toBanglaNumber(totals.officers.count)}</TableCell>
                       <TableCell className="text-right font-mono">—</TableCell>
                       <TableCell colSpan={2} className="text-center">—</TableCell>
-                      <TableCell className="text-right font-mono text-blue-700 font-extrabold">{toBanglaAmount(totals.officers.total_salary)}</TableCell>
-                      <TableCell></TableCell>
+                      <TableCell className={cn('text-right font-mono font-extrabold', accent.officerValue)}>
+                        {toBanglaAmount(totals.officers.total_salary)}
+                      </TableCell>
+                      <TableCell />
                     </TableRow>
                   </TableBody>
                 </Table>
@@ -400,11 +480,11 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
 
             {/* Staff Table */}
             {staffRows.length > 0 && (
-              <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
-                <div className="bg-slate-100/80 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
-                  <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                    কর্মচারী
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+                <div className={cn('flex items-center justify-between border-b px-4 py-2.5', accent.staffHeader)}>
+                  <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                    <span className={cn('h-2 w-2 rounded-full', accent.staffDot)} />
+                    {strings.form4.staffRowLabel}
                   </h3>
                   <span className="text-xs font-semibold text-slate-500">
                     মোট পদ: {toBanglaNumber(totals.staff.count)} টি
@@ -414,24 +494,32 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                   <TableHeader className="bg-slate-50">
                     <TableRow>
                       <TableHead className="w-16 text-center font-bold text-slate-700">ক্রম</TableHead>
-                      <TableHead className="w-28 font-bold text-slate-700">গ্রেড</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">পদের সংখ্যা</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">মাসিক মূল বেতন</TableHead>
-                      <TableHead className="text-center font-bold text-slate-700">সম্ভাব্য নিয়োগের তারিখ</TableHead>
-                      <TableHead className="text-center font-bold text-slate-700">অবশিষ্ট মাস</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">মোট সম্ভাব্য বেতন (টাকা)</TableHead>
+                      <TableHead className="w-28 font-bold text-slate-700">{strings.form4.gradeColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form4.countColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form4.basicColumn}</TableHead>
+                      <TableHead className="text-center font-bold text-slate-700">{strings.form4.dateColumn}</TableHead>
+                      <TableHead className="text-center font-bold text-slate-700">{strings.form4.monthsColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form4.totalSalaryColumn}</TableHead>
                       <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {staffRows.map((row, idx) => (
                       <TableRow key={idx} className="hover:bg-slate-50/70">
-                        <TableCell className="text-center font-mono text-xs text-slate-500">{toBanglaNumber(idx + 1)}</TableCell>
-                        <TableCell className="font-bold font-mono text-slate-800">গ্রেড {toBanglaNumber(gradeNoOf(row))}</TableCell>
+                        <TableCell className="text-center font-mono text-xs text-slate-500">
+                          {toBanglaNumber(idx + 1)}
+                        </TableCell>
+                        <TableCell className="font-mono font-bold text-slate-800">
+                          গ্রেড {toBanglaNumber(gradeNoOf(row))}
+                        </TableCell>
                         <TableCell className="text-right font-mono font-medium">{toBanglaNumber(row.count)}</TableCell>
-                        <TableCell className="text-right font-mono font-medium text-slate-800">{toBanglaAmount(row.monthly_basic)}</TableCell>
-                        <TableCell className="text-center font-mono text-xs">{row.expected_date ? toBanglaNumber(row.expected_date) : '—'}</TableCell>
-                        <TableCell className="text-center font-semibold text-blue-700 font-mono">
+                        <TableCell className="text-right font-mono font-medium text-slate-800">
+                          {toBanglaAmount(row.monthly_basic)}
+                        </TableCell>
+                        <TableCell className="text-center font-mono text-xs">
+                          {row.expected_date ? toBanglaNumber(row.expected_date) : '—'}
+                        </TableCell>
+                        <TableCell className={cn('text-center font-mono font-semibold', accent.staffValue)}>
                           {toBanglaNumber(row.remaining_months)} মাস
                         </TableCell>
                         <TableCell className="text-right font-mono font-bold text-slate-900">
@@ -443,8 +531,8 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 h-8 w-8 p-0"
                               onClick={() => openEditModal(rows.indexOf(row))}
+                              className={cn('h-8 w-8 p-0', accent.rowAction)}
                               title="সম্পাদনা করুন"
                             >
                               <Edit2 className="h-3.5 w-3.5" />
@@ -453,8 +541,8 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                               type="button"
                               variant="ghost"
                               size="sm"
-                              className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
                               onClick={() => setDeleteIndex(rows.indexOf(row))}
+                              className="h-8 w-8 p-0 text-slate-400 hover:bg-red-50 hover:text-red-600"
                               title="মুছে ফেলুন"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -463,49 +551,48 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                         </TableCell>
                       </TableRow>
                     ))}
-                    <TableRow className="bg-slate-50/90 font-bold text-slate-800 border-t">
-                      <TableCell colSpan={2} className="text-right pr-4">উপমোট (কর্মচারী):</TableCell>
+                    <TableRow className="border-t bg-slate-50/90 font-bold text-slate-800">
+                      <TableCell colSpan={2} className="text-right pr-4">{strings.form4.subTotalStaff}</TableCell>
                       <TableCell className="text-right font-mono">{toBanglaNumber(totals.staff.count)}</TableCell>
                       <TableCell className="text-right font-mono">—</TableCell>
                       <TableCell colSpan={2} className="text-center">—</TableCell>
-                      <TableCell className="text-right font-mono text-blue-700 font-extrabold">{toBanglaAmount(totals.staff.total_salary)}</TableCell>
-                      <TableCell></TableCell>
+                      <TableCell className="text-right font-mono font-extrabold text-slate-900">
+                        {toBanglaAmount(totals.staff.total_salary)}
+                      </TableCell>
+                      <TableCell />
                     </TableRow>
                   </TableBody>
                 </Table>
               </div>
             )}
 
-            {/* Summary Card (Matching Form 2 & 3) */}
-            <Card className="bg-gradient-to-br from-slate-50 to-blue-50/30 border border-blue-100 shadow-xs">
-              <CardContent className="p-5">
-                <h3 className="text-sm font-bold text-slate-700 mb-3 uppercase tracking-wider">
-                  নবনিয়োগ তথ্যের সারসংক্ষেপ
+            {/* Summary Card */}
+            <Card className={cn('border shadow-xs', accent.card)}>
+              <CardContent className="space-y-4 p-5">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">
+                  {strings.form4.summaryTitle}
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="p-3 bg-white rounded-xl border border-slate-200">
-                    <span className="text-xs text-slate-500 font-medium block">
-                      মোট সম্ভাব্য নিয়োগপ্রাপ্ত পদ:
-                    </span>
-                    <span className="text-xl font-bold text-slate-800 font-mono mt-0.5 block">
-                      {toBanglaNumber(totals.grand.count)} টি
+                <div className={cn('rounded-2xl border p-3.5', accent.officerRow)}>
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className={cn('h-2.5 w-2.5 rounded-full', accent.officerDot)} />
+                    <span className="text-xs font-bold text-slate-700">
+                      {strings.form4.staffRowLabel}
                     </span>
                   </div>
-                  <div className="p-3 bg-white rounded-xl border border-slate-200">
-                    <span className="text-xs text-slate-500 font-medium block">
-                      কর্মকর্তা সম্ভাব্য বেতন:
-                    </span>
-                    <span className="text-xl font-bold text-blue-700 font-mono mt-0.5 block">
-                      {toBanglaAmount(totals.officers.total_salary)}
-                    </span>
-                  </div>
-                  <div className="p-3 bg-white rounded-xl border border-slate-200">
-                    <span className="text-xs text-slate-500 font-medium block">
-                      সর্বমোট প্রাক্কলিত নবনিয়োগ বেতন:
-                    </span>
-                    <span className="text-xl font-bold text-emerald-700 font-mono mt-0.5 block">
-                      {toBanglaAmount(totals.grand.total_salary)}
-                    </span>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <SummaryBox
+                      label={strings.form4.summaryCountLabel}
+                      value={`${toBanglaNumber(totals.grand.count)} ${strings.form4.personUnit}`}
+                    />
+                    <SummaryBox
+                      label={strings.form4.summaryBasicLabel}
+                      value={`${toBanglaAmount(totals.grand.monthly_basic)} টাকা`}
+                      valueClass={accent.officerValue}
+                    />
+                    <SummaryBox
+                      label={strings.form4.summaryDateLabel}
+                      value={expectedDateText || '—'}
+                    />
                   </div>
                 </div>
               </CardContent>
@@ -514,149 +601,231 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
         )}
       </div>
 
-      {/* Add / Edit Modal */}
+      {/* ADD / EDIT MODAL */}
       <Dialog open={isModalOpen} onOpenChange={(open) => !open && handleRequestClose()}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-slate-800">
-              {editingIndex !== null ? 'নিয়োগ তথ্য সম্পাদন' : 'নতুন নিয়োগ যোগ করুন'}
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="rounded-3xl sm:max-w-lg">
+          <div className="flex items-start gap-3">
+            <div className={cn('shrink-0 rounded-2xl p-2.5', accent.softIcon)}>
+              <UserPlus className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="text-base font-extrabold text-slate-900">
+                {editingIndex !== null ? strings.form4.editModalTitle : strings.form4.modalTitle}
+              </DialogTitle>
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                {strings.form4.modalSubtitle}
+              </p>
+            </div>
+          </div>
 
-          <div className="space-y-4 py-2">
-            {/* Grade Selection */}
-            <div>
-              <Label htmlFor="grade" className="text-xs font-semibold text-slate-700">গ্রেড নির্বাচন</Label>
+          <div className="space-y-4">
+            {/* Grade Selector — কর্মচারী grades only (১১ - ২০) */}
+            <div className="space-y-1.5">
+              <Label htmlFor="grade_select" className="text-xs font-bold text-slate-700">
+                {strings.form4.gradeColumn}
+              </Label>
               <Select value={selectedGrade} onValueChange={(val) => setSelectedGrade(val ?? '')}>
-                <SelectTrigger id="grade" className="mt-1">
-                  <SelectValue placeholder="গ্রেড বাছাই করুন" />
+                <SelectTrigger id="grade_select" className={cn('h-10 w-full rounded-xl', accent.focus)}>
+                  <SelectValue placeholder={strings.form4.selectGrade}>
+                    {(value: any) => {
+                      const grade = value ? gradeById.get(Number(value)) : undefined
+                      return grade ? gradeLabel(grade) : strings.form4.selectGrade
+                    }}
+                  </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
-                  {grades.map((g) => (
-                    <SelectItem key={g.id} value={String(g.id)}>
-                      গ্রেড {toBanglaNumber(g.grade_no)} ({categoryLabel(g.category)})
-                    </SelectItem>
-                  ))}
+                <SelectContent className="rounded-xl">
+                  {staffGrades.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel className="font-bold text-slate-500">
+                        {strings.form4.staffRowLabel}
+                      </SelectLabel>
+                      {staffGrades.map((g) => (
+                        <SelectItem key={g.id} value={String(g.id)} className="rounded-lg py-2">
+                          {gradeLabel(g)}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
                 </SelectContent>
               </Select>
+              <p className="text-[11px] text-slate-400">{strings.form4.gradeHint}</p>
             </div>
 
-            {/* Count */}
-            <div>
-              <Label htmlFor="count" className="text-xs font-semibold text-slate-700">পদের সংখ্যা</Label>
-              <Input
-                id="count"
-                type="number"
-                min="1"
-                placeholder="যেমন: ৩"
-                value={countInput}
-                onChange={(e) => setCountInput(e.target.value)}
-                className="mt-1"
-              />
-            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {/* Count */}
+              <div className="space-y-1.5">
+                <Label htmlFor="count_input" className="text-xs font-bold text-slate-700">
+                  {strings.form4.countColumn}
+                </Label>
+                <Input
+                  id="count_input"
+                  type="number"
+                  min="0"
+                  placeholder="যেমন: ৩"
+                  value={countInput}
+                  onChange={(e) => setCountInput(e.target.value)}
+                  className={cn('h-10 rounded-xl font-mono', accent.focus)}
+                />
+              </div>
 
-            {/* Monthly Basic Salary */}
-            <div>
-              <Label htmlFor="basic" className="text-xs font-semibold text-slate-700">জনপ্রতি মাসিক মূল বেতন (টাকা)</Label>
-              <Input
-                id="basic"
-                type="number"
-                min="0"
-                placeholder="যেমন: ২২০০০"
-                value={basicInput}
-                onChange={(e) => setBasicInput(e.target.value)}
-                className="mt-1 font-mono"
-              />
+              {/* Monthly Basic Salary */}
+              <div className="space-y-1.5">
+                <Label htmlFor="basic_input" className="text-xs font-bold text-slate-700">
+                  {strings.form4.basicColumn}
+                </Label>
+                <Input
+                  id="basic_input"
+                  type="number"
+                  min="0"
+                  placeholder="যেমন: ২২০০০"
+                  value={basicInput}
+                  onChange={(e) => setBasicInput(e.target.value)}
+                  className={cn('h-10 rounded-xl font-mono', accent.focus)}
+                />
+              </div>
             </div>
 
             {/* Expected Appointment Date */}
-            <div>
-              <Label htmlFor="expected_date" className="text-xs font-semibold text-slate-700">
-                সম্ভাব্য নিয়োগের তারিখ
+            <div className="space-y-1.5">
+              <Label htmlFor="expected_date" className="text-xs font-bold text-slate-700">
+                {strings.form4.dateColumn}
               </Label>
               <Input
                 id="expected_date"
                 type="date"
                 value={dateInput}
                 onChange={(e) => setDateInput(e.target.value)}
-                className="mt-1 font-mono"
+                className={cn('h-10 rounded-xl font-mono', accent.focus)}
               />
-              <p className="text-[11px] text-slate-500 mt-1">
-                অর্থবছর: {toBanglaNumber(fiscalYear)}
+              <p className="text-[11px] text-slate-400">
+                {strings.form4.fiscalYearLabel} {toBanglaNumber(fiscalYear)}
               </p>
             </div>
 
             {/* Live Calculation preview */}
             {dateInput && (
-              <div className={`p-3 rounded-lg text-xs space-y-1 ${modalDateInfo.inRange ? 'bg-blue-50 border border-blue-200 text-blue-900' : 'bg-amber-50 border border-amber-200 text-amber-900'}`}>
+              <div
+                className={cn(
+                  'rounded-xl border p-3 text-xs space-y-1',
+                  modalDateInfo.inRange
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                    : 'border-amber-200 bg-amber-50 text-amber-900'
+                )}
+              >
                 <div className="flex justify-between">
-                  <span>অর্থবছরের অবস্থান:</span>
-                  <span className="font-semibold">{modalDateInfo.inRange ? 'চলতি অর্থবছরে অন্তর্ভূক্ত' : 'অর্থবছরের বাইরে (০ মাস)'}</span>
+                  <span>{strings.form4.rangeLabel}</span>
+                  <span className="font-semibold">
+                    {modalDateInfo.inRange ? strings.form4.inRange : strings.form4.outOfRange}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span>অবশিষ্ট মাস:</span>
-                  <span className="font-bold font-mono">{toBanglaNumber(modalDateInfo.months)} মাস</span>
+                  <span>{strings.form4.remainingLabel}</span>
+                  <span className="font-mono font-bold">
+                    {toBanglaNumber(modalDateInfo.months)} {strings.form4.monthsUnit}
+                  </span>
                 </div>
-                <div className="flex justify-between pt-1 border-t border-blue-200">
-                  <span className="font-bold">সম্ভাব্য মোট ব্যয়:</span>
-                  <span className="font-bold font-mono">{toBanglaAmount(modalTotalSalary)} টাকা</span>
+                <div className="flex justify-between border-t border-emerald-200 pt-1">
+                  <span className="font-bold">{strings.form4.estimatedCost}</span>
+                  <span className="font-mono font-bold">{toBanglaAmount(modalTotalSalary)} টাকা</span>
                 </div>
               </div>
             )}
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button type="button" variant="outline" onClick={handleRequestClose}>
-              বাতিল
+          <DialogFooter className="rounded-b-3xl gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleRequestClose}
+              className="rounded-xl text-xs font-semibold"
+            >
+              {strings.cancel}
             </Button>
             <Button
               type="button"
               onClick={handleSaveModalRow}
               disabled={!selectedGrade || !countInput || !basicInput || !dateInput || !modalDateInfo.inRange}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className={cn('rounded-xl text-xs font-bold', accent.solidButton)}
             >
-              সংরক্ষণ করুন
+              {editingIndex !== null ? 'সংরক্ষণ করুন' : 'যোগ করুন'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Confirmation on close dirty modal */}
+      {/* CONFIRM CLOSE MODAL (Prompt when accidentally closing with entered data) */}
       <Dialog open={showConfirmClose} onOpenChange={setShowConfirmClose}>
-        <DialogContent className="sm:max-w-xs">
-          <div className="text-center pt-2">
-            <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto mb-2" />
-            <h4 className="font-semibold text-slate-800">অসংরক্ষিত পরিবর্তন</h4>
-            <p className="text-xs text-slate-500 mt-1">
-              আপনার প্রবেশ করানো তথ্য সংরক্ষণ করা হয়নি। আপনি কি নিশ্চিতভাবে বন্ধ করতে চান?
-            </p>
+        <DialogContent className="rounded-3xl sm:max-w-sm">
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 rounded-2xl bg-amber-100 p-2.5 text-amber-600">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="text-base font-extrabold text-slate-900">
+                {strings.form4.confirmCloseTitle}
+              </DialogTitle>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                {strings.form4.confirmCloseDesc}
+              </p>
+            </div>
           </div>
-          <DialogFooter className="mt-4 flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setShowConfirmClose(false)} className="flex-1">
-              না, ফিরে যান
+
+          <DialogFooter className="rounded-b-3xl gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowConfirmClose(false)}
+              className="rounded-xl text-xs font-semibold"
+            >
+              {strings.form4.confirmCloseStay}
             </Button>
-            <Button variant="destructive" size="sm" onClick={resetModalFields} className="flex-1">
-              হ্যাঁ, বাতিল করুন
+            <Button
+              type="button"
+              onClick={resetModalFields}
+              className="rounded-xl bg-red-600 text-xs font-bold text-white hover:bg-red-700"
+            >
+              {strings.form4.confirmCloseLeave}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Confirmation on delete */}
-      <Dialog open={deleteIndex !== null} onOpenChange={(open) => !open && setDeleteIndex(null)}>
-        <DialogContent className="sm:max-w-xs">
-          <div className="text-center pt-2">
-            <Trash2 className="h-10 w-10 text-red-500 mx-auto mb-2" />
-            <h4 className="font-semibold text-slate-800">মুছে ফেলতে চান?</h4>
-            <p className="text-xs text-slate-500 mt-1">
-              এই নিয়োগ তথ্যটি স্থায়ীভাবে মুছে ফেলা হবে।
-            </p>
+      {/* CONFIRM DELETE MODAL */}
+      <Dialog
+        open={deleteIndex !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteIndex(null)
+        }}
+      >
+        <DialogContent className="rounded-3xl sm:max-w-sm">
+          <div className="flex items-start gap-3">
+            <div className="shrink-0 rounded-2xl bg-red-100 p-2.5 text-red-600">
+              <Trash2 className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="text-base font-extrabold text-slate-900">
+                {strings.form4.confirmDeleteTitle}
+              </DialogTitle>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                {strings.form4.confirmDeleteDesc}
+              </p>
+            </div>
           </div>
-          <DialogFooter className="mt-4 flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setDeleteIndex(null)} className="flex-1">
-              বাতিল
+
+          <DialogFooter className="rounded-b-3xl gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteIndex(null)}
+              className="rounded-xl text-xs font-semibold"
+            >
+              {strings.cancel}
             </Button>
-            <Button variant="destructive" size="sm" onClick={handleConfirmDelete} className="flex-1">
+            <Button
+              type="button"
+              onClick={handleConfirmDelete}
+              className="rounded-xl bg-red-600 text-xs font-bold text-white hover:bg-red-700"
+            >
               মুছে ফেলুন
             </Button>
           </DialogFooter>

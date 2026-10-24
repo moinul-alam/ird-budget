@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { strings } from '@/lib/strings'
 import {
   Banknote,
@@ -14,31 +15,35 @@ import {
   Zap,
 } from 'lucide-react'
 import {
-  SalaryCodeConfig,
+  SalaryTileItem,
+  SalarySlabItem,
   VehicleTypeItem,
   FuelTypeItem,
   VehicleConfigItem,
   VehicleRentConfigItem,
   UtilityTypeItem,
-  saveSalaryCodeConfig,
+  ItEquipmentTypeItem,
+  saveSalaryTile,
+  saveSalarySlabs,
   saveVehicleType,
   deleteVehicleType,
   saveFuelType,
   deleteFuelType,
-  saveVehicleConfig,
-  deleteVehicleConfig,
+  saveVehicleConfigForType,
+  deleteVehicleConfigForType,
   saveVehicleRentConfig,
   deleteVehicleRentConfig,
   saveUtilityType,
   deleteUtilityType,
   saveItEquipmentType,
-  ItEquipmentTypeItem,
 } from '@/app/actions/admin-settings'
 import {
   AdminSettingsClientProps,
+  SETTINGS_TAB_KEYS,
   SettingsTabKey,
-  NumberModalState,
-  GradeModalState,
+  SalaryNumberModalState,
+  SalaryGradeModalState,
+  SalarySlabModalState,
   VehicleTypeModalState,
   FuelTypeModalState,
   VehicleFuelConfigModalState,
@@ -56,81 +61,93 @@ import { TabUtility } from './_components/tab-utility'
 
 export function AdminSettingsClient({
   initialSalaryConfig,
+  initialSalarySlabs,
   initialVehicleTypes,
   initialFuelTypes,
+  fuelCategories,
   initialFuelConfigs,
   initialRentConfigs,
   initialUtilityTypes,
   initialItItems,
-}: AdminSettingsClientProps & { initialItItems: ItEquipmentTypeItem[] }) {
-  const [activeTab, setActiveTab] = useState<SettingsTabKey>('salaries')
+  grades,
+}: AdminSettingsClientProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+
+  // The active tab lives in the URL so that the revalidation every save
+  // triggers does not throw the administrator back to the first tab.
+  const tabParam = searchParams.get('tab') as SettingsTabKey | null
+  const activeTab: SettingsTabKey =
+    tabParam && SETTINGS_TAB_KEYS.includes(tabParam) ? tabParam : 'salaries'
+
+  const setActiveTab = (tab: SettingsTabKey) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (tab === 'salaries') params.delete('tab')
+    else params.set('tab', tab)
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }
+
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
-  // Data states
-  const [salaryConfig, setSalaryConfig] = useState<SalaryCodeConfig>(initialSalaryConfig)
-  const [vehicleTypes, setVehicleTypes] = useState<VehicleTypeItem[]>(initialVehicleTypes)
-  const [fuelTypes, setFuelTypes] = useState<FuelTypeItem[]>(initialFuelTypes)
-  const [fuelConfigs, setFuelConfigs] = useState<VehicleConfigItem[]>(initialFuelConfigs)
-  const [rentConfigs, setRentConfigs] = useState<VehicleRentConfigItem[]>(initialRentConfigs)
-  const [itItems, setItItems] = useState<ItEquipmentTypeItem[]>(initialItItems)
-  const [utilityTypes, setUtilityTypes] = useState<UtilityTypeItem[]>(initialUtilityTypes)
+  const showSuccess = (msg: string) => {
+    setSuccessMsg(msg)
+    setTimeout(() => setSuccessMsg(null), 3500)
+  }
 
-  // Modals state
-  const [numModal, setNumModal] = useState<NumberModalState>({
+  // Every list below is rendered straight from its server-provided props, so a
+  // successful save only has to revalidate the route for the UI to catch up.
+
+  // Modals
+  const [numModal, setNumModal] = useState<SalaryNumberModalState>({
     open: false,
-    field: null,
+    tileId: null,
     title: '',
     unit: '',
     value: 0,
+    secondaryLabel: null,
+    secondaryUnit: '',
+    secondaryValue: 0,
   })
 
-  const [gradeModal, setGradeModal] = useState<GradeModalState>({
+  const [gradeModal, setGradeModal] = useState<SalaryGradeModalState>({
     open: false,
-    field: null,
+    tileId: null,
     title: '',
-    rate: 0,
+    value: 0,
     fromGrade: 1,
     toGrade: 20,
   })
 
-  const [houseRentModal, setHouseRentModal] = useState(false)
-  const [slabs, setSlabs] = useState<Array<{ id: string; from_grade: number; to_grade: number; percentage: number }>>([
-    { id: 'hr-slab-1', from_grade: 1, to_grade: 20, percentage: 40 },
-  ])
-
-  const [specialBenefitModal, setSpecialBenefitModal] = useState(false)
-  const [specialBenefitSlabs, setSpecialBenefitSlabs] = useState<Array<{ id: string; from_grade: number; to_grade: number; percentage: number }>>([
-    { id: 'sb-slab-1', from_grade: 1, to_grade: 20, percentage: 5 },
-  ])
-
-  const [mobileModal, setMobileModal] = useState(false)
-  const [mobileSlabs, setMobileSlabs] = useState<Array<{ id: string; from_grade: number; to_grade: number; amount: number }>>([
-    { id: 'mob-1', from_grade: 1, to_grade: 9, amount: 1500 },
-    { id: 'mob-2', from_grade: 10, to_grade: 20, amount: 1000 },
-  ])
+  const [slabModal, setSlabModal] = useState<SalarySlabModalState>({
+    open: false,
+    configKey: null,
+    title: '',
+    valueFormat: 'amount',
+    slabs: [],
+  })
 
   const [carModal, setCarModal] = useState<VehicleTypeModalState>({
     open: false,
     name: '',
-    order: 1,
   })
 
   const [fuelModal, setFuelModal] = useState<FuelTypeModalState>({
     open: false,
     name: '',
-    price: 0,
-    order: 1,
+    unit_price: 0,
+    category_id: 0,
   })
 
   const [vfcModal, setVfcModal] = useState<VehicleFuelConfigModalState>({
     open: false,
-    carTypeId: '',
-    fuelTypeId: '',
-    monthlyFuel: 0,
+    vehicleTypeId: '',
     annualLube: 0,
     annualMaint: 0,
+    sections: [],
   })
 
   const [vrcModal, setVrcModal] = useState<VehicleRentConfigModalState>({
@@ -143,110 +160,97 @@ export function AdminSettingsClient({
     open: false,
     itemId: null,
     title: '',
-    price: 0,
+    name: '',
+    unit_price: 0,
   })
 
   const [utilityModal, setUtilityModal] = useState<UtilityModalState>({
     open: false,
     name: '',
-    order: 1,
   })
 
-  const showSuccess = (msg: string) => {
-    setSuccessMsg(msg)
-    setTimeout(() => setSuccessMsg(null), 3500)
-  }
-
-  // Tab 1 handlers
+  // ----------------------------------------------------
+  // Tab 1: salary & allowance configuration
+  // ----------------------------------------------------
   const handleSaveNumberField = async () => {
-    if (!numModal.field) return
+    if (!numModal.tileId) return
     setSaving(true)
     setErrorMsg(null)
-    const update = { [numModal.field]: numModal.value }
-    const res = await saveSalaryCodeConfig(update)
+    const res = await saveSalaryTile({
+      id: numModal.tileId,
+      value: numModal.value,
+      // Only a paired card has a second field; sending it always would let a
+      // single-value card overwrite one it does not own.
+      ...(numModal.secondaryLabel ? { secondary_value: numModal.secondaryValue } : {}),
+    })
+    setSaving(false)
     if (res.error) {
       setErrorMsg(res.error)
-      setSaving(false)
       return
     }
-    setSalaryConfig(prev => ({ ...prev, ...update }))
-    setSaving(false)
-    setNumModal({ open: false, field: null, title: '', unit: '', value: 0 })
+    setNumModal({
+      open: false,
+      tileId: null,
+      title: '',
+      unit: '',
+      value: 0,
+      secondaryLabel: null,
+      secondaryUnit: '',
+      secondaryValue: 0,
+    })
     showSuccess('মান সফলভাবে সংরক্ষিত হয়েছে।')
   }
 
   const handleSaveGradeField = async () => {
-    if (!gradeModal.field) return
+    if (!gradeModal.tileId) return
     setSaving(true)
     setErrorMsg(null)
-    const update = {
-      [gradeModal.field]: {
-        rate: gradeModal.rate,
-        from_grade: gradeModal.fromGrade,
-        to_grade: gradeModal.toGrade,
-      },
-    }
-    const res = await saveSalaryCodeConfig(update)
+    const res = await saveSalaryTile({
+      id: gradeModal.tileId,
+      value: gradeModal.value,
+      from_grade: gradeModal.fromGrade,
+      to_grade: gradeModal.toGrade,
+    })
+    setSaving(false)
     if (res.error) {
       setErrorMsg(res.error)
-      setSaving(false)
       return
     }
-    setSalaryConfig(prev => ({ ...prev, ...update }))
-    setSaving(false)
-    setGradeModal({ open: false, field: null, title: '', rate: 0, fromGrade: 1, toGrade: 20 })
+    setGradeModal({ open: false, tileId: null, title: '', value: 0, fromGrade: 1, toGrade: 20 })
     showSuccess('ভাতা ও প্রযোজ্য গ্রেড সংরক্ষিত হয়েছে।')
   }
 
-  const handleSaveHouseRentSlabs = async () => {
+  const handleSaveSlabs = async () => {
+    if (!slabModal.configKey) return
     setSaving(true)
     setErrorMsg(null)
-    // house_rent_slabs not supported in current schema
+    const res = await saveSalarySlabs({
+      config_key: slabModal.configKey,
+      slabs: slabModal.slabs,
+    })
     setSaving(false)
-    setHouseRentModal(false)
-    showSuccess('বাড়ি ভাড়া স্ল্যাব কনফিগারেশন বর্তমানে সংরক্ষিত হচ্ছে না।')
+    if (res.error) {
+      setErrorMsg(res.error)
+      return
+    }
+    setSlabModal({ open: false, configKey: null, title: '', valueFormat: 'amount', slabs: [] })
+    showSuccess('স্ল্যাব কনফিগারেশন সংরক্ষিত হয়েছে।')
   }
 
-  const handleSaveSpecialBenefitSlabs = async () => {
-    setSaving(true)
-    setErrorMsg(null)
-    // special_benefit_slabs not supported in current schema
-    setSaving(false)
-    setSpecialBenefitModal(false)
-    showSuccess('বিশেষ সুবিধা স্ল্যাব কনফিগারেশন বর্তমানে সংরক্ষিত হচ্ছে না।')
-  }
-
-  const handleSaveMobileSlabs = async () => {
-    setSaving(true)
-    setErrorMsg(null)
-    // mobile_allowance_slabs not supported in current schema
-    setSaving(false)
-    setMobileModal(false)
-    showSuccess('মোবাইল/সেলফোন ভাতা স্ল্যাব কনফিগারেশন বর্তমানে সংরক্ষিত হচ্ছে না।')
-  }
-
-  // Tab 2 handlers
+  // ----------------------------------------------------
+  // Tab 2: vehicle types
+  // ----------------------------------------------------
   const handleSaveVehicleType = async () => {
     if (!carModal.name.trim()) return
     setSaving(true)
     setErrorMsg(null)
-    const res = await saveVehicleType({
-      id: carModal.id,
-      name: carModal.name.trim(),
-    })
+    const res = await saveVehicleType({ id: carModal.id, name: carModal.name.trim() })
+    setSaving(false)
     if (res.error) {
       setErrorMsg(res.error)
-      setSaving(false)
       return
     }
-    setVehicleTypes(prev => {
-      if (carModal.id) {
-        return prev.map(c => c.id === carModal.id ? { ...c, name: carModal.name.trim() } : c).sort((a,b) => a.id - b.id)
-      }
-      return [...prev, { id: Date.now(), name: carModal.name.trim() }].sort((a,b) => a.id - b.id)
-    })
-    setSaving(false)
-    setCarModal({ open: false, name: '', order: 1 })
+    setCarModal({ open: false, name: '' })
     showSuccess('যানবাহনের ধরন সংরক্ষিত হয়েছে।')
   }
 
@@ -257,13 +261,12 @@ export function AdminSettingsClient({
       alert(res.error)
       return
     }
-    setVehicleTypes(prev => prev.filter(c => c.id !== id))
-    setFuelConfigs(prev => prev.filter(f => f.vehicle_type_id !== id))
-    setRentConfigs(prev => prev.filter(r => r.vehicle_type_id !== id))
     showSuccess('যানবাহনের ধরন মুছে ফেলা হয়েছে।')
   }
 
-  // Tab 3 handlers
+  // ----------------------------------------------------
+  // Tab 3: fuel prices
+  // ----------------------------------------------------
   const handleSaveFuelType = async () => {
     if (!fuelModal.name.trim()) return
     setSaving(true)
@@ -271,20 +274,15 @@ export function AdminSettingsClient({
     const res = await saveFuelType({
       id: fuelModal.id,
       name: fuelModal.name.trim(),
-    })
-    if (res.error) {
-      setErrorMsg(res.error)
-      setSaving(false)
-      return
-    }
-    setFuelTypes(prev => {
-      if (fuelModal.id) {
-        return prev.map(f => f.id === fuelModal.id ? { ...f, name: fuelModal.name.trim() } : f).sort((a,b) => a.id - b.id)
-      }
-      return [...prev, { id: Date.now(), name: fuelModal.name.trim() }].sort((a,b) => a.id - b.id)
+      unit_price: fuelModal.unit_price,
+      category_id: fuelModal.category_id,
     })
     setSaving(false)
-    setFuelModal({ open: false, name: '', price: 0, order: 1 })
+    if (res.error) {
+      setErrorMsg(res.error)
+      return
+    }
+    setFuelModal({ open: false, name: '', unit_price: 0, category_id: fuelCategories[0]?.id ?? 0 })
     showSuccess('জ্বালানির দর সংরক্ষিত হয়েছে।')
   }
 
@@ -295,151 +293,111 @@ export function AdminSettingsClient({
       alert(res.error)
       return
     }
-    setFuelTypes(prev => prev.filter(f => f.id !== id))
-    setFuelConfigs(prev => prev.filter(fc => fc.fuel_type_id !== id))
     showSuccess('জ্বালানির ধরন মুছে ফেলা হয়েছে।')
   }
 
-  // Tab 4 handlers
+  // ----------------------------------------------------
+  // Tab 4: vehicle fuel allowance
+  // ----------------------------------------------------
   const handleSaveVfc = async () => {
-    const carId = parseInt(vfcModal.carTypeId)
-    const fuelId = parseInt(vfcModal.fuelTypeId)
-    if (!carId || !fuelId) {
-      setErrorMsg('অনুগ্রহ করে গাড়ি এবং জ্বালানির ধরন নির্বাচন করুন।')
+    const carId = parseInt(vfcModal.vehicleTypeId)
+    if (!carId) {
+      setErrorMsg('অনুগ্রহ করে যানবাহনের ধরন নির্বাচন করুন।')
       return
     }
     setSaving(true)
     setErrorMsg(null)
-    const res = await saveVehicleConfig({
-      id: vfcModal.id,
-      office_type_id: 1, // Default for now
+    const res = await saveVehicleConfigForType({
       vehicle_type_id: carId,
-      fuel_type_id: fuelId,
-      monthly_fuel_quota_liter: vfcModal.monthlyFuel,
       annual_lube_allowance: vfcModal.annualLube,
       annual_maintenance_allowance: vfcModal.annualMaint,
-    })
-    if (res.error) {
-      setErrorMsg(res.error)
-      setSaving(false)
-      return
-    }
-    const cName = vehicleTypes.find(c => c.id === carId)?.name || ''
-    const fName = fuelTypes.find(f => f.id === fuelId)?.name || ''
-    setFuelConfigs(prev => {
-      if (vfcModal.id) {
-        return prev.map(fc => fc.id === vfcModal.id ? {
-          ...fc,
-          office_type_id: 1,
-          vehicle_type_id: carId,
-          fuel_type_id: fuelId,
-          monthly_fuel_quota_liter: vfcModal.monthlyFuel,
-          annual_lube_allowance: vfcModal.annualLube,
-          annual_maintenance_allowance: vfcModal.annualMaint,
-        } : fc)
-      }
-      return [...prev, {
-        id: Date.now(),
-        office_type_id: 1,
-        vehicle_type_id: carId,
-        fuel_type_id: fuelId,
-        monthly_fuel_quota_liter: vfcModal.monthlyFuel,
-        annual_lube_allowance: vfcModal.annualLube,
-        annual_maintenance_allowance: vfcModal.annualMaint,
-      }]
+      fuel_quotas: vfcModal.sections.map((section) => ({
+        fuel_category_id: section.categoryId,
+        monthly_fuel_quota_liter: section.monthlyFuel,
+      })),
     })
     setSaving(false)
-    setVfcModal({ open: false, carTypeId: '', fuelTypeId: '', monthlyFuel: 0, annualLube: 0, annualMaint: 0 })
+    if (res.error) {
+      setErrorMsg(res.error)
+      return
+    }
+    setVfcModal({ open: false, vehicleTypeId: '', annualLube: 0, annualMaint: 0, sections: [] })
     showSuccess('যানবাহন ও জ্বালানি বরাদ্দ সংরক্ষিত হয়েছে।')
   }
 
-  const handleDeleteVfc = async (id: number) => {
+  const handleDeleteVfc = async (vehicleTypeId: number) => {
     if (!confirm('আপনি কি এই বরাদ্দ কনফিগারেশন মুছে ফেলতে চান?')) return
-    const res = await deleteVehicleConfig(id)
+    const res = await deleteVehicleConfigForType(vehicleTypeId)
     if (res.error) {
       alert(res.error)
       return
     }
-    setFuelConfigs(prev => prev.filter(fc => fc.id !== id))
     showSuccess('কনফিগারেশন মুছে ফেলা হয়েছে।')
   }
 
-  // Tab 5 handlers
+  // ----------------------------------------------------
+  // Tab 5: vehicle rent ceiling
+  // ----------------------------------------------------
   const handleSaveVrc = async () => {
     const carId = parseInt(vrcModal.carTypeId)
     if (!carId) {
-      setErrorMsg('অনুগ্রহ করে গাড়ি নির্বাচন করুন।')
+      setErrorMsg('অনুগ্রহ করে গাড়ি নির্বাচন করুন।')
       return
     }
     setSaving(true)
     setErrorMsg(null)
     const res = await saveVehicleRentConfig({
       id: vrcModal.id,
-      office_type_id: 1, // Default for now
       vehicle_type_id: carId,
       monthly_rent_rate: vrcModal.monthlyRent,
     })
+    setSaving(false)
     if (res.error) {
       setErrorMsg(res.error)
-      setSaving(false)
       return
     }
-    const cName = vehicleTypes.find(c => c.id === carId)?.name || ''
-    setRentConfigs(prev => {
-      if (vrcModal.id) {
-        return prev.map(rc => rc.id === vrcModal.id ? {
-          ...rc,
-          office_type_id: 1,
-          vehicle_type_id: carId,
-          monthly_rent_rate: vrcModal.monthlyRent,
-        } : rc)
-      }
-      return [...prev, {
-        id: Date.now(),
-        office_type_id: 1,
-        vehicle_type_id: carId,
-        monthly_rent_rate: vrcModal.monthlyRent,
-      }]
-    })
-    setSaving(false)
     setVrcModal({ open: false, carTypeId: '', monthlyRent: 0 })
-    showSuccess('গাড়ি ভাড়া বরাদ্দ সংরক্ষিত হয়েছে।')
+    showSuccess('গাড়ি ভাড়া বরাদ্দ সংরক্ষিত হয়েছে।')
   }
 
   const handleDeleteVrc = async (id: number) => {
-    if (!confirm('আপনি কি এই গাড়ি ভাড়া কনফিগারেশন মুছে ফেলতে চান?')) return
+    if (!confirm('আপনি কি এই গাড়ি ভাড়া কনফিগারেশন মুছে ফেলতে চান?')) return
     const res = await deleteVehicleRentConfig(id)
     if (res.error) {
       alert(res.error)
       return
     }
-    setRentConfigs(prev => prev.filter(rc => rc.id !== id))
     showSuccess('কনফিগারেশন মুছে ফেলা হয়েছে।')
   }
 
-  // Tab 6 handlers
+  // ----------------------------------------------------
+  // Tab 6: IT equipment unit prices
+  // ----------------------------------------------------
   const handleSaveEquipment = async () => {
     if (!equipModal.itemId) return
+    const item = initialItItems.find((i) => i.id === equipModal.itemId)
+    if (!item) return
     setSaving(true)
     setErrorMsg(null)
     const res = await saveItEquipmentType({
-      id: equipModal.itemId,
-      name: equipModal.title,
-      has_toner: false,
-      is_lumpsum: false,
+      id: item.id,
+      name: item.name,
+      unit_price: equipModal.unit_price,
+      has_toner: item.has_toner,
+      is_lumpsum: item.is_lumpsum,
     })
+    setSaving(false)
     if (res.error) {
       setErrorMsg(res.error)
-      setSaving(false)
       return
     }
-    setItItems(prev => prev.map(item => item.id === equipModal.itemId ? { ...item, name: equipModal.title } : item))
-    setSaving(false)
-    setEquipModal({ open: false, itemId: null, title: '', price: 0 })
+    setEquipModal({ open: false, itemId: null, title: '', name: '', unit_price: 0 })
     showSuccess('সরঞ্জামের দর সংরক্ষিত হয়েছে।')
   }
 
-  // Tab 7 handlers
+  // ----------------------------------------------------
+  // Tab 7: utility types
+  // ----------------------------------------------------
   const handleSaveUtility = async () => {
     if (!utilityModal.name.trim()) {
       setErrorMsg('ইউটিলিটির নাম আবশ্যক।')
@@ -447,24 +405,13 @@ export function AdminSettingsClient({
     }
     setSaving(true)
     setErrorMsg(null)
-    const res = await saveUtilityType({
-      id: utilityModal.id,
-      name: utilityModal.name,
-    })
+    const res = await saveUtilityType({ id: utilityModal.id, name: utilityModal.name })
+    setSaving(false)
     if (res.error) {
       setErrorMsg(res.error)
-      setSaving(false)
       return
     }
-    setUtilityTypes(prev => {
-      const clean = utilityModal.name.trim()
-      if (utilityModal.id) {
-        return prev.map(u => u.id === utilityModal.id ? { ...u, name: clean } : u).sort((a, b) => a.id - b.id)
-      }
-      return [...prev, { id: Date.now(), name: clean }].sort((a, b) => a.id - b.id)
-    })
-    setSaving(false)
-    setUtilityModal({ open: false, name: '', order: 1 })
+    setUtilityModal({ open: false, name: '' })
     showSuccess('ইউটিলিটির ধরন সংরক্ষিত হয়েছে।')
   }
 
@@ -475,9 +422,14 @@ export function AdminSettingsClient({
       alert(res.error)
       return
     }
-    setUtilityTypes(prev => prev.filter(u => u.id !== id))
     showSuccess('ইউটিলিটির ধরন মুছে ফেলা হয়েছে।')
   }
+
+  const tabButtonClass = (tab: SettingsTabKey) =>
+    `flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer truncate ${activeTab === tab
+      ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/80'
+      : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+    }`
 
   return (
     <div className="space-y-6">
@@ -487,9 +439,6 @@ export function AdminSettingsClient({
           <Sliders className="h-7 w-7 text-emerald-600" />
           {strings.admin.settings.title}
         </h1>
-        <p className="text-slate-500 text-sm mt-1">
-          {strings.admin.settings.subtitle}
-        </p>
       </div>
 
       {successMsg && (
@@ -509,93 +458,37 @@ export function AdminSettingsClient({
       {/* Modern Tabs Navigation - Strictly 1 Row */}
       <div className="w-full overflow-x-auto pb-1">
         <div className="grid grid-cols-7 gap-1.5 p-1.5 bg-slate-200/70 backdrop-blur-md rounded-2xl border border-slate-200 min-w-[760px]">
-          <button
-            onClick={() => setActiveTab('salaries')}
-            className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer truncate ${
-              activeTab === 'salaries'
-                ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/80'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-            }`}
-            title={strings.admin.settings.tabs.salaries}
-          >
+          <button onClick={() => setActiveTab('salaries')} className={tabButtonClass('salaries')} title={strings.admin.settings.tabs.salaries}>
             <Banknote className="h-4 w-4 shrink-0 text-emerald-600" />
             <span className="truncate">{strings.admin.settings.tabs.salaries}</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('vehicles')}
-            className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer truncate ${
-              activeTab === 'vehicles'
-                ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/80'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-            }`}
-            title={strings.admin.settings.tabs.vehicles}
-          >
+          <button onClick={() => setActiveTab('vehicles')} className={tabButtonClass('vehicles')} title={strings.admin.settings.tabs.vehicles}>
             <Car className="h-4 w-4 shrink-0 text-blue-600" />
             <span className="truncate">{strings.admin.settings.tabs.vehicles}</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('fuels')}
-            className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer truncate ${
-              activeTab === 'fuels'
-                ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/80'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-            }`}
-            title={strings.admin.settings.tabs.fuels}
-          >
+          <button onClick={() => setActiveTab('fuels')} className={tabButtonClass('fuels')} title={strings.admin.settings.tabs.fuels}>
             <Fuel className="h-4 w-4 shrink-0 text-amber-600" />
             <span className="truncate">{strings.admin.settings.tabs.fuels}</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('vehicleFuel')}
-            className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer truncate ${
-              activeTab === 'vehicleFuel'
-                ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/80'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-            }`}
-            title={strings.admin.settings.tabs.vehicleFuel}
-          >
+          <button onClick={() => setActiveTab('vehicleFuel')} className={tabButtonClass('vehicleFuel')} title={strings.admin.settings.tabs.vehicleFuel}>
             <Sliders className="h-4 w-4 shrink-0 text-purple-600" />
             <span className="truncate">{strings.admin.settings.tabs.vehicleFuel}</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('vehicleRent')}
-            className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer truncate ${
-              activeTab === 'vehicleRent'
-                ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/80'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-            }`}
-            title={strings.admin.settings.tabs.vehicleRent}
-          >
+          <button onClick={() => setActiveTab('vehicleRent')} className={tabButtonClass('vehicleRent')} title={strings.admin.settings.tabs.vehicleRent}>
             <DollarSign className="h-4 w-4 shrink-0 text-teal-600" />
             <span className="truncate">{strings.admin.settings.tabs.vehicleRent}</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('equipment')}
-            className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer truncate ${
-              activeTab === 'equipment'
-                ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/80'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-            }`}
-            title={strings.admin.settings.tabs.equipment}
-          >
+          <button onClick={() => setActiveTab('equipment')} className={tabButtonClass('equipment')} title={strings.admin.settings.tabs.equipment}>
             <Monitor className="h-4 w-4 shrink-0 text-indigo-600" />
             <span className="truncate">{strings.admin.settings.tabs.equipment}</span>
           </button>
 
-          <button
-            onClick={() => setActiveTab('utility')}
-            className={`flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl font-bold text-xs transition-all cursor-pointer truncate ${
-              activeTab === 'utility'
-                ? 'bg-white text-emerald-700 shadow-sm border border-slate-200/80'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-            }`}
-            title={strings.admin.settings.tabs.utility}
-          >
+          <button onClick={() => setActiveTab('utility')} className={tabButtonClass('utility')} title={strings.admin.settings.tabs.utility}>
             <Zap className="h-4 w-4 shrink-0 text-amber-500" />
             <span className="truncate">{strings.admin.settings.tabs.utility}</span>
           </button>
@@ -605,28 +498,18 @@ export function AdminSettingsClient({
       {/* Tab 1: Salaries */}
       {activeTab === 'salaries' && (
         <TabSalaries
-          salaryConfig={salaryConfig}
+          tiles={initialSalaryConfig}
+          slabs={initialSalarySlabs}
+          grades={grades}
           numModal={numModal}
           setNumModal={setNumModal}
           gradeModal={gradeModal}
           setGradeModal={setGradeModal}
-          houseRentModal={houseRentModal}
-          setHouseRentModal={setHouseRentModal}
-          slabs={slabs}
-          setSlabs={setSlabs}
-          specialBenefitModal={specialBenefitModal}
-          setSpecialBenefitModal={setSpecialBenefitModal}
-          specialBenefitSlabs={specialBenefitSlabs}
-          setSpecialBenefitSlabs={setSpecialBenefitSlabs}
-          mobileModal={mobileModal}
-          setMobileModal={setMobileModal}
-          mobileSlabs={mobileSlabs}
-          setMobileSlabs={setMobileSlabs}
+          slabModal={slabModal}
+          setSlabModal={setSlabModal}
           onSaveNumberField={handleSaveNumberField}
           onSaveGradeField={handleSaveGradeField}
-          onSaveHouseRentSlabs={handleSaveHouseRentSlabs}
-          onSaveSpecialBenefitSlabs={handleSaveSpecialBenefitSlabs}
-          onSaveMobileSlabs={handleSaveMobileSlabs}
+          onSaveSlabs={handleSaveSlabs}
           saving={saving}
         />
       )}
@@ -634,7 +517,7 @@ export function AdminSettingsClient({
       {/* Tab 2: Vehicles */}
       {activeTab === 'vehicles' && (
         <TabVehicles
-          vehicleTypes={vehicleTypes}
+          vehicleTypes={initialVehicleTypes}
           carModal={carModal}
           setCarModal={setCarModal}
           onSaveVehicleType={handleSaveVehicleType}
@@ -646,7 +529,8 @@ export function AdminSettingsClient({
       {/* Tab 3: Fuels */}
       {activeTab === 'fuels' && (
         <TabFuels
-          fuelTypes={fuelTypes}
+          fuelTypes={initialFuelTypes}
+          fuelCategories={fuelCategories}
           fuelModal={fuelModal}
           setFuelModal={setFuelModal}
           onSaveFuelType={handleSaveFuelType}
@@ -658,9 +542,9 @@ export function AdminSettingsClient({
       {/* Tab 4: Vehicle Fuel Config */}
       {activeTab === 'vehicleFuel' && (
         <TabVehicleFuel
-          fuelConfigs={fuelConfigs}
-          vehicleTypes={vehicleTypes}
-          fuelTypes={fuelTypes}
+          fuelConfigs={initialFuelConfigs}
+          vehicleTypes={initialVehicleTypes}
+          fuelCategories={fuelCategories}
           vfcModal={vfcModal}
           setVfcModal={setVfcModal}
           onSaveVfc={handleSaveVfc}
@@ -672,8 +556,8 @@ export function AdminSettingsClient({
       {/* Tab 5: Vehicle Rent Config */}
       {activeTab === 'vehicleRent' && (
         <TabVehicleRent
-          rentConfigs={rentConfigs}
-          vehicleTypes={vehicleTypes}
+          rentConfigs={initialRentConfigs}
+          vehicleTypes={initialVehicleTypes}
           vrcModal={vrcModal}
           setVrcModal={setVrcModal}
           onSaveVrc={handleSaveVrc}
@@ -685,7 +569,7 @@ export function AdminSettingsClient({
       {/* Tab 6: Equipment */}
       {activeTab === 'equipment' && (
         <TabEquipment
-          itItems={itItems}
+          itItems={initialItItems}
           equipModal={equipModal}
           setEquipModal={setEquipModal}
           onSaveEquipment={handleSaveEquipment}
@@ -696,7 +580,7 @@ export function AdminSettingsClient({
       {/* Tab 7: Utility */}
       {activeTab === 'utility' && (
         <TabUtility
-          utilityTypes={utilityTypes}
+          utilityTypes={initialUtilityTypes}
           utilityModal={utilityModal}
           setUtilityModal={setUtilityModal}
           onSaveUtility={handleSaveUtility}

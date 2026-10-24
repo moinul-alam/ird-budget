@@ -40,11 +40,11 @@ export function TabVehicles({
           <div>
             <CardTitle className="text-lg font-bold text-slate-800">যানবাহনের তালিকা</CardTitle>
             <CardDescription className="text-xs text-slate-500">
-              অফিসের জন্য প্রযোজ্য যানবাহনের ধরন ও তাদের প্রদর্শন ক্রম নির্ধারণ করুন
+              অফিসের জন্য প্রযোজ্য যানবাহনের ধরন নির্ধারণ করুন
             </CardDescription>
           </div>
           <Button
-            onClick={() => setCarModal({ open: true, name: '', order: vehicleTypes.length + 1 })}
+            onClick={() => setCarModal({ open: true, name: '' })}
             className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
           >
             <Plus className="h-4 w-4" />
@@ -81,7 +81,7 @@ export function TabVehicles({
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setCarModal({ open: true, id: v.id, name: v.name, order: idx + 1 })}
+                          onClick={() => setCarModal({ open: true, id: v.id, name: v.name })}
                           className="rounded-xl border-slate-200 text-xs font-semibold"
                         >
                           <Edit2 className="h-3.5 w-3.5 text-slate-600 mr-1" />
@@ -124,15 +124,6 @@ export function TabVehicles({
                   value={carModal.name}
                   onChange={(e) => setCarModal(prev => ({ ...prev, name: e.target.value }))}
                   className="rounded-xl border-slate-200 font-medium"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-sm font-bold text-slate-700">ক্রম (সাজানোর জন্য ক্রমিক নং)</Label>
-                <Input
-                  type="number"
-                  value={carModal.order}
-                  onChange={(e) => setCarModal(prev => ({ ...prev, order: parseInt(e.target.value) || 1 }))}
-                  className="rounded-xl border-slate-200 font-mono"
                 />
               </div>
             </div>

@@ -25,14 +25,14 @@
   },
   {
     "code": "3111301",
-    "name": "দায়িত্ব ভাতা",
-    "is_manual": true,
+    "name": "দায়িত্ব ভাতা",
+    "is_manual": false,
     "sort_order": 5
   },
   {
     "code": "3111302",
-    "name": "যাতায়াত ভাতা",
-    "is_manual": true,
+    "name": "যাতায়াত ভাতা",
+    "is_manual": false,
     "sort_order": 6
   },
   {
@@ -74,19 +74,19 @@
   {
     "code": "3111312",
     "name": "মোবাইল/সেলফোন ভাতা",
-    "is_manual": true,
+    "is_manual": false,
     "sort_order": 13
   },
   {
     "code": "3111313",
-    "name": "আবাসিক টেলিফোন নগদায়ন ভাতা",
-    "is_manual": true,
+    "name": "আবাসিক টেলিফোন নগদায়ন ভাতা",
+    "is_manual": false,
     "sort_order": 14
   },
   {
     "code": "3111314",
     "name": "টিফিন ভাতা",
-    "is_manual": true,
+    "is_manual": false,
     "sort_order": 15
   },
   {
@@ -98,7 +98,7 @@
   {
     "code": "3111316",
     "name": "ধোলাই ভাতা",
-    "is_manual": true,
+    "is_manual": false,
     "sort_order": 17
   },
   {
@@ -127,8 +127,8 @@
   },
   {
     "code": "3111331",
-    "name": "আপ্যায়ন ভাতা",
-    "is_manual": true,
+    "name": "আপ্যায়ন ভাতা",
+    "is_manual": false,
     "sort_order": 22
   },
   {
@@ -146,7 +146,7 @@
   {
     "code": "3111335",
     "name": "বাংলা নববর্ষ ভাতা",
-    "is_manual": true,
+    "is_manual": false,
     "sort_order": 25
   },
   {
@@ -164,7 +164,7 @@
   {
     "code": "3111352",
     "name": "বিশেষ সুবিধা",
-    "is_manual": true,
+    "is_manual": false,
     "sort_order": 28
   },
   {
@@ -243,6 +243,7 @@
     "code": "3211119",
     "name": "ডাক",
     "is_manual": false,
+    "allow_manual_override": true,
     "sort_order": 41
   },
   {

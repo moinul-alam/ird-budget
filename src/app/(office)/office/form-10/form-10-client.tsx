@@ -34,12 +34,17 @@ import { useState, useTransition, useMemo } from 'react'
 export interface Form10ClientProps {
   submissionId: number | null
   itConfigs: Array<{
-    id: number
+    /** The per-office-type admin_it_config row; null until the office saves one. */
+    id: number | null
     equipment_type_id: number
     equipment_type_name: string
+    /** Optional per-office-type override of the equipment's price. */
     unit_budget: number
+    unit_price: number
   }>
   initialData: any[]
+  /** বেতন-ভাতা মাস — the multiplier the budget engine applies to monthly figures. */
+  salaryMonths: number
 }
 
 interface EquipmentCardData {
@@ -47,7 +52,8 @@ interface EquipmentCardData {
   damaged_count: number
   toner_cost: number // প্রতি টোনারের দাম
   required_qty: number // নতুন প্রয়োজন
-  unit_budget: number
+  /** একক মূল্য — the administrator's price for one unit. */
+  unit_price: number
 }
 
 // 4 cards in one line as specified
@@ -105,9 +111,11 @@ export function Form10Client({
   submissionId,
   itConfigs,
   initialData,
+  salaryMonths,
 }: Form10ClientProps) {
-  // Bind each fixed design slot to its admin_it_config row for this office
-  // type. The unit price is whatever the admin configured, never a constant.
+  // Bind each fixed design slot to its equipment type so the slot is priced at
+  // whatever the administrator set on /admin/settings?tab=equipment — the global
+  // price, or the office type's override when one exists. Never a constant.
   const cardConfigs = CARD_CONFIGS.map((c) => {
     const cfg = itConfigs.find((item) =>
       c.aliases.some((alias) =>
@@ -116,24 +124,25 @@ export function Form10Client({
     )
     return {
       ...c,
-      itConfigId: cfg ? cfg.id : null,
-      unitPrice: cfg ? cfg.unit_budget : 0,
+      equipmentTypeId: cfg ? cfg.equipment_type_id : null,
+      unitPrice: cfg ? cfg.unit_budget || cfg.unit_price : 0,
     }
   })
 
   // Initialize data keyed by EquipmentKey
   const [dataMap, setDataMap] = useState<Record<EquipmentKey, EquipmentCardData>>(() => {
     const initialMap: Record<EquipmentKey, EquipmentCardData> = {
-      computer: { existing_count: 0, damaged_count: 0, toner_cost: 0, required_qty: 0, unit_budget: 0 },
-      printer: { existing_count: 0, damaged_count: 0, toner_cost: 0, required_qty: 0, unit_budget: 0 },
-      scanner: { existing_count: 0, damaged_count: 0, toner_cost: 0, required_qty: 0, unit_budget: 0 },
-      photocopier: { existing_count: 0, damaged_count: 0, toner_cost: 0, required_qty: 0, unit_budget: 0 },
+      computer: { existing_count: 0, damaged_count: 0, toner_cost: 0, required_qty: 0, unit_price: 0 },
+      printer: { existing_count: 0, damaged_count: 0, toner_cost: 0, required_qty: 0, unit_price: 0 },
+      scanner: { existing_count: 0, damaged_count: 0, toner_cost: 0, required_qty: 0, unit_price: 0 },
+      photocopier: { existing_count: 0, damaged_count: 0, toner_cost: 0, required_qty: 0, unit_price: 0 },
     }
 
     if (initialData && initialData.length > 0) {
       cardConfigs.forEach((config) => {
+        // Rows are matched by equipment type, the identity the save action keys on.
         const row = initialData.find((item) =>
-          config.itConfigId ? item.it_config_id === config.itConfigId : false
+          config.equipmentTypeId ? item.equipment_type_id === config.equipmentTypeId : false
         )
         if (row) {
           initialMap[config.key] = {
@@ -141,7 +150,7 @@ export function Form10Client({
             damaged_count: Number(row.damaged_count || 0),
             toner_cost: Number(row.toner_cost || 0),
             required_qty: Number(row.required_qty || 0),
-            unit_budget: Number(row.unit_budget || config.unitPrice),
+            unit_price: Number(row.unit_budget || row.unit_price || config.unitPrice),
           }
         }
       })
@@ -197,7 +206,7 @@ export function Form10Client({
       damaged_count: damagedCount,
       toner_cost: tonerPrice,
       required_qty: requiredQty,
-      unit_budget: activeConfig.unitPrice,
+      unit_price: activeConfig.unitPrice,
     }
 
     setDataMap((prev) => ({
@@ -205,9 +214,9 @@ export function Form10Client({
       [activeModalKey]: updatedData,
     }))
 
-    if (submissionId && activeConfig.itConfigId) {
+    if (submissionId && activeConfig.equipmentTypeId) {
       startTransition(async () => {
-        await saveFormITEquipmentRow(submissionId, activeConfig.itConfigId!, {
+        await saveFormITEquipmentRow(submissionId, activeConfig.equipmentTypeId!, {
           existing_count: existingCount,
           damaged_count: damagedCount,
           toner_cost: tonerPrice,
@@ -232,47 +241,59 @@ export function Form10Client({
         damaged_count: 0,
         toner_cost: 0,
         required_qty: 0,
-        unit_budget: 0,
+        // Clearing the row does not change the administrator's price.
+        unit_price: config.unitPrice,
       },
     }))
 
-    if (submissionId && config.itConfigId) {
+    if (submissionId && config.equipmentTypeId) {
       startTransition(async () => {
-        await deleteFormITEquipmentRow(submissionId, config.itConfigId!)
+        await deleteFormITEquipmentRow(submissionId, config.equipmentTypeId!)
       })
     }
 
     setKeyToDelete(null)
   }
 
-  // Calculations for summary:
-  // 1. কম্পিউটার সামগ্রী : based on entered toner price (e.g. printer toner price * active printers or annual projection)
+  // সারসংক্ষেপ কার্ড ১ — কম্পিউটার সামগ্রী: প্রতি টোনারের দাম × প্রিন্টারের সংখ্যা
+  // × বেতন-ভাতা মাস. The same inputs and the same multiplier the engine's 3255101
+  // uses, so the card can never disagree with the budget sheet.
   const computerSuppliesTotal = useMemo(() => {
     const printerData = dataMap.printer
-    const activePrinterCount = Math.max(0, printerData.existing_count - printerData.damaged_count)
-    // If toner cost is per cartridge/unit, budget projection = toner_price * (active printers or direct annual estimate)
-    // We calculate based on entered toner price: if printers exist, toner_cost * active printers, else direct entered toner price
-    if (activePrinterCount > 0) {
-      return printerData.toner_cost * activePrinterCount
-    }
-    return printerData.toner_cost
-  }, [dataMap])
+    return printerData.existing_count * printerData.toner_cost * salaryMonths
+  }, [dataMap, salaryMonths])
 
-  // 2. কম্পিউটার ও আনুষঙ্গিক: (new computer x predefined price + new printer x predefined price + scanner x predefined price + photocopier x predefined price)
-  const computerAccessoriesTotal = useMemo(() => {
-    return cardConfigs.reduce((sum, config) => {
-      const data = dataMap[config.key]
-      const qty = data.required_qty || 0
-      return sum + qty * config.unitPrice
-    }, 0)
-  }, [dataMap])
+  // সারসংক্ষেপ কার্ড ২ — কম্পিউটার ও আনুষঙ্গিক: প্রতিটি চাহিদা অ্যাডমিনের নিজের
+  // নির্ধারিত একক মূল্যে গুণ করা হয়, যাতে মোটটি কীভাবে হলো তা দেখা যায়।
+  const accessoriesRows = useMemo(
+    () =>
+      cardConfigs
+        .map((config) => {
+          const data = dataMap[config.key]
+          const qty = data.required_qty || 0
+          return {
+            key: config.key,
+            title: config.title,
+            qty,
+            unitPrice: config.unitPrice,
+            total: qty * config.unitPrice,
+          }
+        })
+        .filter((row) => row.qty > 0),
+    [dataMap]
+  )
+
+  const computerAccessoriesTotal = useMemo(
+    () => accessoriesRows.reduce((sum, row) => sum + row.total, 0),
+    [accessoriesRows]
+  )
 
   const handleSaveAll = async () => {
     if (!submissionId) return
     for (const config of cardConfigs) {
-      if (!config.itConfigId) continue
+      if (!config.equipmentTypeId) continue
       const data = dataMap[config.key]
-      const res = await saveFormITEquipmentRow(submissionId, config.itConfigId, {
+      const res = await saveFormITEquipmentRow(submissionId, config.equipmentTypeId, {
         existing_count: data.existing_count,
         damaged_count: data.damaged_count,
         toner_cost: data.toner_cost,
@@ -423,54 +444,114 @@ export function Form10Client({
               <Banknote className="w-4 h-4 text-emerald-600" />
               {strings.form10.summaryTitle}
             </h3>
-            <span className="text-xs text-slate-400">প্রাক্কলিত হিসাব বিবরণী</span>
+            <span className="text-xs text-slate-400">{strings.form10.summarySubtitle}</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* 1. কম্পিউটার সামগ্রী */}
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col justify-between">
+            {/* ১. কম্পিউটার ও আনুষঙ্গিক — চাহিদাকৃত সংখ্যা × নির্ধারিত একক মূল্য */}
+            <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-white border border-purple-100 flex flex-col justify-between shadow-xs">
               <div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                    <Printer className="w-3.5 h-3.5 text-emerald-600" />
-                    {strings.form10.computerSupplies}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-purple-950 flex items-center gap-1.5">
+                    <span className="w-6 h-6 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">
+                      <Cpu className="w-3.5 h-3.5" />
+                    </span>
+                    {strings.form10.computerAndAccessories}
                   </span>
-                  <span className="text-[11px] text-slate-400">
-                    {strings.form10.tonerBasedCost}
+                  <span className="text-[10px] font-semibold text-purple-600 bg-white/70 border border-purple-100 rounded-full px-2 py-0.5 shrink-0">
+                    নতুন ক্রয়ের প্রাক্কলন
                   </span>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  প্রিন্টারের প্রতি টোনারের দামের ভিত্তিতে সামগ্রিক বরাদ্দ
+                <p className="text-[11px] text-purple-700/80 mt-1.5">
+                  {strings.form10.accessoriesCalculationNote}
                 </p>
+
+                <div className="mt-3 space-y-1">
+                  {accessoriesRows.map((row) => (
+                    <div
+                      key={row.key}
+                      className="flex items-center justify-between gap-2 text-[11px] bg-white/70 border border-purple-100/70 rounded-lg px-2.5 py-1.5"
+                    >
+                      <span className="font-medium text-purple-900 truncate">{row.title}</span>
+                      <span className="text-purple-700/80 whitespace-nowrap">
+                        {toBanglaNumber(row.qty)} {strings.form10.unitPiece} ×{' '}
+                        {toBanglaAmount(row.unitPrice)}
+                      </span>
+                      <span className="font-mono font-bold text-purple-900 whitespace-nowrap">
+                        {toBanglaAmount(row.total)}
+                      </span>
+                    </div>
+                  ))}
+                  {accessoriesRows.length === 0 && (
+                    <p className="text-[11px] text-purple-500/80 bg-white/60 border border-dashed border-purple-200 rounded-lg px-2.5 py-2 text-center">
+                      {strings.form10.noNewRequirement}
+                    </p>
+                  )}
+                </div>
               </div>
-              <div className="mt-3 pt-2 border-t border-slate-200/60 flex items-baseline justify-between">
-                <span className="text-xs text-slate-500">প্রাক্কলিত বরাদ্দ:</span>
-                <span className="text-lg font-bold text-emerald-700">
-                  {toBanglaAmount(computerSuppliesTotal)}
+              <div className="mt-3 pt-2.5 border-t border-purple-200/70 flex items-baseline justify-between">
+                <span className="text-xs font-semibold text-purple-800">
+                  {strings.form10.purchaseAllocationTotal}
+                </span>
+                <span className="text-lg font-extrabold font-mono text-purple-900">
+                  {toBanglaAmount(computerAccessoriesTotal)}
                 </span>
               </div>
             </div>
 
-            {/* 2. কম্পিউটার ও আনুষঙ্গিক */}
-            <div className="p-4 rounded-xl bg-purple-50/50 border border-purple-100 flex flex-col justify-between">
+            {/* ২. কম্পিউটার সামগ্রী — প্রতি টোনারের দাম × প্রিন্টারের সংখ্যা × মাস */}
+            <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 flex flex-col justify-between shadow-xs">
               <div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-purple-950 flex items-center gap-1.5">
-                    <Cpu className="w-3.5 h-3.5 text-purple-600" />
-                    {strings.form10.computerAndAccessories}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                    <span className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                      <Printer className="w-3.5 h-3.5" />
+                    </span>
+                    {strings.form10.computerSupplies}
                   </span>
-                  <span className="text-[11px] text-purple-500">
-                    নতুন ক্রয়ের প্রাক্কলন
+                  <span className="text-[10px] font-semibold text-emerald-700 bg-white/70 border border-emerald-100 rounded-full px-2 py-0.5 shrink-0">
+                    {strings.form10.tonerBasedCost}
                   </span>
                 </div>
-                <p className="text-xs text-purple-700/80 mt-1">
-                  {strings.form10.accessoriesCalculationNote}
+                <p className="text-[11px] text-emerald-700/80 mt-1.5">
+                  {strings.form10.tonerFormula} · {toBanglaNumber(salaryMonths)}{' '}
+                  {strings.form10.monthUnit}
                 </p>
+
+                <div className="mt-3 space-y-1">
+                  <div className="flex items-center justify-between gap-2 text-[11px] bg-white/70 border border-emerald-100/70 rounded-lg px-2.5 py-1.5">
+                    <span className="font-medium text-emerald-900">
+                      {strings.form10.cards.printer}
+                    </span>
+                    <span className="font-mono font-bold text-emerald-900 whitespace-nowrap">
+                      {toBanglaNumber(dataMap.printer.existing_count)}{' '}
+                      {strings.form10.unitPiece}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 text-[11px] bg-white/70 border border-emerald-100/70 rounded-lg px-2.5 py-1.5">
+                    <span className="font-medium text-emerald-900">
+                      {strings.form10.tonerPricePerUnit}
+                    </span>
+                    <span className="font-mono font-bold text-emerald-900 whitespace-nowrap">
+                      {toBanglaAmount(dataMap.printer.toner_cost)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 text-[11px] bg-white/70 border border-emerald-100/70 rounded-lg px-2.5 py-1.5">
+                    <span className="font-medium text-emerald-900">
+                      {strings.form10.budgetMonthsLabel}
+                    </span>
+                    <span className="font-mono font-bold text-emerald-900 whitespace-nowrap">
+                      {toBanglaNumber(salaryMonths)} {strings.form10.monthUnit}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div className="mt-3 pt-2 border-t border-purple-200/60 flex items-baseline justify-between">
-                <span className="text-xs text-purple-800">সর্বমোট ক্রয় বরাদ্দ:</span>
-                <span className="text-lg font-bold text-purple-900">
-                  {toBanglaAmount(computerAccessoriesTotal)}
+              <div className="mt-3 pt-2.5 border-t border-emerald-200/70 flex items-baseline justify-between">
+                <span className="text-xs font-semibold text-emerald-800">
+                  {strings.form10.annualAllocation}
+                </span>
+                <span className="text-lg font-extrabold font-mono text-emerald-700">
+                  {toBanglaAmount(computerSuppliesTotal)}
                 </span>
               </div>
             </div>
@@ -554,6 +635,24 @@ export function Form10Client({
                 className="bg-white"
               />
             </div>
+
+            {/* অ্যাডমিনের নির্ধারিত একক মূল্যে চাহিদার প্রাক্কলন */}
+            {activeConfig && (
+              <div className="p-3 rounded-xl bg-purple-50/60 border border-purple-100 flex items-center justify-between gap-3">
+                <div className="text-[11px] text-purple-800">
+                  {strings.form10.unitPriceLabel}:{' '}
+                  <span className="font-mono font-bold text-purple-900">
+                    {toBanglaAmount(activeConfig.unitPrice)}
+                  </span>
+                </div>
+                <div className="text-[11px] text-purple-800">
+                  {strings.form10.estimatedValueLabel}:{' '}
+                  <span className="font-mono font-bold text-purple-900">
+                    {toBanglaAmount((parseInt(requiredInput, 10) || 0) * activeConfig.unitPrice)}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0">
