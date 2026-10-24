@@ -71,7 +71,7 @@ export default async function AdminDashboardPage() {
   for (const sub of submissions) {
     let subTotal = 0
     if (sub.budgetSheets) {
-      subTotal = sub.budgetSheets.reduce((sum, b) => {
+      subTotal = sub.budgetSheets.reduce((sum: any, b: any) => {
         return sum + (Number(b.manualValue ?? b.autoValue) || 0)
       }, 0)
     }
