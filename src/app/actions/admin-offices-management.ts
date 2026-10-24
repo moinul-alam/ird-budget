@@ -236,6 +236,8 @@ export async function saveFieldOffice(data: {
   head_office_id: string
   office_type_id: string
   department_id?: string
+  /** The field office's level — it decides which economic codes the admin grants it. */
+  office_level_id?: string
   password?: string
 }) {
   const session = await getAdminSession()
@@ -249,6 +251,7 @@ export async function saveFieldOffice(data: {
   if (!trimmedBudget) return { error: 'বাজেট আইডি আবশ্যক' }
   if (!data.head_office_id) return { error: 'হেড অফিস নির্বাচন আবশ্যক' }
   if (!data.office_type_id) return { error: 'অফিসের ধরণ নির্বাচন আবশ্যক' }
+  if (!data.office_level_id) return { error: 'মাঠ পর্যায়ের অফিসের স্তর নির্বাচন আবশ্যক' }
 
   try {
     // Check unique budget_id
@@ -288,6 +291,7 @@ export async function saveFieldOffice(data: {
         parentOfficeId: BigInt(data.head_office_id),
         officeTypeId: BigInt(data.office_type_id),
         departmentId: departmentId,
+        officeLevelId: BigInt(data.office_level_id),
       },
     })
 
@@ -312,6 +316,7 @@ export async function saveFieldOffice(data: {
           parentOfficeId: BigInt(data.head_office_id),
           officeTypeId: BigInt(data.office_type_id),
           departmentId: departmentId,
+          officeLevelId: BigInt(data.office_level_id),
           isActive: true,
         },
       })

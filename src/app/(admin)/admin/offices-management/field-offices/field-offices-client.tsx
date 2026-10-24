@@ -174,6 +174,10 @@ export function FieldOfficesClient({
       showStatus('অফিসের ধরণ নির্বাচন আবশ্যক', 'error')
       return
     }
+    if (!modal.office_level_id) {
+      showStatus('মাঠ পর্যায়ের অফিসের স্তর নির্বাচন আবশ্যক', 'error')
+      return
+    }
 
     const englishBudgetId = toEnglishNumber(modal.budget_id.trim())
 
@@ -184,6 +188,7 @@ export function FieldOfficesClient({
         budget_id: englishBudgetId,
         head_office_id: modal.head_office_id,
         office_type_id: modal.office_type_id,
+        office_level_id: modal.office_level_id,
         password: '12345', // Default 12345 for login
       })
 
@@ -200,6 +205,7 @@ export function FieldOfficesClient({
         const typeObj = officeTypes.find((ot) => ot.id === modal.office_type_id)
         const headObj = headOffices.find((h) => h.id === modal.head_office_id)
         const minObj = ministries.find((m) => m.id === modal.ministry_id)
+        const levelObj = officeLevels.find((ol) => String(ol.id) === modal.office_level_id)
 
         if (modal.id) {
           setFieldOffices((prev) =>
@@ -217,6 +223,8 @@ export function FieldOfficesClient({
                   head_office_name: headObj?.name || '',
                   office_type_id: modal.office_type_id,
                   office_type_name: typeObj?.name || '',
+                  office_level_id: modal.office_level_id,
+                  office_level_name: levelObj?.level_name,
                 }
                 : f
             )
@@ -235,6 +243,8 @@ export function FieldOfficesClient({
               head_office_name: headObj?.name || '',
               office_type_id: modal.office_type_id,
               office_type_name: typeObj?.name || '',
+              office_level_id: modal.office_level_id,
+              office_level_name: levelObj?.level_name,
               password_hint: '12345',
               created_at: new Date().toISOString(),
             },

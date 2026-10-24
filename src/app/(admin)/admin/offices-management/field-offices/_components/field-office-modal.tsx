@@ -78,6 +78,7 @@ export function FieldOfficeModal({
                     department_id: newDeptId,
                     head_office_id: heads[0]?.id?.toString() || '',
                     office_type_id: types[0]?.id?.toString() || '',
+                    office_level_id: '',
                   }))
                 }
               }}
@@ -111,6 +112,7 @@ export function FieldOfficeModal({
                     department_id: val,
                     head_office_id: heads[0]?.id?.toString() || '',
                     office_type_id: types[0]?.id?.toString() || '',
+                    office_level_id: '',
                   }))
                 }
               }}
@@ -160,7 +162,8 @@ export function FieldOfficeModal({
             <Select
               value={String(modal.office_type_id || '')}
               onValueChange={(val) => {
-                if (val) setModal((prev) => ({ ...prev, office_type_id: val }))
+                // Levels are scoped to an office type, so a different type needs a fresh level.
+                if (val) setModal((prev) => ({ ...prev, office_type_id: val, office_level_id: '' }))
               }}
             >
               <SelectTrigger className="w-full rounded-xl border-slate-200 text-xs h-10">

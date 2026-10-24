@@ -134,7 +134,9 @@ export async function rollupOffices(officeIds: number[], cycleId: number): Promi
   })
 
   return {
-    // Every active code is listed, zero-filled, so a rollup and the office sheet line up row for row.
+    // Called without a level on purpose: a rollup spans offices on different levels,
+    // each granted a different code set, so the report keeps the global code list and
+    // lets each gated office sheet contribute only the rows it was allowed to fill.
     codes: codes.map((c) => ({
       code_id: c.id,
       code: c.code,

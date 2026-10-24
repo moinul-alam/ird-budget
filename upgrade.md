@@ -106,7 +106,9 @@ Referential links inside this domain:
   category is what sends its cost to one of two different economic codes (below); dropping the
   category would leave the fuel with nowhere to be charged.
 - `office_level_economic_code_mapping` — which codes a given office level may submit, with an
-  `is_enabled` flag.
+  `is_enabled` flag. This is the gate the office budget sheet obeys: `computeSubmissionSheet`
+  resolves the office's level and asks for only those codes, so a level that has no rows at all
+  shows none — the same reading `/admin/codes` gives.
 - `ref_economic_codes` also carries the two flags that decide **who supplies a figure**:
   `is_manual` (the office types it by hand) and `allow_manual_override` (the engine computes it
   but the budget sheet still renders an override box). The second flag is set on exactly one
@@ -391,9 +393,9 @@ uses**. There is no separate reporting dataset and no snapshot taken at submit �
 recomputed live from the office's forms each time it is opened, so a report can never disagree
 with the sheet the office sees.
 
-The one primitive is a submission's **code-wise vector**: one row per active economic code with
-an auto value (from the engine), an optional manual override, and a final value, summed to a
-total.
+The one primitive is a submission's **code-wise vector**: one row per economic code the office's
+level is allowed, with an auto value (from the engine), an optional manual override, and a final
+value, summed to a total.
 
 | File | Role |
 |---|---|
@@ -404,8 +406,9 @@ total.
 `office_budget_sheet` holds **only manual overrides** — auto values are never persisted — so a
 report cannot simply sum that table. `rollupOffices` instead recomputes each submission through
 `computeSubmissionSheet`, capped at 4 concurrent submissions (`mapLimit`) because the database is
-remote and each submission costs ~15 queries. Every active code is listed, zero-filled, so a
-roll-up lines up row for row with a single office's sheet.
+remote and each submission costs ~15 queries. The roll-up keeps the global code list (it spans
+offices on different levels, each granted a different set), while each office's own vector holds
+only the codes its level was granted.
 
 ### The three scopes
 
@@ -454,6 +457,17 @@ Outstanding:
   [resources/offices_backup_91.json](resources/offices_backup_91.json) holds 91 real offices but
   references `office_type_id` values that do not exist in the rebuilt database, so it cannot be
   replayed as-is.
+- **The office budget sheet obeys the admin's code grants.** It lists only the codes enabled for
+  the office's own `core_office_levels` row (§10), in `ক্রম / কোড / ব্যয় খাত / বরাদ্দের পরিমাণ`
+  columns, one amount column (amber-bordered box for an `is_manual` code, dashed blue for an
+  `allow_manual_override` one), rows banded in three tonal steps, and an info icon beside each
+  computed amount whose click says which form to edit and links to it (`codeSourceForms` in
+  [src/lib/budget/calculate.ts](src/lib/budget/calculate.ts), kept beside the formulas for that
+  reason — a form-less code simply has no icon). The level itself is now editable on
+  `/admin/offices-management/field-offices` — `saveFieldOffice` previously accepted the modal's
+  `মাঠ অফিসের স্তর` and silently dropped it, which is why a field office stayed levelless (and, with
+  the gate above, would see no codes at all). `npx tsc --noEmit` is clean; what has not run is the
+  manual browser pass.
 - **Formula engine and reporting: code is done, browser verification is not.** The engine
   consumes every `/admin/settings` card: the nine formerly-manual allowances are computed from
   their administrator rates, the house-rent and special-benefit slabs are grade-aware, and ডাক is

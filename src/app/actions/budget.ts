@@ -2,17 +2,25 @@
 
 import { prisma } from '@/lib/db/client'
 import { computeSubmissionSheet } from '@/lib/budget/sheet'
+import { codeSourceForms } from '@/lib/budget/calculate'
 
 export interface BudgetSheetRowItem {
   id: number
   code_id: number
   code: string
   name: string
+  /** Budget category the code belongs to, used to break the sheet into groups. */
+  category_id: number | null
+  category_code: string
+  category_name: string
   auto_value: number
   manual_value: number | null
   is_manual: boolean
   /** Computed by the engine but overridable by the office (e.g. ডাক). */
   allow_manual_override: boolean
+  /** The form numbers whose data produced this code's amount, so the office knows
+   *  which form to edit; empty for a manual code, which takes a direct entry. */
+  source_forms: number[]
   sort_order: number
 }
 
@@ -22,6 +30,8 @@ interface BudgetSheetDataResponse {
   rows: BudgetSheetRowItem[]
   totalAuto: number
   totalManual: number
+  /** The office's level name, shown as context on the sheet header. */
+  officeLevel: string
   missingForms?: string[]
 }
 
@@ -36,6 +46,7 @@ export async function getBudgetSheetData(submissionId: number): Promise<BudgetSh
       rows: [],
       totalAuto: 0,
       totalManual: 0,
+      officeLevel: '',
     }
   }
 
@@ -44,15 +55,25 @@ export async function getBudgetSheetData(submissionId: number): Promise<BudgetSh
     // which read the same rows, can never disagree with what the office sees here.
     const { rows: sheet, total, context: ctx } = await computeSubmissionSheet(submissionId)
 
+    const submission = await prisma.officeSubmission.findUnique({
+      where: { id: BigInt(submissionId) },
+      select: { office: { select: { officeLevel: { select: { levelName: true } } } } },
+    })
+    const officeLevel = submission?.office?.officeLevel?.levelName || ''
+
     const rows: BudgetSheetRowItem[] = sheet.map((r) => ({
       id: r.id,
       code_id: r.id,
       code: r.code,
       name: r.name,
+      category_id: r.category_id,
+      category_code: r.category_code,
+      category_name: r.category_name,
       auto_value: r.auto_value,
       manual_value: r.manual_value,
       is_manual: r.is_manual,
       allow_manual_override: r.allow_manual_override,
+      source_forms: codeSourceForms[r.code] || [],
       sort_order: r.sort_order,
     }))
 
@@ -70,6 +91,7 @@ export async function getBudgetSheetData(submissionId: number): Promise<BudgetSh
       rows,
       totalAuto,
       totalManual,
+      officeLevel,
       missingForms,
     }
   } catch (err: any) {
@@ -80,6 +102,7 @@ export async function getBudgetSheetData(submissionId: number): Promise<BudgetSh
       rows: [],
       totalAuto: 0,
       totalManual: 0,
+      officeLevel: '',
     }
   }
 }

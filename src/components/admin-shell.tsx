@@ -19,7 +19,6 @@ import {
   UserCheck,
   Building,
   Building2,
-  BarChart3,
   SlidersHorizontal,
   Calculator
 } from 'lucide-react'
@@ -99,11 +98,14 @@ export function AdminShell({
           </Link>
         </div>
 
-        {/* Middle Section: Application Title */}
+        {/* Middle Section: Application Logo + Title */}
         <div className="flex items-center gap-2.5">
-          <div className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 shadow-xs ${isSuperAdmin ? 'bg-emerald-600' : 'bg-blue-600'
-            }`}>
-            <BarChart3 className="h-4 w-4 text-white" />
+          <div className="h-9 w-9 rounded-full bg-white flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
+            <img
+              src="/images/bdgovlogo.png"
+              alt={strings.appName}
+              className="h-8 w-8 object-contain"
+            />
           </div>
           <span className="font-extrabold text-sm sm:text-base tracking-tight text-slate-100 truncate max-w-[200px] sm:max-w-none font-title">
             {strings.appName}

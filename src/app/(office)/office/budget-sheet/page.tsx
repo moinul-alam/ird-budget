@@ -10,18 +10,18 @@ export default async function BudgetSheetPage() {
   const submissionId = session.submission_id || null
 
   let initialRows: any[] = []
-  let initialTotalAuto = 0
   let initialTotalManual = 0
   let initialError: string | null = null
   let initialMissingForms: string[] = []
+  let officeLevel = ''
 
   if (submissionId) {
     const result = await getBudgetSheetData(submissionId)
     if (result.success) {
       initialRows = result.rows
-      initialTotalAuto = result.totalAuto
       initialTotalManual = result.totalManual
       initialMissingForms = result.missingForms || []
+      officeLevel = result.officeLevel || ''
     } else {
       initialError = result.error || 'বাজেট তথ্য লোড করা যায়নি।'
     }
@@ -33,10 +33,10 @@ export default async function BudgetSheetPage() {
     <BudgetSheetClient
       initialRows={initialRows}
       submissionId={submissionId}
-      initialTotalAuto={initialTotalAuto}
       initialTotalManual={initialTotalManual}
       initialError={initialError}
       initialMissingForms={initialMissingForms}
+      officeLevel={officeLevel}
     />
   )
 }

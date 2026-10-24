@@ -20,7 +20,7 @@ import {
   Lock,
 } from 'lucide-react'
 import Link from 'next/link'
-import { useState, useTransition, useMemo } from 'react'
+import { Fragment, useState, useTransition, useMemo } from 'react'
 import { recalculateBudget, saveManualValue, submitBudget, type BudgetSheetRowItem } from '@/app/actions/budget'
 import { useRouter } from 'next/navigation'
 import { useFormLock } from '@/components/form-lock-provider'
@@ -28,19 +28,45 @@ import { useFormLock } from '@/components/form-lock-provider'
 interface BudgetSheetClientProps {
   initialRows: BudgetSheetRowItem[]
   submissionId: number | null
-  initialTotalAuto: number
   initialTotalManual: number
   initialError?: string | null
   initialMissingForms?: string[]
+  /** The office's level name, shown as a summary card. */
+  officeLevel: string
 }
+
+/** Short labels for the form hint's links. */
+const SOURCE_FORM_TITLES: Record<number, string> = {
+  2: strings.forms.form2.short,
+  4: strings.forms.form4.short,
+  5: strings.forms.form5.short,
+  6: strings.forms.form6.short,
+  7: strings.forms.form7.short,
+  8: strings.forms.form8.short,
+  9: strings.forms.form9.short,
+  10: strings.forms.form10.short,
+  11: strings.forms.form11.short,
+  12: strings.forms.form12.short,
+}
+
+/**
+ * Three tints cycling one per row (row ১ → ২ → ৩ → ১ …). Kept as pale, low-saturation
+ * washes so the amber/blue entry boxes and the emerald total stay the loudest things
+ * on screen, but each step is a different hue (sky → violet → rose) so a row is still
+ * easy to track across the wide table.
+ */
+const ROW_TINTS = ['bg-sky-50/60', 'bg-violet-50/50', 'bg-rose-50/40']
+
+/** `w-72` in px — the hint is right-aligned to its icon, so it needs the room on the left. */
+const HINT_WIDTH = 288
 
 export function BudgetSheetClient({
   initialRows,
   submissionId,
-  initialTotalAuto,
   initialTotalManual,
   initialError,
   initialMissingForms = [],
+  officeLevel,
 }: BudgetSheetClientProps) {
   const [rows, setRows] = useState<BudgetSheetRowItem[]>(initialRows)
   const [isPending, startTransition] = useTransition()
@@ -48,7 +74,13 @@ export function BudgetSheetClient({
   const [errorMessage, setErrorMessage] = useState<string | null>(initialError || null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterType, setFilterType] = useState<'all' | 'auto' | 'manual' | 'has_value'>('all')
+  const [filterType, setFilterType] = useState<'all' | 'auto' | 'manual'>('all')
+  /**
+   * The form hint, pinned to the viewport at the clicked icon. It has to live outside
+   * the table because the table's own scroll container would clip anything anchored
+   * inside a cell.
+   */
+  const [hint, setHint] = useState<{ code: string; forms: number[]; top: number; left: number } | null>(null)
 
   const router = useRouter()
   const { locked, notice: lockNotice } = useFormLock()
@@ -133,11 +165,7 @@ export function BudgetSheetClient({
     })
   }
 
-  // Computed totals
-  const totalAuto = useMemo(() => {
-    return rows.reduce((sum, r) => sum + (r.auto_value || 0), 0)
-  }, [rows])
-
+  // Computed total: the one figure that counts for every row.
   const totalManual = useMemo(() => {
     return rows.reduce((sum, r) => {
       const effective = r.manual_value !== null ? r.manual_value : (r.auto_value || 0)
@@ -160,13 +188,42 @@ export function BudgetSheetClient({
       // Filter match
       if (filterType === 'auto') return !row.is_manual
       if (filterType === 'manual') return row.is_manual
-      if (filterType === 'has_value') {
-        const effective = row.manual_value !== null ? row.manual_value : (row.auto_value || 0)
-        return effective > 0
-      }
       return true
     })
   }, [rows, searchQuery, filterType])
+
+  /**
+   * Visible rows broken into category groups. The sheet sorts by category already, so
+   * a group is simply a run of rows sharing a `category_id` — each group is preceded by
+   * its own header row, giving the long table its structure back.
+   */
+  const groups = useMemo(() => {
+    const result: {
+      category_id: number | null
+      category_code: string
+      category_name: string
+      rows: BudgetSheetRowItem[]
+    }[] = []
+
+    for (const row of filteredRows) {
+      const last = result[result.length - 1]
+      if (last && last.category_id === row.category_id) {
+        last.rows.push(row)
+      } else {
+        result.push({
+          category_id: row.category_id,
+          category_code: row.category_code,
+          category_name: row.category_name,
+          rows: [row],
+        })
+      }
+    }
+
+    return result
+  }, [filteredRows])
+
+  // Continuous serial across the whole table (১ … n), carried over group boundaries.
+  let serial = 0
 
   return (
     <div className="p-4 sm:p-6 lg:p-10 max-w-6xl mx-auto space-y-6">
@@ -176,9 +233,6 @@ export function BudgetSheetClient({
           <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
             {strings.budgetSheet.title}
           </h1>
-          <p className="text-sm text-slate-600 mt-1">
-            {strings.budgetSheet.autoNote} • মোট {toBanglaNumber(rows.length)} টি কোড সংযুক্ত
-          </p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -239,114 +293,94 @@ export function BudgetSheetClient({
       {/* Summary Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="border-slate-200 shadow-xs bg-white">
-          <CardHeader className="pb-2">
+          <CardHeader>
             <CardDescription className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              স্বয়ংক্রিয় প্রাক্কলন (অটো)
-            </CardDescription>
-            <CardTitle className="text-2xl font-black text-blue-700 font-mono">
-              ৳ {toBanglaAmount(totalAuto)}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 text-[11px] text-slate-500 font-medium">
-            ফর্মের ইনপুট ও সূত্রের ভিত্তিতে গণনাকৃত
-          </CardContent>
-        </Card>
-
-        <Card className="border-slate-200 shadow-xs bg-white">
-          <CardHeader className="pb-2">
-            <CardDescription className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              সর্বমোট চূড়ান্ত বরাদ্দ
+              {strings.budgetSheet.totalFinalLabel}
             </CardDescription>
             <CardTitle className="text-2xl font-black text-emerald-700 font-mono">
               ৳ {toBanglaAmount(totalManual)}
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0 text-[11px] text-slate-500 font-medium">
-            ম্যানুয়াল পরিবর্তন ও স্বয়ংক্রিয় বরাদ্দের মোট যোগফল
-          </CardContent>
         </Card>
 
         <Card className="border-slate-200 shadow-xs bg-white">
-          <CardHeader className="pb-2">
+          <CardHeader>
             <CardDescription className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              বরাদ্দযুক্ত খাতের সংখ্যা
+              {strings.budgetSheet.codeCountLabel}
             </CardDescription>
             <CardTitle className="text-2xl font-black text-slate-800 font-mono">
-              {toBanglaNumber(rows.filter((r) => (r.manual_value ?? r.auto_value ?? 0) > 0).length)} / {toBanglaNumber(rows.length)}
+              {toBanglaNumber(rows.length)}
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0 text-[11px] text-slate-500 font-medium">
-            টাকা বরাদ্দ রয়েছে এমন খাতের হিসাব
-          </CardContent>
         </Card>
-      </div>
 
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-xs">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <Input
-            placeholder="কোড বা ব্যয়ের খাত অনুসন্ধান করুন (যেমন: ৩১১১১০১ বা বিদ্যুৎ)..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 text-xs sm:text-sm bg-slate-50/50 border-slate-200 focus:bg-white"
-          />
-        </div>
-
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-          <Button
-            size="sm"
-            variant={filterType === 'all' ? 'default' : 'outline'}
-            onClick={() => setFilterType('all')}
-            className="text-xs h-8 font-bold rounded-lg"
-          >
-            সকল ({toBanglaNumber(rows.length)})
-          </Button>
-          <Button
-            size="sm"
-            variant={filterType === 'has_value' ? 'default' : 'outline'}
-            onClick={() => setFilterType('has_value')}
-            className="text-xs h-8 font-bold rounded-lg"
-          >
-            বরাদ্দযুক্ত ({toBanglaNumber(rows.filter((r) => (r.manual_value ?? r.auto_value ?? 0) > 0).length)})
-          </Button>
-          <Button
-            size="sm"
-            variant={filterType === 'auto' ? 'default' : 'outline'}
-            onClick={() => setFilterType('auto')}
-            className="text-xs h-8 font-bold rounded-lg"
-          >
-            স্বয়ংক্রিয় ({toBanglaNumber(rows.filter((r) => !r.is_manual).length)})
-          </Button>
-          <Button
-            size="sm"
-            variant={filterType === 'manual' ? 'default' : 'outline'}
-            onClick={() => setFilterType('manual')}
-            className="text-xs h-8 font-bold rounded-lg"
-          >
-            ম্যানুয়াল ({toBanglaNumber(rows.filter((r) => r.is_manual).length)})
-          </Button>
-        </div>
+        <Card className="border-slate-200 shadow-xs bg-white">
+          <CardHeader>
+            <CardDescription className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              {strings.budgetSheet.officeLevelLabel}
+            </CardDescription>
+            <CardTitle className="text-2xl font-black text-slate-800">
+              {officeLevel || '—'}
+            </CardTitle>
+          </CardHeader>
+        </Card>
       </div>
 
       {/* Budget Table Card */}
       <Card className="border-slate-200 shadow-sm overflow-hidden bg-white">
-        <CardHeader className="bg-slate-50/60 border-b border-slate-100 py-4 px-6">
-          <div className="flex items-center justify-between">
-            <div>
+        <CardHeader className="bg-slate-50/60 border-b border-slate-100 py-3 px-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="flex items-center gap-3 shrink-0">
               <CardTitle className="text-lg font-bold text-slate-900">
                 বাজেট বিবরণী ছক
               </CardTitle>
-              <CardDescription className="text-xs text-slate-500 mt-0.5">
-                স্বয়ংক্রিয় কোডগুলোতে সরাসরি ফর্ম থেকে হিসাব প্রদর্শিত হচ্ছে এবং ম্যানুয়াল কোডে প্রয়োজনানুযায়ী বরাদ্দ পূরণ করতে পারেন। কিছু স্বয়ংক্রিয় খাতে (যেমন ডাক) প্রাক্কলিত হিসাব দেখানো হয়, প্রয়োজনে সেটিও সংশোধন করা যাবে।
-              </CardDescription>
+              {isSavingManual && (
+                <Badge variant="outline" className="gap-1.5 bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  সংরক্ষণ হচ্ছে...
+                </Badge>
+              )}
             </div>
-            {isSavingManual && (
-              <Badge variant="outline" className="gap-1.5 bg-blue-50 text-blue-700 border-blue-200 text-xs">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                সংরক্ষণ হচ্ছে...
-              </Badge>
-            )}
+
+            {/* Search + filters, right-aligned with the chart title */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div className="relative w-full sm:w-52">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="কোড বা খাত খুঁজুন..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-8 text-xs bg-white border-slate-200 focus:bg-white"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                <Button
+                  size="sm"
+                  variant={filterType === 'all' ? 'default' : 'outline'}
+                  onClick={() => setFilterType('all')}
+                  className="text-xs h-8 font-bold rounded-lg"
+                >
+                  সকল ({toBanglaNumber(rows.length)})
+                </Button>
+                <Button
+                  size="sm"
+                  variant={filterType === 'auto' ? 'default' : 'outline'}
+                  onClick={() => setFilterType('auto')}
+                  className="text-xs h-8 font-bold rounded-lg"
+                >
+                  স্বয়ংক্রিয় ({toBanglaNumber(rows.filter((r) => !r.is_manual).length)})
+                </Button>
+                <Button
+                  size="sm"
+                  variant={filterType === 'manual' ? 'default' : 'outline'}
+                  onClick={() => setFilterType('manual')}
+                  className="text-xs h-8 font-bold rounded-lg"
+                >
+                  ম্যানুয়াল এন্ট্রি ({toBanglaNumber(rows.filter((r) => r.is_manual).length)})
+                </Button>
+              </div>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -354,17 +388,16 @@ export function BudgetSheetClient({
             <table className="w-full text-sm text-left">
               <thead className="bg-slate-100/70 text-slate-700 font-bold border-b border-slate-200 text-xs uppercase tracking-wider">
                 <tr>
+                  <th className="py-3 px-4 w-14 text-center">{strings.budgetSheet.serialColumn}</th>
                   <th className="py-3 px-4 w-32">{strings.budgetSheet.codeColumn}</th>
                   <th className="py-3 px-4 min-w-[240px]">{strings.budgetSheet.nameColumn}</th>
-                  <th className="py-3 px-4 text-center w-28">ধরন</th>
-                  <th className="py-3 px-4 text-right w-44">{strings.budgetSheet.calculatedColumn}</th>
-                  <th className="py-3 px-4 text-right w-48">{strings.budgetSheet.finalColumn}</th>
+                  <th className="py-3 px-4 text-right w-48">{strings.budgetSheet.amountColumn}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="py-12 px-4 text-center text-slate-500">
+                    <td colSpan={4} className="py-12 px-4 text-center text-slate-500">
                       <div className="max-w-md mx-auto space-y-2">
                         <AlertCircle className="h-8 w-8 text-slate-400 mx-auto" />
                         <p className="font-bold text-slate-700">কোনো বাজেট কোড পাওয়া যায়নি</p>
@@ -375,102 +408,131 @@ export function BudgetSheetClient({
                     </td>
                   </tr>
                 ) : (
-                  filteredRows.map((row) => {
-                    const isManualType = row.is_manual
-                    // Some computed codes still take an office input, because the
-                    // engine can only estimate them (e.g. ডাক).
-                    const canOverride = !isManualType && row.allow_manual_override
-                    const effectiveValue = row.manual_value !== null ? row.manual_value : (row.auto_value || 0)
-
-                    return (
-                      <tr
-                        key={row.code}
-                        className={`transition-colors hover:bg-slate-50/70 ${
-                          effectiveValue > 0 ? 'bg-blue-50/20' : ''
-                        }`}
-                      >
-                        {/* Code */}
-                        <td className="py-3 px-4 font-mono font-bold text-slate-700 text-xs sm:text-sm">
-                          {row.code}
+                  groups.map((group, groupIndex) => (
+                    <Fragment key={`cat-${group.category_id ?? 'none'}-${groupIndex}`}>
+                      {/* Category break point: groups the codes below it and guides the
+                          reader through the long sheet. */}
+                      <tr className="bg-slate-100/80 border-y border-slate-200">
+                        <td className="py-2 px-4" />
+                        <td className="py-2 px-4 font-mono font-black text-slate-600 text-xs">
+                          {group.category_code}
                         </td>
-
-                        {/* Name */}
-                        <td className="py-3 px-4 text-slate-800 font-medium">
-                          {row.name}
-                        </td>
-
-                        {/* Type Badge */}
-                        <td className="py-3 px-4 text-center">
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                              isManualType
-                                ? 'bg-amber-50 text-amber-800 border-amber-300'
-                                : 'bg-blue-50 text-blue-800 border-blue-300'
-                            }`}
-                          >
-                            {isManualType ? 'ম্যানুয়াল' : 'স্বয়ংক্রিয়'}
-                          </Badge>
-                        </td>
-
-                        {/* Auto Value */}
-                        <td className="py-3 px-4 text-right font-mono font-bold text-slate-600">
-                          {isManualType ? (
-                            <span className="text-slate-300">—</span>
-                          ) : (
-                            <span>{toBanglaAmount(row.auto_value)}</span>
-                          )}
-                        </td>
-
-                        {/* Final / Manual Entry */}
-                        <td className="py-2.5 px-4 text-right">
-                          {locked ? (
-                            <div className="font-mono font-bold px-2 text-slate-900 text-sm">
-                              {toBanglaAmount(effectiveValue)}
-                            </div>
-                          ) : isManualType ? (
-                            <div className="flex items-center justify-end gap-1.5">
-                              <Input
-                                type="number"
-                                min="0"
-                                className="w-36 text-right font-mono font-bold h-9 bg-white text-slate-900 border-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                                value={row.manual_value ?? ''}
-                                onChange={(e) => handleManualChange(row.code, e.target.value)}
-                                placeholder="০"
-                              />
-                            </div>
-                          ) : canOverride ? (
-                            <div className="flex flex-col items-end gap-1">
-                              <Input
-                                type="number"
-                                min="0"
-                                className="w-36 text-right font-mono font-bold h-9 bg-white text-slate-900 border-dashed border-blue-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                                value={row.manual_value ?? ''}
-                                onChange={(e) => handleManualChange(row.code, e.target.value)}
-                                placeholder={toBanglaAmount(row.auto_value)}
-                              />
-                              <span className="text-[10px] font-semibold text-slate-400">
-                                স্বয়ংক্রিয় হিসাব: {toBanglaAmount(row.auto_value)}
-                              </span>
-                            </div>
-                          ) : (
-                            <div className="font-mono font-bold px-2 text-slate-900 text-sm">
-                              {toBanglaAmount(effectiveValue)}
-                            </div>
-                          )}
+                        <td colSpan={2} className="py-2 px-4 font-black text-slate-700">
+                          {group.category_name || 'অন্যান্য'}
                         </td>
                       </tr>
-                    )
-                  })
+
+                      {group.rows.map((row) => {
+                        const isManualType = row.is_manual
+                        // Some computed codes still take an office input, because the
+                        // engine can only estimate them (e.g. ডাক).
+                        const canOverride = !isManualType && row.allow_manual_override
+                        const effectiveValue = row.manual_value !== null ? row.manual_value : (row.auto_value || 0)
+                        const hasValue = effectiveValue > 0
+
+                        const rowIndex = serial
+                        serial += 1
+
+                        return (
+                          <tr
+                            key={row.code}
+                            className={`transition-colors hover:bg-blue-100/80 ${ROW_TINTS[rowIndex % 3]}`}
+                          >
+                            {/* ক্রম */}
+                            <td className="py-3 px-4 text-center font-mono font-bold text-slate-400 text-xs">
+                              {toBanglaNumber(rowIndex + 1)}
+                            </td>
+
+                            {/* Code */}
+                            <td className="py-3 px-4 font-mono font-bold text-slate-700 text-xs sm:text-sm">
+                              {row.code}
+                            </td>
+
+                            {/* Name */}
+                            <td className="py-3 px-4 text-slate-800 font-medium">
+                              {row.name}
+                            </td>
+
+                            {/* বরাদ্দের পরিমাণ — একটিই cell: হয় সরাসরি এন্ট্রি, নয়তো হিসাব।
+                                হিসাব করা খাতের পাশে তথ্য আইকন থাকে, যেটি কোন ফর্ম থেকে সংখ্যাটি
+                                এলো সেটি দেখায়। */}
+                            <td className="py-2.5 px-4">
+                              <div className="flex items-center justify-end gap-2">
+                                {locked ? (
+                                  <span
+                                    className={`font-mono font-bold px-2 text-sm ${hasValue ? 'text-slate-900' : 'text-slate-300'}`}
+                                  >
+                                    {toBanglaAmount(effectiveValue)}
+                                  </span>
+                                ) : isManualType ? (
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    className="w-40 text-right font-mono font-bold h-9 bg-amber-50/40 text-slate-900 border-2 border-amber-400 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                                    value={row.manual_value ?? ''}
+                                    onChange={(e) => handleManualChange(row.code, e.target.value)}
+                                    placeholder="০"
+                                  />
+                                ) : canOverride ? (
+                                  <div className="flex flex-col items-end gap-1">
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      className="w-40 text-right font-mono font-bold h-9 bg-blue-50/40 text-slate-900 border-2 border-dashed border-blue-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                      value={row.manual_value ?? ''}
+                                      onChange={(e) => handleManualChange(row.code, e.target.value)}
+                                      placeholder={toBanglaAmount(row.auto_value)}
+                                    />
+                                    <span className="text-[10px] font-semibold text-slate-400">
+                                      স্বয়ংক্রিয় হিসাব: {toBanglaAmount(row.auto_value)}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span
+                                    className={`font-mono font-bold px-2 text-sm ${hasValue ? 'text-slate-900' : 'text-slate-300'}`}
+                                  >
+                                    {toBanglaAmount(effectiveValue)}
+                                  </span>
+                                )}
+
+                                {row.source_forms.length > 0 && (
+                                  <button
+                                    type="button"
+                                    aria-label={strings.budgetSheet.formHintAria}
+                                    onClick={(e) => {
+                                      const rect = e.currentTarget.getBoundingClientRect()
+                                      setHint((prev) =>
+                                        prev?.code === row.code
+                                          ? null
+                                          : {
+                                              code: row.code,
+                                              forms: row.source_forms,
+                                              top: rect.bottom + 6,
+                                              left: Math.max(HINT_WIDTH + 12, Math.min(rect.right, window.innerWidth - 12)),
+                                            }
+                                      )
+                                    }}
+                                    className={`shrink-0 rounded-full transition-colors ${hint?.code === row.code
+                                      ? 'text-orange-500'
+                                      : 'text-orange-300 hover:text-orange-500'
+                                      }`}
+                                  >
+                                    <Info className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </Fragment>
+                  ))
                 )}
               </tbody>
               <tfoot className="bg-slate-100 border-t-2 border-slate-300 font-black text-slate-900 text-sm">
                 <tr>
                   <td colSpan={3} className="py-4 px-4 text-right">
                     {strings.budgetSheet.totalRow}:
-                  </td>
-                  <td className="py-4 px-4 text-right font-mono text-blue-800">
-                    ৳ {toBanglaAmount(totalAuto)}
                   </td>
                   <td className="py-4 px-4 text-right font-mono text-emerald-800 text-base">
                     ৳ {toBanglaAmount(totalManual)}
@@ -505,6 +567,41 @@ export function BudgetSheetClient({
           </Button>
         )}
       </div>
+
+      {/* ফরম হিন্ট — viewport-pinned, because the table's scroll container would clip it.
+          The full-screen backdrop makes a click anywhere else dismiss it. */}
+      {hint && (
+        <>
+          <button
+            type="button"
+            aria-label="বন্ধ করুন"
+            className="fixed inset-0 z-40 cursor-default"
+            onClick={() => setHint(null)}
+          />
+          <div
+            className="fixed z-50 w-72 -translate-x-full rounded-xl border border-slate-200 bg-white p-3 shadow-xl"
+            style={{ top: hint.top, left: hint.left }}
+          >
+            <p className="text-[11px] font-bold leading-relaxed text-slate-700">
+              পরিবর্তন করতে{' '}
+              {hint.forms.map((n) => `${strings.budgetSheet.formLabel} ${toBanglaNumber(n)}`).join(' ও ')}{' '}
+              সংশোধন করে পুনরায় গণনা করুন।
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {hint.forms.map((formNo) => (
+                <Link
+                  key={formNo}
+                  href={`/office/form-${formNo}`}
+                  title={SOURCE_FORM_TITLES[formNo] || ''}
+                  className="text-[10px] font-bold px-2 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
+                >
+                  {strings.budgetSheet.formLabel} {toBanglaNumber(formNo)} — সংশোধন করুন
+                </Link>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

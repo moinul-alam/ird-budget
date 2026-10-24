@@ -14,6 +14,7 @@ export interface EconomicCodeRef {
   code: string
   name: string
   category_id: number | null
+  category_code: string
   category_name: string
   category_sort_order: number
   is_manual: boolean
@@ -21,8 +22,43 @@ export interface EconomicCodeRef {
   sort_order: number
 }
 
-/** The active codes in sheet order. Reference data only — never a hardcoded list. */
-export async function getActiveEconomicCodes(): Promise<EconomicCodeRef[]> {
+/**
+ * The codes the administrator enabled for one office level on /admin/codes. A level
+ * with no rows at all is *not* an open level: nothing was granted, so nothing is
+ * returned — the same reading the admin screen itself shows.
+ */
+async function getLevelEnabledCodeIds(officeLevelId: number | null): Promise<number[]> {
+  if (officeLevelId === null) return []
+
+  const rows = await prisma.officeLevelEconomicCodeMapping.findMany({
+    where: { officeLevelId: BigInt(officeLevelId), isEnabled: true },
+    select: { economicCodeId: true },
+  })
+  return rows.map((r) => Number(r.economicCodeId))
+}
+
+/** The office's level, which is what the administrator grants codes against. */
+async function getSubmissionOfficeLevelId(submissionId: number): Promise<number | null> {
+  const submission = await prisma.officeSubmission.findUnique({
+    where: { id: BigInt(submissionId) },
+    select: { office: { select: { officeLevelId: true } } },
+  })
+  return submission?.office?.officeLevelId ? Number(submission.office.officeLevelId) : null
+}
+
+/**
+ * The active codes in sheet order. Reference data only — never a hardcoded list.
+ *
+ * Pass an office's level to get only the codes the administrator granted that level;
+ * omit the argument entirely for the global reference list the reports roll up against.
+ */
+export async function getActiveEconomicCodes(
+  officeLevelId?: number | null
+): Promise<EconomicCodeRef[]> {
+  // `undefined` = global list; a number or an explicit null = one office, which is
+  // gated by its level's mapping.
+  const enabledCodeIds = officeLevelId === undefined ? null : await getLevelEnabledCodeIds(officeLevelId)
+
   const dbCodes = await prisma.refEconomicCode.findMany({
     select: {
       id: true,
@@ -32,9 +68,12 @@ export async function getActiveEconomicCodes(): Promise<EconomicCodeRef[]> {
       isManual: true,
       allowManualOverride: true,
       sortOrder: true,
-      category: { select: { title: true, sortOrder: true } },
+      category: { select: { code: true, title: true, sortOrder: true } },
     },
-    where: { isActive: true },
+    where:
+      enabledCodeIds === null
+        ? { isActive: true }
+        : { isActive: true, id: { in: enabledCodeIds.map((id) => BigInt(id)) } },
     orderBy: { sortOrder: 'asc' },
   })
 
@@ -43,6 +82,7 @@ export async function getActiveEconomicCodes(): Promise<EconomicCodeRef[]> {
     code: c.code,
     name: c.name || '',
     category_id: c.categoryId ? Number(c.categoryId) : null,
+    category_code: c.category?.code || '',
     category_name: c.category?.title || '',
     category_sort_order: Number(c.category?.sortOrder ?? 0),
     is_manual: c.isManual,
@@ -91,10 +131,13 @@ function buildRows(
  * the office's manual overrides laid on top.
  */
 export async function computeSubmissionSheet(submissionId: number): Promise<SubmissionSheet> {
-  const [context, codes] = await Promise.all([
+  // The office's level decides which codes it is even allowed to see, so it is
+  // resolved before the code list is asked for.
+  const [context, officeLevelId] = await Promise.all([
     getBudgetContext(submissionId),
-    getActiveEconomicCodes(),
+    getSubmissionOfficeLevelId(submissionId),
   ])
+  const codes = await getActiveEconomicCodes(officeLevelId)
 
   const formulaCodes = codes.filter((c) => !c.is_manual).map((c) => c.code)
   const calculated = calculateAll(formulaCodes, context)

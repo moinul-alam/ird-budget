@@ -353,6 +353,46 @@ export const codeFormulas: Record<string, (ctx: BudgetContext) => number> = {
 };
 
 /**
+ * Which office form feeds each computed code. A code the engine calculates is
+ * read-only in the budget sheet, so this is the only pointer the office has to
+ * where the number comes from and where to change it. Manual codes take a direct
+ * entry and have no entry here. Kept beside the formulas because it describes
+ * the same fact: what the engine reads to produce the code.
+ */
+export const codeSourceForms: Record<string, number[]> = {
+  '3111101': [2, 4],
+  '3111110': [6],
+  '3111201': [2, 4],
+  '3111209': [6],
+  '3111301': [5],
+  '3111302': [2],
+  '3111306': [2],
+  '3111310': [2],
+  '3111311': [2],
+  '3111312': [2],
+  '3111313': [2],
+  '3111314': [2],
+  '3111316': [2],
+  '3111325': [2],
+  '3111328': [6],
+  '3111331': [2],
+  '3111335': [2],
+  '3111352': [2],
+  '3211107': [8],
+  '3211113': [11],
+  '3211115': [11],
+  '3211117': [11],
+  '3211119': [12],
+  '3211129': [9],
+  '3243301': [7],
+  '3243302': [7],
+  '3255101': [10],
+  '3258101': [7],
+  '3258140': [7],
+  '4112202': [10],
+};
+
+/**
  * Live preview for the calculated cards of form 5. `dutyMonthlyRate` is the
  * administrator's দায়িত্ব ভাতা tile; without it the card cannot be projected.
  */
