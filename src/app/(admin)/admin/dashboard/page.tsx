@@ -21,6 +21,8 @@ import {
   BarChart3
 } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata = {
   title: 'অ্যাডমিন ড্যাশবোর্ড | আইআরডি বাজেট ব্যবস্থাপনা',
 }
