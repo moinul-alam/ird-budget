@@ -274,7 +274,6 @@ export const strings = {
     addLeave: 'যোগ করুন (+)',
     editLeave: 'সম্পাদনা করুন',
     deleteLeave: 'মুছুন',
-    calculationNote: 'মোট মূল বেতন × ১২ মাস',
     personUnit: 'জন',
   },
 

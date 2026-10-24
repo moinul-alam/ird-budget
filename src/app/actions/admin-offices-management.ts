@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db/client'
 import { getAdminSession } from '@/lib/auth-admin'
 import { revalidatePath } from 'next/cache'
 import { getOfficeTypes, getDepartments, getMinistries } from './admin-offices-config'
+import { DEFAULT_OFFICE_PASSWORD } from '@/lib/office/defaults'
 
 export interface HeadOfficeItem {
   id: string
@@ -224,7 +225,7 @@ export async function getFieldOffices(): Promise<FieldOfficeItem[]> {
     office_level_name: off.officeLevel?.levelName,
     head_office_id: off.parentOfficeId ? String(off.parentOfficeId) : '',
     head_office_name: off.parentOffice?.name || '—',
-    password_hint: off.officeUsers?.[0]?.passwordHint || '12345',
+    password_hint: off.officeUsers?.[0]?.passwordHint || DEFAULT_OFFICE_PASSWORD,
     created_at: off.createdAt.toISOString(),
   }))
 }
@@ -245,7 +246,7 @@ export async function saveFieldOffice(data: {
 
   const trimmedName = data.name.trim()
   const trimmedBudget = data.budget_id.trim()
-  const pwd = (data.password?.trim()) || '12345'
+  const pwd = (data.password?.trim()) || DEFAULT_OFFICE_PASSWORD
 
   if (!trimmedName) return { error: 'মাঠ পর্যায়ের অফিসের নাম আবশ্যক' }
   if (!trimmedBudget) return { error: 'বাজেট আইডি আবশ্যক' }

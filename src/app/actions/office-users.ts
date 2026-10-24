@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/db/client'
 import { getAdminSession } from '@/lib/auth-admin'
+import { DEFAULT_OFFICE_PASSWORD } from '@/lib/office/defaults'
 import { revalidatePath } from 'next/cache'
 import crypto from 'crypto'
 
@@ -54,10 +55,10 @@ export async function getAllOfficeUsersList(): Promise<{ offices: OfficeUserItem
   })
 
   if (!offices || offices.length === 0) {
-    return { offices: [], defaultPassword: '12345' }
+    return { offices: [], defaultPassword: DEFAULT_OFFICE_PASSWORD }
   }
 
-  const defaultPassword = '12345'
+  const defaultPassword = DEFAULT_OFFICE_PASSWORD
 
   const list: OfficeUserItem[] = offices.map((o) => {
     const hint = o.officeUsers?.[0]?.passwordHint || defaultPassword
@@ -99,10 +100,12 @@ export async function updateOfficePassword(
       where: { officeId: BigInt(officeId) },
       update: {
         passwordHash: pwdHash,
+        passwordHint: cleanPwd,
       },
       create: {
         officeId: BigInt(officeId),
         passwordHash: pwdHash,
+        passwordHint: cleanPwd,
       },
     })
 
@@ -114,16 +117,16 @@ export async function updateOfficePassword(
 }
 
 export async function resetOfficePassword(officeId: number) {
-  return updateOfficePassword(officeId, '12345')
+  return updateOfficePassword(officeId, DEFAULT_OFFICE_PASSWORD)
 }
 
-export async function resetAllOfficesPassword(targetPassword = '12345') {
+export async function resetAllOfficesPassword(targetPassword = DEFAULT_OFFICE_PASSWORD) {
   const session = await getAdminSession()
   if (!session || session.role !== 'superadmin') {
     return { error: 'অননুমোদিত প্রবেশাধিকার' }
   }
 
-  const cleanPwd = targetPassword.trim() || '12345'
+  const cleanPwd = targetPassword.trim() || DEFAULT_OFFICE_PASSWORD
   const pwdHash = hashPassword(cleanPwd)
 
   try {

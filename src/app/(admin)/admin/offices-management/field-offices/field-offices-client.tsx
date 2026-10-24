@@ -22,6 +22,7 @@ import {
   deleteFieldOffice,
 } from '@/app/actions/admin-offices-management'
 import { MinistryItem, DepartmentItem, OfficeTypeHierarchyItem, OfficeLevelItem } from '@/app/actions/admin-offices-config'
+import { DEFAULT_OFFICE_PASSWORD } from '@/lib/office/defaults'
 import { FieldOfficeModalState, ConfirmModalState } from './_types/field-offices'
 import { FieldOfficesTable } from './_components/field-offices-table'
 import { FieldOfficeModal } from './_components/field-office-modal'
@@ -189,7 +190,7 @@ export function FieldOfficesClient({
         head_office_id: modal.head_office_id,
         office_type_id: modal.office_type_id,
         office_level_id: modal.office_level_id,
-        password: '12345', // Default 12345 for login
+        password: DEFAULT_OFFICE_PASSWORD,
       })
 
       if (res.error) {
@@ -197,7 +198,7 @@ export function FieldOfficesClient({
       } else {
         const msg = modal.id
           ? 'মাঠ পর্যায়ের অফিস সফলভাবে আপডেট হয়েছে'
-          : `নতুন অফিস তৈরি হয়েছে! ইউজার আইডি: ${englishBudgetId}, পাসওয়ার্ড: 12345`
+          : `নতুন অফিস তৈরি হয়েছে! ইউজার আইডি: ${englishBudgetId}, পাসওয়ার্ড: ${DEFAULT_OFFICE_PASSWORD}`
         showStatus(msg)
         setModal((prev) => ({ ...prev, open: false }))
 
@@ -245,7 +246,7 @@ export function FieldOfficesClient({
               office_type_name: typeObj?.name || '',
               office_level_id: modal.office_level_id,
               office_level_name: levelObj?.level_name,
-              password_hint: '12345',
+              password_hint: DEFAULT_OFFICE_PASSWORD,
               created_at: new Date().toISOString(),
             },
             ...prev,

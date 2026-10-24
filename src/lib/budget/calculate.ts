@@ -38,6 +38,8 @@ export interface BudgetContext {
   staff: Array<{
     category: 'officer' | 'staff' | null;
     total_basic: number;
+    /** বকেয়া বেতন — a lump-sum arrears figure, added once rather than scaled by months. */
+    due_basic: number;
     count: number;
     /** Grade number (1-20) of this row, used to resolve grade-scoped rates. */
     grade_id: number;
@@ -48,7 +50,9 @@ export interface BudgetContext {
   }>;
   leave: {
     leave_encashment_officer_basic: number;
+    leave_encashment_officer_due: number;
     leave_encashment_staff_basic: number;
+    leave_encashment_staff_due: number;
     rest_recreation_amount: number;
   } | null;
   utilities: Array<{
@@ -92,13 +96,21 @@ export interface BudgetContext {
   /** Grade-scoped rates configured on /admin/settings tab 1. */
   salary?: BudgetSalary;
   /**
-   * Form 5 allowance cards. The office counts who qualifies for these, so the
-   * engine only supplies the rate.
+   * Form 5 allowance cards. For দায়িত্ব ভাতা the office supplies only the count
+   * and the engine the rate; the rest are the office's own figures — a monthly
+   * rate, a lump sum or a total basic — which the engine scales by the budget
+   * months where the card describes a monthly amount.
    */
   allowances?: Array<{
     name: string;
     officer_count: number;
     staff_count: number;
+    /** The card's figure: মাসিক হার or এককালীন টাকা, whichever the form collected. */
+    amount: number;
+    /** ফর্মে লেখা মাসিক মোট মূল বেতন — অধিকাল ভাতার ভিত্তি। */
+    total_basic: number;
+    /** বকেয়া — একবার যোগ হয়, মাস দিয়ে গুণ হয় না। */
+    due: number;
   }>;
 }
 
@@ -129,46 +141,62 @@ export function gradeRate(salary: BudgetSalary | undefined, key: string, gradeId
   return num(tile.value)
 }
 
-/** Annual total of a per-head monthly rate: rate × headcount-in-grade × 12. */
-const gradeMonthlyTotal = (ctx: BudgetContext, key: string) =>
-  ctx.staff.reduce(
-    (sum, r) => sum + gradeRate(ctx.salary, key, int(r.grade_id)) * int(r.count) * 12,
-    0
-  );
+/**
+ * Months in the budget year, set by the administrator as বেতন-ভাতা মাস on
+ * /admin/settings. Every monthly figure is annualised with this — never a
+ * compiled-in 12 — so a shorter or longer budget year scales the whole sheet.
+ */
+const budgetMonths = (ctx: BudgetContext) => num(ctx.salary?.tiles?.salary_months?.value)
 
-/** Annual total of a percentage-of-basic rate: grade basic × rate% × 12. */
-const gradePercentTotal = (ctx: BudgetContext, key: string) =>
-  ctx.staff.reduce(
-    (sum, r) => sum + (num(r.total_basic) * gradeRate(ctx.salary, key, int(r.grade_id))) / 100 * 12,
+/** Annual total of a per-head monthly rate: rate × headcount-in-grade × budget months. */
+const gradeMonthlyTotal = (ctx: BudgetContext, key: string) => {
+  const months = budgetMonths(ctx)
+  return ctx.staff.reduce(
+    (sum, r) => sum + gradeRate(ctx.salary, key, int(r.grade_id)) * int(r.count) * months,
     0
-  );
+  )
+}
+
+/** Annual total of a percentage-of-basic rate: grade basic × rate% × budget months. */
+const gradePercentTotal = (ctx: BudgetContext, key: string) => {
+  const months = budgetMonths(ctx)
+  return ctx.staff.reduce(
+    (sum, r) => sum + (num(r.total_basic) * gradeRate(ctx.salary, key, int(r.grade_id))) / 100 * months,
+    0
+  )
+}
 
 export const codeFormulas: Record<string, (ctx: BudgetContext) => number> = {
-  // মূল বেতন (অফিসার)
+  // মূল বেতন (অফিসার) — বার্ষিক মূল বেতন (মাসিক মোট × বেতন-ভাতা মাস) + বকেয়া বেতন।
+  // Form 4 is নবনিয়োগপ্রাপ্ত কর্মচারী, so it never feeds an officer code.
   '3111101': (ctx) => {
+    const months = budgetMonths(ctx);
     const officerRows = ctx.staff.filter((s) => s.category === 'officer');
-    const base = officerRows.reduce((sum, r) => sum + num(r.total_basic) * 12, 0);
-    const newOfficer = (ctx.newStaff || [])
-      .filter((s) => s.category === 'officer')
-      .reduce((sum, r) => sum + num(r.total_salary), 0);
-    return base + newOfficer;
+    return officerRows.reduce((sum, r) => sum + num(r.total_basic) * months + num(r.due_basic), 0);
   },
   
-  // মূল বেতন (কর্মচারী)
+  // মূল বেতন (কর্মচারী) — বার্ষিক মূল বেতন + বকেয়া ও নবনিয়োগপ্রাপ্তদের বার্ষিক বেতন।
   '3111201': (ctx) => {
+    const months = budgetMonths(ctx);
     const staffRows = ctx.staff.filter((s) => s.category === 'staff');
-    const base = staffRows.reduce((sum, r) => sum + num(r.total_basic) * 12, 0);
+    const base = staffRows.reduce((sum, r) => sum + num(r.total_basic) * months + num(r.due_basic), 0);
     const newStaffSum = (ctx.newStaff || [])
       .filter((s) => s.category === 'staff')
       .reduce((sum, r) => sum + num(r.total_salary), 0);
     return base + newStaffSum;
   },
 
-  // ছুটি নগদায়ন বেতন (অফিসার)
-  '3111110': (ctx) => num(ctx.leave?.leave_encashment_officer_basic),
+  // ছুটি নগদায়ন বেতন (অফিসার) — মাসিক মূল বেতন × ছুটির মাস সংখ্যা (/admin/settings) + বকেয়া।
+  '3111110': (ctx) => {
+    const months = num(ctx.salary?.tiles?.leave_encashment_months?.value);
+    return num(ctx.leave?.leave_encashment_officer_basic) * months + num(ctx.leave?.leave_encashment_officer_due);
+  },
   
-  // ছুটি নগদায়ন বেতন (কর্মচারী)
-  '3111209': (ctx) => num(ctx.leave?.leave_encashment_staff_basic),
+  // ছুটি নগদায়ন বেতন (কর্মচারী) — মাসিক মূল বেতন × ছুটির মাস সংখ্যা + বকেয়া।
+  '3111209': (ctx) => {
+    const months = num(ctx.salary?.tiles?.leave_encashment_months?.value);
+    return num(ctx.leave?.leave_encashment_staff_basic) * months + num(ctx.leave?.leave_encashment_staff_due);
+  },
 
   // দায়িত্ব ভাতা — form 5 asks the office how many staff receive it; the
   // administrator only supplies the monthly rate.
@@ -179,15 +207,27 @@ export const codeFormulas: Record<string, (ctx: BudgetContext) => number> = {
     return count * monthlyRate * DUTY_ALLOWANCE_MONTHS;
   },
 
-  // যাতায়াত ভাতা (per grade monthly rate × headcount in that grade × 12)
+  // যাতায়াত ভাতা (per grade monthly rate × headcount in that grade × বেতন-ভাতা মাস)
   '3111302': (ctx) => gradeMonthlyTotal(ctx, 'transport_allowance'),
 
-  // শিক্ষা ভাতা (headcount * monthly rate * 12 months)
+  // শিক্ষা ভাতা (headcount × monthly rate × বেতন-ভাতা মাস)
   // The rate is a flat amount per staff member: no form collects a child count,
   // so the office headcount is the only multiplier.
   '3111306': (ctx) => {
     const totalStaff = ctx.staff.reduce((s, r) => s + int(r.count), 0);
-    return totalStaff * (ctx.rates.education_allowance || 0) * 12;
+    return totalStaff * (ctx.rates.education_allowance || 0) * budgetMonths(ctx);
+  },
+
+  // ঝুঁকি ভাতা — form 5-এ অফিসের লেখা মাসিক হার × বেতন-ভাতা মাস + বকেয়া।
+  '3111308': (ctx) => {
+    const row = (ctx.allowances || []).find((a) => a.name === 'risk');
+    return num(row?.amount) * budgetMonths(ctx) + num(row?.due);
+  },
+
+  // পাহাড়ী ভাতা — form 5-এ অফিসের লেখা মাসিক হার × বেতন-ভাতা মাস + বকেয়া।
+  '3111309': (ctx) => {
+    const row = (ctx.allowances || []).find((a) => a.name === 'hill');
+    return num(row?.amount) * budgetMonths(ctx) + num(row?.due);
   },
 
   // বাড়ি ভাড়া ভাতা — the rate is a percentage of basic and the percentage is
@@ -197,17 +237,23 @@ export const codeFormulas: Record<string, (ctx: BudgetContext) => number> = {
   // চিকিৎসা ভাতা
   '3111311': (ctx) => {
     const totalCount = ctx.staff.reduce((s, r) => s + int(r.count), 0);
-    return totalCount * (ctx.rates.medical_allowance_monthly || 0) * 12;
+    return totalCount * (ctx.rates.medical_allowance_monthly || 0) * budgetMonths(ctx);
   },
 
-  // মোবাইল/সেলফোন ভাতা (per grade slab × headcount in that grade × 12)
+  // মোবাইল/সেলফোন ভাতা (per grade slab × headcount in that grade × বেতন-ভাতা মাস)
   '3111312': (ctx) => gradeMonthlyTotal(ctx, 'mobile_allowance'),
 
-  // আবাসিক টেলিফোন নগদায়ন (per grade monthly rate × headcount × 12)
+  // আবাসিক টেলিফোন নগদায়ন (per grade monthly rate × headcount × বেতন-ভাতা মাস)
   '3111313': (ctx) => gradeMonthlyTotal(ctx, 'telephone_allowance'),
 
   // টিফিন ভাতা
   '3111314': (ctx) => gradeMonthlyTotal(ctx, 'tiffin_allowance'),
+
+  // পোশাক ভাতা — form 5-এ অফিস যা লিখেছে তাই, মাস দিয়ে গুণ হয় না; বকেয়া যোগ হয়।
+  '3111315': (ctx) => {
+    const row = (ctx.allowances || []).find((a) => a.name === 'dress');
+    return num(row?.amount) + num(row?.due);
+  },
 
   // ধোলাই ভাতা
   '3111316': (ctx) => gradeMonthlyTotal(ctx, 'wash_allowance'),
@@ -218,14 +264,20 @@ export const codeFormulas: Record<string, (ctx: BudgetContext) => number> = {
     return totalBasicAll * (ctx.rates.festival_bonus_multiplier || 0);
   },
 
+  // অধিকাল ভাতা (চালক) — form 5-এ অফিসের লেখা মাসিক মোট মূল বেতন × বেতন-ভাতা মাস + বকেয়া।
+  '3111327': (ctx) => {
+    const row = (ctx.allowances || []).find((a) => a.name === 'overtime');
+    return num(row?.total_basic) * budgetMonths(ctx) + num(row?.due);
+  },
+
   // শ্রান্তি ও বিনোদন ভাতা (Manual entry from form - leave blank or direct form value)
   '3111328': (ctx) => num(ctx.leave?.rest_recreation_amount),
 
-  // আপ্যায়ন ভাতা (per grade monthly rate × headcount in that grade × 12)
+  // আপ্যায়ন ভাতা (per grade monthly rate × headcount in that grade × বেতন-ভাতা মাস)
   '3111331': (ctx) => gradeMonthlyTotal(ctx, 'entertainment_allowance'),
 
   // বাংলা নববর্ষ ভাতা — a one-off payment, so the percentage is applied to one
-  // month of basic and never multiplied by twelve.
+  // month of basic and never multiplied by the budget months.
   '3111335': (ctx) => {
     const totalBasicAll = ctx.staff.reduce((s, r) => s + num(r.total_basic), 0);
     return (totalBasicAll * num(ctx.salary?.tiles?.noboborsho_percent?.value)) / 100;
@@ -249,6 +301,12 @@ export const codeFormulas: Record<string, (ctx: BudgetContext) => number> = {
   // ইন্টারনেট/ফ্যাক্স/টেলেক্স (Manual entry)
   '3211117': (ctx) => {
     const row = ctx.utilities.find((u) => u.type_name === 'ইন্টারনেট');
+    return num(row?.annual_cost);
+  },
+
+  // টেলিফোন (form 11-এ লেখা বাৎসরিক বিল)
+  '3211120': (ctx) => {
+    const row = ctx.utilities.find((u) => u.type_name === 'টেলিফোন');
     return num(row?.annual_cost);
   },
 
@@ -276,18 +334,19 @@ export const codeFormulas: Record<string, (ctx: BudgetContext) => number> = {
     const monthly = num(ctx.houseRent?.monthly_bill);
     const due = num(ctx.houseRent?.due);
     const vatPct = ctx.rates.vat_percentage || 0;
-    return monthly * 12 * (1 + vatPct / 100) + due;
+    return monthly * budgetMonths(ctx) * (1 + vatPct / 100) + due;
   },
 
   // পেট্রোল, অয়েল ও লুব্রিকেন্ট — every fuel the administrator classed as oil on
   // /admin/settings (জ্বালানির দর); the category decides, not the fuel's name.
   '3243301': (ctx) => {
+    const months = budgetMonths(ctx);
     return ctx.vehicles
       .filter((v) => v.fuel_category === 'oil')
       .reduce((sum, v) => {
         const fuelRate = ctx.rates[v.rate_key!] || 0;
         const monthlyFuel = num(v.monthly_fuel_allowance) * fuelRate;
-        const annualFuel = monthlyFuel * 12 * int(v.count);
+        const annualFuel = monthlyFuel * months * int(v.count);
         const annualLube = num(v.annual_lube_allowance) * int(v.count);
         // অতিরিক্ত ব্যয় is the office's own figure for this row, so it is added
         // as-is — no monthly or per-vehicle multiplication.
@@ -297,12 +356,13 @@ export const codeFormulas: Record<string, (ctx: BudgetContext) => number> = {
 
   // গ্যাস ও জ্বালানী — every fuel the administrator classed as gas.
   '3243302': (ctx) => {
+    const months = budgetMonths(ctx);
     return ctx.vehicles
       .filter((v) => v.fuel_category === 'gas')
       .reduce((sum, v) => {
         const fuelRate = ctx.rates[v.rate_key!] || 0;
         const monthlyFuel = num(v.monthly_fuel_allowance) * fuelRate;
-        const annualFuel = monthlyFuel * 12 * int(v.count);
+        const annualFuel = monthlyFuel * months * int(v.count);
         const annualLube = num(v.annual_lube_allowance) * int(v.count);
         return sum + annualFuel + annualLube + num(v.additional_expense);
       }, 0);
@@ -310,16 +370,24 @@ export const codeFormulas: Record<string, (ctx: BudgetContext) => number> = {
 
   // যানবাহন ব্যবহার (চুক্তিভিত্তিক)
   '3211107': (ctx) => {
+    const months = budgetMonths(ctx);
     return ctx.vehicleRent.reduce((sum, vr) => {
-      return sum + int(vr.count) * num(vr.monthly_rent_allowance) * 12;
+      return sum + int(vr.count) * num(vr.monthly_rent_allowance) * months;
     }, 0);
+  },
+
+  // পোশাক — form 5-এর পোশাক ভাতা কার্ডে ঘোষিত পরিমাণ + বকেয়া। মাস দিয়ে গুণ হয় না,
+  // কারণ কার্ডটি মাসিক হার নয়, সরাসরি পরিমাণ নেয় (3111315-এর মতোই একই উৎস)।
+  '3256106': (ctx) => {
+    const row = (ctx.allowances || []).find((a) => a.name === 'dress');
+    return num(row?.amount) + num(row?.due);
   },
 
   // কম্পিউটার সামগ্রী — প্রতি টোনারের দাম × প্রিন্টারের সংখ্যা × বেতন-ভাতা মাস
   // (/admin/settings)। মাসের সংখ্যা কোনো জায়গায় স্থির করা নয়; টাইলটি না থাকলে
   // গুণক শূন্য, অর্থাৎ বরাদ্দ শূন্য — কোনো সংখ্যা এই ইঞ্জিন বানিয়ে দেয় না।
   '3255101': (ctx) => {
-    const months = num(ctx.salary?.tiles?.salary_months?.value);
+    const months = budgetMonths(ctx);
     const printers = (ctx.itEquipment || []).filter((eq) =>
       eq.equipment_name.toLowerCase().includes('printer') || eq.equipment_name.includes('প্রিন্টার')
     );
@@ -360,20 +428,24 @@ export const codeFormulas: Record<string, (ctx: BudgetContext) => number> = {
  * the same fact: what the engine reads to produce the code.
  */
 export const codeSourceForms: Record<string, number[]> = {
-  '3111101': [2, 4],
+  '3111101': [2],
   '3111110': [6],
   '3111201': [2, 4],
   '3111209': [6],
   '3111301': [5],
   '3111302': [2],
   '3111306': [2],
+  '3111308': [5],
+  '3111309': [5],
   '3111310': [2],
   '3111311': [2],
   '3111312': [2],
   '3111313': [2],
   '3111314': [2],
+  '3111315': [5],
   '3111316': [2],
   '3111325': [2],
+  '3111327': [5],
   '3111328': [6],
   '3111331': [2],
   '3111335': [2],
@@ -383,10 +455,12 @@ export const codeSourceForms: Record<string, number[]> = {
   '3211115': [11],
   '3211117': [11],
   '3211119': [12],
+  '3211120': [11],
   '3211129': [9],
   '3243301': [7],
   '3243302': [7],
   '3255101': [10],
+  '3256106': [5],
   '3258101': [7],
   '3258140': [7],
   '4112202': [10],

@@ -525,6 +525,7 @@ const SEED_SALARY_CONFIG = [
   { key: 'festival_bonus_multiplier', labelBn: 'উৎসব ভাতা', descriptionBn: 'বাৎসরিক বোনাস সংখ্যা', unitBn: 'টি বেসিক', inputType: 'number', valueFormat: 'number', value: 2, sortOrder: 14 },
   { key: 'office_rent_vat_percent', labelBn: 'অফিস ভাড়ার ভ্যাট হার', descriptionBn: 'ভাড়া বাবদ ভ্যাটের শতকরা হার', unitBn: 'ভাড়ার ওপর', inputType: 'number', valueFormat: 'percent', value: 15, sortOrder: 15 },
   { key: 'postal_rate', labelBn: 'ডাক ব্যয়', descriptionBn: 'প্রতি ডাকের ব্যয় × নন-ফাইলার প্রতি ডাকের সংখ্যা', unitBn: 'টাকা/ডাক', inputType: 'number', valueFormat: 'amount', value: 50, secondaryLabelBn: 'ডাকের সংখ্যা', secondaryUnitBn: 'টি', secondaryValue: 2, sortOrder: 16 },
+  { key: 'leave_encashment_months', labelBn: 'ছুটি নগদায়ন', descriptionBn: 'মাসের সংখ্যা', unitBn: 'মাস', inputType: 'number', valueFormat: 'number', value: 18, sortOrder: 17 },
 ]
 
 const SEED_SALARY_SLABS = [

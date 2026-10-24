@@ -50,13 +50,13 @@
   {
     "code": "3111308",
     "name": "ঝুঁকি ভাতা",
-    "is_manual": true,
+    "is_manual": false,
     "sort_order": 9
   },
   {
     "code": "3111309",
     "name": "পাহাড়ী ভাতা",
-    "is_manual": true,
+    "is_manual": false,
     "sort_order": 10
   },
   {
@@ -92,7 +92,7 @@
   {
     "code": "3111315",
     "name": "পোশাক ভাতা",
-    "is_manual": true,
+    "is_manual": false,
     "sort_order": 16
   },
   {
@@ -110,7 +110,7 @@
   {
     "code": "3111327",
     "name": "অধিকাল ভাতা",
-    "is_manual": true,
+    "is_manual": false,
     "sort_order": 19
   },
   {
@@ -249,7 +249,7 @@
   {
     "code": "3211120",
     "name": "টেলিফোন",
-    "is_manual": true,
+    "is_manual": false,
     "sort_order": 42
   },
   {
@@ -501,7 +501,7 @@
   {
     "code": "3256106",
     "name": "পোশাক",
-    "is_manual": true,
+    "is_manual": false,
     "sort_order": 84
   },
   {
@@ -771,7 +771,7 @@
   {
     "code": "4112202",
     "name": "কম্পিউটার ও আনুষঙ্গিক",
-    "is_manual": true,
+    "is_manual": false,
     "sort_order": 129
   },
   {

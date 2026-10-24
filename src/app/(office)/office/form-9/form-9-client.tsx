@@ -31,12 +31,15 @@ export interface Form9ClientProps {
   submissionId: number | null
   initialData: any
   vatPercentage: number
+  /** বেতন-ভাতা মাস (/admin/settings) — annualises the monthly rent like the sheet engine. */
+  salaryMonths: number
 }
 
 export function Form9Client({
   submissionId,
   initialData,
   vatPercentage = 15,
+  salaryMonths,
 }: Form9ClientProps) {
   // Store house rent record
   const [data, setData] = useState<{
@@ -78,8 +81,8 @@ export function Form9Client({
   const monthly = data?.monthly_bill || 0
   const due = data?.due || 0
   const vatRate = vatPercentage || 0
-  // Formula: ভ্যাটসহ বাৎসরিক অফিস ভাড়া = (ভ্যাট ব্যতিত মাসিক ভাড়া × ১২ মাস × (১ + ভ্যাট%)) + ভ্যাট ব্যতিত বকেয়া ভাড়া
-  const yearlyTotalWithVat = Math.round(monthly * 12 * (1 + vatRate / 100) + due)
+  // Formula: ভ্যাটসহ বাৎসরিক অফিস ভাড়া = (ভ্যাট ব্যতিত মাসিক ভাড়া × বেতন-ভাতা মাস × (১ + ভ্যাট%)) + ভ্যাট ব্যতিত বকেয়া ভাড়া
+  const yearlyTotalWithVat = Math.round(monthly * salaryMonths * (1 + vatRate / 100) + due)
 
   const openAddModal = () => {
     setMonthlyInput(data?.monthly_bill ? String(data.monthly_bill) : '')
@@ -298,7 +301,7 @@ export function Form9Client({
                   {toBanglaAmount(yearlyTotalWithVat)}
                 </p>
                 <p className="text-[11px] text-blue-600/90 mt-0.5">
-                  (মাসিক ভাড়া × ১২ মাস × {toBanglaNumber(1 + vatRate / 100)}) + বকেয়া
+                  (মাসিক ভাড়া × {toBanglaNumber(salaryMonths)} মাস × {toBanglaNumber(1 + vatRate / 100)}) + বকেয়া
                 </p>
               </div>
             </div>

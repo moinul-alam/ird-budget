@@ -46,6 +46,8 @@ export interface Form8ClientProps {
   initialData: any[]
   carTypes: any[]
   rentConfigs: any[]
+  /** বেতন-ভাতা মাস (/admin/settings) — annualises the monthly rent like the sheet engine. */
+  salaryMonths: number
 }
 
 export function Form8Client({
@@ -53,6 +55,7 @@ export function Form8Client({
   initialData,
   carTypes,
   rentConfigs,
+  salaryMonths,
 }: Form8ClientProps) {
   // Map rows from initialData
   const [rows, setRows] = useState<Form8VehicleRentRow[]>(() => {
@@ -67,7 +70,7 @@ export function Form8Client({
         vehicle_type_name: carName,
         count,
         monthly_allowance: monthly,
-        annual_total: monthly * count * 12,
+        annual_total: monthly * count * salaryMonths,
       }
     })
   })
@@ -134,7 +137,7 @@ export function Form8Client({
     const carObj = carTypes.find((c) => c.id === carId)
     const count = parseInt(countInput, 10) || 0
     const monthly = autoMonthlyAllowance
-    const annual = monthly * count * 12
+    const annual = monthly * count * salaryMonths
 
     const isEdit = editingIndex !== null
     const existingRow = isEdit ? rows[editingIndex] : null

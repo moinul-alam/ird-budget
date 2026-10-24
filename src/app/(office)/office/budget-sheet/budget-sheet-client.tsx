@@ -242,8 +242,12 @@ export function BudgetSheetClient({
     let index = 0
 
     for (const group of groups) {
-      const sectionLabel = [group.category_code, group.category_name].filter(Boolean).join('  ')
-      if (sectionLabel) reportRows.push({ section: sectionLabel })
+      // Category break: code under the কোড column, name spanning the rest.
+      if (group.category_code || group.category_name) {
+        reportRows.push({
+          section: { code: group.category_code, name: group.category_name },
+        })
+      }
 
       for (const row of group.rows) {
         index += 1
@@ -525,29 +529,15 @@ export function BudgetSheetClient({
                                   >
                                     {toBanglaAmount(effectiveValue)}
                                   </span>
-                                ) : isManualType ? (
+                                ) : isManualType || canOverride ? (
                                   <Input
                                     type="number"
                                     min="0"
                                     className="w-40 text-right font-mono font-bold h-9 bg-amber-50/40 text-slate-900 border-2 border-amber-400 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                                     value={row.manual_value ?? ''}
                                     onChange={(e) => handleManualChange(row.code, e.target.value)}
-                                    placeholder="০"
+                                    placeholder={canOverride ? toBanglaAmount(row.auto_value) : '০'}
                                   />
-                                ) : canOverride ? (
-                                  <div className="flex flex-col items-end gap-1">
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      className="w-40 text-right font-mono font-bold h-9 bg-blue-50/40 text-slate-900 border-2 border-dashed border-blue-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                                      value={row.manual_value ?? ''}
-                                      onChange={(e) => handleManualChange(row.code, e.target.value)}
-                                      placeholder={toBanglaAmount(row.auto_value)}
-                                    />
-                                    <span className="text-[10px] font-semibold text-slate-400">
-                                      স্বয়ংক্রিয় হিসাব: {toBanglaAmount(row.auto_value)}
-                                    </span>
-                                  </div>
                                 ) : (
                                   <span
                                     className={`font-mono font-bold px-2 text-sm ${hasValue ? 'text-slate-900' : 'text-slate-300'}`}
@@ -566,11 +556,11 @@ export function BudgetSheetClient({
                                         prev?.code === row.code
                                           ? null
                                           : {
-                                              code: row.code,
-                                              forms: row.source_forms,
-                                              top: rect.bottom + 6,
-                                              left: Math.max(HINT_WIDTH + 12, Math.min(rect.right, window.innerWidth - 12)),
-                                            }
+                                            code: row.code,
+                                            forms: row.source_forms,
+                                            top: rect.bottom + 6,
+                                            left: Math.max(HINT_WIDTH + 12, Math.min(rect.right, window.innerWidth - 12)),
+                                          }
                                       )
                                     }}
                                     className={`shrink-0 rounded-full transition-colors ${hint?.code === row.code
@@ -624,7 +614,7 @@ export function BudgetSheetClient({
             disabled={isPending || !submissionId || rows.length === 0}
           >
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            বাজেট দাখিল করুন (Submit Budget)
+            বাজেট দাখিল করুন
           </Button>
         )}
       </div>

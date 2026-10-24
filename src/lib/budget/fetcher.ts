@@ -187,11 +187,16 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
     })
   }
 
-  // Form 5 allowance cards: the office supplies the count, the engine the rate.
+  // Form 5 allowance cards: the office supplies the count and, for the cards that
+  // ask for a figure, the rate or lump sum too. The engine scales the monthly ones
+  // by বেতন-ভাতা মাস.
   const allowances = allowanceRows.map((a) => ({
     name: a.allowanceType?.name || '',
     officer_count: Number(a.officerCount || 0),
     staff_count: Number(a.staffCount || 0),
+    amount: Number(a.totalAnnualAmount || 0),
+    total_basic: Number(a.totalBasic || 0),
+    due: Number(a.dueAmount || 0),
   }))
 
   // Office type name
@@ -211,6 +216,7 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
   const formattedStaff = staffWorking.map((s) => ({
     category: categoryOf(s.gradeId),
     total_basic: Number(s.monthlyBasic || 0),
+    due_basic: Number(s.dueSalary || 0),
     count: Number(s.staffCount || 0),
     grade_id: s.gradeId,
   }))
@@ -274,7 +280,9 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
     newStaff: formattedNewStaff,
     leave: leave ? {
       leave_encashment_officer_basic: Number(leave.leaveEncashmentOfficerBasic || 0),
+      leave_encashment_officer_due: Number(leave.leaveEncashmentOfficerDue || 0),
       leave_encashment_staff_basic: Number(leave.leaveEncashmentStaffBasic || 0),
+      leave_encashment_staff_due: Number(leave.leaveEncashmentStaffDue || 0),
       rest_recreation_amount: Number(leave.restRecreationAmount || 0),
     } : null,
     utilities: formattedUtilities,

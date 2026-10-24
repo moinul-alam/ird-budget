@@ -4,6 +4,7 @@ import { getVehicleTypes } from '@/app/actions/admin-settings'
 import {
   getOfficeTypeIdForOffice,
   loadFormVehiclesRentInitial,
+  loadSalaryMonths,
   loadVehicleRentConfigsForOfficeType,
 } from '@/lib/office/load-form-data'
 import { Form8Client } from './form-8-client'
@@ -20,9 +21,10 @@ export default async function Form8Page() {
   // The rent rate is configured per office type, so resolve that first.
   const officeTypeId = await getOfficeTypeIdForOffice(officeId)
 
-  const [rentConfigs, initialData] = await Promise.all([
+  const [rentConfigs, initialData, salaryMonths] = await Promise.all([
     officeTypeId ? loadVehicleRentConfigsForOfficeType(officeTypeId) : Promise.resolve([]),
     submissionId ? loadFormVehiclesRentInitial(submissionId) : Promise.resolve([]),
+    loadSalaryMonths(),
   ])
 
   return (
@@ -31,6 +33,7 @@ export default async function Form8Page() {
       initialData={initialData}
       carTypes={carTypes}
       rentConfigs={rentConfigs}
+      salaryMonths={salaryMonths}
     />
   )
 }

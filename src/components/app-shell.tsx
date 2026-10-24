@@ -1,10 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { strings } from '@/lib/strings'
 import { logoutOffice as logout } from '@/app/actions/auth'
-import { updateOfficeProfile, getOfficeProfile } from '@/app/actions/office'
 import {
   LayoutDashboard,
   BarChart3,
@@ -13,12 +12,7 @@ import {
   ChevronDown,
   User,
   History,
-  CheckCircle,
-  Building,
-  KeyRound,
-  Loader2,
-  ChevronRight,
-  Shield,
+  Building2,
   Layers,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -30,12 +24,10 @@ import {
   DialogFooter,
   DialogDescription,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { toBanglaNumber } from '@/lib/bangla'
 import { FORM_ITEMS, FORM_SHADES, FORM_COUNT } from '@/lib/office/forms'
 import { useFormGuard } from '@/components/form-guard-provider'
-import { useState, useRef, useEffect, useTransition } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 export function AppShell({
   children,
@@ -48,7 +40,6 @@ export function AppShell({
   hasOpenCycle: boolean
 }) {
   const pathname = usePathname()
-  const router = useRouter()
   const { requestNavigation } = useFormGuard()
 
   // Drawer open/collapse state (Desktop & Mobile) - default expanded on login/dashboard
@@ -59,14 +50,6 @@ export function AppShell({
   // Profile dropdown menu in top bar
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const profileDropdownRef = useRef<HTMLDivElement>(null)
-
-  // Profile modal state
-  const [profileModalOpen, setProfileModalOpen] = useState(false)
-  const [officeNameInput, setOfficeNameInput] = useState(user.name || '')
-  const [profileLoading, setProfileLoading] = useState(false)
-  const [profileError, setProfileError] = useState<string | null>(null)
-  const [profileSuccess, setProfileSuccess] = useState<string | null>(null)
-  const [isPending, startTransition] = useTransition()
 
   // Budget History Modal
   const [budgetsModalOpen, setBudgetsModalOpen] = useState(false)
@@ -81,45 +64,6 @@ export function AppShell({
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
-
-  const handleOpenProfile = async () => {
-    setProfileDropdownOpen(false)
-    setOfficeNameInput(user.name || '')
-    setProfileError(null)
-    setProfileSuccess(null)
-    setProfileModalOpen(true)
-  }
-
-  const handleSaveProfile = () => {
-    if (!officeNameInput.trim()) {
-      setProfileError('অফিসের নাম আবশ্যক')
-      return
-    }
-    const officeId = user.office_id || parseInt(user.id, 10)
-    if (!officeId) {
-      setProfileError('অফিস আইডি পাওয়া যায়নি')
-      return
-    }
-
-    setProfileLoading(true)
-    setProfileError(null)
-    startTransition(async () => {
-      const res = await updateOfficeProfile({
-        officeId,
-        name: officeNameInput.trim(),
-      })
-      setProfileLoading(false)
-      if (res?.error) {
-        setProfileError(res.error)
-      } else {
-        setProfileSuccess('অফিসের তথ্য সফলভাবে আপডেট হয়েছে')
-        setTimeout(() => {
-          setProfileModalOpen(false)
-          router.refresh()
-        }, 1200)
-      }
-    })
-  }
 
   // Drawer navigation goes through the form guard: if the form on screen holds
   // unsaved edits, the office is asked before the page changes.
@@ -207,34 +151,24 @@ export function AppShell({
             <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-white text-slate-800 shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95">
               <div className="px-4 py-2.5 border-b border-slate-100">
                 <p className="text-xs font-bold text-slate-900 truncate">{user.name}</p>
-                {user.budget_id && (
-                  <p className="text-[11px] font-mono font-semibold text-slate-500 mt-0.5">
-                    বাজেট আইডি: {user.budget_id}
-                  </p>
-                )}
+                <p className="text-[11px] font-mono font-semibold text-slate-500 mt-0.5">
+                  ({user.budget_id || user.id})
+                </p>
               </div>
 
               <div className="p-1 space-y-0.5">
-                <button
-                  type="button"
-                  onClick={handleOpenProfile}
-                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-bold text-slate-700 hover:text-blue-700 hover:bg-blue-50/80 rounded-xl transition-colors cursor-pointer text-left"
-                >
-                  <Building className="h-4 w-4 text-blue-600" />
-                  প্রোফাইল (অফিসের তথ্য পরিবর্তন)
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
+                <Link
+                  href="/office/office-info"
+                  prefetch={true}
+                  onClick={(e) => {
                     setProfileDropdownOpen(false)
-                    setBudgetsModalOpen(true)
+                    handleNav('/office/office-info')(e)
                   }}
                   className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-bold text-slate-700 hover:text-blue-700 hover:bg-blue-50/80 rounded-xl transition-colors cursor-pointer text-left"
                 >
-                  <History className="h-4 w-4 text-amber-600" />
-                  {strings.dashboard.submittedBudgets}
-                </button>
+                  <Building2 className="h-4 w-4 text-blue-600" />
+                  অফিসের তথ্য
+                </Link>
               </div>
 
               <div className="p-1 border-t border-slate-100 mt-1">
@@ -375,86 +309,7 @@ export function AppShell({
         </main>
       </div>
 
-      {/* 3. PROFILE MODAL: Edit Office Information entered while registering */}
-      <Dialog open={profileModalOpen} onOpenChange={setProfileModalOpen}>
-        <DialogContent className="sm:max-w-lg rounded-3xl p-6">
-          <DialogHeader className="pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2.5 text-blue-600">
-              <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
-                <Building className="h-5 w-5" />
-              </div>
-              <div>
-                <DialogTitle className="text-lg font-extrabold text-slate-900">
-                  অফিস প্রোফাইল সম্পাদনা
-                </DialogTitle>
-                <DialogDescription className="text-xs text-slate-500 mt-0.5">
-                  নিবন্ধনের সময় প্রদানকৃত অফিসের নাম ও তথ্য হালনাগাদ করুন
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-
-          {profileError && (
-            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-semibold">
-              {profileError}
-            </div>
-          )}
-
-          {profileSuccess && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-emerald-600" />
-              {profileSuccess}
-            </div>
-          )}
-
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">বাজেট আইডি (স্থায়ী)</Label>
-              <Input
-                type="text"
-                readOnly
-                value={user.budget_id || user.id}
-                className="bg-slate-100 font-mono text-slate-600 font-bold rounded-xl"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">
-                অফিসের নাম <span className="text-rose-500">*</span>
-              </Label>
-              <Input
-                type="text"
-                value={officeNameInput}
-                onChange={(e) => setOfficeNameInput(e.target.value)}
-                placeholder="যেমন: কর অঞ্চল-১১, ঢাকা"
-                className="rounded-xl border-slate-200 font-medium"
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="pt-3 border-t border-slate-100 flex gap-2 sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setProfileModalOpen(false)}
-              className="rounded-xl text-xs font-semibold"
-            >
-              বাতিল
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSaveProfile}
-              disabled={profileLoading || isPending}
-              className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs gap-1.5"
-            >
-              {profileLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
-              সংরক্ষণ করুন
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* 4. BUDGETS MODAL: View Old Submitted Budgets */}
+      {/* 3. BUDGETS MODAL: View Old Submitted Budgets */}
       <Dialog open={budgetsModalOpen} onOpenChange={setBudgetsModalOpen}>
         <DialogContent className="sm:max-w-lg rounded-3xl p-6">
           <DialogHeader className="pb-3 border-b border-slate-100">

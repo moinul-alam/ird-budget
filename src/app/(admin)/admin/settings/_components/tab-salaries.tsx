@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import {
   Calendar,
+  CalendarClock,
   HeartHandshake,
   Bus,
   GraduationCap,
@@ -80,6 +81,7 @@ const TILE_UI: Record<string, { icon: LucideIcon; bar: string; tint: string }> =
   festival_bonus_multiplier: { icon: Gift, bar: 'bg-emerald-500', tint: 'bg-emerald-50 text-emerald-600' },
   office_rent_vat_percent: { icon: Building, bar: 'bg-slate-700', tint: 'bg-slate-100 text-slate-700' },
   postal_rate: { icon: Mail, bar: 'bg-fuchsia-500', tint: 'bg-fuchsia-50 text-fuchsia-600' },
+  leave_encashment_months: { icon: CalendarClock, bar: 'bg-rose-500', tint: 'bg-rose-50 text-rose-600' },
 }
 
 const FALLBACK_UI = { icon: Sliders, bar: 'bg-slate-400', tint: 'bg-slate-100 text-slate-600' }

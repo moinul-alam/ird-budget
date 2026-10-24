@@ -21,12 +21,23 @@ export interface ReportColumn {
 }
 
 export interface ReportRow {
-  /** A category/section break, rendered as one full-width row. */
-  section?: string
+  /**
+   * A category/section break. Its `code` sits in the second column (aligned with the
+   * code column) with the serial column left empty, and its `name` is merged across
+   * every column after the code — matching how the sheet groups its rows on screen.
+   */
+  section?: ReportSection
   /** Cell text keyed by column `key`. */
   cells?: Record<string, string>
   /** Emphasised styling, e.g. a grand total. */
   emphasis?: boolean
+}
+
+export interface ReportSection {
+  /** Category code, aligned under the code column. */
+  code?: string
+  /** Category name, merged across the columns after the code. */
+  name: string
 }
 
 export interface ReportSpec {
@@ -42,7 +53,21 @@ export interface ReportSpec {
 }
 
 const LOGO_SRC = '/images/bdgovlogo.png'
+/** Headings and column titles — the app's heading face. */
 const FONT = "'Anek Bangla', 'Tiro Bangla', sans-serif"
+/** Table body — the app's body face. */
+const BODY_FONT = "'Tiro Bangla', serif, sans-serif"
+
+/** A section's name merges from this column index to the last. */
+const SECTION_MERGE_START = 2
+
+/**
+ * Where a section's merged name begins. Tables with a serial + code column merge from
+ * index 2; narrower ones fall back so the name and code never share a column.
+ */
+function sectionMergeStart(columnCount: number): number {
+  return columnCount >= 3 ? SECTION_MERGE_START : Math.max(0, columnCount - 1)
+}
 
 /** Canvas pixels per millimetre — 6 keeps text crisp at print size (~152 dpi). */
 const PX_PER_MM = 6
@@ -71,7 +96,9 @@ interface LaidOutRow {
   row: ReportRow
   height: number
   cellLines?: string[][]
-  sectionLines?: string[]
+  /** Section rows: the code (column 1) and the name (merged from `SECTION_MERGE_START`). */
+  sectionCodeLines?: string[]
+  sectionNameLines?: string[]
 }
 
 // --- canvas helpers ---------------------------------------------------------
@@ -132,18 +159,39 @@ function columnWidths(columns: ReportColumn[]): number[] {
   return widths
 }
 
+/** Absolute x of the first `count` internal column separators. */
+function columnBoundaries(widths: number[], count: number): number[] {
+  const bounds: number[] = []
+  let x = MARGIN
+  for (let i = 0; i < count && i < widths.length - 1; i += 1) {
+    x += widths[i]
+    bounds.push(x)
+  }
+  return bounds
+}
+
 function layoutRows(columns: ReportColumn[], widths: number[], rows: ReportRow[]): LaidOutRow[] {
   const measure = contextOf(createCanvas(8, 8))
   const inner = widths.map((w) => w - CELL_PAD_X * 2)
 
   return rows.map((row) => {
-    if (row.section !== undefined) {
-      measure.font = `700 19px ${FONT}`
-      const sectionLines = wrapText(measure, row.section, CONTENT_W - CELL_PAD_X * 2)
-      return { row, sectionLines, height: sectionLines.length * LINE_H + CELL_PAD_Y * 2 }
+    if (row.section) {
+      measure.font = `700 19px ${BODY_FONT}`
+      const mergeStart = sectionMergeStart(columns.length)
+      const mergedWidth = widths.slice(mergeStart).reduce((a, b) => a + b, 0) - CELL_PAD_X * 2
+      const sectionNameLines = wrapText(measure, row.section.name, mergedWidth)
+      const sectionCodeLines =
+        mergeStart >= SECTION_MERGE_START ? wrapText(measure, row.section.code ?? '', inner[1]) : ['']
+      const lineCount = Math.max(sectionNameLines.length, sectionCodeLines.length)
+      return {
+        row,
+        sectionCodeLines,
+        sectionNameLines,
+        height: lineCount * LINE_H + CELL_PAD_Y * 2,
+      }
     }
 
-    measure.font = row.emphasis ? `700 19px ${FONT}` : `400 19px ${FONT}`
+    measure.font = row.emphasis ? `700 19px ${BODY_FONT}` : `400 19px ${BODY_FONT}`
     const cellLines = columns.map((c, i) => wrapText(measure, row.cells?.[c.key] ?? '', inner[i]))
     const lineCount = Math.max(1, ...cellLines.map((l) => l.length))
     return { row, cellLines, height: lineCount * LINE_H + CELL_PAD_Y * 2 }
@@ -244,11 +292,16 @@ function drawTableHeader(
   })
   ctx.textAlign = 'left'
 
-  strokeGrid(ctx, widths, y, TABLE_HEAD_H)
+  strokeGrid(ctx, columnBoundaries(widths, widths.length - 1), y, TABLE_HEAD_H)
   return y + TABLE_HEAD_H
 }
 
-function strokeGrid(ctx: CanvasRenderingContext2D, widths: number[], y: number, h: number): void {
+function strokeGrid(
+  ctx: CanvasRenderingContext2D,
+  boundaries: number[],
+  y: number,
+  h: number
+): void {
   ctx.strokeStyle = COLORS.line
   ctx.lineWidth = 1
   ctx.beginPath()
@@ -256,9 +309,11 @@ function strokeGrid(ctx: CanvasRenderingContext2D, widths: number[], y: number, 
   ctx.lineTo(PAGE_W - MARGIN, y)
   ctx.moveTo(MARGIN, y + h)
   ctx.lineTo(PAGE_W - MARGIN, y + h)
-  let x = MARGIN
-  widths.forEach((w) => {
-    x += w
+  ctx.moveTo(MARGIN, y)
+  ctx.lineTo(MARGIN, y + h)
+  ctx.moveTo(PAGE_W - MARGIN, y)
+  ctx.lineTo(PAGE_W - MARGIN, y + h)
+  boundaries.forEach((x) => {
     ctx.moveTo(x, y)
     ctx.lineTo(x, y + h)
   })
@@ -273,35 +328,50 @@ function drawRow(
   y: number
 ): void {
   const { row, height } = laid
-  ctx.fillStyle =
-    row.section !== undefined ? COLORS.sectionBg : row.emphasis ? COLORS.totalBg : '#ffffff'
+  const isSection = row.section !== undefined
+
+  ctx.fillStyle = isSection ? COLORS.sectionBg : row.emphasis ? COLORS.totalBg : '#ffffff'
   ctx.fillRect(MARGIN, y, CONTENT_W, height)
 
-  if (row.section !== undefined) {
+  if (isSection) {
+    // Column 1 holds the category code; the name is merged across the columns after it.
+    const mergeStart = sectionMergeStart(columns.length)
+    const columnX = (index: number) => MARGIN + widths.slice(0, index).reduce((a, b) => a + b, 0)
+
     ctx.fillStyle = COLORS.ink
-    ctx.font = `700 19px ${FONT}`
+    ctx.font = `700 19px ${BODY_FONT}`
     ctx.textAlign = 'left'
-    laid.sectionLines?.forEach((line, i) => {
-      ctx.fillText(line, MARGIN + CELL_PAD_X, y + CELL_PAD_Y + i * LINE_H)
-    })
-  } else {
-    ctx.fillStyle = row.emphasis ? COLORS.totalInk : COLORS.body
-    ctx.font = row.emphasis ? `700 19px ${FONT}` : `400 19px ${FONT}`
-    let x = MARGIN
-    columns.forEach((column, i) => {
-      const w = widths[i]
-      const align = column.align ?? 'left'
-      ctx.textAlign = align
-      const tx = align === 'right' ? x + w - CELL_PAD_X : align === 'center' ? x + w / 2 : x + CELL_PAD_X
-      laid.cellLines?.[i].forEach((line, k) => {
-        ctx.fillText(line, tx, y + CELL_PAD_Y + k * LINE_H)
+
+    if (mergeStart >= 1) {
+      laid.sectionCodeLines?.forEach((line, i) => {
+        ctx.fillText(line, columnX(1) + CELL_PAD_X, y + CELL_PAD_Y + i * LINE_H)
       })
-      x += w
+    }
+    laid.sectionNameLines?.forEach((line, i) => {
+      ctx.fillText(line, columnX(mergeStart) + CELL_PAD_X, y + CELL_PAD_Y + i * LINE_H)
     })
-    ctx.textAlign = 'left'
+
+    // Serial column stays empty and the merged span gets no inner dividers.
+    strokeGrid(ctx, columnBoundaries(widths, mergeStart), y, height)
+    return
   }
 
-  strokeGrid(ctx, widths, y, height)
+  ctx.fillStyle = row.emphasis ? COLORS.totalInk : COLORS.body
+  ctx.font = row.emphasis ? `700 19px ${BODY_FONT}` : `400 19px ${BODY_FONT}`
+  let x = MARGIN
+  columns.forEach((column, i) => {
+    const w = widths[i]
+    const align = column.align ?? 'left'
+    ctx.textAlign = align
+    const tx = align === 'right' ? x + w - CELL_PAD_X : align === 'center' ? x + w / 2 : x + CELL_PAD_X
+    laid.cellLines?.[i].forEach((line, k) => {
+      ctx.fillText(line, tx, y + CELL_PAD_Y + k * LINE_H)
+    })
+    x += w
+  })
+  ctx.textAlign = 'left'
+
+  strokeGrid(ctx, columnBoundaries(widths, widths.length - 1), y, height)
 }
 
 /** Builds the A4 page canvases, paginating only at row boundaries. */
@@ -393,8 +463,13 @@ export async function downloadReportExcel(spec: ReportSpec): Promise<void> {
   sheet.push(spec.columns.map((c) => c.label))
 
   spec.rows.forEach((row) => {
-    if (row.section !== undefined) {
-      sheet.push([row.section])
+    if (row.section) {
+      // Code in column 1, name in column 2 (the app's category-break row shape).
+      const cells = spec.columns.map(() => '')
+      if (spec.columns.length > 1) cells[1] = row.section.code ?? ''
+      if (spec.columns.length > 2) cells[2] = row.section.name
+      else cells[cells.length - 1] = row.section.name
+      sheet.push(cells)
       return
     }
     sheet.push(spec.columns.map((c) => row.cells?.[c.key] ?? ''))

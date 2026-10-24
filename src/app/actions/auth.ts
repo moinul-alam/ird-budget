@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import crypto from 'crypto'
 import { setAdminSession, clearAdminSession } from '@/lib/auth-admin'
+import { DEFAULT_OFFICE_PASSWORD } from '@/lib/office/defaults'
 
 const OFFICE_COOKIE = 'office_session'
 
@@ -91,14 +92,14 @@ export async function loginOffice(budgetId: string, passwordInput?: string) {
       },
     })
 
-    // If login record doesn't exist yet, auto-create with default '12345'
+    // If login record doesn't exist yet, auto-create with the system default password
     if (!loginRecord) {
-      const defaultHash = hashPassword('12345')
+      const defaultHash = hashPassword(DEFAULT_OFFICE_PASSWORD)
       loginRecord = await prisma.officeUser.create({
         data: {
           officeId: office.id,
           passwordHash: defaultHash,
-          passwordHint: '12345',
+          passwordHint: DEFAULT_OFFICE_PASSWORD,
           isActive: true,
         },
       })
@@ -110,8 +111,7 @@ export async function loginOffice(budgetId: string, passwordInput?: string) {
       const isMatch =
         (loginRecord && loginRecord.passwordHash === inputHash) ||
         (loginRecord && loginRecord.passwordHint === passwordInput) ||
-        passwordInput === '12345' ||
-        passwordInput === 'budget26'
+        passwordInput === DEFAULT_OFFICE_PASSWORD
 
       if (!isMatch) {
         return { error: 'পাসওয়ার্ডটি সঠিক নয়। সহায়তার জন্য অ্যাডমিনের সাথে যোগাযোগ করুন।' }
@@ -161,7 +161,8 @@ export async function registerOffice(formData: FormData) {
     const budgetId = (formData.get('budget_id') as string)?.trim()
     const typeId = parseInt(formData.get('type_id') as string, 10)
     const parentId = formData.get('parent_id') ? parseInt(formData.get('parent_id') as string, 10) : null
-    const customPassword = (formData.get('password') as string)?.trim() || '12345'
+    const levelId = formData.get('level_id') ? parseInt(formData.get('level_id') as string, 10) : null
+    const customPassword = (formData.get('password') as string)?.trim() || DEFAULT_OFFICE_PASSWORD
 
     // 1. Check if budget_id exists
     const existing = await prisma.coreOffice.findUnique({
@@ -188,6 +189,7 @@ export async function registerOffice(formData: FormData) {
         budgetId,
         departmentId: deptId,
         officeTypeId: BigInt(typeId),
+        officeLevelId: levelId ? BigInt(levelId) : null,
         parentOfficeId: parentId ? BigInt(parentId) : null,
         isActive: true,
       },
