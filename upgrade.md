@@ -61,6 +61,24 @@ RLS therefore plays no part in application queries (see §7).
   certificate store; Node's bundled CA list may not contain the host's CA, so a raw `pg`
   script can fail to verify a connection Prisma handles fine.
 
+**The pool mode differs by environment.** Which pooler the application URL points at is not the
+same locally and on Vercel:
+
+- **Local dev and the Prisma CLI** — the *session* pooler (5432). A dev server is one long-lived
+  process, which is the case session mode is built for. Measured on the path this project is
+  developed from, a warm query costs ~300ms through the session pooler and ~1480ms through the
+  transaction pooler, back to back in one process.
+- **Vercel** — the *transaction* pooler (6543) with `pgbouncer=true&connection_limit=1`, because a
+  serverless instance must not hold a connection open between requests.
+
+`connection_limit` has to suit the mode. Session mode caps the whole project at 15 clients
+(`EMAXCONNSESSION … max clients are limited to pool_size: 15`), so the local URL sets 5 and leaves
+the rest for the CLI, Studio and one-off scripts; transaction mode multiplexes and tolerates
+hundreds. Setting the serverless value of 1 locally is what a `Timed out fetching a new connection
+from the connection pool … (connection limit: 1)` on `/dashboard` looks like: the page issues 13
+queries in parallel (`loadOfficeDashboardStats`), and one connection serialises them past the 10
+second `pool_timeout`.
+
 `directUrl` is intentionally unset in [prisma.config.ts](prisma.config.ts): the Supavisor
 *session* pooler (port 5432) supports the DDL migrations need, so one URL serves both the app
 and the CLI. On a host that needs a separate migration connection, add
