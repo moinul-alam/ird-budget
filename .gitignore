@@ -40,7 +40,7 @@ storybook-static/
 .eslintcache
 .stylelintcache
 .terser-cache
-.tsbuildinfo
+*.tsbuildinfo
 
 
 # ==========================================
