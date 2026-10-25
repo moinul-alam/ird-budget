@@ -124,6 +124,9 @@ model CoreBudgetCycle {
   fiscalYearId BigInt    @map("fiscal_year_id")
   budgetTypeId BigInt    @map("budget_type_id")
   title        String    @db.Text
+  /// বেতন-মাস — months in this cycle's fiscal year. Every monthly figure in the
+  /// sheet is annualised with it, so the value lives on the cycle, not globally.
+  salaryMonths Int       @default(12) @map("salary_months")
   status       String    @default("closed") @db.VarChar(20)
   openedAt     DateTime? @map("opened_at") @db.Timestamptz
   closedAt     DateTime? @map("closed_at") @db.Timestamptz

@@ -70,6 +70,7 @@ export function AdminBudgetsClient({
     open: false,
     fiscal_year: fiscalYears[0]?.year || '',
     budget_type_name: budgetTypes[0]?.name || '',
+    salary_months: 12,
     status: 'open',
   })
 
@@ -133,12 +134,17 @@ export function AdminBudgetsClient({
       showStatus('সকল তথ্য পূরণ করুন', 'error')
       return
     }
+    if (!Number.isInteger(cycleModal.salary_months) || cycleModal.salary_months < 1 || cycleModal.salary_months > 12) {
+      showStatus('বেতন-মাস ১ থেকে ১২ এর মধ্যে একটি পূর্ণসংখ্যা হতে হবে', 'error')
+      return
+    }
 
     startTransition(async () => {
       const res = await saveCycle({
         id: cycleModal.id,
         fiscal_year: cycleModal.fiscal_year,
         budget_type_name: cycleModal.budget_type_name,
+        salary_months: cycleModal.salary_months,
         status: cycleModal.status,
       })
 
@@ -150,6 +156,7 @@ export function AdminBudgetsClient({
           open: false,
           fiscal_year: fiscalYears[0]?.year || '',
           budget_type_name: budgetTypes[0]?.name || '',
+          salary_months: 12,
           status: 'open',
         })
         // Re-read from the server: the new cycle's id, its reference labels and

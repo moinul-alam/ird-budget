@@ -21,17 +21,27 @@ async function currentOfficeId(): Promise<number | null> {
   return Number.isFinite(id) && id > 0 ? id : null
 }
 
-export async function searchOffice(budgetId: string): Promise<{ found: boolean; office?: { id: string; name: string } }> {
+export async function searchOffice(
+  budgetId: string
+): Promise<{ found: boolean; office?: { id: string; name: string; headOffice: string | null } }> {
   const office = await prisma.coreOffice.findUnique({
     where: { budgetId: budgetId.trim() },
-    select: { id: true, name: true },
+    select: { id: true, name: true, parentOffice: { select: { name: true } } },
   })
 
   if (!office) {
     return { found: false }
   }
 
-  return { found: true, office: { id: String(office.id), name: office.name } }
+  return {
+    found: true,
+    office: {
+      id: String(office.id),
+      name: office.name,
+      // Null when the office itself is the head office — its own name is then the whole answer.
+      headOffice: office.parentOffice?.name ?? null,
+    },
+  }
 }
 
 export async function getMinistriesList(): Promise<SelectOption[]> {

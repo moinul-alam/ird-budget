@@ -311,6 +311,8 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
   // The shared reference tables come from the cache; only the office's own rows
   // are read here, and without `include` — each nested relation would be one more
   // statement queued behind the single pooled connection production renders on.
+  // The one exception is the submission's cycle, whose বেতন-মাস scalar the engine
+  // needs and which cannot come from the cached reference set.
   const [
     ref,
     staffWorking,
@@ -355,7 +357,10 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
     }),
     prisma.officeSubmission.findUnique({
       where: { id: BigInt(submissionId) },
-      select: { office: { select: { officeTypeId: true } } },
+      select: {
+        office: { select: { officeTypeId: true } },
+        cycle: { select: { salaryMonths: true } },
+      },
     }),
     prisma.officeFormAllowance.findMany({
       where: { submissionId: BigInt(submissionId) },
@@ -490,6 +495,7 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
     itEquipment: formattedITEquipment,
     rates: ref.rates,
     salary: ref.salary,
+    salary_months: Number(submission?.cycle?.salaryMonths ?? 0),
     allowances,
   }
 }

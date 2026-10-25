@@ -29,6 +29,8 @@ export interface CycleModalState {
   id?: number
   fiscal_year: string
   budget_type_name: string
+  /** বেতন-মাস — 1–12; the number of months this cycle's budget annualises by. */
+  salary_months: number
   status: 'open' | 'closed'
 }
 

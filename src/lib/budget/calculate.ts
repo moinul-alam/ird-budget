@@ -96,6 +96,12 @@ export interface BudgetContext {
   /** Grade-scoped rates configured on /admin/settings tab 1. */
   salary?: BudgetSalary;
   /**
+   * বেতন-মাস of the submission's budget cycle — the annualising multiplier for
+   * every monthly figure. It is set per cycle on /admin/budgets, so two cycles
+   * with different year lengths never share one value.
+   */
+  salary_months: number;
+  /**
    * Form 5 allowance cards. For দায়িত্ব ভাতা the office supplies only the count
    * and the engine the rate; the rest are the office's own figures — a monthly
    * rate, a lump sum or a total basic — which the engine scales by the budget
@@ -142,11 +148,11 @@ export function gradeRate(salary: BudgetSalary | undefined, key: string, gradeId
 }
 
 /**
- * Months in the budget year, set by the administrator as বেতন-ভাতা মাস on
- * /admin/settings. Every monthly figure is annualised with this — never a
+ * Months in the budget year, set by the administrator as বেতন-মাস on the cycle
+ * itself (/admin/budgets). Every monthly figure is annualised with this — never a
  * compiled-in 12 — so a shorter or longer budget year scales the whole sheet.
  */
-const budgetMonths = (ctx: BudgetContext) => num(ctx.salary?.tiles?.salary_months?.value)
+const budgetMonths = (ctx: BudgetContext) => num(ctx.salary_months)
 
 /** Annual total of a per-head monthly rate: rate × headcount-in-grade × budget months. */
 const gradeMonthlyTotal = (ctx: BudgetContext, key: string) => {

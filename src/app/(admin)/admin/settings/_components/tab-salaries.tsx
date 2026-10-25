@@ -19,7 +19,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
-  Calendar,
   CalendarClock,
   HeartHandshake,
   Bus,
@@ -65,7 +64,6 @@ interface TabSalariesProps {
 // Purely presentational: the stored tile carries its label, unit and editors,
 // but not an icon or accent, so the icon/accent lookup stays in the component.
 const TILE_UI: Record<string, { icon: LucideIcon; bar: string; tint: string }> = {
-  salary_months: { icon: Calendar, bar: 'bg-emerald-500', tint: 'bg-emerald-50 text-emerald-600' },
   duty_allowance: { icon: HeartHandshake, bar: 'bg-blue-500', tint: 'bg-blue-50 text-blue-600' },
   transport_allowance: { icon: Bus, bar: 'bg-indigo-500', tint: 'bg-indigo-50 text-indigo-600' },
   education_allowance: { icon: GraduationCap, bar: 'bg-purple-500', tint: 'bg-purple-50 text-purple-600' },

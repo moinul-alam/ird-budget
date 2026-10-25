@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -9,10 +9,8 @@ import { toEnglishNumber, toBanglaNumber } from '@/lib/bangla'
 import { searchOffice, getDepartments, getParentOffices, getOfficeTypes, getMinistriesList, getOfficeLevelsForType } from '@/app/actions/office'
 import { loginOffice, registerOffice } from '@/app/actions/auth'
 import {
-  Search,
   Plus,
   X,
-  ArrowRight,
   Lock,
   Loader2,
   Eye,
@@ -23,13 +21,16 @@ import {
   LogIn,
   ShieldCheck,
   Check,
+  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react'
 
-type ViewState = 'search' | 'found' | 'notFound'
+type LookupState = 'idle' | 'searching' | 'found' | 'notFound' | 'incomplete'
 
-interface FoundOffice {
+interface LookupOffice {
   id: string
   name: string
+  headOffice: string | null
 }
 
 interface SelectOption {
@@ -60,10 +61,34 @@ export function LandingClient() {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
-  // Search state
+  // Login state
   const [budgetId, setBudgetId] = useState('')
-  const [view, setView] = useState<ViewState>('search')
-  const [foundOffice, setFoundOffice] = useState<FoundOffice | null>(null)
+  const [lookupState, setLookupState] = useState<LookupState>('idle')
+  const [lookupOffice, setLookupOffice] = useState<LookupOffice | null>(null)
+  const [englishOnlyWarning, setEnglishOnlyWarning] = useState(false)
+  const lookupSeq = useRef(0)
+  const lastLookupId = useRef<string | null>(null)
+
+  // While the field is focused it spans the full row; on blur it contracts to exactly the width
+  // of the typed digits, and the freed space on the right hosts the lookup status / result.
+  const [idFocused, setIdFocused] = useState(false)
+  const idMirrorRef = useRef<HTMLSpanElement | null>(null)
+  const [idWidth, setIdWidth] = useState(0)
+
+  // Measure the mirror continuously rather than once per keystroke. This keeps the contracted
+  // width correct even when a web font swaps in after the first paint, which would otherwise
+  // leave the box too narrow and push the digits under the status chip.
+  useEffect(() => {
+    const mirror = idMirrorRef.current
+    if (!mirror) return
+
+    const measure = () => setIdWidth(mirror.offsetWidth)
+    measure()
+
+    const observer = new ResizeObserver(measure)
+    observer.observe(mirror)
+    return () => observer.disconnect()
+  }, [])
 
   // Registration modal
   const [showRegModal, setShowRegModal] = useState(false)
@@ -88,44 +113,92 @@ export function LandingClient() {
   const [loginError, setLoginError] = useState<string | null>(null)
   const [showForgotModal, setShowForgotModal] = useState(false)
 
-  // Search handler
-  const handleSearch = () => {
-    if (!budgetId.trim()) return
-    const englishId = toEnglishNumber(budgetId.trim())
-    setLoginError(null)
+  // Runs the office lookup. Only ever called with a complete 13-digit ID, so no database
+  // connection is ever spent on a partial value.
+  const runLookup = (englishId: string) => {
+    // Same ID, already resolved (e.g. the blur caused by clicking লগইন করুন) — skip the extra query
+    if (englishId === lastLookupId.current && (lookupState === 'found' || lookupState === 'notFound')) {
+      return
+    }
+    lastLookupId.current = englishId
 
+    const seq = ++lookupSeq.current
+    setLookupState('searching')
     startTransition(async () => {
       const result = await searchOffice(englishId)
+      if (seq !== lookupSeq.current) return
       if (result.found && result.office) {
-        setFoundOffice(result.office)
-        setView('found')
+        setLookupOffice(result.office)
+        setLookupState('found')
       } else {
-        setFoundOffice(null)
-        setView('notFound')
+        setLookupOffice(null)
+        setLookupState('notFound')
       }
     })
   }
 
-  // Confirm office
-  const handleConfirm = () => {
-    if (!foundOffice) return
+  // Background lookup — fires on blur / Enter, never steals focus from the password field
+  const handleLookup = () => {
+    const englishId = toEnglishNumber(budgetId.trim())
+
+    if (englishId.length !== 13) {
+      // Partial ID: prompt for the missing digits instead of querying, which would only ever miss
+      lookupSeq.current += 1
+      setLookupOffice(null)
+      setLookupState(englishId ? 'incomplete' : 'idle')
+      return
+    }
+
+    runLookup(englishId)
+  }
+
+  // The field accepts 13 English digits only: Bengali numerals (০-৯) and every other
+  // character are discarded as they are typed, with a prompt to switch to English.
+  const handleBudgetIdChange = (value: string) => {
+    const digitsOnly = value.replace(/[^0-9]/g, '')
+    setEnglishOnlyWarning(digitsOnly !== value)
+    const nextId = digitsOnly.slice(0, 13)
+    setBudgetId(nextId)
+
+    // Editing the ID invalidates any previous result
+    lookupSeq.current += 1
+    setLookupOffice(null)
+
+    // The moment the 13th digit lands, look the office up — no need to wait for a blur
+    if (nextId.length === 13) runLookup(nextId)
+    else setLookupState('idle')
+  }
+
+  // Login — single step, no separate confirm screen
+  const handleLogin = () => {
     const englishId = toEnglishNumber(budgetId.trim())
     setLoginError(null)
+
+    if (!englishId) {
+      setLoginError('বাজেট আইডি লিখুন')
+      return
+    }
+    if (englishId.length !== 13) {
+      setLoginError(strings.landing.budgetIdLengthHint)
+      return
+    }
+    if (!password) {
+      setLoginError('পাসওয়ার্ড লিখুন')
+      return
+    }
+
     startTransition(async () => {
       const result = await loginOffice(englishId, password)
       if (result.success) {
         router.push('/dashboard')
       } else if (result.error) {
         setLoginError(result.error)
+        if (result.notFound) {
+          setLookupOffice(null)
+          setLookupState('notFound')
+        }
       }
     })
-  }
-
-  // Reset search
-  const handleReset = () => {
-    setBudgetId('')
-    setView('search')
-    setFoundOffice(null)
   }
 
   // Open registration modal
@@ -218,20 +291,68 @@ export function LandingClient() {
     })
   }
 
+  // Lookup feedback. It only exists while the field is contracted (i.e. after a blur) or when
+  // there is a validation warning while typing, and sits inline to the right of the input.
+  const shouldContract = (!idFocused && budgetId.length > 0) || (idFocused && englishOnlyWarning)
+
+  const lookupTitle = lookupOffice
+    ? lookupOffice.headOffice
+      ? `${lookupOffice.name} · ${strings.landing.headOfficePrefix}: ${lookupOffice.headOffice}`
+      : lookupOffice.name
+    : ''
+
+  // Flat pill: icon and text are siblings separated by a flex gap, and the text is truncatable.
+  // No nested "badge" wrapper, so the icon can never look padded or sit on top of the first character.
+  const chipBase =
+    'inline-flex max-w-full min-w-0 items-center gap-3 rounded-full border px-3 py-4 text-xs font-bold'
+  const chipIcon = 'h-3.5 w-3.5 shrink-0'
+  // The icon is a spinning (transformed) element in the waiting state, which lets it composite
+  // above later siblings. Lifting the label keeps its first character on top in every state.
+  const chipText = 'relative z-10 min-w-0 truncate pl-1'
+
+  const statusPill = englishOnlyWarning ? (
+    <span className={`${chipBase} border-amber-200 bg-amber-50 text-amber-700`}>
+      <AlertTriangle className={`${chipIcon} text-amber-600`} />
+      <span className={chipText}>{strings.landing.englishOnly}</span>
+    </span>
+  ) : lookupState === 'searching' ? (
+    <span className={`${chipBase} border-slate-200 bg-slate-50 text-slate-500`}>
+      <Loader2 className={`${chipIcon} animate-spin text-blue-500`} />
+      <span className={chipText}>{strings.landing.checking}</span>
+    </span>
+  ) : lookupState === 'found' && lookupOffice ? (
+    <span
+      title={lookupTitle}
+      className={`${chipBase} border-emerald-200 bg-emerald-50 text-emerald-800`}
+    >
+      <CheckCircle2 className={`${chipIcon} text-emerald-600`} />
+      <span className={chipText}>
+        {lookupOffice.name}
+        {lookupOffice.headOffice && (
+          <span className="font-semibold text-emerald-600/80">
+            {' · '}
+            {strings.landing.headOfficePrefix}: {lookupOffice.headOffice}
+          </span>
+        )}
+      </span>
+    </span>
+  ) : lookupState === 'incomplete' ? (
+    <span className={`${chipBase} border-amber-200 bg-amber-50 text-amber-700`}>
+      <AlertTriangle className={`${chipIcon} text-amber-600`} />
+      <span className={chipText}>{strings.landing.budgetIdLengthHint}</span>
+    </span>
+  ) : lookupState === 'notFound' ? (
+    <span className={`${chipBase} border-rose-200 bg-rose-50 text-rose-700`}>
+      <AlertTriangle className={`${chipIcon} text-rose-600`} />
+      <span className={chipText}>{strings.landing.noOffice}</span>
+    </span>
+  ) : null
+
   // Helper to get selected option text
   const getMinistryName = () => ministries.find(m => m.id === selectedMinistry)?.name || ''
   const getDeptName = () => departments.find(d => d.id === selectedDept)?.name || ''
   const getParentName = () => parentOffices.find(p => p.id === selectedParent)?.name || strings.na
   const getTypeName = () => officeTypes.find(t => t.id === selectedType)?.name || ''
-
-  const cardHeading =
-    view === 'found' ? 'অফিস নিশ্চিত করুন' : view === 'notFound' ? 'অফিস পাওয়া যায়নি' : 'অফিস লগিন'
-  const cardHint =
-    view === 'found'
-      ? 'অফিসটি সঠিক হলে পাসওয়ার্ড দিয়ে প্রবেশ করুন।'
-      : view === 'notFound'
-        ? 'এই বাজেট আইডিটি নিবন্ধিত নয়।'
-        : null
 
   return (
     <div className="flex min-h-dvh flex-1 flex-col bg-slate-50">
@@ -284,182 +405,124 @@ export function LandingClient() {
         <section className="order-1 w-full lg:order-2">
           <div className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white p-7 shadow-[0_24px_60px_-28px_rgba(15,23,42,0.28)] sm:rounded-[32px] sm:p-9">
             <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-600 via-blue-500 to-sky-400" />
-            <div className={`mb-7 border-b border-slate-100 pb-6 pt-1 ${view === 'search' ? 'text-center' : ''}`}>
-              {view === 'search' && (
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-600/30">
-                  <LogIn className="h-6 w-6" />
-                </div>
-              )}
-              <h2 className="font-heading text-xl font-bold text-slate-900">{cardHeading}</h2>
-              {cardHint && <p className="mt-1.5 text-sm font-medium text-slate-500">{cardHint}</p>}
+            {/* Header — logo + title on the same row */}
+            <div className="mb-6 flex items-center justify-center gap-3 border-b border-slate-100 pb-6 pt-1">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-600/30">
+                <LogIn className="h-5 w-5" />
+              </div>
+              <h2 className="font-heading text-xl font-bold text-slate-900">
+                {strings.landing.officeLogin}
+              </h2>
             </div>
 
-            {/* SEARCH VIEW */}
-            {view === 'search' && (
-              <form onSubmit={(e) => { e.preventDefault(); handleSearch() }} className="space-y-5">
-                <div>
-                  <label htmlFor="budget_id" className="mb-2.5 block text-sm font-bold text-slate-700">
-                    {strings.landing.enterBudgetId}
-                  </label>
-                  <div className="relative">
-                    <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+            <form onSubmit={(e) => { e.preventDefault(); handleLogin() }} className="space-y-5">
+              <div>
+                <label htmlFor="budget_id" className="mb-2.5 block text-sm font-bold text-slate-700">
+                  {strings.landing.budgetIdLabel} <span className="text-red-500">*</span>
+                </label>
+                <div className="flex items-center gap-3">
+                  {/* The field keeps the full row while focused, then contracts to the exact width
+                      of the typed digits so the status can sit beside it without moving anything. */}
+                  <div
+                    className="relative shrink-0 transition-[width] duration-300 ease-out"
+                    style={{ width: shouldContract ? `${Math.max(idWidth, 48)}px` : '100%' }}
+                  >
                     <input
                       type="text"
                       id="budget_id"
                       value={budgetId}
-                      onChange={(e) => setBudgetId(e.target.value)}
+                      onChange={(e) => handleBudgetIdChange(e.target.value)}
+                      onFocus={() => setIdFocused(true)}
+                      onBlur={() => {
+                        setIdFocused(false)
+                        handleLookup()
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          e.currentTarget.blur()
+                        }
+                      }}
                       placeholder={strings.landing.budgetIdPlaceholder}
-                      required
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-4 pl-12 pr-4 text-base font-semibold text-slate-900 transition-all placeholder:font-normal placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15"
+                      inputMode="numeric"
+                      maxLength={13}
+                      dir="ltr"
+                      autoComplete="off"
+                      spellCheck={false}
+                      aria-describedby="budget_id_status"
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-4 pr-4 text-base font-semibold text-slate-900 transition-colors placeholder:font-normal placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15 focus:placeholder:text-transparent"
                     />
+                    {/* Invisible twin of the digits — its width is what the field contracts to.
+                        `w-max` keeps it at the true text width instead of being clamped by the
+                        shrinking wrapper, which would otherwise feed a smaller value back into
+                        the width transition and collapse the box. */}
+                    <span
+                      ref={idMirrorRef}
+                      aria-hidden
+                      className="invisible absolute left-0 top-0 w-max whitespace-pre rounded-2xl border border-transparent px-4 py-3 text-base font-semibold"
+                    >
+                      {budgetId || '0'}
+                    </span>
+                  </div>
+
+                  <div
+                    id="budget_id_status"
+                    role="status"
+                    aria-live="polite"
+                    className="min-w-0 flex-1"
+                  >
+                    {shouldContract ? statusPill : null}
                   </div>
                 </div>
+              </div>
 
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="submit"
-                    disabled={isPending}
-                    className="group order-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 font-heading text-base font-bold text-white shadow-lg shadow-blue-600/30 transition-all hover:from-blue-500 hover:to-blue-400 active:scale-[0.99] disabled:opacity-70 sm:order-2 sm:flex-[1.5]"
-                  >
-                    {isPending ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <>
-                        {strings.landing.searchButton}
-                        <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-                      </>
-                    )}
-                  </button>
+              <div>
+                <label htmlFor="office_password" className="mb-2.5 block text-sm font-bold text-slate-700">
+                  {strings.login.password} <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    id="office_password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="পাসওয়ার্ড লিখুন"
+                    autoComplete="current-password"
+                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-4 pr-12 font-medium text-slate-900 transition-all placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15"
+                  />
                   <button
                     type="button"
-                    onClick={handleOpenRegModal}
-                    className="group order-2 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 font-heading text-sm font-bold text-slate-600 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 sm:order-1 sm:flex-1"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
                   >
-                    <Plus className="h-4 w-4 text-slate-400 transition-colors group-hover:text-blue-600" />
-                    {strings.landing.registerButton}
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
-              </form>
-            )}
-
-            {/* FOUND VIEW */}
-            {view === 'found' && foundOffice && (
-              <div className="space-y-6">
-                <div className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm ring-1 ring-blue-100">
-                    <Building2 className="h-5 w-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-blue-700">
-                      {strings.landing.foundOffice}
-                    </p>
-                    <p className="font-heading text-base font-bold leading-snug text-slate-900">
-                      {foundOffice.name}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-                  <span className="text-xs font-bold text-slate-500">বাজেট আইডি</span>
-                  <span className="font-mono text-sm font-bold text-slate-800">
-                    {toBanglaNumber(toEnglishNumber(budgetId.trim()))}
-                  </span>
-                </div>
-
-                <div>
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <label htmlFor="office_password" className="flex items-center gap-1.5 text-sm font-bold text-slate-700">
-                      <Lock className="h-4 w-4 text-slate-400" />
-                      {strings.login.password}
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowForgotModal(true)}
-                      className="text-xs font-bold text-blue-600 transition-colors hover:text-blue-700 hover:underline"
-                    >
-                      পাসওয়ার্ড ভুলে গেছেন?
-                    </button>
-                  </div>
-
-                  <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      id="office_password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="পাসওয়ার্ড লিখুন"
-                      autoComplete="current-password"
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-4 pl-4 pr-12 font-medium text-slate-900 transition-all placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((prev) => !prev)}
-                      aria-label={showPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
-                    >
-                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                    </button>
-                  </div>
-
-                  {loginError && (
-                    <p className="mt-2 text-xs font-semibold text-rose-600">{loginError}</p>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <button
-                    onClick={handleConfirm}
-                    disabled={isPending}
-                    className="order-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 font-heading text-base font-bold text-white shadow-lg shadow-blue-600/30 transition-all hover:from-blue-500 hover:to-blue-400 active:scale-[0.99] disabled:opacity-70 sm:order-2 sm:flex-[1.5]"
-                  >
-                    {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <LogIn className="h-5 w-5" />}
-                    {strings.landing.loginButton}
-                  </button>
-                  <button
-                    onClick={handleReset}
-                    className="order-2 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 font-heading text-sm font-bold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 sm:order-1 sm:flex-1"
-                  >
-                    <X className="h-4 w-4" />
-                    {strings.landing.searchAnother}
-                  </button>
-                </div>
+                {loginError && (
+                  <p className="mt-2 text-xs font-semibold text-rose-600">{loginError}</p>
+                )}
               </div>
-            )}
 
-            {/* NOT FOUND VIEW */}
-            {view === 'notFound' && (
-              <div className="space-y-6">
-                <div className="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-amber-500 shadow-sm ring-1 ring-amber-100">
-                    <Search className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="font-heading text-sm font-bold text-slate-900">
-                      {strings.landing.notFound}
-                    </p>
-                    <p className="mt-0.5 text-xs font-medium text-slate-600">
-                      {strings.landing.registerPrompt}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <button
-                    onClick={handleOpenRegModal}
-                    className="order-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 font-heading text-base font-bold text-white shadow-lg shadow-blue-600/30 transition-all hover:from-blue-500 hover:to-blue-400 active:scale-[0.99] sm:order-2 sm:flex-[1.5]"
-                  >
-                    <Plus className="h-5 w-5" />
-                    {strings.landing.registerThis}
-                  </button>
-                  <button
-                    onClick={handleReset}
-                    className="order-2 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 font-heading text-sm font-bold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 sm:order-1 sm:flex-1"
-                  >
-                    {strings.landing.searchAgain}
-                  </button>
-                </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={handleOpenRegModal}
+                  className="group order-2 flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-600 bg-emerald-600 px-4 py-4 font-heading text-sm font-bold text-white shadow-lg shadow-emerald-600/25 transition-all hover:border-emerald-500 hover:bg-emerald-500 active:scale-[0.99] sm:order-1 sm:flex-1"
+                >
+                  <Plus className="h-4 w-4" />
+                  {strings.landing.registerButton}
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="order-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 font-heading text-base font-bold text-white shadow-lg shadow-blue-600/30 transition-all hover:from-blue-500 hover:to-blue-400 active:scale-[0.99] disabled:opacity-70 sm:order-2 sm:flex-[1.5]"
+                >
+                  {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <LogIn className="h-5 w-5" />}
+                  {strings.landing.loginButton}
+                </button>
               </div>
-            )}
+            </form>
           </div>
 
           <p className="mt-4 flex items-center justify-center gap-2 text-center text-xs font-medium text-slate-500">
@@ -470,15 +533,9 @@ export function LandingClient() {
 
         {/* ---------- Branding panel (second on mobile, left on desktop) ---------- */}
         <section className="order-2 space-y-8 lg:order-1">
-          <div className="space-y-4">
-            <span className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-4 py-1.5 text-sm font-bold text-blue-700">
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-              {strings.landing.subtitle}
-            </span>
-            <h1 className="font-heading text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-4xl lg:text-5xl pl-0.5">
-              {strings.landing.title}
-            </h1>
-          </div>
+          <h1 className="font-heading text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-4xl lg:text-5xl pl-0.5">
+            {strings.landing.title}
+          </h1>
 
           <ol className="space-y-3">
             {STEPS.map((step, index) => {
@@ -587,7 +644,7 @@ export function LandingClient() {
                           id="reg_ministry"
                           value={selectedMinistry}
                           onChange={(e) => handleMinistryChange(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15"
                           required
                         >
                           <option value="" disabled>মন্ত্রণালয়/বিভাগ নির্বাচন করুন</option>
@@ -606,7 +663,7 @@ export function LandingClient() {
                           id="department"
                           value={selectedDept}
                           onChange={(e) => handleDeptChange(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15"
                           required
                         >
                           <option value="" disabled>{strings.registration.departmentPlaceholder}</option>
@@ -624,7 +681,7 @@ export function LandingClient() {
                           value={selectedType}
                           onChange={(e) => handleTypeChange(e.target.value)}
                           disabled={!selectedDept}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15 disabled:opacity-50"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15 disabled:opacity-50"
                           required
                         >
                           <option value="" disabled>{strings.registration.officeTypePlaceholder}</option>
@@ -642,7 +699,7 @@ export function LandingClient() {
                           value={selectedLevel}
                           onChange={(e) => setSelectedLevel(e.target.value)}
                           disabled={!selectedType}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15 disabled:opacity-50"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15 disabled:opacity-50"
                           required
                         >
                           <option value="" disabled>স্তর নির্বাচন করুন</option>
@@ -660,7 +717,7 @@ export function LandingClient() {
                           value={selectedParent}
                           onChange={(e) => setSelectedParent(e.target.value)}
                           disabled={!selectedDept}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15 disabled:opacity-50"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15 disabled:opacity-50"
                           required
                         >
                           <option value="" disabled>হেড অফিস নির্বাচন করুন</option>
@@ -688,7 +745,7 @@ export function LandingClient() {
                           value={regName}
                           onChange={(e) => setRegName(e.target.value)}
                           placeholder="যেমন: সার্কেল-১ (কোতোয়ালী)"
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium transition-all placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium transition-all placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15"
                           required
                         />
                       </div>
@@ -703,7 +760,7 @@ export function LandingClient() {
                           value={regBudgetId}
                           onChange={(e) => setRegBudgetId(e.target.value)}
                           placeholder={strings.registration.budgetIdPlaceholder}
-                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm font-bold transition-all placeholder:font-normal placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 font-mono text-sm font-bold transition-all placeholder:font-normal placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15"
                           required
                         />
                       </div>

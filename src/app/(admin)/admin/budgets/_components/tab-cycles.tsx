@@ -2,6 +2,7 @@
 
 import { toBanglaNumber } from '@/lib/bangla'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import {
@@ -83,6 +84,7 @@ export function TabCycles({
                 open: true,
                 fiscal_year: fiscalYears[0]?.year || '',
                 budget_type_name: budgetTypes[0]?.name || '',
+                salary_months: 12,
                 status: 'open',
               })
             }}
@@ -136,6 +138,7 @@ export function TabCycles({
                       open: true,
                       fiscal_year: fiscalYears[0]?.year || '',
                       budget_type_name: budgetTypes[0]?.name || '',
+                      salary_months: 12,
                       status: 'open',
                     })
                   }
@@ -154,6 +157,7 @@ export function TabCycles({
                     <th className="py-3 px-4">ক্রম</th>
                     <th className="py-3 px-4">অর্থবছর</th>
                     <th className="py-3 px-4">বাজেটের ধরণ</th>
+                    <th className="py-3 px-4">বাজেট-মাস</th>
                     <th className="py-3 px-4">দাখিলকৃত অফিসের সংখ্যা</th>
                     <th className="py-3 px-4">স্ট্যাটাস</th>
                     <th className="py-3 px-4 text-center">একশন</th>
@@ -172,6 +176,9 @@ export function TabCycles({
                         <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-bold border border-blue-200/60">
                           {c.budget_type_name}
                         </span>
+                      </td>
+                      <td className="py-3.5 px-4 font-bold text-slate-700">
+                        {toBanglaNumber(c.salary_months)} মাস
                       </td>
                       <td className="py-3.5 px-4 font-medium text-slate-600">
                         {c.has_data ? (
@@ -221,6 +228,7 @@ export function TabCycles({
                                 id: c.id,
                                 fiscal_year: c.fiscal_year,
                                 budget_type_name: c.budget_type_name,
+                                salary_months: c.salary_months,
                                 status: c.status,
                               })
                             }
@@ -321,6 +329,34 @@ export function TabCycles({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700">বেতন-মাস</Label>
+              <Input
+                type="number"
+                min={1}
+                max={12}
+                inputMode="numeric"
+                value={cycleModal.salary_months || ''}
+                onChange={(e) => {
+                  const raw = e.target.value
+                  if (raw === '') {
+                    setCycleModal((prev) => ({ ...prev, salary_months: 0 }))
+                    return
+                  }
+                  const months = Math.trunc(Number(raw))
+                  // A fiscal year holds twelve months at most, so drop any keystroke
+                  // that would push the figure past a whole year.
+                  if (!Number.isFinite(months) || months < 1 || months > 12) return
+                  setCycleModal((prev) => ({ ...prev, salary_months: months }))
+                }}
+                placeholder="১২"
+                className="rounded-xl border-slate-200"
+              />
+              <p className="text-[11px] text-slate-500">
+                বাজেটের মাসিক হিসাব কত মাসে বার্ষিক করা হবে — ১ থেকে ১২ এর মধ্যে।
+              </p>
             </div>
 
             <div className="space-y-1.5 pt-1">

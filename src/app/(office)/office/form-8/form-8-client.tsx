@@ -46,7 +46,7 @@ export interface Form8ClientProps {
   initialData: any[]
   carTypes: any[]
   rentConfigs: any[]
-  /** বেতন-ভাতা মাস (/admin/settings) — annualises the monthly rent like the sheet engine. */
+  /** বেতন-মাস (/admin/budgets, set on the budget cycle) — annualises the monthly rent like the sheet engine. */
   salaryMonths: number
 }
 

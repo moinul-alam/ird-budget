@@ -367,15 +367,18 @@ export async function loadFormItEquipmentInitial(submissionId: number) {
 }
 
 /**
- * The বেতন-ভাতা মাস tile: how many months a year the budget multiplies monthly
+ * The open cycle's বেতন-মাস: how many months a year the budget multiplies monthly
  * figures by. Form 6 and form 10 read it from here rather than assuming twelve.
+ * Like the rest of the office side this follows the open cycle, which is the one
+ * the session's submission belongs to.
  */
 export async function loadSalaryMonths(): Promise<number> {
-  const tile = await prisma.adminSalaryConfig.findUnique({
-    where: { key: 'salary_months' },
-    select: { value: true },
+  const cycle = await prisma.coreBudgetCycle.findFirst({
+    where: { status: 'open' },
+    orderBy: { id: 'desc' },
+    select: { salaryMonths: true },
   })
-  return tile ? Number(tile.value) : 0
+  return cycle?.salaryMonths ?? 0
 }
 
 export async function loadFormReturnInfoInitial(submissionId: number) {

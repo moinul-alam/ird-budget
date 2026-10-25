@@ -20,6 +20,8 @@ export interface CycleItem {
   id: number
   fiscal_year: string
   budget_type_name: string
+  /** বেতন-মাস — the cycle's annualising multiplier for monthly figures. */
+  salary_months: number
   status: 'open' | 'closed'
   has_data?: boolean
   submission_count?: number
@@ -183,6 +185,7 @@ export async function getCyclesList(): Promise<CycleItem[]> {
       id: Number(c.id),
       fiscal_year: c.fiscalYear.year,
       budget_type_name: c.budgetType.name,
+      salary_months: c.salaryMonths,
       status: c.status as 'open' | 'closed',
       has_data: count > 0,
       submission_count: count,
@@ -197,6 +200,7 @@ export async function saveCycle(data: {
   id?: number
   fiscal_year: string
   budget_type_name: string
+  salary_months: number
   status: 'open' | 'closed'
 }) {
   const session = await getAdminSession()
@@ -204,6 +208,13 @@ export async function saveCycle(data: {
 
   if (!data.fiscal_year?.trim() || !data.budget_type_name?.trim()) {
     return { error: 'অর্থবছর ও বাজেটের ধরণ আবশ্যক' }
+  }
+
+  // বেতন-মাস is the number of months the sheet annualises by; a fiscal year holds
+  // twelve at most, so anything outside that range is a typo, not a budget.
+  const salaryMonths = Number(data.salary_months)
+  if (!Number.isInteger(salaryMonths) || salaryMonths < 1 || salaryMonths > 12) {
+    return { error: 'বেতন-মাস ১ থেকে ১২ এর মধ্যে একটি পূর্ণসংখ্যা হতে হবে' }
   }
 
   // Both sides of a cycle are reference rows; resolve them to their foreign keys.
@@ -231,6 +242,7 @@ export async function saveCycle(data: {
           fiscalYearId: fiscalYear.id,
           budgetTypeId: budgetType.id,
           title: `${data.fiscal_year.trim()} ${data.budget_type_name.trim()}`,
+          salaryMonths,
           status: data.status,
           openedAt: data.status === 'open' ? new Date() : undefined,
           closedAt: data.status === 'closed' ? new Date() : undefined,
@@ -242,6 +254,7 @@ export async function saveCycle(data: {
           fiscalYearId: fiscalYear.id,
           budgetTypeId: budgetType.id,
           title: `${data.fiscal_year.trim()} ${data.budget_type_name.trim()}`,
+          salaryMonths,
           status: data.status,
           openedAt: data.status === 'open' ? new Date() : undefined,
           closedAt: data.status === 'closed' ? new Date() : undefined,

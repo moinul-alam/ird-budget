@@ -9,8 +9,10 @@ export default async function Form9Page() {
 
   const submissionId = session.submission_id ?? null
 
-  // The VAT rate and the budget-months multiplier are admin rates, not constants:
-  // changing them in /admin/settings must change what this form projects.
+  // The VAT rate and the budget-months multiplier are admin figures, not
+  // constants: the VAT rate is edited on /admin/settings and the multiplier on
+  // the open budget cycle (/admin/budgets), and either change must change what
+  // this form projects.
   const [initialData, vatPercentage, salaryMonths] = await Promise.all([
     submissionId ? loadFormHouseRentInitial(submissionId) : Promise.resolve(null),
     loadVatPercentage(),

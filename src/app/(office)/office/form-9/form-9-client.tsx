@@ -31,7 +31,7 @@ export interface Form9ClientProps {
   submissionId: number | null
   initialData: any
   vatPercentage: number
-  /** বেতন-ভাতা মাস (/admin/settings) — annualises the monthly rent like the sheet engine. */
+  /** বেতন-মাস (/admin/budgets, set on the budget cycle) — annualises the monthly rent like the sheet engine. */
   salaryMonths: number
 }
 

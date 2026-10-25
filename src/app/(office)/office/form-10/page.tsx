@@ -17,8 +17,8 @@ export default async function Form10Page() {
   const officeTypeId = await getOfficeTypeIdForOffice(officeId)
 
   // The unit prices come from the equipment types the administrator edits on
-  // /admin/settings?tab=equipment, and the annual multiplier from the
-  // বেতন-ভাতা মাস tile. Nothing here is a constant.
+  // /admin/settings?tab=equipment, and the annual multiplier from the বেতন-মাস
+  // the cycle carries. Nothing here is a constant.
   const [itConfigs, initialData, salaryMonths] = await Promise.all([
     officeTypeId ? loadItConfigsForOfficeType(officeTypeId) : Promise.resolve([]),
     submissionId ? loadFormItEquipmentInitial(submissionId) : Promise.resolve([]),
