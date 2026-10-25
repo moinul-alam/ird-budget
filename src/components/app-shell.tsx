@@ -150,9 +150,11 @@ export function AppShell({
             <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-white text-slate-800 shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95">
               <div className="px-4 py-2.5 border-b border-slate-100">
                 <p className="text-xs font-bold text-slate-900 truncate">{user.name}</p>
-                <p className="text-[11px] font-mono font-semibold text-slate-500 mt-0.5">
-                  ({user.budget_id || user.id})
-                </p>
+                {user.budget_id && (
+                  <p className="text-[11px] font-mono font-semibold text-slate-500 mt-0.5">
+                    বাজেট আইডি : {toBanglaNumber(user.budget_id)}
+                  </p>
+                )}
               </div>
 
               <div className="p-1 space-y-0.5">

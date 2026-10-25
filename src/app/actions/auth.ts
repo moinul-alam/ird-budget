@@ -216,7 +216,7 @@ export async function registerOffice(formData: FormData) {
       JSON.stringify({
         id: String(newOffice.id),
         office_id: Number(newOffice.id),
-        budgetId,
+        budget_id: budgetId,
         name,
         submission_id: submissionId || undefined,
       }),

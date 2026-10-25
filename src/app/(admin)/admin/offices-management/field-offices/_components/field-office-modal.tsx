@@ -54,13 +54,13 @@ export function FieldOfficeModal({
 }: FieldOfficeModalProps) {
   return (
     <Dialog open={modal.open} onOpenChange={(open) => !open && setModal((prev) => ({ ...prev, open: false }))}>
-      <DialogContent className="sm:max-w-md rounded-2xl p-6">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl rounded-2xl p-6">
         <DialogHeader>
           <DialogTitle className="text-base font-bold text-slate-900">
             {modal.id ? 'মাঠ পর্যায়ের অফিস সম্পাদনা' : 'নতুন মাঠ পর্যায়ের অফিস যোগ করুন'}
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-2">
+        <div className="grid grid-cols-1 gap-4 py-2 sm:grid-cols-2">
           {/* ১. মন্ত্রণালয়/বিভাগ */}
           <div className="space-y-1.5">
             <Label className="text-xs font-bold text-slate-700">মন্ত্রণালয় / বিভাগ</Label>
@@ -208,7 +208,7 @@ export function FieldOfficeModal({
           </div>
 
           {/* ৫. মাঠ পর্যায়ের অফিসের নাম */}
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 sm:col-span-2">
             <Label className="text-xs font-bold text-slate-700">মাঠ পর্যায়ের অফিসের নাম</Label>
             <Input
               type="text"
@@ -220,7 +220,7 @@ export function FieldOfficeModal({
           </div>
 
           {/* ৬. অফিসের বাজেট আইডি */}
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 sm:col-span-2">
             <Label className="text-xs font-bold text-slate-700">অফিসের বাজেট আইডি</Label>
             <Input
               type="text"
