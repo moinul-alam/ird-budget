@@ -6,7 +6,7 @@ import { strings } from '@/lib/strings'
 import { toEnglishNumber } from '@/lib/bangla'
 import { searchOffice, getDepartments, getParentOffices, getOfficeTypes, getMinistriesList, getOfficeLevelsForType } from '@/app/actions/office'
 import { loginOffice, registerOffice } from '@/app/actions/auth'
-import { Search, Plus, Check, X, ArrowRight, Lock, Loader2 } from 'lucide-react'
+import { Search, Plus, Check, X, ArrowRight, Lock, Loader2, Eye, EyeOff } from 'lucide-react'
 import Link from 'next/link'
 
 type ViewState = 'search' | 'found' | 'notFound'
@@ -49,6 +49,7 @@ export function LandingClient() {
   const [officeLevels, setOfficeLevels] = useState<SelectOption[]>([])
   const [regError, setRegError] = useState<string | null>(null)
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loginError, setLoginError] = useState<string | null>(null)
   const [showForgotModal, setShowForgotModal] = useState(false)
 
@@ -319,14 +320,24 @@ export function LandingClient() {
                     </button>
                   </div>
 
-                  <input
-                    type="password"
-                    id="office_password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="পাসওয়ার্ড লিখুন"
-                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      id="office_password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="পাসওয়ার্ড লিখুন"
+                      className="w-full pl-5 pr-12 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      aria-label={showPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
                   
                   {loginError && (
                     <p className="text-xs text-rose-600 font-semibold mt-2">

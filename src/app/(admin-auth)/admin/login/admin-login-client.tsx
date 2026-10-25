@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { loginAdmin } from '@/app/actions/auth'
-import { Loader2, ShieldCheck, Lock, User, ArrowLeft } from 'lucide-react'
+import { Loader2, ShieldCheck, Lock, User, ArrowLeft, Eye, EyeOff } from 'lucide-react'
 import { strings } from '@/lib/strings'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -26,6 +26,7 @@ export function AdminLoginClient() {
   const [loading, setLoading] = useState(false)
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [forgotModalOpen, setForgotModalOpen] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -119,17 +120,28 @@ export function AdminLoginClient() {
                   পাসওয়ার্ড ভুলে গেছেন?
                 </button>
               </div>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={strings.login.passwordPlaceholder}
-                required
-                disabled={loading}
-                className="h-12 px-4 rounded-xl border-slate-200 bg-slate-50/50 font-medium focus:bg-white transition-colors"
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder={strings.login.passwordPlaceholder}
+                  required
+                  disabled={loading}
+                  className="h-12 pl-4 pr-12 rounded-xl border-slate-200 bg-slate-50/50 font-medium focus:bg-white transition-colors"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
+                  disabled={loading}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
 
             <Button 

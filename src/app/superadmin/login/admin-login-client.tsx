@@ -7,12 +7,13 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { loginAdmin } from '@/app/actions/auth'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Eye, EyeOff } from 'lucide-react'
 import { strings } from '@/lib/strings'
 
 export function AdminLoginClient() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -66,13 +67,25 @@ export function AdminLoginClient() {
 
             <div className="space-y-2">
               <Label htmlFor="password">{strings.login.password}</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                required
-                disabled={loading}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  disabled={loading}
+                  className="pr-12"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  aria-label={showPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
+                  disabled={loading}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer disabled:pointer-events-none disabled:opacity-50"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
 
             <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={loading}>
