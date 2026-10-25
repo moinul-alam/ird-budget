@@ -71,8 +71,8 @@ async function seedAdminUser() {
 // editable from /admin/codes afterwards — the application never hardcodes them.
 // Re-seeding only fills gaps, so a category you renamed or added by hand survives.
 //
-// The 4-digit prefix is the chart-of-accounts parent. Labels follow the category
-// list in resources/budget-system-PRD.md.
+// The 4-digit prefix is the chart-of-accounts parent. Labels below are the seed
+// defaults; rename or add categories from /admin/codes afterwards.
 const SEED_CATEGORIES = [
   { code: '3111', title: 'নগদ মজুরি ও বেতন' },
   { code: '3211', title: 'প্রশাসনিক ব্যয়' },
@@ -250,6 +250,136 @@ async function seedEconomicCodes() {
 }
 
 // ---------------------------------------------------------------------------
+// Reference data: formula registry and code bindings
+// ---------------------------------------------------------------------------
+// The budget engine is a registry of named formulas; which formula computes a
+// code is data (`ref_economic_codes.formula_key`), so adding a code that reuses
+// an existing formula is an admin row rather than a code change. The migration
+// that introduced this backfills an existing database; this keeps a freshly
+// reset database identical, since the migration's backfill reaches no rows when
+// it runs against an empty database.
+//
+// Only the *binding* is data. A formula's arithmetic stays in
+// src/lib/budget/calculate.ts (`formulaRegistry`), keyed by these strings; a key
+// with no function computes 0, so an administrator can never invent an amount.
+const SEED_FORMULA_TYPES = [
+  { key: 'salary_officer', labelBn: 'মূল বেতন (অফিসার)', sortOrder: 1 },
+  { key: 'salary_staff', labelBn: 'মূল বেতন (কর্মচারী)', sortOrder: 2 },
+  { key: 'leave_encashment_officer', labelBn: 'ছুটি নগদায়ন বেতন (অফিসার)', sortOrder: 3 },
+  { key: 'leave_encashment_staff', labelBn: 'ছুটি নগদায়ন বেতন (কর্মচারী)', sortOrder: 4 },
+  { key: 'duty_allowance', labelBn: 'দায়িত্ব ভাতা', sortOrder: 5 },
+  { key: 'transport_allowance', labelBn: 'যাতায়াত ভাতা', sortOrder: 6 },
+  { key: 'education_allowance', labelBn: 'শিক্ষা ভাতা', sortOrder: 7 },
+  { key: 'risk_allowance', labelBn: 'ঝুঁকি ভাতা', sortOrder: 8 },
+  { key: 'hill_allowance', labelBn: 'পাহাড়ী ভাতা', sortOrder: 9 },
+  { key: 'house_rent_allowance', labelBn: 'বাড়ি ভাড়া ভাতা', sortOrder: 10 },
+  { key: 'medical_allowance', labelBn: 'চিকিৎসা ভাতা', sortOrder: 11 },
+  { key: 'mobile_allowance', labelBn: 'মোবাইল/সেলফোন ভাতা', sortOrder: 12 },
+  { key: 'telephone_allowance', labelBn: 'আবাসিক টেলিফোন নগদায়ন', sortOrder: 13 },
+  { key: 'tiffin_allowance', labelBn: 'টিফিন ভাতা', sortOrder: 14 },
+  { key: 'dress_allowance', labelBn: 'পোশাক ভাতা', sortOrder: 15 },
+  { key: 'wash_allowance', labelBn: 'ধোলাই ভাতা', sortOrder: 16 },
+  { key: 'festival_bonus', labelBn: 'উৎসব ভাতা', sortOrder: 17 },
+  { key: 'overtime_allowance', labelBn: 'অধিকাল ভাতা', sortOrder: 18 },
+  { key: 'rest_recreation', labelBn: 'শ্রান্তি ও বিনোদন ভাতা', sortOrder: 19 },
+  { key: 'entertainment_allowance', labelBn: 'আপ্যায়ন ভাতা', sortOrder: 20 },
+  { key: 'noboborsho_allowance', labelBn: 'বাংলা নববর্ষ ভাতা', sortOrder: 21 },
+  { key: 'special_benefit', labelBn: 'বিশেষ সুবিধা', sortOrder: 22 },
+  { key: 'utility_bill', labelBn: 'ইউটিলিটি বিল (ফরম ১১)', sortOrder: 23 },
+  { key: 'postal_demand', labelBn: 'ডাক ব্যয় (ফরম ১২)', sortOrder: 24 },
+  { key: 'office_rent', labelBn: 'অফিস ভবন ভাড়া (ফরম ৯)', sortOrder: 25 },
+  { key: 'fuel_by_category', labelBn: 'জ্বালানি ব্যয় (ফরম ৭)', sortOrder: 26 },
+  { key: 'vehicle_rent', labelBn: 'যানবাহন ভাড়া (ফরম ৮)', sortOrder: 27 },
+  { key: 'vehicle_maintenance', labelBn: 'মোটরযান রক্ষণাবেক্ষণ', sortOrder: 28 },
+  { key: 'it_toner', labelBn: 'কম্পিউটার সামগ্রী — টোনার (ফরম ১০)', sortOrder: 29 },
+  { key: 'it_purchase', labelBn: 'কম্পিউটার ও আনুষঙ্গিক ক্রয় (ফরম ১০)', sortOrder: 30 },
+]
+
+// code → the formula that computes it and the forms whose data produced it. A
+// code listed here is computed (never manual); a code absent from the list takes
+// the manual-entry path it already had.
+const SEED_CODE_FORMULA_BINDINGS = [
+  { code: '3111101', formulaKey: 'salary_officer', sourceForms: [2] },
+  { code: '3111110', formulaKey: 'leave_encashment_officer', sourceForms: [6] },
+  { code: '3111201', formulaKey: 'salary_staff', sourceForms: [2, 4] },
+  { code: '3111209', formulaKey: 'leave_encashment_staff', sourceForms: [6] },
+  { code: '3111301', formulaKey: 'duty_allowance', sourceForms: [5] },
+  { code: '3111302', formulaKey: 'transport_allowance', sourceForms: [2] },
+  { code: '3111306', formulaKey: 'education_allowance', sourceForms: [2] },
+  { code: '3111308', formulaKey: 'risk_allowance', sourceForms: [5] },
+  { code: '3111309', formulaKey: 'hill_allowance', sourceForms: [5] },
+  { code: '3111310', formulaKey: 'house_rent_allowance', sourceForms: [2] },
+  { code: '3111311', formulaKey: 'medical_allowance', sourceForms: [2] },
+  { code: '3111312', formulaKey: 'mobile_allowance', sourceForms: [2] },
+  { code: '3111313', formulaKey: 'telephone_allowance', sourceForms: [2] },
+  { code: '3111314', formulaKey: 'tiffin_allowance', sourceForms: [2] },
+  { code: '3111315', formulaKey: 'dress_allowance', sourceForms: [5] },
+  { code: '3111316', formulaKey: 'wash_allowance', sourceForms: [2] },
+  { code: '3111325', formulaKey: 'festival_bonus', sourceForms: [2] },
+  { code: '3111327', formulaKey: 'overtime_allowance', sourceForms: [5] },
+  { code: '3111328', formulaKey: 'rest_recreation', sourceForms: [6] },
+  { code: '3111331', formulaKey: 'entertainment_allowance', sourceForms: [2] },
+  { code: '3111335', formulaKey: 'noboborsho_allowance', sourceForms: [2] },
+  { code: '3111352', formulaKey: 'special_benefit', sourceForms: [2] },
+  { code: '3211107', formulaKey: 'vehicle_rent', sourceForms: [8] },
+  { code: '3211113', formulaKey: 'utility_bill', sourceForms: [11] },
+  { code: '3211115', formulaKey: 'utility_bill', sourceForms: [11] },
+  { code: '3211117', formulaKey: 'utility_bill', sourceForms: [11] },
+  { code: '3211119', formulaKey: 'postal_demand', sourceForms: [12] },
+  { code: '3211120', formulaKey: 'utility_bill', sourceForms: [11] },
+  { code: '3211129', formulaKey: 'office_rent', sourceForms: [9] },
+  { code: '3243301', formulaKey: 'fuel_by_category', sourceForms: [7] },
+  { code: '3243302', formulaKey: 'fuel_by_category', sourceForms: [7] },
+  { code: '3255101', formulaKey: 'it_toner', sourceForms: [10] },
+  { code: '3256106', formulaKey: 'dress_allowance', sourceForms: [5] },
+  { code: '3258101', formulaKey: 'vehicle_maintenance', sourceForms: [7] },
+  { code: '3258140', formulaKey: 'vehicle_maintenance', sourceForms: [7] },
+  { code: '4112202', formulaKey: 'it_purchase', sourceForms: [10] },
+]
+
+async function seedFormulaTypes() {
+  let created = 0
+
+  for (const item of SEED_FORMULA_TYPES) {
+    const existing = await prisma.refFormulaType.findUnique({
+      where: { key: item.key },
+      select: { id: true },
+    })
+    if (existing) continue
+
+    await prisma.refFormulaType.create({ data: item })
+    created += 1
+  }
+
+  console.log(
+    `  ref_formula_types   : ${created} created, ${SEED_FORMULA_TYPES.length - created} already present`
+  )
+}
+
+async function seedCodeFormulaBindings() {
+  let updated = 0
+
+  for (const item of SEED_CODE_FORMULA_BINDINGS) {
+    const existing = await prisma.refEconomicCode.findUnique({
+      where: { code: item.code },
+      select: { id: true },
+    })
+    if (!existing) continue
+
+    // A code that names a formula is by definition computed, so it is never manual.
+    await prisma.refEconomicCode.update({
+      where: { code: item.code },
+      data: { formulaKey: item.formulaKey, sourceForms: item.sourceForms, isManual: false },
+    })
+    updated += 1
+  }
+
+  console.log(
+    `  code→formula bindings: ${updated} bound, ${SEED_CODE_FORMULA_BINDINGS.length - updated} code(s) missing`
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Reference data: pay grades
 // ---------------------------------------------------------------------------
 // Forms 2, 3 and 4 write one row per grade and the staff tables reference
@@ -322,15 +452,16 @@ async function seedGrades() {
 // ---------------------------------------------------------------------------
 // Form 5 renders one card per allowance row, so everything the card shows is
 // described here: the Bengali label, the count label and which of the basic /
-// amount / due inputs the card collects. The budget engine keys its formulas off
-// `name`, so the names must stay exactly as written.
+// amount / due inputs the card collects. `formulaKey` names the engine formula
+// that consumes the card (see ref_formula_types) — the engine matches by key,
+// never by name, so renaming a card does not change how it is calculated.
 const SEED_ALLOWANCE_TYPES = [
-  { name: 'overtime', labelBn: 'অধিকাল ভাতা (চালক)', countLabelBn: 'গাড়ীচালকের সংখ্যা', hasBasic: true, hasAmount: false, hasDue: true, isCalculated: true, formulaKey: null, applicableCategory: 'staff' },
-  { name: 'duty', labelBn: 'দায়িত্ব ভাতা', countLabelBn: 'কর্মকর্তার সংখ্যা', hasBasic: false, hasAmount: false, hasDue: false, isCalculated: true, formulaKey: null, applicableCategory: 'officer' },
-  { name: 'dress', labelBn: 'পোশাক ভাতা', countLabelBn: 'কর্মচারীর সংখ্যা', hasBasic: false, hasAmount: true, hasDue: true, isCalculated: false, formulaKey: null, applicableCategory: 'staff' },
-  { name: 'risk', labelBn: 'ঝুঁকি ভাতা', countLabelBn: 'কর্মচারীর সংখ্যা', hasBasic: false, hasAmount: true, hasDue: true, isCalculated: false, formulaKey: null, applicableCategory: 'staff' },
-  { name: 'hill', labelBn: 'পাহাড়ী ভাতা', countLabelBn: 'কর্মচারীর সংখ্যা', hasBasic: false, hasAmount: true, hasDue: true, isCalculated: false, formulaKey: null, applicableCategory: 'staff' },
-  { name: 'restRecreation', labelBn: 'শ্রান্তি ও বিনোদন ভাতা', countLabelBn: 'কর্মকর্তা/কর্মচারীর সংখ্যা', hasBasic: false, hasAmount: true, hasDue: true, isCalculated: false, formulaKey: null, applicableCategory: 'both' },
+  { name: 'overtime', labelBn: 'অধিকাল ভাতা (চালক)', countLabelBn: 'গাড়ীচালকের সংখ্যা', hasBasic: true, hasAmount: false, hasDue: true, isCalculated: true, formulaKey: 'overtime_allowance', applicableCategory: 'staff' },
+  { name: 'duty', labelBn: 'দায়িত্ব ভাতা', countLabelBn: 'কর্মকর্তার সংখ্যা', hasBasic: false, hasAmount: false, hasDue: false, isCalculated: true, formulaKey: 'duty_allowance', applicableCategory: 'officer' },
+  { name: 'dress', labelBn: 'পোশাক ভাতা', countLabelBn: 'কর্মচারীর সংখ্যা', hasBasic: false, hasAmount: true, hasDue: true, isCalculated: false, formulaKey: 'dress_allowance', applicableCategory: 'staff' },
+  { name: 'risk', labelBn: 'ঝুঁকি ভাতা', countLabelBn: 'কর্মচারীর সংখ্যা', hasBasic: false, hasAmount: true, hasDue: true, isCalculated: false, formulaKey: 'risk_allowance', applicableCategory: 'staff' },
+  { name: 'hill', labelBn: 'পাহাড়ী ভাতা', countLabelBn: 'কর্মচারীর সংখ্যা', hasBasic: false, hasAmount: true, hasDue: true, isCalculated: false, formulaKey: 'hill_allowance', applicableCategory: 'staff' },
+  { name: 'restRecreation', labelBn: 'শ্রান্তি ও বিনোদন ভাতা', countLabelBn: 'কর্মকর্তা/কর্মচারীর সংখ্যা', hasBasic: false, hasAmount: true, hasDue: true, isCalculated: false, formulaKey: 'rest_recreation', applicableCategory: 'both' },
 ]
 
 async function seedAllowanceTypes() {
@@ -365,10 +496,11 @@ const SEED_VEHICLE_TYPES = ['মোটরসাইকেল', 'জিপ', 'ম�
 // `category` decides which of the two fuel codes the cost lands in — 3243301
 // (পেট্রোল, অয়েল ও লুব্রিকেন্ট) for `oil`, 3243302 (গ্যাস ও জ্বালানী) for `gas`.
 // It is the stable `category_name` of a ref_fuel_categories row; that row must be
-// seeded first (see SEED_FUEL_CATEGORIES below).
+// seeded first (see SEED_FUEL_CATEGORIES below). `economicCode` names the code
+// the category's cost lands in, so the engine sums by code rather than by name.
 const SEED_FUEL_CATEGORIES = [
-  { categoryName: 'oil', categoryNameBn: 'তেল' },
-  { categoryName: 'gas', categoryNameBn: 'গ্যাস' },
+  { categoryName: 'oil', categoryNameBn: 'তেল', economicCode: '3243301' },
+  { categoryName: 'gas', categoryNameBn: 'গ্যাস', economicCode: '3243302' },
 ]
 
 const SEED_FUEL_TYPES = [
@@ -387,7 +519,18 @@ async function seedFuelCategories() {
     })
     if (existing) continue
 
-    await prisma.refFuelCategory.create({ data: item })
+    const code = await prisma.refEconomicCode.findUnique({
+      where: { code: item.economicCode },
+      select: { id: true },
+    })
+
+    await prisma.refFuelCategory.create({
+      data: {
+        categoryName: item.categoryName,
+        categoryNameBn: item.categoryNameBn,
+        economicCodeId: code?.id ?? null,
+      },
+    })
     created += 1
   }
 
@@ -478,17 +621,39 @@ async function seedItEquipmentTypes() {
 // ---------------------------------------------------------------------------
 // Reference data: utility types
 // ---------------------------------------------------------------------------
-// Form 11's dropdown. Bengali bill names — re-seeding only fills gaps.
-const SEED_UTILITY_TYPES = ['বিদ্যুৎ', 'পানি', 'গ্যাস', 'টেলিফোন', 'ইন্টারনেট']
+// Form 11's dropdown. `economicCode` names the budget code the bill lands in, so
+// the engine sums a bill into its own code rather than by matching the Bengali
+// name (বিদ্যুৎ → 3211113, পানি → 3211115, ইন্টারনেট → 3211117, টেলিফোন → 3211120).
+// গ্যাস is offered on the form but no budget code consumes it, so it is left
+// unset. Re-seeding only fills gaps.
+const SEED_UTILITY_TYPES = [
+  { name: 'বিদ্যুৎ', economicCode: '3211113' },
+  { name: 'পানি', economicCode: '3211115' },
+  { name: 'গ্যাস', economicCode: null },
+  { name: 'টেলিফোন', economicCode: '3211120' },
+  { name: 'ইন্টারনেট', economicCode: '3211117' },
+]
 
 async function seedUtilityTypes() {
   let created = 0
 
-  for (const name of SEED_UTILITY_TYPES) {
-    const existing = await prisma.refUtilityType.findUnique({ where: { name }, select: { id: true } })
+  for (const item of SEED_UTILITY_TYPES) {
+    const existing = await prisma.refUtilityType.findUnique({
+      where: { name: item.name },
+      select: { id: true },
+    })
     if (existing) continue
 
-    await prisma.refUtilityType.create({ data: { name } })
+    const code = item.economicCode
+      ? await prisma.refEconomicCode.findUnique({
+        where: { code: item.economicCode },
+        select: { id: true },
+      })
+      : null
+
+    await prisma.refUtilityType.create({
+      data: { name: item.name, economicCodeId: code?.id ?? null },
+    })
     created += 1
   }
 
@@ -510,7 +675,7 @@ async function seedUtilityTypes() {
 // any row an administrator deleted by hand.
 const SEED_SALARY_CONFIG = [
   { key: 'leave_encashment_months', labelBn: 'ছুটি নগদায়ন', descriptionBn: 'মাসের সংখ্যা', unitBn: 'মাস', inputType: 'number', valueFormat: 'number', value: 18, sortOrder: 1 },
-  { key: 'duty_allowance', labelBn: 'দায়িত্ব ভাতা', descriptionBn: 'মাসিক হার', unitBn: 'টাকা/মাস', inputType: 'number', valueFormat: 'amount', value: 1500, sortOrder: 2 },
+  { key: 'duty_allowance', labelBn: 'দায়িত্ব ভাতা', descriptionBn: 'মাসিক হার × প্রদেয় মাসের সংখ্যা', unitBn: 'টাকা/মাস', inputType: 'number', valueFormat: 'amount', value: 1500, secondaryLabelBn: 'প্রদেয় মাসের সংখ্যা', secondaryUnitBn: 'মাস', secondaryValue: 6, sortOrder: 2 },
   { key: 'transport_allowance', labelBn: 'যাতায়াত ভাতা', descriptionBn: 'গ্রেড অনুযায়ী মাসিক হার', unitBn: 'টাকা/মাস', inputType: 'grade', valueFormat: 'amount', value: 0, fromGrade: 1, toGrade: 20, sortOrder: 3 },
   { key: 'education_allowance', labelBn: 'শিক্ষা ভাতা', descriptionBn: 'জনপ্রতি মাসিক হার', unitBn: 'টাকা/মাস', inputType: 'number', valueFormat: 'amount', value: 500, sortOrder: 4 },
   { key: 'house_rent', labelBn: 'বাড়ি ভাড়া ভাতা', descriptionBn: 'গ্রেড অনুযায়ী মূল বেতনের শতকরা হার', unitBn: '% মূলবেতন', inputType: 'slab', valueFormat: 'percent', value: 0, sortOrder: 5 },
@@ -615,6 +780,8 @@ async function main() {
   await seedBudgetTypes()
   await seedFiscalYears()
   await seedEconomicCodes()
+  await seedFormulaTypes()
+  await seedCodeFormulaBindings()
   await seedBudgetCycle()
   await seedEmployeeCategories()
   await seedGrades()

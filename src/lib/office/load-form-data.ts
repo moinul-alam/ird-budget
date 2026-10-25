@@ -280,13 +280,18 @@ export async function loadVatPercentage(): Promise<number> {
   return rate ? Number(rate.value) : 0
 }
 
-/** The administrator's monthly দায়িত্ব ভাতা rate (form 5 previews it live). */
-export async function loadDutyAllowanceMonthlyRate(): Promise<number> {
+/**
+ * The administrator's দায়িত্ব ভাতা card — the monthly rate (the card's value) and how
+ * many months it is paid for (the card's second field). They are one rate × months
+ * card on /admin/settings, so form 5 previews the allowance from a single read rather
+ * than assuming either number.
+ */
+export async function loadDutyAllowanceConfig(): Promise<{ rate: number; months: number }> {
   const tile = await prisma.adminSalaryConfig.findUnique({
     where: { key: 'duty_allowance' },
-    select: { value: true },
+    select: { value: true, secondaryValue: true },
   })
-  return tile ? Number(tile.value) : 0
+  return { rate: tile ? Number(tile.value) : 0, months: tile ? Number(tile.secondaryValue) : 0 }
 }
 
 export async function loadFormHouseRentInitial(submissionId: number) {

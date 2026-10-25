@@ -35,6 +35,8 @@ export interface OfficeTypeModalState {
   id?: string
   name: string
   department_id: string
+  /** কর সার্কেল হলে true — ফর্ম ১২-এর ডাক খরচ শুধু এই ধরনের অফিসে হিসাব হয়। */
+  is_tax_circle: boolean
 }
 
 export interface HierarchyModalState {

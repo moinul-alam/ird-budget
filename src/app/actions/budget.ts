@@ -2,7 +2,6 @@
 
 import { prisma } from '@/lib/db/client'
 import { computeSubmissionSheet } from '@/lib/budget/sheet'
-import { codeSourceForms } from '@/lib/budget/calculate'
 import { getOfficeSession } from '@/lib/session'
 
 /**
@@ -124,7 +123,7 @@ export async function getBudgetSheetData(submissionId: number): Promise<BudgetSh
       manual_value: r.manual_value,
       is_manual: r.is_manual,
       allow_manual_override: r.allow_manual_override,
-      source_forms: codeSourceForms[r.code] || [],
+      source_forms: r.source_forms,
       sort_order: r.sort_order,
     }))
 

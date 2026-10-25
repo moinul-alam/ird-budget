@@ -4,7 +4,7 @@
 // Always import and use from here.
 
 export const strings = {
-  appName: 'আইআরডি বাজেট ব্যবস্থাপনা',
+  appName: 'বাজেট প্রিপারেশন সিস্টেম',
   loading: 'লোড হচ্ছে...',
   saving: 'সংরক্ষণ হচ্ছে...',
   saved: 'সংরক্ষিত হয়েছে ✓',

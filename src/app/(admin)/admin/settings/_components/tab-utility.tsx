@@ -12,12 +12,23 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Zap, Plus, Edit2, Trash2, Loader2 } from 'lucide-react'
-import { UtilityTypeItem } from '@/app/actions/admin-settings'
+import { UtilityTypeItem, EconomicCodeOption } from '@/app/actions/admin-settings'
 import { UtilityModalState } from '../_types/settings'
+
+/** A shadcn Select cannot hold an empty value, so "unbound" needs a sentinel. */
+const UNBOUND_CODE = '__unbound__'
 
 interface TabUtilityProps {
   utilityTypes: UtilityTypeItem[]
+  economicCodeOptions: EconomicCodeOption[]
   utilityModal: UtilityModalState
   setUtilityModal: React.Dispatch<React.SetStateAction<UtilityModalState>>
   onSaveUtility: () => Promise<void>
@@ -27,6 +38,7 @@ interface TabUtilityProps {
 
 export function TabUtility({
   utilityTypes,
+  economicCodeOptions,
   utilityModal,
   setUtilityModal,
   onSaveUtility,
@@ -47,7 +59,7 @@ export function TabUtility({
             </CardDescription>
           </div>
           <Button
-            onClick={() => setUtilityModal({ open: true, name: '' })}
+            onClick={() => setUtilityModal({ open: true, name: '', economic_code_id: null })}
             className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
           >
             <Plus className="h-4 w-4" />
@@ -61,13 +73,14 @@ export function TabUtility({
                 <tr>
                   <th className="px-6 py-4 w-24">ক্রম</th>
                   <th className="px-6 py-4">ইউটিলিটির নাম</th>
+                  <th className="px-6 py-4">অর্থনৈতিক কোড</th>
                   <th className="px-6 py-4 text-right">অ্যাকশন</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {utilityTypes.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="text-center py-10 text-slate-400">
+                    <td colSpan={4} className="text-center py-10 text-slate-400">
                       কোনো ইউটিলিটি নেই। &quot;নতুন ইউটিলিটি যোগ করুন&quot; বাটনে ক্লিক করে যোগ করুন।
                     </td>
                   </tr>
@@ -80,11 +93,20 @@ export function TabUtility({
                       <td className="px-6 py-4 font-bold text-slate-800">
                         {u.name}
                       </td>
+                      <td className="px-6 py-4">
+                        {u.economic_code ? (
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-1 text-xs font-bold text-sky-700">
+                            <span className="font-mono">{u.economic_code}</span>
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400">সংযুক্ত নয়</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-right space-x-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setUtilityModal({ open: true, id: u.id, name: u.name })}
+                          onClick={() => setUtilityModal({ open: true, id: u.id, name: u.name, economic_code_id: u.economic_code_id })}
                           className="rounded-xl border-slate-200 text-xs font-semibold"
                         >
                           <Edit2 className="h-3 w-3 mr-1" />
@@ -128,6 +150,33 @@ export function TabUtility({
                   onChange={(e) => setUtilityModal(prev => ({ ...prev, name: e.target.value }))}
                   className="rounded-xl border-slate-200 font-medium"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-bold text-slate-700">অর্থনৈতিক কোড (বিলটি যে কোডে যাবে)</Label>
+                <Select
+                  value={utilityModal.economic_code_id === null ? UNBOUND_CODE : String(utilityModal.economic_code_id)}
+                  onValueChange={(value) =>
+                    setUtilityModal(prev => ({
+                      ...prev,
+                      economic_code_id: value === UNBOUND_CODE ? null : Number(value),
+                    }))
+                  }
+                >
+                  <SelectTrigger className="rounded-xl border-slate-200 font-medium">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={UNBOUND_CODE}>সংযুক্ত নয়</SelectItem>
+                    {economicCodeOptions.map((c) => (
+                      <SelectItem key={c.id} value={String(c.id)}>
+                        {c.code} - {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-slate-500">
+                  ইঞ্জিন ইউটিলিটির নাম মেলায় না — এই কোডটিই বলে বিলটি কোথায় যোগ হবে।
+                </p>
               </div>
             </div>
             <DialogFooter className="pt-3 border-t border-slate-100 flex gap-2 sm:justify-end">

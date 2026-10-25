@@ -1,4 +1,4 @@
-import { BudgetCategoryItem, ExpenseCodeFullItem } from '@/app/actions/admin-codes'
+import { BudgetCategoryItem, ExpenseCodeFullItem, FormulaTypeItem } from '@/app/actions/admin-codes'
 import { DepartmentItem, MinistryItem, OfficeLevelItem } from '@/app/actions/admin-offices-config'
 
 export interface OfficeTypeItem {
@@ -18,6 +18,8 @@ export interface AdminCodesClientProps {
   officeLevels: OfficeLevelItem[]
   initialCodes: ExpenseCodeFullItem[]
   initialCategories: BudgetCategoryItem[]
+  /** The engine formulas a code may be bound to (ref_formula_types). */
+  formulaTypes: FormulaTypeItem[]
   initialOfficeTypeId: string
   initialDepartmentId?: string
   initialOfficeLevelId?: string
@@ -39,6 +41,10 @@ export interface CodeModalState {
   parent_code: string
   parent_title: string
   hierarchy_order: number
+  /** The engine formula this code dispatches to; null keeps it a manual entry. */
+  formula_key?: string | null
+  /** The form numbers whose data produced this code's amount. */
+  source_forms?: number[]
 }
 
 export interface ConfirmToggleAllModalState {

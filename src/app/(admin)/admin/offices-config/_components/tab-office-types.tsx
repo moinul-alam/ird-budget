@@ -88,6 +88,7 @@ export function TabOfficeTypes({
                     open: true,
                     name: '',
                     department_id: departments[0]?.id?.toString() || '',
+                    is_tax_circle: false,
                   })
                 }
                 className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5 shadow-xs"
@@ -133,6 +134,7 @@ export function TabOfficeTypes({
                       open: true,
                       name: '',
                       department_id: departments[0]?.id?.toString() || '',
+                      is_tax_circle: false,
                     })
                   }
                   className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1.5"
@@ -160,7 +162,14 @@ export function TabOfficeTypes({
                         {toBanglaNumber(idx + 1)}
                       </td>
                       <td className="py-3.5 px-4 font-bold text-slate-900 text-sm">
-                        {ot.name}
+                        <div className="flex items-center gap-2">
+                          <span>{ot.name}</span>
+                          {ot.is_tax_circle && (
+                            <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg text-[11px] font-bold whitespace-nowrap">
+                              কর সার্কেল
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3.5 px-4 font-medium text-slate-700">
                         <span className="px-2.5 py-0.5 bg-slate-100 text-slate-700 rounded-lg font-bold">
@@ -178,6 +187,7 @@ export function TabOfficeTypes({
                                 id: ot.id,
                                 name: ot.name,
                                 department_id: ot.department_id || '',
+                                is_tax_circle: ot.is_tax_circle,
                               })
                             }
                             className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg"
@@ -247,6 +257,21 @@ export function TabOfficeTypes({
                 className="rounded-xl border-slate-200"
               />
             </div>
+
+            <label className="flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50/60 p-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={officeTypeModal.is_tax_circle}
+                onChange={(e) => setOfficeTypeModal((prev) => ({ ...prev, is_tax_circle: e.target.checked }))}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+              <span className="text-xs text-slate-600 leading-relaxed">
+                <span className="font-bold text-slate-800">কর সার্কেল</span>
+                <span className="block text-slate-500">
+                  এই ধরণের অফিসেই ডাক খরচ (ফর্ম ১২) স্বয়ংক্রিয়ভাবে হিসাব হবে; অন্যগুলোয় শূন্য থাকবে।
+                </span>
+              </span>
+            </label>
           </div>
           <DialogFooter className="pt-2">
             <Button

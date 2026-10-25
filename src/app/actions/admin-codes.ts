@@ -20,8 +20,31 @@ export interface ExpenseCodeFullItem {
   parent_title: string
   hierarchy_order: number
   formula_key?: string | null
+  /** The form numbers whose data produced this code's amount. Empty for a manual code. */
+  source_forms?: number[]
   is_manual?: boolean
   enabled?: boolean
+}
+
+/** One engine formula the administrator can bind a code to (ref_formula_types). */
+export interface FormulaTypeItem {
+  key: string
+  label_bn: string
+}
+
+/**
+ * The formulas the engine can run, as rows. Binding a code to one of these keys
+ * is what makes the code computed; a key with no arithmetic in the engine
+ * computes 0, so this list can never invent an amount.
+ */
+export async function getFormulaTypes(): Promise<FormulaTypeItem[]> {
+  const types = await prisma.refFormulaType.findMany({
+    where: { isActive: true },
+    orderBy: [{ sortOrder: 'asc' }, { key: 'asc' }],
+    select: { key: true, labelBn: true },
+  })
+
+  return types.map((t) => ({ key: t.key, label_bn: t.labelBn }))
 }
 
 // -------------------------------------------------------------------
@@ -153,6 +176,7 @@ export async function getExpenseCodesWithCategoryAndMapping(
     parent_title: c.category?.title ?? 'ক্যাটাগরি নির্ধারিত নয়',
     hierarchy_order: c.sortOrder || 0,
     formula_key: c.formulaKey,
+    source_forms: (c.sourceForms || []).map(Number),
     is_manual: c.isManual,
     enabled: enabledCodeIds.has(Number(c.id)),
   }))
@@ -169,6 +193,10 @@ export async function saveEconomicCode(data: {
   name: string
   parent_code: string
   hierarchy_order: number
+  /** The engine formula that computes this code; empty/omitted keeps it manual. */
+  formula_key?: string | null
+  /** The form numbers whose data produced this code's amount. */
+  source_forms?: number[]
 }) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
@@ -176,6 +204,13 @@ export async function saveEconomicCode(data: {
   const trimmedCode = data.code.trim()
   const trimmedName = data.name.trim()
   if (!trimmedCode || !trimmedName) return { error: 'কোড ও বিবরণ আবশ্যক' }
+
+  // A code that names a formula is computed, so it is never manual and carries the
+  // forms that feed it; a code with no formula is a manual entry and has none.
+  const formulaKey = data.formula_key?.trim() || null
+  const sourceForms = formulaKey
+    ? (data.source_forms || []).map(Number).filter((n) => Number.isInteger(n) && n > 0)
+    : []
 
   try {
     const category = await prisma.refBudgetCategory.findUnique({
@@ -192,6 +227,9 @@ export async function saveEconomicCode(data: {
           name: trimmedName,
           categoryId: category.id,
           sortOrder: data.hierarchy_order || 1,
+          formulaKey,
+          sourceForms,
+          isManual: !formulaKey,
         },
       })
     } else {
@@ -201,7 +239,9 @@ export async function saveEconomicCode(data: {
           name: trimmedName,
           categoryId: category.id,
           sortOrder: data.hierarchy_order || 1,
-          isManual: true,
+          formulaKey,
+          sourceForms,
+          isManual: !formulaKey,
           isActive: true,
         },
       })

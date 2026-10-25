@@ -9,6 +9,7 @@ import {
   VehicleRentConfigItem,
   UtilityTypeItem,
   ItEquipmentTypeItem,
+  EconomicCodeOption,
 } from '@/app/actions/admin-settings'
 
 export interface AdminSettingsClientProps {
@@ -21,6 +22,8 @@ export interface AdminSettingsClientProps {
   initialRentConfigs: VehicleRentConfigItem[]
   initialUtilityTypes: UtilityTypeItem[]
   initialItItems: ItEquipmentTypeItem[]
+  /** Every active economic code, for forms that must bind a row to one. */
+  economicCodeOptions: EconomicCodeOption[]
   grades: number[]
 }
 
@@ -128,10 +131,14 @@ export interface EquipmentModalState {
   title: string
   name: string
   unit_price: number
+  /** `has_toner` — a toner-fed device (printer, photocopier) consumes the toner line. */
+  has_toner: boolean
 }
 
 export interface UtilityModalState {
   open: boolean
   id?: number
   name: string
+  /** The economic code this utility's bill lands in; null leaves it unbound. */
+  economic_code_id: number | null
 }

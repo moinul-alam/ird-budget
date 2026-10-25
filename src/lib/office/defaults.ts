@@ -13,7 +13,7 @@ function readDefaultOfficePassword(): string {
   const value = process.env.OFFICE_DEFAULT_PASSWORD
   if (!value) {
     throw new Error(
-      'OFFICE_DEFAULT_PASSWORD is not set. Refusing to create offices with an unknown default password — set it in the environment (upgrade.md §3).'
+      'OFFICE_DEFAULT_PASSWORD is not set. Refusing to create offices with an unknown default password — set it in the environment (GUIDE.md §3).'
     )
   }
   return value

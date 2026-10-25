@@ -30,6 +30,8 @@ export interface AllowanceTypeRow {
   label_bn: string
   count_label_bn: string
   is_calculated: boolean
+  /** The engine formula the calculated amount dispatches to (see RefFormulaType). */
+  formula_key: string | null
   applicable_category: string | null
   has_basic: boolean
   has_amount: boolean
@@ -46,6 +48,10 @@ export interface Form5ClientProps {
   } | null
   /** Administrator rate the calculated দায়িত্ব ভাতা card is projected from. */
   dutyMonthlyRate?: number
+  /** Administrator month count the দায়িত্ব ভাতা card is projected over. */
+  dutyMonths?: number
+  /** The cycle's বেতন-মাস, which annualises the calculated monthly cards. */
+  salaryMonths?: number
 }
 
 interface AllowanceRowData {
@@ -79,6 +85,8 @@ export function Form5Client({
   initialData,
   initialLeaveData,
   dutyMonthlyRate = 0,
+  dutyMonths = 0,
+  salaryMonths = 0,
 }: Form5ClientProps) {
   const typesById = new Map<number, AllowanceTypeRow>(allowanceTypes.map((t) => [t.id, t]))
 
@@ -172,9 +180,14 @@ export function Form5Client({
     const due = parseFloat(dueInput) || 0
     let amount = parseFloat(amountInput) || 0
 
-    // Calculated allowances derive their amount instead of taking one.
+    // Calculated allowances derive their amount instead of taking one. The formula
+    // is the card's administrator-set key, so the preview matches the budget engine.
     if (activeType.is_calculated) {
-      amount = calculateAllowance(activeType.name, count, totalBasic, dutyMonthlyRate)
+      amount = calculateAllowance(
+        activeType.formula_key,
+        { count, total_basic: totalBasic, amount, due },
+        { dutyMonthlyRate, dutyMonths, salaryMonths }
+      )
     }
 
     const updatedRow: AllowanceRowData = {

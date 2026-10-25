@@ -553,38 +553,75 @@ export async function deleteVehicleRentConfig(id: number) {
 // ----------------------------------------------------
 // Utility Types (ref_utility_types)
 // ----------------------------------------------------
+// A utility is not identified by its Bengali name — the engine sends a bill to
+// whichever economic code (`ref_utility_types.economic_code_id`) the administrator
+// binds the utility to. So বিদ্যুৎ may feed 3211113 and পানি 3211115 without the
+// engine ever matching on a name.
+
+/** One economic code, offered to any settings form that must bind a row to a code. */
+export interface EconomicCodeOption {
+  id: number
+  code: string
+  name: string
+}
+
+export async function getEconomicCodeOptions(): Promise<EconomicCodeOption[]> {
+  const codes = await prisma.refEconomicCode.findMany({
+    where: { isActive: true },
+    orderBy: { sortOrder: 'asc' },
+    select: { id: true, code: true, name: true },
+  })
+
+  return codes.map((c) => ({
+    id: Number(c.id),
+    code: c.code,
+    name: c.name,
+  }))
+}
 
 export interface UtilityTypeItem {
   id: number
   name: string
+  /** The economic code this utility's bill lands in; null leaves it unbound. */
+  economic_code_id: number | null
+  /** The code itself, so the table can show it without another lookup. */
+  economic_code: string | null
 }
 
 export async function getUtilityTypes(): Promise<UtilityTypeItem[]> {
   const types = await prisma.refUtilityType.findMany({
     orderBy: { id: 'asc' },
+    include: { economicCode: { select: { code: true } } },
   })
 
   return types.map((t) => ({
     id: Number(t.id),
     name: t.name,
+    economic_code_id: t.economicCodeId === null ? null : Number(t.economicCodeId),
+    economic_code: t.economicCode?.code ?? null,
   }))
 }
 
-export async function saveUtilityType(data: { id?: number; name: string }) {
+export async function saveUtilityType(data: {
+  id?: number
+  name: string
+  economic_code_id: number | null
+}) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
   const cleanName = data.name.trim()
+  const economicCodeId = data.economic_code_id === null ? null : BigInt(data.economic_code_id)
 
   try {
     if (data.id) {
       await prisma.refUtilityType.update({
         where: { id: BigInt(data.id) },
-        data: { name: cleanName },
+        data: { name: cleanName, economicCodeId },
       })
     } else {
       await prisma.refUtilityType.create({
-        data: { name: cleanName },
+        data: { name: cleanName, economicCodeId },
       })
     }
 

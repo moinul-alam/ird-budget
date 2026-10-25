@@ -195,6 +195,8 @@ export function TabCreateCodes({
                   parent_code: categories[0]?.code || '',
                   parent_title: categories[0]?.title || '',
                   hierarchy_order: codes.length + 1,
+                  formula_key: null,
+                  source_forms: [],
                 })
               }
               className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold gap-1 shadow-xs"
@@ -265,6 +267,8 @@ export function TabCreateCodes({
                                 parent_code: c.parent_code || categories[0]?.code || '',
                                 parent_title: c.parent_title || categories[0]?.title || '',
                                 hierarchy_order: c.hierarchy_order,
+                                formula_key: c.formula_key ?? null,
+                                source_forms: c.source_forms || [],
                               })
                             }
                             className="h-7 w-7 p-0 text-blue-600 hover:bg-blue-50 rounded-lg"

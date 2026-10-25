@@ -19,6 +19,10 @@ export interface EconomicCodeRef {
   category_sort_order: number
   is_manual: boolean
   allow_manual_override: boolean
+  /** The engine formula this code dispatches to (see RefFormulaType); null for a manual code. */
+  formula_key: string | null
+  /** The form numbers whose data produced this code's amount. */
+  source_forms: number[]
   sort_order: number
 }
 
@@ -75,6 +79,8 @@ export async function getActiveEconomicCodes(
     category_sort_order: categoryOf(c.categoryId)?.sortOrder ?? 0,
     is_manual: c.isManual,
     allow_manual_override: c.allowManualOverride,
+    formula_key: c.formulaKey,
+    source_forms: c.sourceForms,
     sort_order: c.sortOrder,
   }))
 
@@ -133,7 +139,11 @@ export async function computeSubmissionSheet(submissionId: number): Promise<Subm
   ])
   const codes = await getActiveEconomicCodes(officeLevelId)
 
-  const formulaCodes = codes.filter((c) => !c.is_manual).map((c) => c.code)
+  // Only a computed code has a formula to dispatch; a manual code takes an input,
+  // so the engine is asked for the rest with the key each names.
+  const formulaCodes = codes
+    .filter((c) => !c.is_manual)
+    .map((c) => ({ code: c.code, formula_key: c.formula_key }))
   const calculated = calculateAll(formulaCodes, context)
 
   const manualRows = await prisma.officeBudgetSheet.findMany({

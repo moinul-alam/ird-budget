@@ -9,6 +9,7 @@ import {
   getVehicleRentConfigs,
   getUtilityTypes,
   getItEquipmentTypes,
+  getEconomicCodeOptions,
 } from '@/app/actions/admin-settings'
 import { loadGrades } from '@/lib/office/load-form-data'
 import { AdminSettingsClient } from './admin-settings-client'
@@ -34,6 +35,7 @@ export default async function AdminSettingsPage() {
     rentConfigs,
     utilityTypes,
     itItems,
+    economicCodeOptions,
     grades,
   ] = await Promise.all([
     getSalaryConfig(),
@@ -44,6 +46,7 @@ export default async function AdminSettingsPage() {
     getVehicleRentConfigs(),
     getUtilityTypes(),
     getItEquipmentTypes(),
+    getEconomicCodeOptions(),
     loadGrades(),
   ])
 
@@ -59,6 +62,7 @@ export default async function AdminSettingsPage() {
         initialRentConfigs={rentConfigs}
         initialUtilityTypes={utilityTypes}
         initialItItems={itItems}
+        economicCodeOptions={economicCodeOptions}
         grades={grades.map((g) => g.grade_no)}
       />
     </div>

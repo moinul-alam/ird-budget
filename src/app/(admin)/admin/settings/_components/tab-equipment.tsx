@@ -80,6 +80,7 @@ export function TabEquipment({
                     title: item.name,
                     name: item.name,
                     unit_price: item.unit_price,
+                    has_toner: item.has_toner,
                   })}
                   className="w-full mt-4 rounded-xl font-semibold text-xs border-slate-200 hover:bg-slate-50 flex items-center justify-center gap-1.5"
                 >
@@ -108,6 +109,20 @@ export function TabEquipment({
                 onValueChange={(unit_price) => setEquipModal(prev => ({ ...prev, unit_price }))}
                 className="rounded-xl border-slate-200 font-mono text-lg font-bold"
               />
+              <label className="flex items-start gap-2.5 pt-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={equipModal.has_toner}
+                  onChange={(e) => setEquipModal(prev => ({ ...prev, has_toner: e.target.checked }))}
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                />
+                <span className="text-xs text-slate-600 leading-relaxed">
+                  <span className="font-bold text-slate-800">টোনার-চালিত যন্ত্র</span>
+                  <span className="block text-slate-500">
+                    এই যন্ত্রের সংখ্যা টোনার খরচে (৩২১১১২৫) যোগ হবে। প্রিন্টার ও ফটোকপিয়ারের জন্য চালু রাখুন।
+                  </span>
+                </span>
+              </label>
             </div>
             <DialogFooter className="pt-3 border-t border-slate-100 flex gap-2 sm:justify-end">
               <Button variant="outline" onClick={() => setEquipModal(prev => ({ ...prev, open: false }))} className="rounded-xl">

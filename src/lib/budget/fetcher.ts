@@ -2,43 +2,10 @@ import { unstable_cache } from 'next/cache'
 import { prisma } from '@/lib/db/client'
 import type { BudgetContext, BudgetSalary } from './calculate'
 
-/** Maps a fuel name to the rate key the calculation engine expects. */
-function fuelRateKey(name: string): string {
-  const lower = name.toLowerCase()
-  if (lower.includes('diesel') || name.includes('ডিজেল')) return 'fuel_price_diesel'
-  if (lower.includes('cng') || lower.includes('gas') || name.includes('গ্যাস') || name.includes('সিএনজি')) {
-    return 'fuel_price_cng'
-  }
-  return 'fuel_price_octane'
-}
-
 /**
- * Salary tiles from /admin/settings that the engine reads as a flat rate, mapped
- * to the rate key each formula looks up. The grade-banded tiles (বাড়ি ভাড়া,
- * মোবাইল ভাতা, বিশেষ সুবিধা) and the grade-scoped ones carry their scope on the
- * tile, so the engine resolves those through `salary` instead.
- */
-const SALARY_TILE_RATES: Record<string, string> = {
-  education_allowance: 'education_allowance',
-  medical_allowance: 'medical_allowance_monthly',
-  festival_bonus_multiplier: 'festival_bonus_multiplier',
-  office_rent_vat_percent: 'vat_percentage',
-  postal_rate: 'postal_expense_rate',
-}
-
-/**
- * A few cards are a rate × quantity pair; this maps such a tile to the rate key the
- * formula reads the card's *second* field from. ডাক is the only one today: the cost of
- * one notice times the notices served per non-filer.
- */
-const SALARY_TILE_QUANTITY_RATES: Record<string, string> = {
-  postal_rate: 'postal_notice_count',
-}
-
-/**
- * Everything the office side reads but only the administrator writes: the rate
- * card, the salary tiles and slabs, the vehicle / IT / utility reference tables,
- * the office types and the economic-code catalogue.
+ * Everything the office side reads but only the administrator writes: the
+ * salary tiles and slabs, the vehicle / IT / utility reference tables, the
+ * office types and the economic-code catalogue.
  *
  * Why one tag for all of them: a production render holds a single pooled
  * connection, so every statement queues behind the one before it. These shared
@@ -56,6 +23,10 @@ export interface EconomicCodeRow {
   categoryId: number | null
   isManual: boolean
   allowManualOverride: boolean
+  /** The engine formula this code dispatches to (see RefFormulaType); null for a manual code. */
+  formulaKey: string | null
+  /** The form numbers whose data produced this code, so the sheet can point at the form to edit. */
+  sourceForms: number[]
   sortOrder: number
 }
 
@@ -65,15 +36,21 @@ export interface EconomicCodeRow {
  * lookup Maps are built by the caller, not returned from here.
  */
 export interface RefData {
-  /** `admin_rates`, `ref_fuel_types.unit_price` and the /admin/settings tiles, layered. */
-  rates: Record<string, number>
   salary: BudgetSalary
   gradeCategoryNames: Array<{ gradeNo: number; categoryName: string }>
-  fuelTypes: Array<{ id: number; name: string; unitPrice: number; categoryName: string }>
+  /** Each fuel carries the economic code its category points at and its own unit price. */
+  fuelTypes: Array<{
+    id: number
+    name: string
+    unitPrice: number
+    categoryId: number
+    categoryEconomicCode: string | null
+  }>
   vehicleConfigs: Array<{
     id: number
     vehicleTypeId: number
-    fuelCategoryName: string
+    fuelCategoryId: number
+    fuelCategoryEconomicCode: string | null
     monthlyFuelQuotaLiter: number
   }>
   vehicleAllowances: Array<{
@@ -83,10 +60,14 @@ export interface RefData {
   }>
   vehicleRentConfigs: Array<{ id: number; monthlyRentRate: number }>
   itConfigs: Array<{ id: number; equipmentTypeId: number; unitBudget: number }>
-  itEquipmentTypes: Array<{ id: number; name: string; unitPrice: number }>
-  utilityTypes: Array<{ id: number; name: string }>
-  allowanceTypes: Array<{ id: number; name: string }>
-  officeTypes: Array<{ id: number; name: string }>
+  /** `has_toner` says which devices draw toner — the engine never matches on the name. */
+  itEquipmentTypes: Array<{ id: number; name: string; unitPrice: number; hasToner: boolean }>
+  /** Each utility names the economic code its bill lands in. */
+  utilityTypes: Array<{ id: number; name: string; economicCode: string | null }>
+  /** Each allowance card names the engine formula that consumes it. */
+  allowanceTypes: Array<{ id: number; name: string; formulaKey: string | null }>
+  /** `is_tax_circle` marks the only office type that raises a postal demand. */
+  officeTypes: Array<{ id: number; name: string; isTaxCircle: boolean }>
   economicCodes: EconomicCodeRow[]
   budgetCategories: Array<{ id: number; code: string; title: string; sortOrder: number }>
   levelCodeMappings: Array<{ officeLevelId: number; economicCodeId: number }>
@@ -99,7 +80,6 @@ export interface RefData {
  */
 async function loadRefData(): Promise<RefData> {
   const [
-    rateRows,
     fuelTypeRows,
     fuelCategoryRows,
     salaryTiles,
@@ -118,11 +98,12 @@ async function loadRefData(): Promise<RefData> {
     budgetCategoryRows,
     levelCodeMappingRows,
   ] = await Promise.all([
-    prisma.adminRate.findMany({ select: { key: true, value: true } }),
     prisma.refFuelType.findMany({
       select: { id: true, name: true, unitPrice: true, categoryId: true },
     }),
-    prisma.refFuelCategory.findMany({ select: { id: true, categoryName: true } }),
+    prisma.refFuelCategory.findMany({
+      select: { id: true, categoryName: true, economicCodeId: true },
+    }),
     prisma.adminSalaryConfig.findMany({
       select: {
         key: true,
@@ -155,10 +136,12 @@ async function loadRefData(): Promise<RefData> {
     prisma.adminItConfig.findMany({
       select: { id: true, equipmentTypeId: true, unitBudget: true },
     }),
-    prisma.refItEquipmentType.findMany({ select: { id: true, name: true, unitPrice: true } }),
-    prisma.refUtilityType.findMany({ select: { id: true, name: true } }),
-    prisma.refAllowanceType.findMany({ select: { id: true, name: true } }),
-    prisma.coreOfficeType.findMany({ select: { id: true, name: true } }),
+    prisma.refItEquipmentType.findMany({
+      select: { id: true, name: true, unitPrice: true, hasToner: true },
+    }),
+    prisma.refUtilityType.findMany({ select: { id: true, name: true, economicCodeId: true } }),
+    prisma.refAllowanceType.findMany({ select: { id: true, name: true, formulaKey: true } }),
+    prisma.coreOfficeType.findMany({ select: { id: true, name: true, isTaxCircle: true } }),
     prisma.refEconomicCode.findMany({
       where: { isActive: true },
       select: {
@@ -168,6 +151,8 @@ async function loadRefData(): Promise<RefData> {
         categoryId: true,
         isManual: true,
         allowManualOverride: true,
+        formulaKey: true,
+        sourceForms: true,
         sortOrder: true,
       },
       orderBy: { sortOrder: 'asc' },
@@ -181,34 +166,20 @@ async function loadRefData(): Promise<RefData> {
     }),
   ])
 
-  const fuelCategoryNameById = new Map(fuelCategoryRows.map((c) => [Number(c.id), c.categoryName]))
   const employeeCategoryNameById = new Map(
     employeeCategoryRows.map((c) => [Number(c.id), c.categoryName])
   )
 
-  // Every rate comes from a table — `admin_rates`, `ref_fuel_types.unit_price`, or the
-  // /admin/settings tiles. Nothing is compiled in, so a rate no table supplies reads as
-  // 0 rather than as a number this file invented.
-  const rates: Record<string, number> = {}
-  for (const r of rateRows) {
-    rates[r.key] = Number(r.value)
-  }
-  // The price the administrator edits on ref_fuel_types wins over the legacy
-  // admin_rates value; a blank price leaves the existing rate untouched.
-  for (const f of fuelTypeRows) {
-    const price = Number(f.unitPrice)
-    if (price > 0) rates[fuelRateKey(f.name)] = price
-  }
-  // Same idea for the salary tiles: /admin/settings is where these are edited, so
-  // the tile value wins over the legacy admin_rates row.
-  for (const tile of salaryTiles) {
-    const rateKey = SALARY_TILE_RATES[tile.key]
-    if (rateKey) rates[rateKey] = Number(tile.value)
-
-    // Paired cards contribute their second field under its own key.
-    const quantityKey = SALARY_TILE_QUANTITY_RATES[tile.key]
-    if (quantityKey) rates[quantityKey] = Number(tile.secondaryValue)
-  }
+  // The economic code behind an id, so a fuel category / utility that names a code
+  // resolves to the code string the engine computes against. A link to an inactive
+  // code resolves to nothing: the code is not on any sheet, so it is not payable.
+  const economicCodeById = new Map(economicCodeRows.map((c) => [Number(c.id), c.code]))
+  const fuelCategoryEconomicCodeById = new Map(
+    fuelCategoryRows.map((c) => [
+      Number(c.id),
+      c.economicCodeId !== null ? economicCodeById.get(Number(c.economicCodeId)) ?? null : null,
+    ])
+  )
 
   // Grade-scoped tiles: house rent, mobile allowance and special benefit keep
   // their rates per grade band, and the rest either apply to a grade range or to
@@ -217,6 +188,7 @@ async function loadRefData(): Promise<RefData> {
   for (const tile of salaryTiles) {
     salary.tiles[tile.key] = {
       value: Number(tile.value),
+      secondary_value: Number(tile.secondaryValue),
       input_type: tile.inputType,
       from_grade: tile.fromGrade,
       to_grade: tile.toGrade,
@@ -231,7 +203,6 @@ async function loadRefData(): Promise<RefData> {
   }
 
   return {
-    rates,
     salary,
     gradeCategoryNames: gradeRows.map((g) => ({
       gradeNo: g.gradeNo,
@@ -241,12 +212,15 @@ async function loadRefData(): Promise<RefData> {
       id: Number(f.id),
       name: f.name,
       unitPrice: Number(f.unitPrice),
-      categoryName: fuelCategoryNameById.get(Number(f.categoryId)) || '',
+      categoryId: Number(f.categoryId),
+      categoryEconomicCode: fuelCategoryEconomicCodeById.get(Number(f.categoryId)) ?? null,
     })),
     vehicleConfigs: vehicleConfigRows.map((c) => ({
       id: Number(c.id),
       vehicleTypeId: Number(c.vehicleTypeId),
-      fuelCategoryName: fuelCategoryNameById.get(Number(c.fuelCategoryId)) || '',
+      fuelCategoryId: Number(c.fuelCategoryId),
+      fuelCategoryEconomicCode:
+        fuelCategoryEconomicCodeById.get(Number(c.fuelCategoryId)) ?? null,
       monthlyFuelQuotaLiter: Number(c.monthlyFuelQuotaLiter || 0),
     })),
     vehicleAllowances: vehicleAllowanceRows.map((a) => ({
@@ -267,10 +241,24 @@ async function loadRefData(): Promise<RefData> {
       id: Number(t.id),
       name: t.name,
       unitPrice: Number(t.unitPrice),
+      hasToner: t.hasToner,
     })),
-    utilityTypes: utilityTypeRows.map((t) => ({ id: Number(t.id), name: t.name })),
-    allowanceTypes: allowanceTypeRows.map((t) => ({ id: Number(t.id), name: t.name })),
-    officeTypes: officeTypeRows.map((t) => ({ id: Number(t.id), name: t.name })),
+    utilityTypes: utilityTypeRows.map((t) => ({
+      id: Number(t.id),
+      name: t.name,
+      economicCode:
+        t.economicCodeId !== null ? economicCodeById.get(Number(t.economicCodeId)) ?? null : null,
+    })),
+    allowanceTypes: allowanceTypeRows.map((t) => ({
+      id: Number(t.id),
+      name: t.name,
+      formulaKey: t.formulaKey,
+    })),
+    officeTypes: officeTypeRows.map((t) => ({
+      id: Number(t.id),
+      name: t.name,
+      isTaxCircle: t.isTaxCircle,
+    })),
     economicCodes: economicCodeRows.map((c) => ({
       id: Number(c.id),
       code: c.code,
@@ -278,6 +266,8 @@ async function loadRefData(): Promise<RefData> {
       categoryId: c.categoryId ? Number(c.categoryId) : null,
       isManual: c.isManual,
       allowManualOverride: c.allowManualOverride,
+      formulaKey: c.formulaKey,
+      sourceForms: (c.sourceForms || []).map(Number),
       sortOrder: Number(c.sortOrder || 0),
     })),
     budgetCategories: budgetCategoryRows.map((c) => ({
@@ -381,20 +371,16 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
   const vehicleRentConfigById = new Map(ref.vehicleRentConfigs.map((c) => [c.id, c]))
   const itConfigById = new Map(ref.itConfigs.map((c) => [c.id, c]))
   const itEquipmentTypeById = new Map(ref.itEquipmentTypes.map((t) => [t.id, t]))
-  const utilityTypeNameById = new Map(ref.utilityTypes.map((t) => [t.id, t.name]))
-  const allowanceTypeNameById = new Map(ref.allowanceTypes.map((t) => [t.id, t.name]))
-  const officeTypeNameById = new Map(ref.officeTypes.map((t) => [t.id, t.name]))
-
-  // Office type name
-  const officeTypeName: string = officeTypeNameById.get(Number(submission?.office?.officeTypeId)) || ''
+  const utilityTypeEconomicCodeById = new Map(ref.utilityTypes.map((t) => [t.id, t.economicCode]))
+  const allowanceTypeFormulaKeyById = new Map(ref.allowanceTypes.map((t) => [t.id, t.formulaKey]))
+  const officeTypeById = new Map(ref.officeTypes.map((t) => [t.id, t]))
 
   // Form 5 allowance cards: the office supplies the count and, for the cards that
-  // ask for a figure, the rate or lump sum too. The engine scales the monthly ones
-  // by বেতন-ভাতা মাস.
+  // ask for a figure, the rate or lump sum too. The engine dispatches on the card's
+  // formula key — never its name — and scales the monthly ones by বেতন-ভাতা মাস.
   const allowances = allowanceRows.map((a) => ({
-    name: allowanceTypeNameById.get(Number(a.allowanceTypeId)) || '',
-    officer_count: Number(a.officerCount || 0),
-    staff_count: Number(a.staffCount || 0),
+    formula_key: allowanceTypeFormulaKeyById.get(Number(a.allowanceTypeId)) ?? null,
+    count: Number(a.officerCount || 0) + Number(a.staffCount || 0),
     amount: Number(a.totalAnnualAmount || 0),
     total_basic: Number(a.totalBasic || 0),
     due: Number(a.dueAmount || 0),
@@ -415,16 +401,17 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
     total_salary: Number(p.totalSalary || 0),
   }))
 
-  // Format Utilities
+  // Format Utilities — each bill carries the economic code its utility type names.
   const formattedUtilities = utilities.map((u) => ({
-    type_name: utilityTypeNameById.get(Number(u.utilityTypeId)) || '',
+    economic_code: utilityTypeEconomicCodeById.get(Number(u.utilityTypeId)) ?? null,
     annual_cost: Number(u.annualBill || 0),
   }))
 
   // Format Vehicles
   const formattedVehicles = vehiclesGovt.map((v) => {
-    // The price is the office's declared fuel: the config names only the category, so
-    // the exact fuel on the row is what tells অকটেন from ডিজেল.
+    // The price is the fuel's own admin-set unit price; the category the config (or
+    // the fuel itself) names decides which fuel code the cost lands in — read through
+    // the FK to ref_fuel_categories rather than guessed from any name.
     const fuelType = fuelTypeById.get(Number(v.fuelTypeId))
     const config = vehicleConfigById.get(Number(v.vehicleConfigId))
     const allowance = config
@@ -432,12 +419,8 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
       : undefined
 
     return {
-      rate_key: fuelRateKey(fuelType?.name || ''),
-      // The category the administrator picked on /admin/settings tab 4 decides which of
-      // the two fuel codes the cost lands in. Read through the FK to ref_fuel_categories
-      // rather than guessed from the fuel's name; the fuel's own category is the same
-      // value, so a row whose config was reassigned still follows its config.
-      fuel_category: (config?.fuelCategoryName || fuelType?.categoryName) === 'gas' ? ('gas' as const) : ('oil' as const),
+      fuel_economic_code: config?.fuelCategoryEconomicCode || fuelType?.categoryEconomicCode || null,
+      fuel_unit_price: Number(fuelType?.unitPrice || 0),
       count: Number(v.vehicleCount || 1),
       monthly_fuel_allowance: Number(config?.monthlyFuelQuotaLiter || 0),
       annual_lube_allowance: Number(allowance?.annualLubeAllowance || 0),
@@ -454,13 +437,14 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
     ),
   }))
 
-  // Format IT Equipment
+  // Format IT Equipment — `has_toner` on the admin's equipment type says which
+  // devices the toner formula sums; the office's row supplies the counts.
   const formattedITEquipment = itEquipment.map((eq) => {
     const config = itConfigById.get(Number(eq.itConfigId))
     const equipmentType = config ? itEquipmentTypeById.get(config.equipmentTypeId) : undefined
 
     return {
-      equipment_name: equipmentType?.name || '',
+      has_toner: Boolean(equipmentType?.hasToner),
       existing_count: Number(eq.existingCount || 0),
       toner_cost: Number(eq.tonerCostMonthly || 0),
       new_demand_count: Number(eq.newDemandCount || 0),
@@ -470,8 +454,9 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
     }
   })
 
+  const officeType = officeTypeById.get(Number(submission?.office?.officeTypeId))
+
   return {
-    officeTypeName,
     staff: formattedStaff,
     newStaff: formattedNewStaff,
     leave: leave ? {
@@ -486,6 +471,7 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
       monthly_bill: Number(houseRent.monthlyRent || 0),
       due: Number(houseRent.arrearsDue || 0),
     } : null,
+    officeTypeIsTaxCircle: Boolean(officeType?.isTaxCircle),
     vehicles: formattedVehicles,
     vehicleRent: formattedVehicleRent,
     returnInfo: returnInfo ? {
@@ -493,7 +479,6 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
       return_submitted_count: Number(returnInfo.returnSubmittedCount || 0),
     } : null,
     itEquipment: formattedITEquipment,
-    rates: ref.rates,
     salary: ref.salary,
     salary_months: Number(submission?.cycle?.salaryMonths ?? 0),
     allowances,

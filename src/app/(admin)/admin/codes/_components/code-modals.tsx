@@ -18,8 +18,19 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Loader2 } from 'lucide-react'
-import { BudgetCategoryItem } from '@/app/actions/admin-codes'
+import { BudgetCategoryItem, FormulaTypeItem } from '@/app/actions/admin-codes'
 import { CategoryModalState, CodeModalState } from '../_types/codes'
+
+/** A shadcn Select cannot hold an empty value, so "manual" needs a sentinel. */
+const MANUAL_FORMULA = '__manual__'
+
+/** Reads "4, 5" into [4, 5], dropping anything that is not a positive integer. */
+function parseSourceForms(raw: string): number[] {
+  return raw
+    .split(',')
+    .map((part) => parseInt(part.trim(), 10))
+    .filter((n) => Number.isInteger(n) && n > 0)
+}
 
 interface CategoryModalProps {
   modal: CategoryModalState
@@ -104,6 +115,7 @@ interface CodeModalProps {
   modal: CodeModalState
   setModal: React.Dispatch<React.SetStateAction<CodeModalState>>
   categories: BudgetCategoryItem[]
+  formulaTypes: FormulaTypeItem[]
   onSave: () => void
   isPending: boolean
 }
@@ -112,6 +124,7 @@ export function CodeModal({
   modal,
   setModal,
   categories,
+  formulaTypes,
   onSave,
   isPending,
 }: CodeModalProps) {
@@ -189,6 +202,56 @@ export function CodeModal({
               className="rounded-xl border-slate-200 font-mono"
             />
           </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold text-slate-700">
+              গণনা ফর্মুলা (Engine Formula)
+            </Label>
+            <Select
+              value={modal.formula_key || MANUAL_FORMULA}
+              onValueChange={(val) =>
+                setModal((prev) => ({
+                  ...prev,
+                  formula_key: val === MANUAL_FORMULA ? null : val,
+                }))
+              }
+            >
+              <SelectTrigger className="rounded-xl border-slate-200 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-xl text-xs">
+                <SelectItem value={MANUAL_FORMULA}>ম্যানুয়াল এন্ট্রি (কোনো ফর্মুলা নয়)</SelectItem>
+                {formulaTypes.map((f) => (
+                  <SelectItem key={f.key} value={f.key}>
+                    {f.label_bn}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              ফর্মুলা নির্বাচন করলে কোডটি স্বয়ংক্রিয়ভাবে গণনা হবে; খালি রাখলে ম্যানুয়াল ইনপুট হিসেবে থাকবে।
+            </p>
+          </div>
+
+          {modal.formula_key && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700">
+                সোর্স ফর্ম নম্বর (কমা দিয়ে আলাদা করুন)
+              </Label>
+              <Input
+                type="text"
+                value={(modal.source_forms || []).join(', ')}
+                onChange={(e) =>
+                  setModal((prev) => ({ ...prev, source_forms: parseSourceForms(e.target.value) }))
+                }
+                placeholder="যেমন: 4, 5"
+                className="rounded-xl border-slate-200 font-mono"
+              />
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                এই কোডের পরিমাণ যেসব ফর্মের তথ্য থেকে আসে, সেগুলো দেখানো হয় যাতে ব্যবহারকারী সরাসরি সংশ্লিষ্ট ফর্মে যেতে পারেন।
+              </p>
+            </div>
+          )}
         </div>
         <DialogFooter className="pt-2">
           <Button

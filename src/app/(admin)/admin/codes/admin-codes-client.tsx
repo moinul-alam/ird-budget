@@ -31,6 +31,7 @@ export function AdminCodesClient({
   officeLevels,
   initialCodes,
   initialCategories,
+  formulaTypes,
   initialOfficeTypeId,
   initialDepartmentId,
   initialOfficeLevelId,
@@ -138,6 +139,8 @@ export function AdminCodesClient({
     parent_code: categories[0]?.code || '',
     parent_title: categories[0]?.title || '',
     hierarchy_order: codes.length + 1,
+    formula_key: null,
+    source_forms: [],
   })
 
   const showStatus = (text: string, type: 'success' | 'error' = 'success') => {
@@ -235,6 +238,8 @@ export function AdminCodesClient({
         name: codeModal.name,
         parent_code: codeModal.parent_code,
         hierarchy_order: codeModal.hierarchy_order,
+        formula_key: codeModal.formula_key ?? null,
+        source_forms: codeModal.source_forms || [],
       })
 
       if (res.error) {
@@ -248,6 +253,8 @@ export function AdminCodesClient({
           parent_code: categories[0]?.code || '',
           parent_title: categories[0]?.title || '',
           hierarchy_order: codes.length + 1,
+          formula_key: null,
+          source_forms: [],
         })
 
         // Re-read from the server so ids, categories and ordering stay authoritative.
@@ -435,6 +442,7 @@ export function AdminCodesClient({
         modal={codeModal}
         setModal={setCodeModal}
         categories={categories}
+        formulaTypes={formulaTypes}
         onSave={handleSaveEconomicCode}
         isPending={isPending}
       />

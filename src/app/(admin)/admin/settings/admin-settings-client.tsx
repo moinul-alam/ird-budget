@@ -69,6 +69,7 @@ export function AdminSettingsClient({
   initialRentConfigs,
   initialUtilityTypes,
   initialItItems,
+  economicCodeOptions,
   grades,
 }: AdminSettingsClientProps) {
   const router = useRouter()
@@ -162,11 +163,13 @@ export function AdminSettingsClient({
     title: '',
     name: '',
     unit_price: 0,
+    has_toner: false,
   })
 
   const [utilityModal, setUtilityModal] = useState<UtilityModalState>({
     open: false,
     name: '',
+    economic_code_id: null,
   })
 
   // ----------------------------------------------------
@@ -383,7 +386,7 @@ export function AdminSettingsClient({
       id: item.id,
       name: item.name,
       unit_price: equipModal.unit_price,
-      has_toner: item.has_toner,
+      has_toner: equipModal.has_toner,
       is_lumpsum: item.is_lumpsum,
     })
     setSaving(false)
@@ -391,7 +394,7 @@ export function AdminSettingsClient({
       setErrorMsg(res.error)
       return
     }
-    setEquipModal({ open: false, itemId: null, title: '', name: '', unit_price: 0 })
+    setEquipModal({ open: false, itemId: null, title: '', name: '', unit_price: 0, has_toner: false })
     showSuccess('সরঞ্জামের দর সংরক্ষিত হয়েছে।')
   }
 
@@ -405,13 +408,17 @@ export function AdminSettingsClient({
     }
     setSaving(true)
     setErrorMsg(null)
-    const res = await saveUtilityType({ id: utilityModal.id, name: utilityModal.name })
+    const res = await saveUtilityType({
+      id: utilityModal.id,
+      name: utilityModal.name,
+      economic_code_id: utilityModal.economic_code_id,
+    })
     setSaving(false)
     if (res.error) {
       setErrorMsg(res.error)
       return
     }
-    setUtilityModal({ open: false, name: '' })
+    setUtilityModal({ open: false, name: '', economic_code_id: null })
     showSuccess('ইউটিলিটির ধরন সংরক্ষিত হয়েছে।')
   }
 
@@ -581,6 +588,7 @@ export function AdminSettingsClient({
       {activeTab === 'utility' && (
         <TabUtility
           utilityTypes={initialUtilityTypes}
+          economicCodeOptions={economicCodeOptions}
           utilityModal={utilityModal}
           setUtilityModal={setUtilityModal}
           onSaveUtility={handleSaveUtility}

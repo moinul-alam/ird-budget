@@ -29,6 +29,8 @@ export interface OfficeTypeHierarchyItem {
   hierarchy_order?: number | null
   hierarchy_label?: string
   is_group_budget: boolean
+  /** Marks a কর সার্কেল — the only office type that raises a postal demand (ফর্ম ১২). */
+  is_tax_circle: boolean
   created_at?: string
 }
 
@@ -301,6 +303,7 @@ export async function getOfficeTypes(): Promise<OfficeTypeHierarchyItem[]> {
     hierarchy_order: t.sortOrder,
     hierarchy_label: `Level ${t.sortOrder}`,
     is_group_budget: t.isGroupBudget,
+    is_tax_circle: t.isTaxCircle,
     created_at: t.createdAt.toISOString(),
   }))
 }
@@ -310,6 +313,8 @@ export async function saveOfficeType(data: {
   name: string
   department_id: string
   is_group_budget?: boolean
+  /** কর সার্কেল হলে true — এর উপরেই ডাক খরচ (ফর্ম ১২) নির্ভর করে। */
+  is_tax_circle?: boolean
   sort_order?: number
 }) {
   const session = await getAdminSession()
@@ -326,6 +331,7 @@ export async function saveOfficeType(data: {
           name: trimmed,
           departmentId: BigInt(data.department_id),
           isGroupBudget: data.is_group_budget ?? false,
+          isTaxCircle: data.is_tax_circle ?? false,
           sortOrder: data.sort_order ?? 1,
         },
       })
@@ -335,6 +341,7 @@ export async function saveOfficeType(data: {
           name: trimmed,
           departmentId: BigInt(data.department_id),
           isGroupBudget: data.is_group_budget ?? false,
+          isTaxCircle: data.is_tax_circle ?? false,
           sortOrder: data.sort_order ?? 1,
         },
       })

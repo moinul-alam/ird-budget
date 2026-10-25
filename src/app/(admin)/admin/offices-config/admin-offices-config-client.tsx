@@ -104,6 +104,7 @@ export function AdminOfficesConfigClient({
     open: false,
     name: '',
     department_id: '',
+    is_tax_circle: false,
   })
 
   const [hierarchyModal, setHierarchyModal] = useState<HierarchyModalState>({
@@ -234,6 +235,7 @@ export function AdminOfficesConfigClient({
         id: officeTypeModal.id,
         name: officeTypeModal.name,
         department_id: officeTypeModal.department_id?.toString(),
+        is_tax_circle: officeTypeModal.is_tax_circle,
       })
 
       if (res.error) {
@@ -244,6 +246,7 @@ export function AdminOfficesConfigClient({
           open: false,
           name: '',
           department_id: departments[0]?.id?.toString() || '',
+          is_tax_circle: false,
         })
 
         const dep = departments.find((d) => d.id === officeTypeModal.department_id)
@@ -256,6 +259,7 @@ export function AdminOfficesConfigClient({
                   name: officeTypeModal.name.trim(),
                   department_id: officeTypeModal.department_id?.toString(),
                   department_name: dep?.name || '',
+                  is_tax_circle: officeTypeModal.is_tax_circle,
                 }
                 : ot
             )
@@ -270,6 +274,7 @@ export function AdminOfficesConfigClient({
               department_name: dep?.name || '',
               hierarchy_order: null,
               is_group_budget: false,
+              is_tax_circle: officeTypeModal.is_tax_circle,
             },
           ])
         }
