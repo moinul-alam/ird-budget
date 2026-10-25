@@ -2,7 +2,8 @@
 
 import { prisma } from '@/lib/db/client'
 import { getAdminSession } from '@/lib/auth-admin'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, updateTag } from 'next/cache'
+import { ADMIN_DATA_TAG } from '@/lib/budget/fetcher'
 
 export interface BudgetCategoryItem {
   id: string
@@ -64,6 +65,7 @@ export async function saveBudgetCategory(data: {
       })
 
     revalidatePath('/admin/codes')
+    updateTag(ADMIN_DATA_TAG)
     return {
       success: true,
       category: {
@@ -97,6 +99,7 @@ export async function deleteBudgetCategory(
     await prisma.refBudgetCategory.delete({ where: { id: BigInt(id) } })
 
     revalidatePath('/admin/codes')
+    updateTag(ADMIN_DATA_TAG)
     return { success: true }
   } catch (error) {
     return { error: (error as Error).message }
@@ -205,6 +208,7 @@ export async function saveEconomicCode(data: {
     }
 
     revalidatePath('/admin/codes')
+    updateTag(ADMIN_DATA_TAG)
     revalidatePath('/office/budget-sheet')
     return { success: true }
   } catch (error: any) {
@@ -239,6 +243,7 @@ export async function deleteEconomicCode(id: number) {
     })
 
     revalidatePath('/admin/codes')
+    updateTag(ADMIN_DATA_TAG)
     revalidatePath('/office/budget-sheet')
     return { success: true }
   } catch (error: any) {
@@ -276,6 +281,7 @@ export async function toggleCodeForOfficeType(
     })
 
     revalidatePath('/admin/codes')
+    updateTag(ADMIN_DATA_TAG)
     revalidatePath('/office/budget-sheet')
     return { success: true }
   } catch (error: any) {
@@ -317,6 +323,7 @@ export async function toggleBulkCodesForOfficeType(
     }
 
     revalidatePath('/admin/codes')
+    updateTag(ADMIN_DATA_TAG)
     revalidatePath('/office/budget-sheet')
     return { success: true }
   } catch (error: any) {

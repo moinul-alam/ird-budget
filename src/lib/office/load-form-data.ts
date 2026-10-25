@@ -389,41 +389,42 @@ export async function loadFormReturnInfoInitial(submissionId: number) {
 
 export async function loadOfficeDashboardStats(submissionId: number) {
   const sid = BigInt(submissionId)
-  const [
-    basic,
-    staffWorking,
-    staffSuspended,
-    newRecruits,
-    allowances,
-    leave,
-    vehiclesGovt,
-    vehiclesRent,
-    houseRent,
-    itRows,
-    utilities,
-    returnInfo,
-    submission,
-    sheet,
-  ] = await Promise.all([
-    prisma.officeFormBasic.findUnique({ where: { submissionId: sid }, select: { id: true } }),
-    prisma.officeFormStaffWorking.count({ where: { submissionId: sid } }),
-    prisma.officeFormStaffSuspended.count({ where: { submissionId: sid } }),
-    prisma.officeFormStaffNewRecruit.count({ where: { submissionId: sid } }),
-    prisma.officeFormAllowance.count({ where: { submissionId: sid } }),
-    prisma.officeFormLeaveEncashment.findUnique({ where: { submissionId: sid } }),
-    prisma.officeFormVehicleGovt.count({ where: { submissionId: sid } }),
-    prisma.officeFormVehicleRent.count({ where: { submissionId: sid } }),
-    prisma.officeFormHouseRent.findUnique({ where: { submissionId: sid } }),
-    prisma.officeFormItEquipment.count({ where: { submissionId: sid } }),
-    prisma.officeFormUtility.count({ where: { submissionId: sid } }),
-    prisma.officeFormReturnInfo.findUnique({ where: { submissionId: sid } }),
+  // Eight statements instead of fourteen. The submission row already owns every
+  // form through a relation, so the four to-one forms come back as nested reads
+  // and the eight to-many forms as `_count` aggregates. Fewer statements is what
+  // matters on Vercel, where a serverless instance holds a single connection and
+  // the whole render serialises through it. (Prisma's default relation strategy
+  // resolves the nested reads one after another, so this trades parallel batches
+  // for a shorter queue — the right way round for a one-connection pool.)
+  const [submission, sheet] = await Promise.all([
     prisma.officeSubmission.findUnique({
       where: { id: sid },
-      include: {
+      select: {
+        status: true,
+        submittedAt: true,
         cycle: {
-          include: {
+          select: {
+            status: true,
             fiscalYear: { select: { year: true } },
             budgetType: { select: { name: true } },
+          },
+        },
+        formBasic: { select: { id: true } },
+        leaveEncashment: {
+          select: { leaveEncashmentOfficerBasic: true, leaveEncashmentStaffBasic: true },
+        },
+        houseRent: { select: { monthlyRent: true } },
+        returnInfo: { select: { returnSubmittedCount: true } },
+        _count: {
+          select: {
+            staffWorking: true,
+            staffSuspended: true,
+            staffNewRecruits: true,
+            allowances: true,
+            vehiclesGovt: true,
+            vehiclesRent: true,
+            itEquipments: true,
+            utilities: true,
           },
         },
       },
@@ -433,20 +434,25 @@ export async function loadOfficeDashboardStats(submissionId: number) {
     computeSubmissionSheet(submissionId),
   ])
 
+  const counts = submission?._count
   const completedForms = new Set<string>()
-  if (basic) completedForms.add('form1')
-  if (staffWorking > 0) completedForms.add('form2')
-  if (staffSuspended > 0) completedForms.add('form3')
-  if (newRecruits > 0) completedForms.add('form4')
-  if (allowances > 0) completedForms.add('form5')
-  if (leave && (Number(leave.leaveEncashmentOfficerBasic) > 0 || Number(leave.leaveEncashmentStaffBasic) > 0))
+  if (submission?.formBasic) completedForms.add('form1')
+  if ((counts?.staffWorking ?? 0) > 0) completedForms.add('form2')
+  if ((counts?.staffSuspended ?? 0) > 0) completedForms.add('form3')
+  if ((counts?.staffNewRecruits ?? 0) > 0) completedForms.add('form4')
+  if ((counts?.allowances ?? 0) > 0) completedForms.add('form5')
+  if (
+    submission?.leaveEncashment &&
+    (Number(submission.leaveEncashment.leaveEncashmentOfficerBasic) > 0 ||
+      Number(submission.leaveEncashment.leaveEncashmentStaffBasic) > 0)
+  )
     completedForms.add('form6')
-  if (vehiclesGovt > 0) completedForms.add('form7')
-  if (vehiclesRent > 0) completedForms.add('form8')
-  if (houseRent && Number(houseRent.monthlyRent) > 0) completedForms.add('form9')
-  if (itRows > 0) completedForms.add('form10')
-  if (utilities > 0) completedForms.add('form11')
-  if (returnInfo && returnInfo.returnSubmittedCount > 0) completedForms.add('form12')
+  if ((counts?.vehiclesGovt ?? 0) > 0) completedForms.add('form7')
+  if ((counts?.vehiclesRent ?? 0) > 0) completedForms.add('form8')
+  if (submission?.houseRent && Number(submission.houseRent.monthlyRent) > 0) completedForms.add('form9')
+  if ((counts?.itEquipments ?? 0) > 0) completedForms.add('form10')
+  if ((counts?.utilities ?? 0) > 0) completedForms.add('form11')
+  if (submission?.returnInfo && submission.returnInfo.returnSubmittedCount > 0) completedForms.add('form12')
 
   const cycle = submission?.cycle
   return {

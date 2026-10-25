@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { prisma } from '@/lib/db/client'
 import { loadOfficeDashboardStats } from './load-form-data'
 
@@ -18,8 +19,12 @@ export interface OfficeCycleInfo {
  * The cycle currently accepting submissions, or null when none is open. Unlike
  * the admin reporting helper this never falls back to a closed cycle: the office
  * side must show the "no cycle" state the moment the administrator closes one.
+ *
+ * `cache()` collapses the layout's call and the page's call into one query — the
+ * office layout and every office page both ask for the open cycle on the same
+ * request, and before this they each paid for a separate lookup.
  */
-export async function getOpenCycle(): Promise<OfficeCycleInfo | null> {
+export const getOpenCycle = cache(async (): Promise<OfficeCycleInfo | null> => {
   const cycle = await prisma.coreBudgetCycle.findFirst({
     where: { status: 'open' },
     orderBy: { id: 'desc' },
@@ -37,7 +42,7 @@ export async function getOpenCycle(): Promise<OfficeCycleInfo | null> {
     fiscal_year: cycle.fiscalYear?.year ?? '',
     budget_type: cycle.budgetType?.name ?? '',
   }
-}
+})
 
 export interface OfficeHeader {
   officeName: string

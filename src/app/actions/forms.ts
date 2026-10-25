@@ -1,7 +1,9 @@
 'use server'
 
+import { updateTag } from 'next/cache'
 import { prisma } from '@/lib/db/client'
 import { formBasicSchema } from '@/lib/schemas/forms'
+import { ADMIN_DATA_TAG } from '@/lib/budget/fetcher'
 
 export async function saveFormBasic(submissionId: number, formData: FormData) {
   const parsed = formBasicSchema.safeParse({
@@ -664,6 +666,10 @@ async function resolveItConfigId(submissionId: number, equipmentTypeId: number) 
       equipmentTypeId: BigInt(equipmentTypeId),
     },
   })
+  // The upsert may have just added a row the cached reference set does not know
+  // about, and the budget sheet resolves this row's price through it — so the
+  // cache has to be dropped here, not only from the /admin screens.
+  updateTag(ADMIN_DATA_TAG)
   return config.id
 }
 

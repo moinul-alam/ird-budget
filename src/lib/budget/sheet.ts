@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db/client'
-import { getBudgetContext } from './fetcher'
+import { getBudgetContext, getRefData } from './fetcher'
 import { calculateAll, type BudgetContext } from './calculate'
 
 /**
@@ -30,11 +30,10 @@ export interface EconomicCodeRef {
 async function getLevelEnabledCodeIds(officeLevelId: number | null): Promise<number[]> {
   if (officeLevelId === null) return []
 
-  const rows = await prisma.officeLevelEconomicCodeMapping.findMany({
-    where: { officeLevelId: BigInt(officeLevelId), isEnabled: true },
-    select: { economicCodeId: true },
-  })
-  return rows.map((r) => Number(r.economicCodeId))
+  const ref = await getRefData()
+  return ref.levelCodeMappings
+    .filter((m) => m.officeLevelId === officeLevelId)
+    .map((m) => m.economicCodeId)
 }
 
 /** The office's level, which is what the administrator grants codes against. */
@@ -59,36 +58,31 @@ export async function getActiveEconomicCodes(
   // gated by its level's mapping.
   const enabledCodeIds = officeLevelId === undefined ? null : await getLevelEnabledCodeIds(officeLevelId)
 
-  const dbCodes = await prisma.refEconomicCode.findMany({
-    select: {
-      id: true,
-      code: true,
-      name: true,
-      categoryId: true,
-      isManual: true,
-      allowManualOverride: true,
-      sortOrder: true,
-      category: { select: { code: true, title: true, sortOrder: true } },
-    },
-    where:
-      enabledCodeIds === null
-        ? { isActive: true }
-        : { isActive: true, id: { in: enabledCodeIds.map((id) => BigInt(id)) } },
-    orderBy: { sortOrder: 'asc' },
-  })
+  // Both the catalogue and the per-level grants are administrator-owned reference
+  // data, so they come from the shared cache rather than being re-read per render.
+  const ref = await getRefData()
+  const categoryById = new Map(ref.budgetCategories.map((c) => [c.id, c]))
+  const categoryOf = (categoryId: number | null) =>
+    categoryId === null ? undefined : categoryById.get(categoryId)
 
-  return dbCodes.map((c) => ({
-    id: Number(c.id),
+  const codes = ref.economicCodes.map((c) => ({
+    id: c.id,
     code: c.code,
     name: c.name || '',
-    category_id: c.categoryId ? Number(c.categoryId) : null,
-    category_code: c.category?.code || '',
-    category_name: c.category?.title || '',
-    category_sort_order: Number(c.category?.sortOrder ?? 0),
+    category_id: c.categoryId,
+    category_code: categoryOf(c.categoryId)?.code || '',
+    category_name: categoryOf(c.categoryId)?.title || '',
+    category_sort_order: categoryOf(c.categoryId)?.sortOrder ?? 0,
     is_manual: c.isManual,
     allow_manual_override: c.allowManualOverride,
-    sort_order: Number(c.sortOrder || 0),
+    sort_order: c.sortOrder,
   }))
+
+  // The catalogue arrives in sheet order from the cache, so filtering keeps it.
+  if (enabledCodeIds === null) return codes
+
+  const enabled = new Set(enabledCodeIds)
+  return codes.filter((c) => enabled.has(c.id))
 }
 
 export interface SheetRow extends EconomicCodeRef {

@@ -2,7 +2,8 @@
 
 import { prisma } from '@/lib/db/client'
 import { getAdminSession } from '@/lib/auth-admin'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, updateTag } from 'next/cache'
+import { ADMIN_DATA_TAG } from '@/lib/budget/fetcher'
 
 export interface MinistryItem {
   id: string
@@ -260,6 +261,8 @@ export async function saveOfficeType(data: {
     }
 
     revalidatePath('/admin/offices-config')
+    // Office types are part of the cached reference set the budget pages read.
+    updateTag(ADMIN_DATA_TAG)
     return { success: true }
   } catch (error: any) {
     return { error: error.message }
@@ -276,6 +279,7 @@ export async function deleteOfficeType(id: string) {
     })
 
     revalidatePath('/admin/offices-config')
+    updateTag(ADMIN_DATA_TAG)
     return { success: true }
   } catch (error: any) {
     return { error: error.message }

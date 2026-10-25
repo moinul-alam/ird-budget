@@ -2,7 +2,8 @@
 
 import { prisma } from '@/lib/db/client'
 import { getAdminSession } from '@/lib/auth-admin'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, updateTag } from 'next/cache'
+import { ADMIN_DATA_TAG } from '@/lib/budget/fetcher'
 
 const SETTINGS_PATH = '/admin/settings'
 
@@ -115,6 +116,7 @@ export async function saveSalaryTile(input: {
     })
 
     revalidatePath(SETTINGS_PATH)
+    updateTag(ADMIN_DATA_TAG)
     return { success: true }
   } catch (error: any) {
     return { error: 'সংরক্ষণ ব্যর্থ হয়েছে: ' + error.message }
@@ -143,6 +145,7 @@ export async function saveSalarySlabs(input: {
     ])
 
     revalidatePath(SETTINGS_PATH)
+    updateTag(ADMIN_DATA_TAG)
     return { success: true }
   } catch (error: any) {
     return { error: 'সংরক্ষণ ব্যর্থ হয়েছে: ' + error.message }
@@ -188,6 +191,7 @@ export async function saveVehicleType(data: { id?: number; name: string }) {
     }
 
     revalidatePath(SETTINGS_PATH)
+    updateTag(ADMIN_DATA_TAG)
     return { success: true }
   } catch (error: any) {
     return { error: error.message }
@@ -204,6 +208,7 @@ export async function deleteVehicleType(id: number) {
     })
 
     revalidatePath(SETTINGS_PATH)
+    updateTag(ADMIN_DATA_TAG)
     return { success: true }
   } catch (error: any) {
     return { error: error.message }
@@ -291,6 +296,7 @@ export async function saveFuelType(data: {
     }
 
     revalidatePath(SETTINGS_PATH)
+    updateTag(ADMIN_DATA_TAG)
     return { success: true }
   } catch (error: any) {
     return { error: error.message }
@@ -307,6 +313,7 @@ export async function deleteFuelType(id: number) {
     })
 
     revalidatePath(SETTINGS_PATH)
+    updateTag(ADMIN_DATA_TAG)
     return { success: true }
   } catch (error: any) {
     return { error: error.message }
@@ -437,6 +444,7 @@ export async function saveVehicleConfigForType(data: {
     ])
 
     revalidatePath(SETTINGS_PATH)
+    updateTag(ADMIN_DATA_TAG)
     return { success: true }
   } catch (error: any) {
     return { error: error.message }
@@ -457,6 +465,7 @@ export async function deleteVehicleConfigForType(vehicleTypeId: number) {
     ])
 
     revalidatePath(SETTINGS_PATH)
+    updateTag(ADMIN_DATA_TAG)
     return { success: true }
   } catch (error: any) {
     return { error: error.message }
@@ -517,6 +526,7 @@ export async function saveVehicleRentConfig(data: {
     }
 
     revalidatePath(SETTINGS_PATH)
+    updateTag(ADMIN_DATA_TAG)
     return { success: true }
   } catch (error: any) {
     return { error: error.message }
@@ -533,6 +543,7 @@ export async function deleteVehicleRentConfig(id: number) {
     })
 
     revalidatePath(SETTINGS_PATH)
+    updateTag(ADMIN_DATA_TAG)
     return { success: true }
   } catch (error: any) {
     return { error: error.message }
@@ -578,6 +589,7 @@ export async function saveUtilityType(data: { id?: number; name: string }) {
     }
 
     revalidatePath(SETTINGS_PATH)
+    updateTag(ADMIN_DATA_TAG)
     return { success: true }
   } catch (error: any) {
     return { error: error.message }
@@ -594,6 +606,7 @@ export async function deleteUtilityType(id: number) {
     })
 
     revalidatePath(SETTINGS_PATH)
+    updateTag(ADMIN_DATA_TAG)
     return { success: true }
   } catch (error: any) {
     return { error: error.message }
@@ -661,6 +674,7 @@ export async function saveItEquipmentType(data: {
     }
 
     revalidatePath(SETTINGS_PATH)
+    updateTag(ADMIN_DATA_TAG)
     return { success: true }
   } catch (error: any) {
     return { error: error.message }
@@ -677,6 +691,7 @@ export async function deleteItEquipmentType(id: number) {
     })
 
     revalidatePath(SETTINGS_PATH)
+    updateTag(ADMIN_DATA_TAG)
     return { success: true }
   } catch (error: any) {
     return { error: error.message }

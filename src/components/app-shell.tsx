@@ -104,7 +104,6 @@ export function AppShell({
 
           <Link
             href="/dashboard"
-            prefetch={true}
             onClick={handleNav('/dashboard')}
             className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
               pathname === '/dashboard'
@@ -159,7 +158,6 @@ export function AppShell({
               <div className="p-1 space-y-0.5">
                 <Link
                   href="/office/office-info"
-                  prefetch={true}
                   onClick={(e) => {
                     setProfileDropdownOpen(false)
                     handleNav('/office/office-info')(e)
@@ -236,7 +234,6 @@ export function AppShell({
                         <Link
                           key={item.href}
                           href={item.href}
-                          prefetch={true}
                           className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all ${
                             isActive
                               ? 'bg-blue-600/30 text-blue-300 font-bold border border-blue-500/30'
@@ -263,7 +260,6 @@ export function AppShell({
                 <div className="pt-2">
                   <Link
                     href="/office/budget-sheet"
-                    prefetch={true}
                     className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                       pathname === '/office/budget-sheet'
                         ? 'bg-emerald-600 text-white shadow-sm'

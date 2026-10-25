@@ -163,7 +163,6 @@ export function FormShell({
           {prevHref ? (
             <Link
               href={prevHref}
-              prefetch={true}
               onClick={handleNavClick(prevHref)}
               className={buttonVariants({
                 variant: 'outline',
@@ -200,7 +199,6 @@ export function FormShell({
           {nextHref ? (
             <Link
               href={nextHref}
-              prefetch={true}
               onClick={handleNavClick(nextHref)}
               className={buttonVariants({
                 variant: 'default',
