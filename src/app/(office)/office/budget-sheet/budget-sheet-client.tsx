@@ -21,9 +21,10 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { Fragment, useState, useTransition, useMemo } from 'react'
-import { recalculateBudget, saveManualValue, submitBudget, type BudgetSheetRowItem } from '@/app/actions/budget'
+import { recalculateBudget, saveManualValues, submitBudget, type BudgetSheetRowItem } from '@/app/actions/budget'
 import { useRouter } from 'next/navigation'
 import { useFormLock } from '@/components/form-lock-provider'
+import { useFormGuard, useRegisterFormGuard } from '@/components/form-guard-provider'
 import { ReportDownloader } from '@/components/report-downloader'
 import type { ReportRow, ReportSpec } from '@/lib/report/export'
 
@@ -66,6 +67,11 @@ const ROW_TINTS = ['bg-sky-50/60', 'bg-violet-50/50', 'bg-rose-50/40']
 /** `w-72` in px — the hint is right-aligned to its icon, so it needs the room on the left. */
 const HINT_WIDTH = 288
 
+/** The pending entries in the shape the server action takes. */
+function toManualEntries(pending: Record<string, number | null>) {
+  return Object.entries(pending).map(([code, value]) => ({ code, value }))
+}
+
 export function BudgetSheetClient({
   initialRows,
   submissionId,
@@ -78,7 +84,12 @@ export function BudgetSheetClient({
 }: BudgetSheetClientProps) {
   const [rows, setRows] = useState<BudgetSheetRowItem[]>(initialRows)
   const [isPending, startTransition] = useTransition()
-  const [isSavingManual, setIsSavingManual] = useState<string | null>(null)
+  /**
+   * Manual amounts typed since the last submit, keyed by economic code. The sheet writes
+   * nothing while the office types — the values are held here and travel to the database
+   * in the single call behind the submit button.
+   */
+  const [pending, setPending] = useState<Record<string, number | null>>({})
   const [errorMessage, setErrorMessage] = useState<string | null>(initialError || null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -92,6 +103,35 @@ export function BudgetSheetClient({
 
   const router = useRouter()
   const { locked, notice: lockNotice } = useFormLock()
+  const { requestNavigation } = useFormGuard()
+
+  /**
+   * Leaving the sheet while entries are still waiting is routed through the same
+   * unsaved-changes dialog the forms use, so the office can save them, discard them or
+   * stay — instead of losing what they typed.
+   */
+  useRegisterFormGuard({
+    isDirty: () => Object.keys(pending).length > 0,
+    save: async () => {
+      const manualValues = toManualEntries(pending)
+      if (!submissionId) return 'বাজেট আইডি পাওয়া যায়নি'
+
+      const res = await saveManualValues(submissionId, manualValues)
+      if (!res.success) return res.error || 'সংরক্ষণ ব্যর্থ হয়েছে'
+      setPending({})
+      return null
+    },
+  })
+
+  // The sheet's own Previous link goes through the guard too.
+  const handleNavClick =
+    (href: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+        return
+      }
+      e.preventDefault()
+      requestNavigation(href)
+    }
 
   // Recalculate handler
   const handleRecalculate = () => {
@@ -107,7 +147,14 @@ export function BudgetSheetClient({
       try {
         const res = await recalculateBudget(submissionId)
         if (res.success && res.rows) {
-          setRows(res.rows)
+          // Recalculation re-reads the sheet from the database, which knows nothing about
+          // the entries still held here — so they are laid back over the fresh rows rather
+          // than dropped.
+          setRows(
+            res.rows.map((r) =>
+              r.code in pending ? { ...r, manual_value: pending[r.code] } : r
+            )
+          )
           setSuccessMessage('বাজেট সফলভাবে পুনর্গণনা করা হয়েছে।')
           setTimeout(() => setSuccessMessage(null), 4000)
         } else {
@@ -119,8 +166,8 @@ export function BudgetSheetClient({
     })
   }
 
-  // Handle manual input change
-  const handleManualChange = async (code: string, value: string) => {
+  // Handle manual input change — local only, nothing reaches the database until submit.
+  const handleManualChange = (code: string, value: string) => {
     if (!submissionId) return
 
     setErrorMessage(null)
@@ -132,23 +179,10 @@ export function BudgetSheetClient({
       return
     }
 
-    // Optimistic UI update
     setRows((prev) =>
       prev.map((r) => (r.code === code ? { ...r, manual_value: num } : r))
     )
-
-    // Save with indicator
-    setIsSavingManual(code)
-    try {
-      const res = await saveManualValue(submissionId, code, num)
-      if (!res.success) {
-        setErrorMessage(res.error || 'ম্যানুয়াল বরাদ্দ সংরক্ষণ করা যায়নি।')
-      }
-    } catch (err: any) {
-      setErrorMessage(`সংরক্ষণ ত্রুটি: ${err?.message || 'অজ্ঞাত ত্রুটি'}`)
-    } finally {
-      setIsSavingManual(null)
-    }
+    setPending((prev) => ({ ...prev, [code]: num }))
   }
 
   // Handle Submit
@@ -161,8 +195,11 @@ export function BudgetSheetClient({
     setErrorMessage(null)
     startTransition(async () => {
       try {
-        const res = await submitBudget(submissionId)
+        // Every entry typed in this visit goes over in this one call, so a session with a
+        // dozen edits still costs the database a single transaction.
+        const res = await submitBudget(submissionId, toManualEntries(pending))
         if (res.success) {
+          setPending({})
           router.push('/dashboard')
         } else {
           setErrorMessage(res.error || 'বাজেট দাখিল ব্যর্থ হয়েছে।')
@@ -399,10 +436,10 @@ export function BudgetSheetClient({
               <CardTitle className="text-lg font-bold text-slate-900">
                 বাজেট বিবরণী ছক
               </CardTitle>
-              {isSavingManual && (
-                <Badge variant="outline" className="gap-1.5 bg-blue-50 text-blue-700 border-blue-200 text-xs">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  সংরক্ষণ হচ্ছে...
+              {Object.keys(pending).length > 0 && (
+                <Badge variant="outline" className="gap-1.5 bg-amber-50 text-amber-800 border-amber-200 text-xs">
+                  <Save className="h-3 w-3" />
+                  {toBanglaNumber(Object.keys(pending).length)} টি এন্ট্রি দাখিলের অপেক্ষায়
                 </Badge>
               )}
             </div>
@@ -597,7 +634,7 @@ export function BudgetSheetClient({
 
       {/* Bottom Navigation & Submit Bar */}
       <div className="flex items-center justify-between pt-2 pb-8">
-        <Link href="/office/form-12" className={buttonVariants({ variant: 'outline', className: 'gap-2 font-bold shadow-xs' })}>
+        <Link href="/office/form-12" onClick={handleNavClick('/office/form-12')} className={buttonVariants({ variant: 'outline', className: 'gap-2 font-bold shadow-xs' })}>
           <ArrowLeft className="h-4 w-4" />
           {strings.previous} (ফরম ১২)
         </Link>

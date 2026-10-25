@@ -334,7 +334,10 @@ export function AppShell({
               </div>
               <Link
                 href="/office/budget-sheet"
-                onClick={() => setBudgetsModalOpen(false)}
+                onClick={(e) => {
+                  setBudgetsModalOpen(false)
+                  handleNav('/office/budget-sheet')(e)
+                }}
                 className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-2xs"
               >
                 বাজেট শিট দেখুন

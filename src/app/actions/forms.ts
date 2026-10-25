@@ -4,8 +4,24 @@ import { updateTag } from 'next/cache'
 import { prisma } from '@/lib/db/client'
 import { formBasicSchema } from '@/lib/schemas/forms'
 import { ADMIN_DATA_TAG } from '@/lib/budget/fetcher'
+import { getOfficeSession } from '@/lib/session'
+
+/**
+ * The submission the signed-in office owns, or null when there is no session.
+ * Every form write below is scoped through this — the submission id arrives from the
+ * client, so it can never be trusted on its own.
+ */
+async function currentSubmissionId(): Promise<number | null> {
+  const session = await getOfficeSession()
+  return session?.submission_id ?? null
+}
+
+/** Shown when a caller names a submission or row its own office does not own. */
+const NOT_OWNED = { error: 'এই দাখিলে আপনার অফিসের প্রবেশাধিকার নেই।' }
 
 export async function saveFormBasic(submissionId: number, formData: FormData) {
+  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
   const parsed = formBasicSchema.safeParse({
     head_of_office: formData.get('head_of_office'),
     designation: formData.get('designation'),
@@ -51,6 +67,8 @@ export async function saveFormStaffActiveRows(
     due_salary: number
   }>
 ) {
+  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
   try {
     for (const row of rows) {
       await prisma.officeFormStaffWorking.upsert({
@@ -90,6 +108,8 @@ export async function saveFormStaffSuspendedRows(
     suspended_due_salary: number
   }>
 ) {
+  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
   try {
     for (const row of rows) {
       await prisma.officeFormStaffSuspended.upsert({
@@ -121,6 +141,8 @@ export async function saveFormStaffSuspendedRows(
 }
 
 export async function deleteFormStaffActiveRow(submissionId: number, gradeId: number) {
+  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
   try {
     await prisma.officeFormStaffWorking.delete({
       where: {
@@ -137,6 +159,8 @@ export async function deleteFormStaffActiveRow(submissionId: number, gradeId: nu
 }
 
 export async function deleteFormStaffSuspendedRow(submissionId: number, gradeId: number) {
+  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
   try {
     await prisma.officeFormStaffSuspended.delete({
       where: {
@@ -164,6 +188,8 @@ export async function saveFormStaffRow(
     suspended_due_salary: number
   }
 ) {
+  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
   try {
     // Save active
     await prisma.officeFormStaffWorking.upsert({
@@ -226,6 +252,8 @@ export async function saveFormLeave(
     rest_recreation_due: number
   }
 ) {
+  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
   try {
     await prisma.officeFormLeaveEncashment.upsert({
       where: { submissionId: BigInt(submissionId) },
@@ -261,6 +289,8 @@ export async function saveFormRestRecreation(
     rest_recreation_due: number
   }
 ) {
+  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
   try {
     const existing = await prisma.officeFormLeaveEncashment.findUnique({
       where: { submissionId: BigInt(submissionId) },
@@ -306,6 +336,8 @@ export async function saveFormAllowanceRow(
     applicable_category?: string | null
   }
 ) {
+  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
   try {
     const isZero =
       data.count === 0 && data.total_basic === 0 && data.amount === 0 && data.due === 0
@@ -362,6 +394,8 @@ export async function saveFormUtilityRow(
   utilityTypeId: number,
   data: { annual_cost: number; due: number }
 ) {
+  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
   try {
     await prisma.officeFormUtility.upsert({
       where: {
@@ -392,6 +426,8 @@ export async function deleteFormUtilityRow(
   submissionId: number,
   utilityTypeId: number
 ) {
+  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
   try {
     await prisma.officeFormUtility.deleteMany({
       where: {
@@ -414,6 +450,8 @@ export async function saveFormHouseRent(
     contract_end_date: string | null
   }
 ) {
+  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
   try {
     // The rate row is only kept as the FK target of `vat_rate_id`; the VAT
     // percentage itself is read from /admin/settings (see loadVatPercentage).
@@ -459,6 +497,8 @@ export async function saveFormReturnInfo(
   submissionId: number,
   data: { tin_count: number; return_submitted_count: number }
 ) {
+  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
   try {
     // Same precedence as the budget engine: the /admin/settings card wins and the
     // legacy admin_rates row is only a fallback. The stored mirror matches code
@@ -502,6 +542,8 @@ export async function saveFormReturnInfo(
 }
 
 export async function deleteFormHouseRent(submissionId: number) {
+  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
   try {
     await prisma.officeFormHouseRent.delete({
       where: { submissionId: BigInt(submissionId) },
@@ -513,6 +555,8 @@ export async function deleteFormHouseRent(submissionId: number) {
 }
 
 export async function deleteFormReturnInfo(submissionId: number) {
+  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
   try {
     await prisma.officeFormReturnInfo.delete({
       where: { submissionId: BigInt(submissionId) },
@@ -535,6 +579,8 @@ export async function saveFormVehicleRow(
     additional_expense: number
   }
 ) {
+  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
   try {
     const payload = {
       vehicleConfigId: BigInt(data.vehicle_fuel_config_id),
@@ -545,11 +591,14 @@ export async function saveFormVehicleRow(
     }
 
     if (data.id) {
-      const updated = await prisma.officeFormVehicleGovt.update({
-        where: { id: BigInt(data.id) },
+      // The row id comes from the client as well, so this update is scoped by the
+      // submission too — naming another office's row must update nothing.
+      const updated = await prisma.officeFormVehicleGovt.updateMany({
+        where: { id: BigInt(data.id), submissionId: BigInt(submissionId) },
         data: payload,
       })
-      return { success: true, id: Number(updated.id) }
+      if (updated.count === 0) return NOT_OWNED
+      return { success: true, id: data.id }
     }
 
     // No id yet, but the row may already be stored: the modal saves on its own and
@@ -576,9 +625,14 @@ export async function saveFormVehicleRow(
 }
 
 export async function deleteFormVehicleRow(rowId: number) {
+  const ownedId = await currentSubmissionId()
+  if (ownedId === null) return NOT_OWNED
+
   try {
-    await prisma.officeFormVehicleGovt.delete({
-      where: { id: BigInt(rowId) },
+    // Scoped by the submission rather than a bare id: the delete then cannot reach
+    // another office's row, whichever id the client sends.
+    await prisma.officeFormVehicleGovt.deleteMany({
+      where: { id: BigInt(rowId), submissionId: BigInt(ownedId) },
     })
     return { success: true }
   } catch (error: any) {
@@ -594,16 +648,20 @@ export async function saveFormVehicleRentRow(
     count: number
   }
 ) {
+  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
   try {
     if (data.id) {
-      const updated = await prisma.officeFormVehicleRent.update({
-        where: { id: BigInt(data.id) },
+      // Scoped by the submission as well: the row id comes from the client too.
+      const updated = await prisma.officeFormVehicleRent.updateMany({
+        where: { id: BigInt(data.id), submissionId: BigInt(submissionId) },
         data: {
           vehicleRentConfigId: BigInt(data.vehicle_rent_config_id),
           vehicleCount: data.count,
         },
       })
-      return { success: true, id: Number(updated.id) }
+      if (updated.count === 0) return NOT_OWNED
+      return { success: true, id: data.id }
     }
 
     // Same shape as saveFormVehicleRow: the modal saves on its own and the form's
@@ -629,9 +687,12 @@ export async function saveFormVehicleRentRow(
 }
 
 export async function deleteFormVehicleRentRow(rowId: number) {
+  const ownedId = await currentSubmissionId()
+  if (ownedId === null) return NOT_OWNED
+
   try {
-    await prisma.officeFormVehicleRent.delete({
-      where: { id: BigInt(rowId) },
+    await prisma.officeFormVehicleRent.deleteMany({
+      where: { id: BigInt(rowId), submissionId: BigInt(ownedId) },
     })
     return { success: true }
   } catch (error: any) {
@@ -683,6 +744,8 @@ export async function saveFormITEquipmentRow(
     required_qty: number
   }
 ) {
+  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
   try {
     const itConfigId = await resolveItConfigId(submissionId, equipmentTypeId)
     if (!itConfigId) return { error: 'অফিসের তথ্য পাওয়া যায়নি' }
@@ -720,6 +783,8 @@ export async function deleteFormITEquipmentRow(
   submissionId: number,
   equipmentTypeId: number
 ) {
+  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
   try {
     // Deleting must not bring a config row into existence, so the lookup is a
     // plain read here rather than the save path's gap-filling upsert.
@@ -762,6 +827,8 @@ export interface NewStaffRecord {
 }
 
 export async function getFormNewStaffRows(submissionId: number): Promise<NewStaffRecord[]> {
+  if (submissionId !== (await currentSubmissionId())) return []
+
   const records = await prisma.officeFormStaffNewRecruit.findMany({
     where: { submissionId: BigInt(submissionId) },
     orderBy: { gradeId: 'asc' },
@@ -778,6 +845,8 @@ export async function getFormNewStaffRows(submissionId: number): Promise<NewStaf
 }
 
 export async function saveFormNewStaffRows(submissionId: number, rows: NewStaffRecord[]) {
+  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
   try {
     // Clean existing rows
     await prisma.officeFormStaffNewRecruit.deleteMany({

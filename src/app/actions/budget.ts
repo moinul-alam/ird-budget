@@ -3,6 +3,20 @@
 import { prisma } from '@/lib/db/client'
 import { computeSubmissionSheet } from '@/lib/budget/sheet'
 import { codeSourceForms } from '@/lib/budget/calculate'
+import { getOfficeSession } from '@/lib/session'
+
+/**
+ * The submission the signed-in office owns, or null when there is no session.
+ * Every office-side read and write below is scoped through this — the submission id
+ * arrives from the client, so it can never be trusted on its own.
+ */
+async function currentSubmissionId(): Promise<number | null> {
+  const session = await getOfficeSession()
+  return session?.submission_id ?? null
+}
+
+/** Shown when a caller names a submission its own office does not own. */
+const NOT_OWNED = 'এই দাখিলে আপনার অফিসের প্রবেশাধিকার নেই।'
 
 export interface BudgetSheetRowItem {
   id: number
@@ -47,6 +61,19 @@ export async function getBudgetSheetData(submissionId: number): Promise<BudgetSh
     return {
       success: false,
       error: 'কোনো বাজেট দাখিল (Submission) আইডি পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।',
+      rows: [],
+      totalAuto: 0,
+      totalManual: 0,
+      officeLevel: '',
+      officeName: '',
+      headOfficeName: '',
+    }
+  }
+
+  if (submissionId !== (await currentSubmissionId())) {
+    return {
+      success: false,
+      error: NOT_OWNED,
       rows: [],
       totalAuto: 0,
       totalManual: 0,
@@ -156,80 +183,122 @@ export async function recalculateBudget(submissionId: number) {
   }
 }
 
+/** A manual amount the sheet holds in the browser until the office submits. */
+export interface ManualValueEntry {
+  /** The economic code itself (e.g. "3111303"), as shown on the sheet. */
+  code: string
+  /** The office's amount, or null when it cleared a previously entered one. */
+  value: number | null
+}
+
 /**
- * Save manual override value for an economic code
+ * The upsert statements for a batch of manual entries, with every code resolved to its
+ * row id up front so N entries cost one lookup rather than N. Shared by the submit and
+ * the save-without-submitting paths so both write the sheet the same way.
+ *
+ * The sheet sends the economic code itself (e.g. "3111303"), not a row id. Parsing it as
+ * a number was the old bug: every code begins with digits, so the parse always succeeded
+ * and the code was used as a primary key instead — which the foreign key on
+ * office_budget_sheet.economic_code_id then rejected.
  */
-export async function saveManualValue(
+async function buildManualEntryWrites(
   submissionId: number,
-  codeIdentifier: string | number,
-  manualValue: number | null
+  manualValues: ManualValueEntry[]
+) {
+  if (manualValues.length === 0) return []
+
+  const codeRows = await prisma.refEconomicCode.findMany({
+    where: { code: { in: manualValues.map((entry) => entry.code) } },
+    select: { id: true, code: true },
+  })
+  const idByCode = new Map(codeRows.map((row) => [row.code, row.id]))
+
+  return manualValues.map((entry) => {
+    const codeId = idByCode.get(entry.code)
+    if (codeId === undefined) {
+      throw new Error(`কোড শনাক্তকারী অকার্যকর: ${entry.code}`)
+    }
+
+    return prisma.officeBudgetSheet.upsert({
+      where: {
+        submissionId_economicCodeId: {
+          submissionId: BigInt(submissionId),
+          economicCodeId: codeId,
+        },
+      },
+      update: {
+        manualValue: entry.value,
+        finalValue: entry.value || 0,
+      },
+      create: {
+        submissionId: BigInt(submissionId),
+        economicCodeId: codeId,
+        autoValue: 0,
+        manualValue: entry.value,
+        finalValue: entry.value || 0,
+      },
+    })
+  })
+}
+
+/**
+ * Store the sheet's manual entries without changing the submission's status — what the
+ * "save and leave" answer on the unsaved-changes dialog calls.
+ */
+export async function saveManualValues(
+  submissionId: number,
+  manualValues: ManualValueEntry[]
 ) {
   if (!submissionId) {
     return { success: false, error: 'বাজেট আইডি পাওয়া যায়নি' }
   }
 
+  if (submissionId !== (await currentSubmissionId())) {
+    return { success: false, error: NOT_OWNED }
+  }
+
   try {
-    let codeIdNum = typeof codeIdentifier === 'number' ? codeIdentifier : parseInt(codeIdentifier, 10)
+    const writes = await buildManualEntryWrites(submissionId, manualValues)
+    if (writes.length === 0) return { success: true }
 
-    if (isNaN(codeIdNum)) {
-      // Lookup code by code string
-      const cData = await prisma.refEconomicCode.findFirst({
-        where: { code: String(codeIdentifier) },
-        select: { id: true },
-      })
-
-      if (cData?.id) {
-        codeIdNum = Number(cData.id)
-      }
-    }
-
-    if (isNaN(codeIdNum)) {
-      return { success: false, error: 'কোড শনাক্তকারী অকার্যকর' }
-    }
-
-    await prisma.officeBudgetSheet.upsert({
-      where: {
-        submissionId_economicCodeId: {
-          submissionId: BigInt(submissionId),
-          economicCodeId: BigInt(codeIdNum),
-        },
-      },
-      update: {
-        manualValue: manualValue,
-        finalValue: manualValue || 0,
-      },
-      create: {
-        submissionId: BigInt(submissionId),
-        economicCodeId: BigInt(codeIdNum),
-        autoValue: 0,
-        manualValue: manualValue,
-        finalValue: manualValue || 0,
-      },
-    })
-
+    await prisma.$transaction(writes)
     return { success: true }
-  } catch (err: any) {
-    console.error('saveManualValue error:', err)
-    return { success: false, error: `সংরক্ষণ ত্রুটি: ${err?.message || 'অজ্ঞাত ত্রুটি'}` }
+  } catch (error: any) {
+    return { success: false, error: `সংরক্ষণ ত্রুটি: ${error.message}` }
   }
 }
 
 /**
- * Submit budget sheet
+ * Submit budget sheet, writing every manual entry the office made in this visit.
+ *
+ * The sheet keeps those entries in the browser and hands them over in this one call, so
+ * a session with a dozen edited rows costs the database a single transaction instead of
+ * a write per keystroke. The entries are written together with the status change: either
+ * the whole sheet is submitted or nothing about it moves.
  */
-export async function submitBudget(submissionId: number) {
+export async function submitBudget(
+  submissionId: number,
+  manualValues: ManualValueEntry[] = []
+) {
   if (!submissionId) {
     return { success: false, error: 'বাজেট আইডি পাওয়া যায়নি' }
   }
 
+  if (submissionId !== (await currentSubmissionId())) {
+    return { success: false, error: NOT_OWNED }
+  }
+
   try {
-    await prisma.officeSubmission.update({
-      where: { id: BigInt(submissionId) },
-      data: {
-        status: 'submitted',
-        submittedAt: new Date(),
-      },
-    })
+    await prisma.$transaction([
+      ...(await buildManualEntryWrites(submissionId, manualValues)),
+      prisma.officeSubmission.update({
+        where: { id: BigInt(submissionId) },
+        data: {
+          status: 'submitted',
+          submittedAt: new Date(),
+        },
+      }),
+    ])
 
     return { success: true }
   } catch (error: any) {
@@ -244,6 +313,10 @@ export async function submitBudget(submissionId: number) {
 export async function unlockBudget(submissionId: number) {
   if (!submissionId) {
     return { success: false, error: 'বাজেট আইডি পাওয়া যায়নি' }
+  }
+
+  if (submissionId !== (await currentSubmissionId())) {
+    return { success: false, error: NOT_OWNED }
   }
 
   try {
