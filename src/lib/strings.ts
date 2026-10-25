@@ -575,7 +575,7 @@ export const strings = {
     usernamePlaceholder: 'admin অথবা superadmin',
     password: 'পাসওয়ার্ড',
     passwordPlaceholder: 'পাসওয়ার্ড লিখুন',
-    passwordTooltip: 'পাসওয়ার্ডের জন্য সিস্টেম অ্যাডমিন বা আইআরডি এর সাথে যোগাযোগ করুন (ডিফল্ট: budget26)',
+    passwordTooltip: 'পাসওয়ার্ডের জন্য সিস্টেম অ্যাডমিন বা আইআরডি এর সাথে যোগাযোগ করুন',
     signIn: 'লগইন করুন',
     signingIn: 'লগইন হচ্ছে...',
     adminAccess: 'অ্যাডমিন প্যানেল',

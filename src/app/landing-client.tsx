@@ -6,7 +6,6 @@ import { strings } from '@/lib/strings'
 import { toEnglishNumber } from '@/lib/bangla'
 import { searchOffice, getDepartments, getParentOffices, getOfficeTypes, getMinistriesList, getOfficeLevelsForType } from '@/app/actions/office'
 import { loginOffice, registerOffice } from '@/app/actions/auth'
-import { DEFAULT_OFFICE_PASSWORD } from '@/lib/office/defaults'
 import { Search, Plus, Check, X, ArrowRight, Lock, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -170,7 +169,6 @@ export function LandingClient() {
       formData.set('type_id', selectedType)
       formData.set('parent_id', selectedParent)
       formData.set('level_id', selectedLevel)
-      formData.set('password', DEFAULT_OFFICE_PASSWORD)
 
       const result = await registerOffice(formData)
       if (result.error) {
@@ -545,9 +543,6 @@ export function LandingClient() {
                         className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all font-mono text-sm"
                         required
                       />
-                      <p className="text-xs text-slate-400 mt-2 ml-1">
-                        সিস্টেমে প্রাথমিক লগইন পাসওয়ার্ড হিসেবে <span className="font-bold text-slate-700">{DEFAULT_OFFICE_PASSWORD}</span> নির্ধারিত থাকবে।
-                      </p>
                     </div>
                   </div>
                 </div>

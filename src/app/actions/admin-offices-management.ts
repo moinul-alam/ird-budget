@@ -335,7 +335,10 @@ export async function saveFieldOffice(data: {
     revalidatePath('/admin/offices-management/field-offices')
     revalidatePath('/admin/offices-users')
     revalidatePath('/')
-    return { success: true }
+    // The password is returned rather than imported by the client: it lives only in the
+    // server environment, so this authenticated response is the only way the admin UI can
+    // show the value that was actually stored.
+    return { success: true, password: pwd }
   } catch (error: any) {
     return { error: error.message }
   }

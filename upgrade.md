@@ -69,6 +69,19 @@ and the CLI. On a host that needs a separate migration connection, add
 **Gotcha:** the presence of a Prisma config file makes the CLI skip its own `.env` loading.
 That is why every Prisma-invoking script passes `--env-file=.env` explicitly.
 
+### Required environment variables
+
+| Variable | Scope | Notes |
+| --- | --- | --- |
+| `DATABASE_URL` | app + CLI | see above |
+| `DIRECT_URL` | local scripts only | session pooler (5432), used for migrations |
+| `AUTH_SECRET` | server only | HMAC key signing the `admin_session` cookie ([src/lib/auth-admin.ts](src/lib/auth-admin.ts)). Rotating it invalidates every admin session. Generate with `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. |
+| `OFFICE_DEFAULT_PASSWORD` | server only | the password an office is given until a superadmin sets its own ([src/lib/office/defaults.ts](src/lib/office/defaults.ts)). **Not** `NEXT_PUBLIC_`, so it never reaches the browser bundle. In production the app throws if it is unset — which happens at build time, so the build fails rather than shipping offices nobody can log into. Changing it affects only offices created afterwards. |
+
+None of these may be prefixed `NEXT_PUBLIC_`: that prefix inlines the value into the client
+JavaScript, where it is readable by anyone. Server values reach an authenticated admin UI only
+as part of a server action's response (see `saveFieldOffice`).
+
 ---
 
 ## 4. Schema map — 41 tables

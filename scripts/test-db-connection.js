@@ -1,79 +1,51 @@
+/**
+ * Connectivity check for the configured DATABASE_URL.
+ *
+ *   node --env-file=.env scripts/test-db-connection.js
+ *
+ * Credentials are read from the environment only — never hardcode them here.
+ * This repository is public, so a password committed to it must be treated as
+ * leaked (rotate it in the Supabase dashboard, then revoke the old one).
+ */
 const { Client } = require('pg')
-const dns = require('dns').promises
 
-const password = 'TGLKuT9nvlV47t99'
-const ref = 'jamjablqawadxvrqwrco'
-
-async function tryClient(config, label) {
-  const client = new Client({ ...config, ssl: { rejectUnauthorized: false } })
-  try {
-    await client.connect()
-    await client.query('SELECT 1')
-    console.log(`OK [${label}]`)
-    return true
-  } catch (e) {
-    console.log(`FAIL [${label}]:`, e.message.split('\n')[0].slice(0, 140))
-    return false
-  } finally {
-    await client.end().catch(() => {})
-  }
+const url = process.env.DATABASE_URL
+if (!url) {
+  console.error(
+    'DATABASE_URL is not set. Run with:\n' +
+      '  node --env-file=.env scripts/test-db-connection.js'
+  )
+  process.exit(1)
 }
 
 ;(async () => {
-  // Direct DB (IPv6)
-  try {
-    const addrs = await dns.resolve6(`db.${ref}.supabase.co`)
-    console.log('db IPv6:', addrs[0])
-    for (const host of addrs.slice(0, 1)) {
-      const ok = await tryClient(
-        { host, user: 'postgres', password, database: 'postgres', port: 5432 },
-        `direct IPv6 ${host}`
-      )
-      if (ok) process.exit(0)
-    }
-  } catch (e) {
-    console.log('dns6 db:', e.message)
-  }
+  const { hostname, port, username, password, pathname, searchParams } = new URL(url)
+  const client = new Client({
+    host: hostname,
+    port: Number(port) || 5432,
+    user: decodeURIComponent(username),
+    password: decodeURIComponent(password),
+    database: pathname.replace(/^\//, '') || 'postgres',
+    ssl: { rejectUnauthorized: false },
+    connectionTimeoutMillis: 30000,
+  })
 
-  // Scan pooler hosts: aws-{0..1} x common APAC/EU/US regions
-  const regions = [
-    'ap-southeast-1',
-    'ap-southeast-2',
-    'ap-south-1',
-    'ap-northeast-1',
-    'ap-northeast-2',
-    'eu-west-1',
-    'eu-central-1',
-    'us-east-1',
-    'us-west-1',
-  ]
-  for (const idx of [0, 1, 2]) {
-    for (const region of regions) {
-      const host = `aws-${idx}-${region}.pooler.supabase.com`
-      try {
-        await dns.lookup(host)
-      } catch {
-        continue
-      }
-      for (const port of [5432, 6543]) {
-        const ok = await tryClient(
-          {
-            host,
-            user: `postgres.${ref}`,
-            password,
-            database: 'postgres',
-            port,
-          },
-          `${host}:${port}`
-        )
-        if (ok) {
-          console.log(
-            `DATABASE_URL=postgresql://postgres.${ref}:${password}@${host}:${port}/postgres${port === 6543 ? '?pgbouncer=true' : ''}`
-          )
-          process.exit(0)
-        }
-      }
-    }
+  const mode = searchParams.get('pgbouncer') ? 'transaction pooler' : 'direct/session'
+  const started = Date.now()
+
+  try {
+    await client.connect()
+    const { rows } = await client.query(
+      'SELECT current_database() AS db, current_user AS usr'
+    )
+    console.log(`OK   ${hostname}:${port} (${mode}) in ${Date.now() - started}ms`)
+    console.log(`     database=${rows[0].db} user=${rows[0].usr}`)
+  } catch (error) {
+    console.error(
+      `FAIL ${hostname}:${port} (${mode}) in ${Date.now() - started}ms — ${error.message.split('\n')[0]}`
+    )
+    process.exitCode = 1
+  } finally {
+    await client.end().catch(() => {})
   }
-  process.exit(1)
 })()

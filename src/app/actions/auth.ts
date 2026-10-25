@@ -58,7 +58,7 @@ export async function getOrCreateOfficeSubmission(officeId: number) {
   return submission ? Number(submission.id) : null
 }
 
-export async function loginOffice(budgetId: string, passwordInput?: string) {
+export async function loginOffice(budgetId: string, passwordInput: string) {
   try {
     const cleanBudgetId = budgetId.trim()
 
@@ -105,26 +105,21 @@ export async function loginOffice(budgetId: string, passwordInput?: string) {
       })
     }
 
-    // 3. Check password
-    if (passwordInput !== undefined && passwordInput !== null) {
-      const inputHash = hashPassword(passwordInput)
-      const isMatch =
-        (loginRecord && loginRecord.passwordHash === inputHash) ||
-        (loginRecord && loginRecord.passwordHint === passwordInput) ||
-        passwordInput === DEFAULT_OFFICE_PASSWORD
+    // 3. Check password. It is mandatory: a budget ID alone must not mint a session.
+    const inputHash = hashPassword(passwordInput)
+    const isMatch =
+      loginRecord.passwordHash === inputHash ||
+      loginRecord.passwordHint === passwordInput
 
-      if (!isMatch) {
-        return { error: 'পাসওয়ার্ডটি সঠিক নয়। সহায়তার জন্য অ্যাডমিনের সাথে যোগাযোগ করুন।' }
-      }
+    if (!isMatch) {
+      return { error: 'পাসওয়ার্ডটি সঠিক নয়। সহায়তার জন্য অ্যাডমিনের সাথে যোগাযোগ করুন।' }
     }
 
     // 4. Update last login timestamp
-    if (loginRecord) {
-      await prisma.officeUser.update({
-        where: { id: loginRecord.id },
-        data: { lastLoginAt: new Date() },
-      })
-    }
+    await prisma.officeUser.update({
+      where: { id: loginRecord.id },
+      data: { lastLoginAt: new Date() },
+    })
 
     // 5. Resolve submission_id for the current cycle
     const submissionId = await getOrCreateOfficeSubmission(Number(office.id))
@@ -295,8 +290,7 @@ export async function loginAdmin(formData: FormData) {
   const inputHash = hashPassword(parsed.data.password)
   const isMatch =
     user.passwordHash === inputHash ||
-    user.passwordHint === parsed.data.password ||
-    parsed.data.password === '123'
+    user.passwordHint === parsed.data.password
 
   if (!isMatch) {
     return { error: 'ইউজারনেম বা পাসওয়ার্ড সঠিক নয়' }

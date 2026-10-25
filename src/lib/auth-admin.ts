@@ -8,11 +8,25 @@ export interface AdminSession {
 }
 
 const ADMIN_COOKIE_NAME = 'admin_session'
-const SECRET_KEY = process.env.AUTH_SECRET || 'ird_budget_secret_key_admin_auth_2026'
+
+// HMAC key that signs the admin session cookie. Read lazily so that a missing
+// value is a loud failure in production rather than a silent fallback to a key
+// that is committed to this (public) repository — which would let anyone forge
+// an `admin_session` cookie for any role.
+function getSecretKey(): string {
+  const secret = process.env.AUTH_SECRET
+  if (secret) return secret
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'AUTH_SECRET is not set. Refusing to sign admin sessions with a public key — set AUTH_SECRET in the host environment.'
+    )
+  }
+  return 'dev-only-insecure-secret'
+}
 
 // Simple tamper-proof payload signer
 function sign(value: string): string {
-  const hmac = crypto.createHmac('sha256', SECRET_KEY).update(value).digest('hex')
+  const hmac = crypto.createHmac('sha256', getSecretKey()).update(value).digest('hex')
   return `${Buffer.from(value).toString('base64url')}.${hmac}`
 }
 
@@ -21,7 +35,7 @@ function verify(token: string): string | null {
   if (parts.length !== 2) return null
   const [b64Payload, signature] = parts
   const payload = Buffer.from(b64Payload, 'base64url').toString()
-  const expectedHmac = crypto.createHmac('sha256', SECRET_KEY).update(payload).digest('hex')
+  const expectedHmac = crypto.createHmac('sha256', getSecretKey()).update(payload).digest('hex')
   if (crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedHmac))) {
     return payload
   }
