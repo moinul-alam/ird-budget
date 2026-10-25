@@ -83,8 +83,17 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promis
 /**
  * Sums the code-wise budget of every office in `officeIds` for one cycle.
  * Offices without a submission in the cycle are reported with a zero total.
+ *
+ * Pass the office level when the whole scope shares one: the code list is then the
+ * set the administrator opened for that level, so the report shows only those codes
+ * instead of the full catalogue padded with zeroes. Omit it for a scope spanning
+ * several levels, where each office contributes whatever its own level was granted.
  */
-export async function rollupOffices(officeIds: number[], cycleId: number): Promise<RollupReport> {
+export async function rollupOffices(
+  officeIds: number[],
+  cycleId: number,
+  officeLevelId?: number | null
+): Promise<RollupReport> {
   if (officeIds.length === 0) {
     return { codes: [], offices: [], grand_total: 0 }
   }
@@ -101,7 +110,7 @@ export async function rollupOffices(officeIds: number[], cycleId: number): Promi
       where: { cycleId: BigInt(cycleId), officeId: { in: ids } },
       select: { id: true, officeId: true, status: true },
     }),
-    getActiveEconomicCodes(),
+    getActiveEconomicCodes(officeLevelId),
   ])
 
   const submissionByOffice = new Map<number, { id: number; status: string }>()
@@ -134,9 +143,10 @@ export async function rollupOffices(officeIds: number[], cycleId: number): Promi
   })
 
   return {
-    // Called without a level on purpose: a rollup spans offices on different levels,
-    // each granted a different code set, so the report keeps the global code list and
-    // lets each gated office sheet contribute only the rows it was allowed to fill.
+    // A single-level scope arrives here already narrowed to that level's opened codes,
+    // so the rows below line up with what the level was granted. A multi-level scope
+    // keeps the global list and lets each gated office sheet contribute only its own
+    // rows; codes no office was granted simply sum to zero.
     codes: codes.map((c) => ({
       code_id: c.id,
       code: c.code,

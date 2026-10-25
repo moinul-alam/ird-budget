@@ -61,7 +61,13 @@ export default async function SummaryReportPage({
       },
       select: { id: true },
     })
-    report = await rollupOffices(offices.map((o) => Number(o.id)), cycle.id)
+    // Every office in scope sits on this one level, so the report is narrowed to the
+    // codes the administrator opened for it rather than the whole catalogue.
+    report = await rollupOffices(
+      offices.map((o) => Number(o.id)),
+      cycle.id,
+      Number(selectedLevel.id)
+    )
   }
 
   // The two downloadable files are named after the level on screen, so several levels
