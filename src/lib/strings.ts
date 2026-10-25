@@ -44,7 +44,7 @@ export const strings = {
   landing: {
     title: 'বাজেট প্রিপারেশন সিস্টেম',
     subtitle: 'অভ্যন্তরীণ সম্পদ বিভাগ',
-    enterBudgetId: 'আপনার অফিসের বাজেট আইডি লিখে সার্চ করুন',
+    enterBudgetId: 'অফিসের বাজেট আইডি লিখে সার্চ করুন',
     budgetIdPlaceholder: 'যেমন: 1110215102427',
     searchButton: 'সার্চ করুন',
     adminLogin: 'এডমিন লগইন',

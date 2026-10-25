@@ -107,7 +107,7 @@ export function AdminShell({
               className="h-8 w-8 object-contain"
             />
           </div>
-          <span className="font-extrabold text-sm sm:text-base tracking-tight text-slate-100 truncate max-w-[200px] sm:max-w-none font-title">
+          <span className="font-extrabold text-sm sm:text-base tracking-tight text-slate-100 max-w-[200px] sm:max-w-none font-title pl-0.5">
             {strings.appName}
             <span className="ml-2 text-xs font-normal text-slate-400 hidden md:inline">
               ({isSuperAdmin ? 'সুপার অ্যাডমিন প্যানেল' : 'অ্যাডমিন প্যানেল'})

@@ -19,8 +19,7 @@ import {
   EyeOff,
   Building2,
   FileText,
-  Calculator,
-  BarChart3,
+  Send,
   LogIn,
   ShieldCheck,
   Check,
@@ -41,23 +40,20 @@ interface SelectOption {
 /** Numbered walk-through shown beside the card on wide screens. Mirrors the flow below. */
 const STEPS = [
   {
-    title: 'বাজেট আইডি দিয়ে সার্চ করুন',
-    detail: 'অফিসের বাজেট আইডি লিখে সার্চ করুন।',
+    icon: LogIn,
+    title: 'বাজেট আইডি দিয়ে সিস্টেমে লগিন',
+    detail: 'বাজেট আইডি ও নির্ধারিত পাসওয়ার্ড দিয়ে লগিন করুন',
   },
   {
-    title: 'অফিস নিশ্চিত করুন',
-    detail: 'পাওয়া যাওয়া অফিসটি আপনার কিনা যাচাই করে পাসওয়ার্ড দিন।',
+    icon: FileText,
+    title: 'নির্ধারিত ফরম সঠিক নিয়মে পূরণ',
+    detail: 'নির্ধারিত ফরমসমূহ ধাপে ধাপে যথাযথভাবে পূরণ করুন',
   },
   {
-    title: 'ফরম পূরণ করে বাজেট দাখিল করুন',
-    detail: 'ফরম ১ থেকে ১২ পূরণ করে বাজেট দাখিল করুন।',
+    icon: Send,
+    title: 'চূড়ান্ত বাজেট পর্যালোচনা ও দাখিল',
+    detail: 'পূরণকৃত ফরম অনুযায়ী স্বয়ংক্রিয়ভাবে প্রস্তুত বাজেট দাখিল করুন',
   },
-]
-
-const FEATURES = [
-  { icon: FileText, title: 'ফরম ১–১২', detail: 'নির্ধারিত ফরমে বাজেট প্রস্তুত' },
-  { icon: Calculator, title: 'স্বয়ংক্রিয় হিসাব', detail: 'সূত্র অনুযায়ী স্বয়ংক্রিয় নিরূপণ' },
-  { icon: BarChart3, title: 'প্রতিবেদন', detail: 'অফিসভিত্তিক ও সমন্বিত রিপোর্ট' },
 ]
 
 export function LandingClient() {
@@ -258,10 +254,10 @@ export function LandingClient() {
               className="h-10 w-10 shrink-0 object-contain sm:h-11 sm:w-11"
             />
             <div className="min-w-0">
-              <p className="truncate font-heading text-sm font-bold leading-tight text-slate-900 sm:text-base">
+              <p className="font-heading text-sm font-bold leading-tight text-slate-900 sm:text-base pl-0.5">
                 {strings.landing.title}
               </p>
-              <p className="truncate text-[11px] font-medium leading-tight text-slate-500 sm:text-xs">
+              <p className="text-xs font-semibold leading-snug text-slate-500 sm:text-sm pl-0.5">
                 {strings.landing.subtitle}
               </p>
             </div>
@@ -269,10 +265,15 @@ export function LandingClient() {
 
           <Link
             href="/admin/login"
-            className="group flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 sm:px-4 sm:text-sm"
+            aria-label={strings.landing.adminLogin}
+            className="group flex shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white p-2.5 text-xs font-bold text-slate-600 shadow-sm transition-all duration-300 ease-out hover:border-blue-300 hover:bg-blue-50 hover:px-4 hover:text-blue-700 focus-visible:border-blue-300 focus-visible:bg-blue-50 focus-visible:px-4 focus-visible:text-blue-700 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500/15 sm:text-sm"
           >
-            <ShieldCheck className="h-4 w-4 text-slate-400 transition-colors group-hover:text-blue-600" />
-            {strings.landing.adminLogin}
+            <ShieldCheck className="h-4 w-4 shrink-0 text-slate-400 transition-colors group-hover:text-blue-600 group-focus-visible:text-blue-600" />
+            <span className="grid grid-cols-[0fr] transition-all duration-300 ease-out group-hover:ml-2 group-hover:grid-cols-[1fr] group-focus-visible:ml-2 group-focus-visible:grid-cols-[1fr]">
+              <span className="min-w-0 overflow-hidden whitespace-nowrap">
+                <span className="block pl-0.5 pr-0.5">{strings.landing.adminLogin}</span>
+              </span>
+            </span>
           </Link>
         </div>
       </header>
@@ -463,54 +464,48 @@ export function LandingClient() {
 
           <p className="mt-4 flex items-center justify-center gap-2 text-center text-xs font-medium text-slate-500">
             <Lock className="h-3.5 w-3.5" />
-            পাসওয়ার্ড জানা না থাকলে সিস্টেম অ্যাডমিনের সাথে যোগাযোগ করুন।
+            পাসওয়ার্ড জানা না থাকলে সিস্টেম অ্যাডমিনের সাথে যোগাযোগ করুন
           </p>
         </section>
 
         {/* ---------- Branding panel (second on mobile, left on desktop) ---------- */}
         <section className="order-2 space-y-8 lg:order-1">
-          <div className="space-y-5">
-            <span className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+          <div className="space-y-4">
+            <span className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-4 py-1.5 text-sm font-bold text-blue-700">
               <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
               {strings.landing.subtitle}
             </span>
-            <h1 className="font-heading text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
+            <h1 className="font-heading text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-4xl lg:text-5xl pl-0.5">
               {strings.landing.title}
             </h1>
-            <p className="max-w-xl text-base font-medium leading-relaxed text-slate-600">
-              সরকারি অফিসের বার্ষিক বাজেট প্রস্তুত, দাখিল ও পর্যালোচনার কেন্দ্রীয় অনলাইন ব্যবস্থা।
-            </p>
           </div>
 
           <ol className="space-y-3">
-            {STEPS.map((step, index) => (
-              <li
-                key={step.title}
-                className="flex items-start gap-4 rounded-2xl border border-slate-200/70 bg-white/70 p-4 backdrop-blur-sm"
-              >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-600 font-heading text-sm font-bold text-white">
-                  {toBanglaNumber(index + 1)}
-                </span>
-                <div>
-                  <p className="font-heading text-sm font-bold text-slate-800">{step.title}</p>
-                  <p className="mt-0.5 text-xs font-medium text-slate-500">{step.detail}</p>
-                </div>
-              </li>
-            ))}
+            {STEPS.map((step, index) => {
+              const StepIcon = step.icon
+              return (
+                <li
+                  key={step.title}
+                  className="group flex items-start gap-4 rounded-2xl border border-slate-200/70 bg-white/70 p-4 backdrop-blur-sm transition-all duration-300 hover:border-blue-200 hover:bg-white hover:shadow-[0_16px_40px_-24px_rgba(37,99,235,0.55)]"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-blue-500 font-heading text-base font-bold text-white shadow-md shadow-blue-600/25">
+                    {toBanglaNumber(index + 1)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="pl-0.5 font-heading text-[15px] font-bold leading-snug text-slate-800">
+                        {step.title}
+                      </p>
+                      <StepIcon className="mt-0.5 h-5 w-5 shrink-0 text-blue-500/60 transition-colors group-hover:text-blue-600" />
+                    </div>
+                    <p className="mt-1 pl-0.5 text-xs font-medium leading-relaxed text-slate-500">
+                      {step.detail}
+                    </p>
+                  </div>
+                </li>
+              )
+            })}
           </ol>
-
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {FEATURES.map((feature) => (
-              <div
-                key={feature.title}
-                className="rounded-2xl border border-slate-200/70 bg-white/70 p-4 backdrop-blur-sm"
-              >
-                <feature.icon className="h-5 w-5 text-blue-600" />
-                <p className="mt-3 font-heading text-sm font-bold text-slate-800">{feature.title}</p>
-                <p className="mt-0.5 text-xs font-medium text-slate-500">{feature.detail}</p>
-              </div>
-            ))}
-          </div>
         </section>
       </main>
 
