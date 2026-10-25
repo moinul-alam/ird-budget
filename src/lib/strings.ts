@@ -42,24 +42,24 @@ export const strings = {
   },
 
   landing: {
-    title: 'বাজেট ম্যানেজমেন্ট সিস্টেম',
+    title: 'বাজেট প্রিপারেশন সিস্টেম',
     subtitle: 'অভ্যন্তরীণ সম্পদ বিভাগ',
     enterBudgetId: 'আপনার অফিসের বাজেট আইডি লিখে সার্চ করুন',
     budgetIdPlaceholder: 'যেমন: 1110215102427',
     searchButton: 'সার্চ করুন',
-    adminLogin: 'প্রশাসক লগইন',
+    adminLogin: 'এডমিন লগইন',
     notFound: 'এই আইডিতে কোনো অফিস পাওয়া যায়নি।',
-    registerPrompt: 'নতুন অফিস নিবন্ধন করতে নিচের বাটনে চাপুন।',
-    registerButton: 'নতুন অফিস নিবন্ধন',
+    registerPrompt: 'অফিস নিবন্ধন করতে নিচের বাটনে চাপুন।',
+    registerButton: 'অফিস নিবন্ধন',
     foundOffice: 'এটা কি আপনার অফিস?',
-    confirmOffice: 'হ্যাঁ, এটি আমার অফিস',
-    wrongOffice: 'না, এটি আমার অফিস নয়',
+    loginButton: 'লগইন করুন',
+    searchAnother: 'অন্য আইডি খুঁজুন',
     searchAgain: 'পুনরায় সার্চ',
     registerThis: 'অফিসটি নিবন্ধন করুন',
   },
 
   registration: {
-    title: 'নতুন অফিস নিবন্ধন',
+    title: 'অফিস নিবন্ধন',
     officeName: 'অফিসের নাম',
     officeNamePlaceholder: 'যেমন: কর অঞ্চল-১১, ঢাকা',
     budgetId: 'বাজেট আইডি',
@@ -395,7 +395,7 @@ export const strings = {
     confirmDeleteTitle: 'আপনি কি নিশ্চিতভাবে এই ভাড়ার তথ্য মুছে ফেলতে চান?',
     confirmDeleteDesc: 'তথ্য মুছে ফেলার পর তা আর উদ্ধার করা যাবে না।',
     yearlyTotalWithVat: 'ভ্যাটসহ বাৎসরিক অফিস ভাড়া',
-    vatRateNote: 'প্রশাসক কর্তৃক নির্ধারিত ভ্যাট হার যুক্ত',
+    vatRateNote: 'এডমিন কর্তৃক নির্ধারিত ভ্যাট হার যুক্ত',
     unitTaka: 'টাকা',
   },
 
@@ -516,7 +516,7 @@ export const strings = {
 
   admin: {
     dashboard: {
-      title: 'প্রশাসক ড্যাশবোর্ড',
+      title: 'এডমিন ড্যাশবোর্ড',
     },
     settings: {
       title: 'প্রাপ্যতা ও বরাদ্দ নির্ধারণ',
@@ -570,7 +570,7 @@ export const strings = {
     subtitle: 'লগইন করতে আপনার বাজেট কোড প্রদান করুন',
     budgetCode: 'বাজেট কোড',
     budgetCodePlaceholder: 'যেমন: ১০১',
-    email: 'ইমেইল (প্রশাসক)',
+    email: 'ইমেইল (এডমিন)',
     username: 'ইউজারনেম',
     usernamePlaceholder: 'admin অথবা superadmin',
     password: 'পাসওয়ার্ড',

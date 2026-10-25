@@ -715,7 +715,7 @@ export const strings = {
   // Landing
   enterOfficeId: 'আপনার অফিস কোড লিখুন',
   searchOffice: 'অফিস খুঁজুন',
-  officeNotFound: 'এই কোডে কোনো অফিস পাওয়া যায়নি। নতুন অফিস নিবন্ধন করুন।',
+  officeNotFound: 'এই কোডে কোনো অফিস পাওয়া যায়নি। অফিস নিবন্ধন করুন।',
   registerOffice: 'অফিস নিবন্ধন',
   confirmOffice: 'এটি কি আপনার অফিস?',
   yes: 'হ্যাঁ',
@@ -1399,7 +1399,7 @@ export const strings = {
   // Landing
   enterOfficeId: 'আপনার অফিস কোড লিখুন',
   searchOffice: 'অফিস খুঁজুন',
-  officeNotFound: 'এই কোডে কোনো অফিস পাওয়া যায়নি। নতুন অফিস নিবন্ধন করুন।',
+  officeNotFound: 'এই কোডে কোনো অফিস পাওয়া যায়নি। অফিস নিবন্ধন করুন।',
   registerOffice: 'অফিস নিবন্ধন',
   confirmOffice: 'এটি কি আপনার অফিস?',
   yes: 'হ্যাঁ',

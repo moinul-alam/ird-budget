@@ -2,12 +2,29 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
+import Link from 'next/link'
 import { strings } from '@/lib/strings'
-import { toEnglishNumber } from '@/lib/bangla'
+import { toEnglishNumber, toBanglaNumber } from '@/lib/bangla'
 import { searchOffice, getDepartments, getParentOffices, getOfficeTypes, getMinistriesList, getOfficeLevelsForType } from '@/app/actions/office'
 import { loginOffice, registerOffice } from '@/app/actions/auth'
-import { Search, Plus, Check, X, ArrowRight, Lock, Loader2, Eye, EyeOff } from 'lucide-react'
-import Link from 'next/link'
+import {
+  Search,
+  Plus,
+  X,
+  ArrowRight,
+  Lock,
+  Loader2,
+  Eye,
+  EyeOff,
+  Building2,
+  FileText,
+  Calculator,
+  BarChart3,
+  LogIn,
+  ShieldCheck,
+  Check,
+} from 'lucide-react'
 
 type ViewState = 'search' | 'found' | 'notFound'
 
@@ -20,6 +37,28 @@ interface SelectOption {
   id: string
   name: string
 }
+
+/** Numbered walk-through shown beside the card on wide screens. Mirrors the flow below. */
+const STEPS = [
+  {
+    title: 'বাজেট আইডি দিয়ে সার্চ করুন',
+    detail: 'অফিসের বাজেট আইডি লিখে সার্চ করুন।',
+  },
+  {
+    title: 'অফিস নিশ্চিত করুন',
+    detail: 'পাওয়া যাওয়া অফিসটি আপনার কিনা যাচাই করে পাসওয়ার্ড দিন।',
+  },
+  {
+    title: 'ফরম পূরণ করে বাজেট দাখিল করুন',
+    detail: 'ফরম ১ থেকে ১২ পূরণ করে বাজেট দাখিল করুন।',
+  },
+]
+
+const FEATURES = [
+  { icon: FileText, title: 'ফরম ১–১২', detail: 'নির্ধারিত ফরমে বাজেট প্রস্তুত' },
+  { icon: Calculator, title: 'স্বয়ংক্রিয় হিসাব', detail: 'সূত্র অনুযায়ী স্বয়ংক্রিয় নিরূপণ' },
+  { icon: BarChart3, title: 'প্রতিবেদন', detail: 'অফিসভিত্তিক ও সমন্বিত রিপোর্ট' },
+]
 
 export function LandingClient() {
   const router = useRouter()
@@ -189,132 +228,153 @@ export function LandingClient() {
   const getParentName = () => parentOffices.find(p => p.id === selectedParent)?.name || strings.na
   const getTypeName = () => officeTypes.find(t => t.id === selectedType)?.name || ''
 
-  return (
-    <div className="flex-grow flex flex-col items-center justify-center relative overflow-hidden px-4 py-8 min-h-screen bg-slate-50">
-      {/* Decorative Background */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40rem] h-[40rem] bg-blue-500/20 rounded-full blur-[100px] pointer-events-none animate-pulse" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[35rem] h-[35rem] bg-indigo-500/20 rounded-full blur-[100px] pointer-events-none animate-pulse" style={{ animationDelay: '-4s' }} />
-      <div className="absolute top-[20%] right-[15%] w-[25rem] h-[25rem] bg-purple-400/10 rounded-full blur-[80px] pointer-events-none" />
+  const cardHeading =
+    view === 'found' ? 'অফিস নিশ্চিত করুন' : view === 'notFound' ? 'অফিস পাওয়া যায়নি' : 'অফিস লগিন'
+  const cardHint =
+    view === 'found'
+      ? 'অফিসটি সঠিক হলে পাসওয়ার্ড দিয়ে প্রবেশ করুন।'
+      : view === 'notFound'
+        ? 'এই বাজেট আইডিটি নিবন্ধিত নয়।'
+        : null
 
-      {/* Admin Login Button (top-right, subtle) */}
-      <div className="absolute top-4 right-4 sm:top-6 sm:right-6 z-50">
-        <Link
-          href="/admin/login"
-          title={strings.landing.adminLogin}
-          className="group flex items-center justify-center w-12 h-12 rounded-full bg-white/20 backdrop-blur-md border border-white/40 hover:bg-white/40 hover:scale-110 transition-all duration-300 shadow-lg"
-        >
-          <Lock className="h-6 w-6 text-slate-500 group-hover:text-blue-600 transition-colors" />
-        </Link>
+  return (
+    <div className="flex min-h-dvh flex-1 flex-col bg-slate-50">
+      {/* Ambient background */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -left-40 -top-40 h-[34rem] w-[34rem] rounded-full bg-blue-200/35 blur-3xl" />
+        <div className="absolute -bottom-52 -right-40 h-[34rem] w-[34rem] rounded-full bg-indigo-200/35 blur-3xl" />
       </div>
 
-      {/* Main Card */}
-      <div className="relative w-full max-w-3xl bg-white/60 backdrop-blur-2xl border border-white/60 shadow-[0_8px_40px_rgb(0,0,0,0.06)] rounded-[2.5rem] p-6 sm:p-8 overflow-hidden z-10 transition-all duration-700">
-        <div className="absolute inset-0 bg-gradient-to-br from-white/80 to-white/20 pointer-events-none" />
-
-        {/* Header */}
-        <div className="relative text-center mb-8">
-          <div className="w-16 h-16 mx-auto flex items-center justify-center mb-4 transform hover:scale-110 transition-transform duration-500">
-            <img
+      {/* ================ HEADER ================ */}
+      <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/85 backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <Image
               src="/images/bdgovlogo.png"
-              alt="Government Logo"
-              className="w-full h-full object-contain drop-shadow-xl"
+              alt="গণপ্রজাতন্ত্রী বাংলাদেশ সরকারের লোগো"
+              width={44}
+              height={44}
+              priority
+              className="h-10 w-10 shrink-0 object-contain sm:h-11 sm:w-11"
             />
+            <div className="min-w-0">
+              <p className="truncate font-heading text-sm font-bold leading-tight text-slate-900 sm:text-base">
+                {strings.landing.title}
+              </p>
+              <p className="truncate text-[11px] font-medium leading-tight text-slate-500 sm:text-xs">
+                {strings.landing.subtitle}
+              </p>
+            </div>
           </div>
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-900 mb-3 py-2 drop-shadow-sm leading-normal">
-            {strings.landing.title}
-          </h1>
-          <p className="text-slate-500 font-medium text-base max-w-xl mx-auto">
-            {strings.landing.subtitle}
-          </p>
+
+          <Link
+            href="/admin/login"
+            className="group flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 shadow-sm transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 sm:px-4 sm:text-sm"
+          >
+            <ShieldCheck className="h-4 w-4 text-slate-400 transition-colors group-hover:text-blue-600" />
+            {strings.landing.adminLogin}
+          </Link>
         </div>
+      </header>
 
-        {/* Content Area */}
-        <div className="relative flex flex-col items-center justify-center transition-all duration-500">
+      {/* ================ MAIN ================ */}
+      <main className="relative z-10 mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 items-start gap-8 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-[1.05fr_minmax(0,24rem)] lg:gap-14 lg:py-16">
+        {/* ---------- Action card (first on mobile, right on desktop) ---------- */}
+        <section className="order-1 w-full lg:order-2">
+          <div className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white p-7 shadow-[0_24px_60px_-28px_rgba(15,23,42,0.28)] sm:rounded-[32px] sm:p-9">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-blue-600 via-blue-500 to-sky-400" />
+            <div className={`mb-7 border-b border-slate-100 pb-6 pt-1 ${view === 'search' ? 'text-center' : ''}`}>
+              {view === 'search' && (
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-600 to-blue-500 text-white shadow-lg shadow-blue-600/30">
+                  <LogIn className="h-6 w-6" />
+                </div>
+              )}
+              <h2 className="font-heading text-xl font-bold text-slate-900">{cardHeading}</h2>
+              {cardHint && <p className="mt-1.5 text-sm font-medium text-slate-500">{cardHint}</p>}
+            </div>
 
-          {/* SEARCH VIEW */}
-          {view === 'search' && (
-            <div className="w-full max-w-md transition-all duration-500 z-10">
-              <form onSubmit={(e) => { e.preventDefault(); handleSearch() }} className="space-y-6">
-                <div className="group">
-                  <label htmlFor="budget_id" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
+            {/* SEARCH VIEW */}
+            {view === 'search' && (
+              <form onSubmit={(e) => { e.preventDefault(); handleSearch() }} className="space-y-5">
+                <div>
+                  <label htmlFor="budget_id" className="mb-2.5 block text-sm font-bold text-slate-700">
                     {strings.landing.enterBudgetId}
                   </label>
                   <div className="relative">
+                    <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
                       id="budget_id"
                       value={budgetId}
                       onChange={(e) => setBudgetId(e.target.value)}
                       placeholder={strings.landing.budgetIdPlaceholder}
-                      className="w-full px-6 py-4 bg-white/80 backdrop-blur-md border-2 border-slate-100 rounded-2xl text-lg font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all duration-300 shadow-sm hover:border-blue-300"
                       required
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-4 pl-12 pr-4 text-base font-semibold text-slate-900 transition-all placeholder:font-normal placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15"
                     />
-                    <div className="absolute inset-y-0 right-5 flex items-center pointer-events-none text-blue-500/50 group-hover:text-blue-500 transition-colors duration-300">
-                      <Search className="h-6 w-6" />
-                    </div>
                   </div>
                 </div>
 
-                <div className="flex gap-4">
-                  <button
-                    type="button"
-                    onClick={handleOpenRegModal}
-                    className="flex-[0.4] bg-white/80 border-2 border-slate-100 hover:border-blue-300 hover:bg-blue-50/80 text-slate-600 hover:text-blue-700 font-bold py-4 px-4 rounded-2xl transition-all duration-300 shadow-sm hover:shadow flex items-center justify-center gap-2 group backdrop-blur-md"
-                  >
-                    <Plus className="h-5 w-5 text-slate-400 group-hover:text-blue-500 transition-colors" />
-                    <span className="text-base whitespace-nowrap">{strings.landing.registerButton}</span>
-                  </button>
+                <div className="flex flex-col gap-3 sm:flex-row">
                   <button
                     type="submit"
                     disabled={isPending}
-                    className="flex-[0.6] relative overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-lg py-4 px-6 rounded-2xl shadow-[0_8px_20px_rgb(79,70,229,0.3)] hover:shadow-[0_8px_25px_rgb(79,70,229,0.45)] transition-all duration-300 active:scale-[0.98] flex justify-center items-center gap-2 group"
+                    className="group order-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 font-heading text-base font-bold text-white shadow-lg shadow-blue-600/30 transition-all hover:from-blue-500 hover:to-blue-400 active:scale-[0.99] disabled:opacity-70 sm:order-2 sm:flex-[1.5]"
                   >
                     {isPending ? (
                       <Loader2 className="h-5 w-5 animate-spin" />
                     ) : (
                       <>
-                        <span>{strings.landing.searchButton}</span>
-                        <ArrowRight className="h-5 w-5 transform group-hover:translate-x-1 transition-transform duration-300" />
+                        {strings.landing.searchButton}
+                        <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                       </>
                     )}
                   </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenRegModal}
+                    className="group order-2 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 font-heading text-sm font-bold text-slate-600 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 sm:order-1 sm:flex-1"
+                  >
+                    <Plus className="h-4 w-4 text-slate-400 transition-colors group-hover:text-blue-600" />
+                    {strings.landing.registerButton}
+                  </button>
                 </div>
               </form>
-            </div>
-          )}
+            )}
 
-          {/* FOUND VIEW */}
-          {view === 'found' && foundOffice && (
-            <div className="w-full max-w-md transition-all duration-500 animate-in slide-in-from-right-4">
-              <div className="text-center bg-white/80 backdrop-blur-md border border-emerald-100 rounded-3xl p-8 shadow-lg relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-400 to-teal-400" />
-
-                <div className="flex flex-row items-center justify-center gap-4 mb-6 bg-blue-50/50 p-4 rounded-2xl border border-blue-100/50">
-                  <div className="w-12 h-12 shrink-0 bg-white text-blue-600 rounded-full flex items-center justify-center shadow-sm border border-blue-100">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
+            {/* FOUND VIEW */}
+            {view === 'found' && foundOffice && (
+              <div className="space-y-6">
+                <div className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50/70 p-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm ring-1 ring-blue-100">
+                    <Building2 className="h-5 w-5" />
                   </div>
-                  <h3 className="text-xl sm:text-2xl font-bold text-slate-800 line-clamp-2 text-left">
-                    {foundOffice.name}
-                  </h3>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold uppercase tracking-wide text-blue-700">
+                      {strings.landing.foundOffice}
+                    </p>
+                    <p className="font-heading text-base font-bold leading-snug text-slate-900">
+                      {foundOffice.name}
+                    </p>
+                  </div>
                 </div>
 
-                <p className="text-slate-600 font-semibold mb-4 text-base">
-                  {strings.landing.foundOffice}
-                </p>
+                <div className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <span className="text-xs font-bold text-slate-500">বাজেট আইডি</span>
+                  <span className="font-mono text-sm font-bold text-slate-800">
+                    {toBanglaNumber(toEnglishNumber(budgetId.trim()))}
+                  </span>
+                </div>
 
-                {/* Password field with forgot modal trigger */}
-                <div className="mb-6 text-left">
-                  <div className="flex items-center justify-between mb-2">
-                    <label htmlFor="office_password" className="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                <div>
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <label htmlFor="office_password" className="flex items-center gap-1.5 text-sm font-bold text-slate-700">
                       <Lock className="h-4 w-4 text-slate-400" />
                       {strings.login.password}
                     </label>
                     <button
                       type="button"
                       onClick={() => setShowForgotModal(true)}
-                      className="text-xs text-blue-600 hover:text-blue-700 hover:underline font-semibold cursor-pointer"
+                      className="text-xs font-bold text-blue-600 transition-colors hover:text-blue-700 hover:underline"
                     >
                       পাসওয়ার্ড ভুলে গেছেন?
                     </button>
@@ -327,250 +387,349 @@ export function LandingClient() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="পাসওয়ার্ড লিখুন"
-                      className="w-full pl-5 pr-12 py-3.5 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all"
+                      autoComplete="current-password"
+                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-4 pl-4 pr-12 font-medium text-slate-900 transition-all placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword((prev) => !prev)}
                       aria-label={showPassword ? 'পাসওয়ার্ড লুকান' : 'পাসওয়ার্ড দেখুন'}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
                     >
                       {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                     </button>
                   </div>
-                  
+
                   {loginError && (
-                    <p className="text-xs text-rose-600 font-semibold mt-2">
-                      {loginError}
-                    </p>
+                    <p className="mt-2 text-xs font-semibold text-rose-600">{loginError}</p>
                   )}
                 </div>
 
-                <div className="flex gap-4">
-                  <button
-                    onClick={handleReset}
-                    className="flex-1 bg-gradient-to-r from-red-500 to-rose-500 hover:from-red-400 hover:to-rose-400 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-md shadow-red-500/30 hover:shadow-red-500/40 active:scale-[0.98] flex items-center justify-center gap-2"
-                  >
-                    <X className="h-5 w-5" />
-                    {strings.no}
-                  </button>
+                <div className="flex flex-col gap-3 sm:flex-row">
                   <button
                     onClick={handleConfirm}
                     disabled={isPending}
-                    className="flex-[2] bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-md shadow-emerald-500/30 hover:shadow-emerald-500/40 active:scale-[0.98] flex items-center justify-center gap-2"
+                    className="order-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 font-heading text-base font-bold text-white shadow-lg shadow-blue-600/30 transition-all hover:from-blue-500 hover:to-blue-400 active:scale-[0.99] disabled:opacity-70 sm:order-2 sm:flex-[1.5]"
                   >
-                    {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
-                    {strings.yes}
+                    {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <LogIn className="h-5 w-5" />}
+                    {strings.landing.loginButton}
+                  </button>
+                  <button
+                    onClick={handleReset}
+                    className="order-2 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 font-heading text-sm font-bold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 sm:order-1 sm:flex-1"
+                  >
+                    <X className="h-4 w-4" />
+                    {strings.landing.searchAnother}
                   </button>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* NOT FOUND VIEW */}
-          {view === 'notFound' && (
-            <div className="w-full max-w-md transition-all duration-500 animate-in slide-in-from-right-4">
-              <div className="text-center bg-white/80 backdrop-blur-md border border-amber-100 rounded-3xl p-8 shadow-lg relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 to-orange-400" />
-                <div className="w-14 h-14 mx-auto bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mb-4 border border-amber-100">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
+            {/* NOT FOUND VIEW */}
+            {view === 'notFound' && (
+              <div className="space-y-6">
+                <div className="flex items-start gap-3 rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-amber-500 shadow-sm ring-1 ring-amber-100">
+                    <Search className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="font-heading text-sm font-bold text-slate-900">
+                      {strings.landing.notFound}
+                    </p>
+                    <p className="mt-0.5 text-xs font-medium text-slate-600">
+                      {strings.landing.registerPrompt}
+                    </p>
+                  </div>
                 </div>
-                <p className="text-slate-800 text-xl font-bold mb-2">
-                  {strings.landing.notFound}
-                </p>
-                <p className="text-slate-500 font-medium mb-6">
-                  {strings.landing.registerPrompt}
-                </p>
-                <div className="flex flex-row gap-3">
+
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <button
+                    onClick={handleOpenRegModal}
+                    className="order-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 font-heading text-base font-bold text-white shadow-lg shadow-blue-600/30 transition-all hover:from-blue-500 hover:to-blue-400 active:scale-[0.99] sm:order-2 sm:flex-[1.5]"
+                  >
+                    <Plus className="h-5 w-5" />
+                    {strings.landing.registerThis}
+                  </button>
                   <button
                     onClick={handleReset}
-                    className="flex-1 bg-white border-2 border-slate-100 hover:border-slate-200 hover:bg-slate-50 text-slate-600 hover:text-slate-800 font-bold py-4 px-4 rounded-2xl transition-all cursor-pointer"
+                    className="order-2 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-4 font-heading text-sm font-bold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 sm:order-1 sm:flex-1"
                   >
                     {strings.landing.searchAgain}
                   </button>
-                  <button
-                    onClick={handleOpenRegModal}
-                    className="flex-[1.2] bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 px-4 rounded-2xl transition-all shadow-md hover:shadow-lg active:scale-[0.98] cursor-pointer"
-                  >
-                    {strings.landing.registerThis}
-                  </button>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+
+          <p className="mt-4 flex items-center justify-center gap-2 text-center text-xs font-medium text-slate-500">
+            <Lock className="h-3.5 w-3.5" />
+            পাসওয়ার্ড জানা না থাকলে সিস্টেম অ্যাডমিনের সাথে যোগাযোগ করুন।
+          </p>
+        </section>
+
+        {/* ---------- Branding panel (second on mobile, left on desktop) ---------- */}
+        <section className="order-2 space-y-8 lg:order-1">
+          <div className="space-y-5">
+            <span className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+              {strings.landing.subtitle}
+            </span>
+            <h1 className="font-heading text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
+              {strings.landing.title}
+            </h1>
+            <p className="max-w-xl text-base font-medium leading-relaxed text-slate-600">
+              সরকারি অফিসের বার্ষিক বাজেট প্রস্তুত, দাখিল ও পর্যালোচনার কেন্দ্রীয় অনলাইন ব্যবস্থা।
+            </p>
+          </div>
+
+          <ol className="space-y-3">
+            {STEPS.map((step, index) => (
+              <li
+                key={step.title}
+                className="flex items-start gap-4 rounded-2xl border border-slate-200/70 bg-white/70 p-4 backdrop-blur-sm"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-600 font-heading text-sm font-bold text-white">
+                  {toBanglaNumber(index + 1)}
+                </span>
+                <div>
+                  <p className="font-heading text-sm font-bold text-slate-800">{step.title}</p>
+                  <p className="mt-0.5 text-xs font-medium text-slate-500">{step.detail}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {FEATURES.map((feature) => (
+              <div
+                key={feature.title}
+                className="rounded-2xl border border-slate-200/70 bg-white/70 p-4 backdrop-blur-sm"
+              >
+                <feature.icon className="h-5 w-5 text-blue-600" />
+                <p className="mt-3 font-heading text-sm font-bold text-slate-800">{feature.title}</p>
+                <p className="mt-0.5 text-xs font-medium text-slate-500">{feature.detail}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
+
+      {/* ================ FOOTER ================ */}
+      <footer className="relative z-10 border-t border-slate-200 bg-white/70 backdrop-blur-sm">
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-2 px-4 py-5 text-center text-xs font-medium text-slate-500 sm:flex-row sm:px-6 sm:text-left">
+          <p>
+            © {toBanglaNumber(new Date().getFullYear())} {strings.landing.subtitle}
+          </p>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setShowForgotModal(true)}
+              className="font-bold text-blue-600 transition-colors hover:text-blue-700 hover:underline"
+            >
+              পাসওয়ার্ড ভুলে গেছেন?
+            </button>
+            <span className="h-3 w-px bg-slate-300" />
+            <Link href="/admin/login" className="font-bold text-slate-600 transition-colors hover:text-blue-700">
+              {strings.landing.adminLogin}
+            </Link>
+          </div>
         </div>
-      </div>
+      </footer>
 
       {/* ================ REGISTRATION MODAL ================ */}
       {showRegModal && (
-        <div className="fixed inset-0 z-[60]">
-          <div
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-md transition-opacity"
-            onClick={() => setShowRegModal(false)}
-          />
-          <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-6">
-            <div className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[95vh] border border-white/50">
+        <div className="fixed inset-0 z-[60] overflow-y-auto bg-slate-900/50 backdrop-blur-sm">
+          <div className="flex min-h-full items-start justify-center p-4 sm:items-center sm:p-6">
+            <div className="flex w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
               {/* Header */}
-              <div className="bg-gradient-to-r from-blue-700 to-indigo-700 px-8 py-6 text-white flex justify-between items-center shrink-0 relative overflow-hidden">
-                <div className="relative z-10">
-                  <h2 className="text-2xl font-extrabold tracking-tight">{strings.registration.title}</h2>
-                  <p className="text-blue-100 text-sm font-medium mt-1 opacity-80">{strings.landing.title}</p>
+              <div className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/80 px-6 py-5">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="font-heading text-lg font-bold text-slate-900">
+                      {strings.registration.title}
+                    </h2>
+                    <p className="truncate text-xs font-medium text-slate-500">
+                      {strings.landing.title}
+                    </p>
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowRegModal(false)}
-                  className="p-2 hover:bg-white/20 rounded-full transition-colors relative z-10"
+                  aria-label="বন্ধ করুন"
+                  className="shrink-0 rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
                 >
-                  <X className="h-6 w-6" />
+                  <X className="h-5 w-5" />
                 </button>
               </div>
+
               {/* Body */}
-              <div className="p-8 overflow-y-auto">
+              <div className="px-6 py-6">
                 {regError && (
-                  <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-xl border border-red-100 font-medium text-sm">
+                  <div className="mb-6 rounded-xl border border-red-100 bg-red-50 p-4 text-sm font-medium text-red-700">
                     {regError}
                   </div>
                 )}
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* 1. Ministry */}
-                    <div>
-                      <label htmlFor="reg_ministry" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
-                        মন্ত্রণালয় / বিভাগ <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        id="reg_ministry"
-                        value={selectedMinistry}
-                        onChange={(e) => handleMinistryChange(e.target.value)}
-                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all text-sm"
-                        required
-                      >
-                        <option value="" disabled>মন্ত্রণালয়/বিভাগ নির্বাচন করুন</option>
-                        {ministries.map((m) => (
-                          <option key={m.id} value={m.id}>{m.name}</option>
-                        ))}
-                      </select>
-                    </div>
 
-                    {/* 2. Department */}
-                    <div>
-                      <label htmlFor="department" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
-                        {strings.registration.department} <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        id="department"
-                        value={selectedDept}
-                        onChange={(e) => handleDeptChange(e.target.value)}
-                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all text-sm"
-                        required
-                      >
-                        <option value="" disabled>{strings.registration.departmentPlaceholder}</option>
-                        {filteredDepartments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                      </select>
-                    </div>
+                <div className="space-y-7">
+                  {/* Section 1 — classification */}
+                  <section className="space-y-4">
+                    <h3 className="flex items-center gap-2 font-heading text-sm font-bold text-slate-800">
+                      <span className="h-4 w-1 rounded-full bg-blue-600" />
+                      অফিসের শ্রেণিবিন্যাস
+                    </h3>
 
-                    {/* 3. Office Type */}
-                    <div>
-                      <label htmlFor="office_type" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
-                        {strings.registration.officeType} <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        id="office_type"
-                        value={selectedType}
-                        onChange={(e) => handleTypeChange(e.target.value)}
-                        disabled={!selectedDept}
-                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all disabled:opacity-50 text-sm"
-                        required
-                      >
-                        <option value="" disabled>{strings.registration.officeTypePlaceholder}</option>
-                        {officeTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                      </select>
-                    </div>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      {/* Ministry */}
+                      <div>
+                        <label htmlFor="reg_ministry" className="mb-2 block text-sm font-bold text-slate-700">
+                          মন্ত্রণালয় / বিভাগ <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          id="reg_ministry"
+                          value={selectedMinistry}
+                          onChange={(e) => handleMinistryChange(e.target.value)}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15"
+                          required
+                        >
+                          <option value="" disabled>মন্ত্রণালয়/বিভাগ নির্বাচন করুন</option>
+                          {ministries.map((m) => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
+                          ))}
+                        </select>
+                      </div>
 
-                    {/* 3.5 Office Level */}
-                    <div>
-                      <label htmlFor="office_level" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
-                        মাঠ পর্যায়ের অফিসের স্তর <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        id="office_level"
-                        value={selectedLevel}
-                        onChange={(e) => setSelectedLevel(e.target.value)}
-                        disabled={!selectedType}
-                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all disabled:opacity-50 text-sm"
-                        required
-                      >
-                        <option value="" disabled>স্তর নির্বাচন করুন</option>
-                        {officeLevels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-                      </select>
-                    </div>
+                      {/* Department */}
+                      <div>
+                        <label htmlFor="department" className="mb-2 block text-sm font-bold text-slate-700">
+                          {strings.registration.department} <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          id="department"
+                          value={selectedDept}
+                          onChange={(e) => handleDeptChange(e.target.value)}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15"
+                          required
+                        >
+                          <option value="" disabled>{strings.registration.departmentPlaceholder}</option>
+                          {filteredDepartments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+                        </select>
+                      </div>
 
-                    {/* 4. Head Office (Parent Office) */}
-                    <div>
-                      <label htmlFor="parent_office" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
-                        হেড অফিসের নাম <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        id="parent_office"
-                        value={selectedParent}
-                        onChange={(e) => setSelectedParent(e.target.value)}
-                        disabled={!selectedDept}
-                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all disabled:opacity-50 text-sm"
-                        required
-                      >
-                        <option value="" disabled>হেড অফিস নির্বাচন করুন</option>
-                        {parentOffices.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </select>
-                    </div>
+                      {/* Office Type */}
+                      <div>
+                        <label htmlFor="office_type" className="mb-2 block text-sm font-bold text-slate-700">
+                          {strings.registration.officeType} <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          id="office_type"
+                          value={selectedType}
+                          onChange={(e) => handleTypeChange(e.target.value)}
+                          disabled={!selectedDept}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15 disabled:opacity-50"
+                          required
+                        >
+                          <option value="" disabled>{strings.registration.officeTypePlaceholder}</option>
+                          {officeTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                        </select>
+                      </div>
 
-                    {/* 5. Field Office Name & 6. Budget ID (In the same row) */}
-                    <div>
-                      <label htmlFor="reg_name" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
-                        মাঠ পর্যায়ের অফিসের নাম <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        id="reg_name"
-                        value={regName}
-                        onChange={(e) => setRegName(e.target.value)}
-                        placeholder="যেমন: সার্কেল-১ (কোতোয়ালী), সার্কেল-২ (মতিঝিল)..."
-                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all text-sm"
-                        required
-                      />
-                    </div>
+                      {/* Office Level */}
+                      <div>
+                        <label htmlFor="office_level" className="mb-2 block text-sm font-bold text-slate-700">
+                          মাঠ পর্যায়ের অফিসের স্তর <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          id="office_level"
+                          value={selectedLevel}
+                          onChange={(e) => setSelectedLevel(e.target.value)}
+                          disabled={!selectedType}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15 disabled:opacity-50"
+                          required
+                        >
+                          <option value="" disabled>স্তর নির্বাচন করুন</option>
+                          {officeLevels.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+                        </select>
+                      </div>
 
-                    <div>
-                      <label htmlFor="reg_budget_id" className="block text-sm font-bold text-slate-700 mb-2 ml-1">
-                        অফিসের বাজেট আইডি <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        id="reg_budget_id"
-                        value={regBudgetId}
-                        onChange={(e) => setRegBudgetId(e.target.value)}
-                        placeholder={strings.registration.budgetIdPlaceholder}
-                        className="w-full px-5 py-4 bg-slate-50/50 border border-slate-200 rounded-2xl font-medium focus:outline-none focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white transition-all font-mono text-sm"
-                        required
-                      />
+                      {/* Head Office (Parent Office) */}
+                      <div className="sm:col-span-2">
+                        <label htmlFor="parent_office" className="mb-2 block text-sm font-bold text-slate-700">
+                          হেড অফিসের নাম <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                          id="parent_office"
+                          value={selectedParent}
+                          onChange={(e) => setSelectedParent(e.target.value)}
+                          disabled={!selectedDept}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium transition-all focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15 disabled:opacity-50"
+                          required
+                        >
+                          <option value="" disabled>হেড অফিস নির্বাচন করুন</option>
+                          {parentOffices.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                      </div>
                     </div>
-                  </div>
+                  </section>
+
+                  {/* Section 2 — identity */}
+                  <section className="space-y-4">
+                    <h3 className="flex items-center gap-2 font-heading text-sm font-bold text-slate-800">
+                      <span className="h-4 w-1 rounded-full bg-blue-600" />
+                      অফিসের পরিচিতি
+                    </h3>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div>
+                        <label htmlFor="reg_name" className="mb-2 block text-sm font-bold text-slate-700">
+                          মাঠ পর্যায়ের অফিসের নাম <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          id="reg_name"
+                          value={regName}
+                          onChange={(e) => setRegName(e.target.value)}
+                          placeholder="যেমন: সার্কেল-১ (কোতোয়ালী)"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium transition-all placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label htmlFor="reg_budget_id" className="mb-2 block text-sm font-bold text-slate-700">
+                          অফিসের বাজেট আইডি <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          id="reg_budget_id"
+                          value={regBudgetId}
+                          onChange={(e) => setRegBudgetId(e.target.value)}
+                          placeholder={strings.registration.budgetIdPlaceholder}
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm font-bold transition-all placeholder:font-normal placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </section>
                 </div>
               </div>
+
               {/* Footer */}
-              <div className="p-8 border-t border-slate-100 flex gap-4 bg-slate-50/50 mt-auto">
-                <button
-                  onClick={() => setShowRegModal(false)}
-                  className="flex-[0.4] bg-white border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-bold py-4 px-4 rounded-2xl transition-colors shadow-sm"
-                >
-                  {strings.cancel}
-                </button>
+              <div className="flex shrink-0 flex-col gap-3 border-t border-slate-100 bg-slate-50/80 px-6 py-5 sm:flex-row">
                 <button
                   onClick={handlePreview}
-                  className="flex-[0.6] bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-4 px-4 rounded-2xl transition-all shadow-lg shadow-blue-500/30 active:scale-[0.98]"
+                  className="order-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 py-3.5 font-heading text-base font-bold text-white shadow-lg shadow-blue-600/25 transition-all hover:bg-blue-500 active:scale-[0.99] sm:order-2 sm:flex-[1.5]"
                 >
                   {strings.registration.previewTitle}
+                </button>
+                <button
+                  onClick={() => setShowRegModal(false)}
+                  className="order-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 font-heading text-sm font-bold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 sm:order-1 sm:flex-1"
+                >
+                  {strings.cancel}
                 </button>
               </div>
             </div>
@@ -580,49 +739,59 @@ export function LandingClient() {
 
       {/* ================ PREVIEW MODAL ================ */}
       {showPreviewModal && (
-        <div className="fixed inset-0 z-[70]">
-          <div
-            className="absolute inset-0 bg-slate-900/40 backdrop-blur-md"
-            onClick={() => setShowPreviewModal(false)}
-          />
-          <div className="absolute inset-0 flex items-center justify-center p-4 sm:p-6">
-            <div className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[95vh] border border-white/50">
+        <div className="fixed inset-0 z-[70] overflow-y-auto bg-slate-900/50 backdrop-blur-sm">
+          <div className="flex min-h-full items-start justify-center p-4 sm:items-center sm:p-6">
+            <div className="flex w-full max-w-xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
               {/* Header */}
-              <div className="bg-gradient-to-r from-blue-700 to-indigo-700 px-8 py-6 text-white flex justify-between items-center shrink-0">
-                <h2 className="text-2xl font-extrabold tracking-tight">{strings.registration.previewTitle}</h2>
-                <button onClick={() => setShowPreviewModal(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
-                  <X className="h-6 w-6" />
+              <div className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/80 px-6 py-5">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
+                    <Check className="h-5 w-5" />
+                  </div>
+                  <h2 className="font-heading text-lg font-bold text-slate-900">
+                    {strings.registration.previewTitle}
+                  </h2>
+                </div>
+                <button
+                  onClick={() => setShowPreviewModal(false)}
+                  aria-label="বন্ধ করুন"
+                  className="shrink-0 rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                >
+                  <X className="h-5 w-5" />
                 </button>
               </div>
+
               {/* Body */}
-              <div className="p-8 overflow-y-auto">
-                <p className="text-sm font-medium text-slate-500 mb-8 bg-blue-50 text-blue-700 p-4 rounded-xl border border-blue-100">
+              <div className="px-6 py-6">
+                <p className="mb-5 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm font-medium text-blue-700">
                   {strings.registration.previewPrompt}
                 </p>
-                <div className="space-y-6">
-                  <PreviewItem label="মন্ত্রণালয় / বিভাগ" value={getMinistryName()} />
+
+                <dl className="overflow-hidden rounded-2xl border border-slate-200">
+                  <PreviewItem label="মন্ত্রণালয় / বিভাগ" value={getMinistryName()} />
                   <PreviewItem label={strings.registration.department} value={getDeptName()} />
                   <PreviewItem label={strings.registration.officeType} value={getTypeName()} />
                   <PreviewItem label="হেড অফিস" value={getParentName()} />
-                  <PreviewItem label="মাঠ পর্যায়ের অফিসের নাম" value={regName} />
-                  <PreviewItem label="অফিসের বাজেট আইডি" value={regBudgetId} />
-                </div>
+                  <PreviewItem label="মাঠ পর্যায়ের অফিসের নাম" value={regName} />
+                  <PreviewItem label="অফিসের বাজেট আইডি" value={toBanglaNumber(toEnglishNumber(regBudgetId.trim()))} />
+                </dl>
               </div>
+
               {/* Footer */}
-              <div className="p-8 border-t border-slate-100 flex gap-4 bg-slate-50/50 mt-auto">
-                <button
-                  onClick={() => setShowPreviewModal(false)}
-                  className="flex-[0.4] bg-white border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-bold py-4 px-4 rounded-2xl transition-colors shadow-sm"
-                >
-                  {strings.registration.editButton}
-                </button>
+              <div className="flex shrink-0 flex-col gap-3 border-t border-slate-100 bg-slate-50/80 px-6 py-5 sm:flex-row">
                 <button
                   onClick={handleRegSubmit}
                   disabled={isPending}
-                  className="flex-[0.6] bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-4 px-4 rounded-2xl transition-all shadow-lg shadow-blue-500/30 active:scale-[0.98] flex items-center justify-center gap-2"
+                  className="order-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 py-3.5 font-heading text-base font-bold text-white shadow-lg shadow-blue-600/25 transition-all hover:bg-blue-500 active:scale-[0.99] disabled:opacity-70 sm:order-2 sm:flex-[1.5]"
                 >
-                  {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
+                  {isPending && <Loader2 className="h-5 w-5 animate-spin" />}
                   {strings.confirm}
+                </button>
+                <button
+                  onClick={() => setShowPreviewModal(false)}
+                  className="order-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3.5 font-heading text-sm font-bold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 sm:order-1 sm:flex-1"
+                >
+                  {strings.registration.editButton}
                 </button>
               </div>
             </div>
@@ -630,30 +799,26 @@ export function LandingClient() {
         </div>
       )}
 
-      {/* Forgot Password Modal */}
+      {/* ================ FORGOT PASSWORD MODAL ================ */}
       {showForgotModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 text-center space-y-4">
-            <div className="mx-auto w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-200 shadow-xs">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm space-y-4 rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-2xl">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-amber-200 bg-amber-50 text-amber-600">
               <Lock className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-slate-900 font-title">
-                পাসওয়ার্ড পুনরুদ্ধার
-              </h3>
-              <p className="text-sm font-medium text-slate-600 mt-2">
-                সিস্টেম এডমিনের সাথে যোগাযোগ করুন
+              <h3 className="font-heading text-lg font-bold text-slate-900">পাসওয়ার্ড পুনরুদ্ধার</h3>
+              <p className="mt-2 text-sm font-medium text-slate-600">
+                সিস্টেম অ্যাডমিনের সাথে যোগাযোগ করুন
               </p>
             </div>
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => setShowForgotModal(false)}
-                className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm transition-colors cursor-pointer"
-              >
-                ঠিক আছে
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowForgotModal(false)}
+              className="w-full rounded-xl bg-slate-900 px-4 py-3 font-heading text-sm font-bold text-white transition-colors hover:bg-slate-800"
+            >
+              ঠিক আছে
+            </button>
           </div>
         </div>
       )}
@@ -663,9 +828,9 @@ export function LandingClient() {
 
 function PreviewItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col">
-      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</span>
-      <span className="text-xl font-bold text-slate-800">{value}</span>
+    <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-4 py-3 last:border-b-0 odd:bg-slate-50/60">
+      <dt className="text-xs font-bold text-slate-500">{label}</dt>
+      <dd className="text-right text-sm font-bold text-slate-800">{value}</dd>
     </div>
   )
 }
