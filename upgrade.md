@@ -65,11 +65,15 @@ RLS therefore plays no part in application queries (see §7).
 same locally and on Vercel:
 
 - **Local dev and the Prisma CLI** — the *session* pooler (5432). A dev server is one long-lived
-  process, which is the case session mode is built for. Measured on the path this project is
-  developed from, a warm query costs ~300ms through the session pooler and ~1480ms through the
-  transaction pooler, back to back in one process.
+  process, which is the case session mode is built for.
 - **Vercel** — the *transaction* pooler (6543) with `pgbouncer=true&connection_limit=1`, because a
   serverless instance must not hold a connection open between requests.
+
+Measured properly, the two modes cost the same per warm query — 306ms and 309ms back to back in
+one process against the Sydney host this project used to run on. An earlier version of this
+section claimed the transaction pooler cost ~1480ms; that figure was a cold-connection artifact,
+not a property of the pooler. Choose the mode by connection lifetime, not by a latency
+difference.
 
 `connection_limit` has to suit the mode. Session mode caps the whole project at 15 clients
 (`EMAXCONNSESSION … max clients are limited to pool_size: 15`), so the local URL sets 5 and leaves
@@ -87,12 +91,36 @@ and the CLI. On a host that needs a separate migration connection, add
 **Gotcha:** the presence of a Prisma config file makes the CLI skip its own `.env` loading.
 That is why every Prisma-invoking script passes `--env-file=.env` explicitly.
 
+**Gotcha:** Prisma stores a sha256 of each `migration.sql` in `_prisma_migrations.checksum`, so a
+working copy whose line endings differ from the ones a migration was applied with looks like a
+*modified* migration and blocks `migrate deploy` / `migrate dev`. Git stores these files as LF,
+and `core.autocrlf=true` (the Windows default) rewrites them to CRLF on checkout. `.gitattributes`
+therefore pins `prisma/migrations/**/migration.sql` to `text eol=lf`; do not remove that rule.
+
+### Region
+
+The database sits in **AWS Asia Pacific (Mumbai, `ap-south-1`)**. This was moved from Sydney
+(`ap-southeast-2`) because region placement dominates every other performance lever here.
+Measured from Dhaka on a warm connection:
+
+| Host | Round trip | 13 parallel dashboard queries |
+| --- | --- | --- |
+| Sydney `ap-southeast-2` | 307ms | 3984ms |
+| Mumbai `ap-south-1` | 43ms | 568ms |
+
+A 7x cut on every round trip. Vendor choice is worth far less — a same-region benchmark puts Neon
+and Supabase within 4ms of each other — so if the host is ever slow again, check the region before
+changing provider.
+
+The Vercel function region must match, otherwise every query pays a hop between the function and
+the database: this project pins it in `vercel.json`.
+
 ### Required environment variables
 
 | Variable | Scope | Notes |
 | --- | --- | --- |
 | `DATABASE_URL` | app + CLI | see above |
-| `DIRECT_URL` | local scripts only | session pooler (5432), used for migrations |
+| `DIRECT_URL` | CLI / migrations | `directUrl` in [prisma/schema.prisma](prisma/schema.prisma); session pooler (5432). Required wherever `prisma migrate` runs, and by `prisma generate`, so it must be set on Vercel as well as locally. |
 | `AUTH_SECRET` | server only | HMAC key signing the `admin_session` cookie ([src/lib/auth-admin.ts](src/lib/auth-admin.ts)). Rotating it invalidates every admin session. Generate with `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`. |
 | `OFFICE_DEFAULT_PASSWORD` | server only | the password an office is given until a superadmin sets its own ([src/lib/office/defaults.ts](src/lib/office/defaults.ts)). **Not** `NEXT_PUBLIC_`, so it never reaches the browser bundle. In production the app throws if it is unset — which happens at build time, so the build fails rather than shipping offices nobody can log into. Changing it affects only offices created afterwards. |
 
