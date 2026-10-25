@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// @ts-nocheck
 
 import { prisma } from '@/lib/db/client'
 import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'

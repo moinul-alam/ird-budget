@@ -1,10 +1,6 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  typescript: {
-    // Allows production builds to complete even if your project has type errors
-    ignoreBuildErrors: true,
-  },
   // The dev server refuses to serve /_next/* resources to origins it does not recognise,
   // which silently disables client-side hydration: the page renders (SSR) but no handler is
   // attached, so forms fall back to a native submit and login just "refreshes". localhost is
