@@ -91,7 +91,10 @@ export function Form11Client({
   // Open modal for add
   const handleOpenAdd = () => {
     setEditingIndex(null)
-    setSelectedTypeId('')
+    // Pre-select the first utility type that has not been added yet
+    const usedTypeIds = new Set(rows.map((r) => r.utility_type_id))
+    const firstAvailable = utilityTypes.find((t) => !usedTypeIds.has(t.id))
+    setSelectedTypeId(firstAvailable ? firstAvailable.id.toString() : '')
     setAnnualCostInput('')
     setDueInput('')
     setIsModalOpen(true)

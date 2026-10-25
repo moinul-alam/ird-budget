@@ -20,7 +20,6 @@ import {
   Edit2,
   Trash2,
   AlertTriangle,
-  Info,
   Users,
   CheckCircle2,
   UserX,
@@ -121,25 +120,28 @@ export function Form12Client({ submissionId, initialData }: Form12ClientProps) {
     >
       <div className="p-6 lg:p-8 space-y-6 max-w-4xl mx-auto">
         {/* Top Disclaimer / Instruction Banner with emphatic TAX OFFICE emphasis (Form 2B style) */}
-        <div className="bg-rose-50/90 border border-rose-200 rounded-2xl p-5 flex items-start gap-3.5 shadow-xs">
+        <div className="bg-rose-50/80 border border-rose-200/90 rounded-2xl p-5 flex items-start gap-3.5 shadow-xs">
           <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 mt-0.5">
             <BadgeAlert className="w-5 h-5" />
           </div>
           <div className="flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-sm font-bold text-rose-950">
+              <h3 className="text-sm font-bold text-rose-900">
                 {strings.form12.title}
               </h3>
-              <span className="text-xs font-black bg-rose-600 text-white px-2.5 py-0.5 rounded-full shadow-2xs">
+              <span className="text-[11px] font-semibold bg-rose-200/80 text-rose-800 px-2 py-0.5 rounded-full">
                 {strings.form12.emphasisDisclaimer}
               </span>
             </div>
+            <p className="text-xs text-rose-800/90 mt-1 leading-relaxed">
+              {strings.form12.cautionNotice}
+            </p>
           </div>
           {!data && (
             <Button
               type="button"
               onClick={openAddModal}
-              className="bg-rose-600 hover:bg-rose-700 text-white shrink-0 gap-1.5 rounded-xl font-medium shadow-xs"
+              className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 gap-1.5 rounded-xl font-medium shadow-xs"
             >
               <Plus className="h-4 w-4" />
               {strings.form12.addReturnInfo}
@@ -151,23 +153,18 @@ export function Form12Client({ submissionId, initialData }: Form12ClientProps) {
         {!data ? (
           <div className="text-center py-16 px-4 border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
             <FileText className="mx-auto h-12 w-12 text-slate-300 mb-3" />
-            <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-rose-50 border border-rose-200 mb-5 max-w-lg">
-              <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />
-              <p className="text-sm font-bold text-rose-800">
-                {strings.form12.cautionNotice}
-              </p>
-            </div>
-            <div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={openAddModal}
-                className="text-rose-700 border-rose-200 hover:bg-rose-50 rounded-xl"
-              >
-                <Plus className="h-4 w-4 mr-1.5" />
-                {strings.form12.addReturnInfo}
-              </Button>
-            </div>
+            <p className="text-slate-600 font-medium text-base mb-5 max-w-lg mx-auto">
+              {strings.form12.noReturnInfo}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={openAddModal}
+              className="text-blue-700 border-blue-200 hover:bg-blue-50 rounded-xl"
+            >
+              <Plus className="h-4 w-4 mr-1.5" />
+              {strings.form12.addReturnInfo}
+            </Button>
           </div>
         ) : (
           /* Entered Information Cards */
@@ -267,7 +264,7 @@ export function Form12Client({ submissionId, initialData }: Form12ClientProps) {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-rose-600" />
+              <FileText className="w-5 h-5 text-blue-600" />
               {data ? strings.form12.editModalTitle : strings.form12.modalTitle}
             </DialogTitle>
           </DialogHeader>
@@ -333,7 +330,7 @@ export function Form12Client({ submissionId, initialData }: Form12ClientProps) {
               type="button"
               onClick={handleSaveModal}
               disabled={!tinInput || !returnInput || isPending}
-              className="bg-rose-600 hover:bg-rose-700 text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {isPending ? strings.saving : strings.save}
             </Button>

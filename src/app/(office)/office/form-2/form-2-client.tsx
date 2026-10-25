@@ -617,7 +617,6 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
                   )}
                 </SelectContent>
               </Select>
-              <p className="text-[11px] text-slate-400">{strings.form2.gradeHint}</p>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

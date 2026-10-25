@@ -648,7 +648,6 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                   )}
                 </SelectContent>
               </Select>
-              <p className="text-[11px] text-slate-400">{strings.form4.gradeHint}</p>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
