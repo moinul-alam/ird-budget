@@ -22,7 +22,12 @@ model CoreMinistry {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  departments CoreDepartment[]
+  departments  CoreDepartment[]
+  /// A ministry is itself a budget-owning entity: it holds a budget ID and a login, so it
+  /// owns an office row of its own (see core_offices.ministry_id).
+  offices      CoreOffice[]      @relation("MinistryOffices")
+  /// The level the admin grants economic codes against for this ministry.
+  officeLevels CoreOfficeLevel[]
 
   @@map("core_ministries")
 }
@@ -35,9 +40,11 @@ model CoreDepartment {
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  ministry    CoreMinistry     @relation(fields: [ministryId], references: [id], onDelete: Restrict)
-  officeTypes CoreOfficeType[]
-  offices     CoreOffice[]     @relation("DepartmentOffices")
+  ministry     CoreMinistry      @relation(fields: [ministryId], references: [id], onDelete: Restrict)
+  officeTypes  CoreOfficeType[]
+  offices      CoreOffice[]      @relation("DepartmentOffices")
+  /// Like a ministry, a department is a budget-owning entity with its own login and level.
+  officeLevels CoreOfficeLevel[]
 
   @@map("core_departments")
 }
@@ -64,13 +71,20 @@ model CoreOfficeType {
 
 model CoreOfficeLevel {
   id           BigInt   @id @default(autoincrement())
-  officeTypeId BigInt   @map("office_type_id")
+  /// A level belongs to exactly one owner: a ministry, a department, or an office type.
+  /// Office-type levels are the field-office hierarchy; ministry/department levels let the
+  /// admin grant economic codes to those entities (grants are keyed by level).
+  officeTypeId BigInt?  @map("office_type_id")
+  ministryId   BigInt?  @map("ministry_id")
+  departmentId BigInt?  @map("department_id")
   levelName    String   @map("level_name") @db.Text
   levelOrder   Int      @default(1) @map("level_order")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  officeType   CoreOfficeType                   @relation(fields: [officeTypeId], references: [id], onDelete: Cascade)
+  officeType   CoreOfficeType?                  @relation(fields: [officeTypeId], references: [id], onDelete: Cascade)
+  ministry     CoreMinistry?                    @relation(fields: [ministryId], references: [id], onDelete: Cascade)
+  department   CoreDepartment?                  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
   offices      CoreOffice[]
   codeMappings OfficeLevelEconomicCodeMapping[]
   groupRules   AdminGroupBudgetRule[]
@@ -82,19 +96,23 @@ model CoreOffice {
   id             BigInt   @id @default(autoincrement())
   budgetId       String   @unique @map("budget_id") @db.VarChar(50)
   name           String   @db.Text
-  departmentId   BigInt   @map("department_id")
-  officeTypeId   BigInt   @map("office_type_id")
+  /// A ministry/department office links straight to its ministry; an ordinary office links
+  /// to a department and an office type. Exactly one ownership style applies per row.
+  ministryId     BigInt?  @map("ministry_id")
+  departmentId   BigInt?  @map("department_id")
+  officeTypeId   BigInt?  @map("office_type_id")
   officeLevelId  BigInt?  @map("office_level_id")
   parentOfficeId BigInt?  @map("parent_office_id")
   isActive       Boolean  @default(true) @map("is_active")
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  department   CoreDepartment     @relation(fields: [departmentId], references: [id], onDelete: Restrict, name: "DepartmentOffices")
-  officeType   CoreOfficeType     @relation(fields: [officeTypeId], references: [id], onDelete: Restrict)
-  officeLevel  CoreOfficeLevel?   @relation(fields: [officeLevelId], references: [id], onDelete: SetNull)
-  parentOffice CoreOffice?        @relation("OfficeHierarchy", fields: [parentOfficeId], references: [id], onDelete: SetNull)
-  childOffices CoreOffice[]       @relation("OfficeHierarchy")
+  ministry     CoreMinistry?       @relation("MinistryOffices", fields: [ministryId], references: [id], onDelete: Restrict)
+  department   CoreDepartment?     @relation(fields: [departmentId], references: [id], onDelete: Restrict, name: "DepartmentOffices")
+  officeType   CoreOfficeType?     @relation(fields: [officeTypeId], references: [id], onDelete: Restrict)
+  officeLevel  CoreOfficeLevel?    @relation(fields: [officeLevelId], references: [id], onDelete: SetNull)
+  parentOffice CoreOffice?         @relation("OfficeHierarchy", fields: [parentOfficeId], references: [id], onDelete: SetNull)
+  childOffices CoreOffice[]        @relation("OfficeHierarchy")
   officeUsers  OfficeUser[]
   submissions  OfficeSubmission[]
 

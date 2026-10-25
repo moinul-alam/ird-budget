@@ -18,6 +18,7 @@ import {
   AdminCodesClientProps,
   CategoryModalState,
   CodeModalState,
+  CodeScopeType,
 } from './_types/codes'
 import { CategoryModal, CodeModal } from './_components/code-modals'
 import { TabCreateCodes } from './_components/tab-create-codes'
@@ -26,6 +27,7 @@ import { TabEnableCodes } from './_components/tab-enable-codes'
 export function AdminCodesClient({
   officeTypes,
   departments,
+  ministries,
   officeLevels,
   initialCodes,
   initialCategories,
@@ -36,20 +38,68 @@ export function AdminCodesClient({
   // Tabs: 'create_codes' | 'enable_codes'
   const [activeTab, setActiveTab] = useState<'create_codes' | 'enable_codes'>('create_codes')
 
+  // Codes are granted to an office level, and a level is owned by an office type, a ministry,
+  // or a department. This selects which kind of owner the grants are being scoped to.
+  const [scopeOwnerType, setScopeOwnerType] = useState<CodeScopeType>('office_type')
+
   const [selectedOfficeTypeId, setSelectedOfficeTypeId] = useState<string>(initialOfficeTypeId)
   const initialType = officeTypes.find((ot) => ot.id === initialOfficeTypeId) || officeTypes[0]
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string | undefined>(
     initialDepartmentId?.toString() || initialType?.department_id?.toString() || departments[0]?.id?.toString()
   )
+  const [selectedMinistryId, setSelectedMinistryId] = useState<string>(ministries[0]?.id || '')
 
-  // Office Levels for selected type
-  const matchingLevels = useMemo(
-    () => officeLevels.filter((lvl) => lvl.office_type_id === String(selectedOfficeTypeId)),
-    [officeLevels, selectedOfficeTypeId]
+  // The levels owned by whichever organisation is in scope — the grants apply to these.
+  const scopedLevels = useMemo(
+    () =>
+      scopeOwnerType === 'ministry'
+        ? officeLevels.filter((lvl) => lvl.ministry_id === selectedMinistryId)
+        : scopeOwnerType === 'department'
+          ? officeLevels.filter((lvl) => lvl.department_id === selectedDepartmentId)
+          : officeLevels.filter((lvl) => lvl.office_type_id === String(selectedOfficeTypeId)),
+    [officeLevels, scopeOwnerType, selectedMinistryId, selectedDepartmentId, selectedOfficeTypeId]
   )
   const [selectedLevelId, setSelectedLevelId] = useState<string>(
-    initialOfficeLevelId || matchingLevels[0]?.id || ''
+    initialOfficeLevelId || scopedLevels[0]?.id || ''
   )
+
+  // Changing scope or its owner moves the selection to that owner's first level, so the code
+  // list never stays pointed at a level belonging to an organisation no longer in scope.
+  const handleScopeChange = (next: CodeScopeType) => {
+    setScopeOwnerType(next)
+    const pool =
+      next === 'ministry'
+        ? officeLevels.filter((lvl) => lvl.ministry_id === selectedMinistryId)
+        : next === 'department'
+          ? officeLevels.filter((lvl) => lvl.department_id === selectedDepartmentId)
+          : officeLevels.filter((lvl) => lvl.office_type_id === selectedOfficeTypeId)
+    setSelectedLevelId(pool[0]?.id || '')
+  }
+
+  const handleOfficeTypeChange = (id: string) => {
+    setSelectedOfficeTypeId(id)
+    setSelectedLevelId(officeLevels.filter((lvl) => lvl.office_type_id === id)[0]?.id || '')
+  }
+
+  const handleDepartmentChange = (id: string) => {
+    setSelectedDepartmentId(id)
+    // In office-type scope the department also narrows the office type list, so follow it to the
+    // department's first type; in department scope the department itself owns the level.
+    if (scopeOwnerType === 'department') {
+      setSelectedLevelId(officeLevels.filter((lvl) => lvl.department_id === id)[0]?.id || '')
+    } else {
+      const firstType = officeTypes.find((ot) => ot.department_id === id)
+      if (firstType) {
+        setSelectedOfficeTypeId(firstType.id)
+        setSelectedLevelId(officeLevels.filter((lvl) => lvl.office_type_id === firstType.id)[0]?.id || '')
+      }
+    }
+  }
+
+  const handleMinistryChange = (id: string) => {
+    setSelectedMinistryId(id)
+    setSelectedLevelId(officeLevels.filter((lvl) => lvl.ministry_id === id)[0]?.id || '')
+  }
 
   const [categories, setCategories] = useState<BudgetCategoryItem[]>(initialCategories)
   const [codes, setCodes] = useState<ExpenseCodeFullItem[]>(initialCodes)
@@ -98,7 +148,7 @@ export function AdminCodesClient({
   const selectedOfficeType =
     officeTypes.find((ot) => ot.id === selectedOfficeTypeId) || officeTypes[0]
   const selectedOfficeLevel =
-    officeLevels.find((lvl) => lvl.id === selectedLevelId) || matchingLevels[0]
+    scopedLevels.find((lvl) => lvl.id === selectedLevelId) || scopedLevels[0]
 
   const enabledCount = useMemo(() => codes.filter((c) => c.enabled).length, [codes])
 
@@ -343,20 +393,19 @@ export function AdminCodesClient({
       {/* Tab 2: কোড উন্মুক্তকরণ */}
       {activeTab === 'enable_codes' && (
         <TabEnableCodes
+          scopeOwnerType={scopeOwnerType}
+          setScopeOwnerType={handleScopeChange}
+          ministries={ministries}
+          selectedMinistryId={selectedMinistryId}
+          setSelectedMinistryId={handleMinistryChange}
           departments={departments}
           selectedDepartmentId={selectedDepartmentId}
-          setSelectedDepartmentId={setSelectedDepartmentId}
+          setSelectedDepartmentId={handleDepartmentChange}
           officeTypes={officeTypes}
           selectedOfficeTypeId={selectedOfficeTypeId}
-          setSelectedOfficeTypeId={(id: string) => {
-            setSelectedOfficeTypeId(id)
-            const typeLevels = officeLevels.filter((lvl) => lvl.office_type_id === id)
-            if (typeLevels.length > 0) {
-              setSelectedLevelId(typeLevels[0].id)
-            }
-          }}
+          setSelectedOfficeTypeId={handleOfficeTypeChange}
           selectedOfficeType={selectedOfficeType}
-          officeLevels={officeLevels}
+          scopedLevels={scopedLevels}
           selectedLevelId={selectedLevelId}
           setSelectedLevelId={setSelectedLevelId}
           selectedOfficeLevel={selectedOfficeLevel}

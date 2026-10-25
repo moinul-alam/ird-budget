@@ -3,6 +3,7 @@ import {
   DepartmentItem,
   OfficeTypeHierarchyItem,
   OfficeLevelItem,
+  LevelOwnerType,
 } from '@/app/actions/admin-offices-config'
 
 export interface AdminOfficesConfigClientProps {
@@ -39,7 +40,8 @@ export interface OfficeTypeModalState {
 export interface HierarchyModalState {
   open: boolean
   id?: string
-  office_type_id: string
+  owner_type: LevelOwnerType
+  owner_id: string
   level_name: string
   level_order: number
 }

@@ -713,7 +713,11 @@ async function resolveItConfigId(submissionId: number, equipmentTypeId: number) 
   })
   if (!submission) return null
 
+  // Equipment config is keyed by office type. Ministry/department offices have no office type,
+  // so they have no Form 10 equipment to record against.
   const officeTypeId = submission.office.officeTypeId
+  if (officeTypeId === null) return null
+
   const config = await prisma.adminItConfig.upsert({
     where: {
       officeTypeId_equipmentTypeId: {
@@ -794,10 +798,14 @@ export async function deleteFormITEquipmentRow(
     })
     if (!submission) return { error: 'অফিসের তথ্য পাওয়া যায়নি' }
 
+    // Ministry/department offices have no office type, so no equipment config exists to delete.
+    const officeTypeId = submission.office.officeTypeId
+    if (officeTypeId === null) return { success: true }
+
     const config = await prisma.adminItConfig.findUnique({
       where: {
         officeTypeId_equipmentTypeId: {
-          officeTypeId: submission.office.officeTypeId,
+          officeTypeId,
           equipmentTypeId: BigInt(equipmentTypeId),
         },
       },

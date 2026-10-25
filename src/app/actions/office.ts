@@ -139,11 +139,13 @@ export async function getMyOfficeProfile(): Promise<MyOfficeProfile | null> {
     id: Number(office.id),
     name: office.name,
     budgetId: office.budgetId,
-    departmentId: String(office.departmentId),
+    // Ministry/department offices have no department, office type or parent; keep those as
+    // empty strings so callers treat them as "not set" rather than the literal "null".
+    departmentId: office.departmentId ? String(office.departmentId) : '',
     departmentName: office.department?.name || '',
     ministryId: office.department?.ministryId ? String(office.department.ministryId) : '',
     ministryName: office.department?.ministry?.name || '',
-    officeTypeId: String(office.officeTypeId),
+    officeTypeId: office.officeTypeId ? String(office.officeTypeId) : '',
     officeTypeName: office.officeType?.name || '',
     officeLevelId: office.officeLevelId ? String(office.officeLevelId) : '',
     officeLevelName: office.officeLevel?.levelName || '',

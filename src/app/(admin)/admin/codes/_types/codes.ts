@@ -1,5 +1,5 @@
 import { BudgetCategoryItem, ExpenseCodeFullItem } from '@/app/actions/admin-codes'
-import { DepartmentItem, OfficeLevelItem } from '@/app/actions/admin-offices-config'
+import { DepartmentItem, MinistryItem, OfficeLevelItem } from '@/app/actions/admin-offices-config'
 
 export interface OfficeTypeItem {
   id: string
@@ -8,9 +8,13 @@ export interface OfficeTypeItem {
   department_id: string
 }
 
+/** Which kind of organisation the code grants are being scoped to. */
+export type CodeScopeType = 'office_type' | 'ministry' | 'department'
+
 export interface AdminCodesClientProps {
   officeTypes: OfficeTypeItem[]
   departments: DepartmentItem[]
+  ministries: MinistryItem[]
   officeLevels: OfficeLevelItem[]
   initialCodes: ExpenseCodeFullItem[]
   initialCategories: BudgetCategoryItem[]

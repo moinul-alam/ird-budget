@@ -1,6 +1,6 @@
 import { getAdminSession } from '@/lib/auth-admin'
 import { redirect } from 'next/navigation'
-import { getOfficeTypes, getDepartments, getOfficeLevels } from '@/app/actions/admin-offices-config'
+import { getOfficeTypes, getDepartments, getOfficeLevels, getMinistries } from '@/app/actions/admin-offices-config'
 import { getBudgetCategories, getExpenseCodesWithCategoryAndMapping } from '@/app/actions/admin-codes'
 import { AdminCodesClient } from './admin-codes-client'
 
@@ -25,11 +25,12 @@ export default async function AdminCodesPage({
   const defaultTypeId = officeTypes[0]?.id || '1'
   const selectedTypeId = params.office_type_id || defaultTypeId
 
-  const [categories, { codes }, departments, officeLevels] = await Promise.all([
+  const [categories, { codes }, departments, officeLevels, ministries] = await Promise.all([
     getBudgetCategories(),
     getExpenseCodesWithCategoryAndMapping(String(selectedTypeId)),
     getDepartments(),
     getOfficeLevels(),
+    getMinistries(),
   ])
 
   return (
@@ -42,6 +43,7 @@ export default async function AdminCodesPage({
           department_id: ot.department_id?.toString() || '',
         }))}
         departments={departments}
+        ministries={ministries}
         officeLevels={officeLevels}
         initialCodes={codes}
         initialCategories={categories}

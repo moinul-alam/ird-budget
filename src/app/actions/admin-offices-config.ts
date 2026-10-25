@@ -32,10 +32,15 @@ export interface OfficeTypeHierarchyItem {
   created_at?: string
 }
 
+/** A level belongs to exactly one owner: a ministry, a department, or an office type. */
+export type LevelOwnerType = 'ministry' | 'department' | 'office_type'
+
 export interface OfficeLevelItem {
   id: string
   office_type_id: string
   office_type_name?: string
+  ministry_id?: string
+  ministry_name?: string
   department_id?: string
   department_name?: string
   level_name: string
@@ -81,20 +86,49 @@ export async function saveMinistry(data: { id?: string; name: string; budget_id?
   const trimmedBudget = (data.budget_id || `MIN_${Date.now()}`).trim()
 
   try {
-    if (data.id) {
-      await prisma.coreMinistry.update({
-        where: { id: BigInt(data.id) },
-        data: { name: trimmed, code: trimmedBudget },
-      })
-    } else {
-      await prisma.coreMinistry.create({
-        data: { name: trimmed, code: trimmedBudget },
-      })
-    }
+    await prisma.$transaction(async (tx) => {
+      const ministry = data.id
+        ? await tx.coreMinistry.update({
+          where: { id: BigInt(data.id) },
+          data: { name: trimmed, code: trimmedBudget },
+        })
+        : await tx.coreMinistry.create({ data: { name: trimmed, code: trimmedBudget } })
+
+      const level =
+        (await tx.coreOfficeLevel.findFirst({
+          where: { ministryId: ministry.id },
+          orderBy: { id: 'asc' },
+        })) ??
+        (await tx.coreOfficeLevel.create({
+          data: { ministryId: ministry.id, levelName: 'মন্ত্রণালয়', levelOrder: 1 },
+        }))
+
+      const office = await tx.coreOffice.findFirst({ where: { ministryId: ministry.id } })
+      if (office) {
+        await tx.coreOffice.update({
+          where: { id: office.id },
+          data: { name: trimmed, budgetId: trimmedBudget, officeLevelId: level.id },
+        })
+      } else {
+        await tx.coreOffice.create({
+          data: {
+            budgetId: trimmedBudget,
+            name: trimmed,
+            ministryId: ministry.id,
+            officeLevelId: level.id,
+            isActive: true,
+          },
+        })
+      }
+    })
 
     revalidatePath('/admin/offices-config')
+    revalidatePath('/admin/offices-users')
     return { success: true }
   } catch (error: any) {
+    if (error?.code === 'P2002') {
+      return { error: 'এই বাজেট আইডিটি ইতিমধ্যে অন্য অফিসের জন্য ব্যবহৃত হচ্ছে।' }
+    }
     return { error: error.message }
   }
 }
@@ -104,11 +138,19 @@ export async function deleteMinistry(id: string) {
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
   try {
-    await prisma.coreMinistry.delete({
-      where: { id: BigInt(id) },
+    const ministryId = BigInt(id)
+    await prisma.$transaction(async (tx) => {
+      // The ministry's own office row goes first: core_offices.ministry_id is restrictive, so
+      // it would otherwise block the delete. Its login row cascades away with it.
+      await tx.coreOffice.deleteMany({ where: { ministryId } })
+      // Deleting the ministry cascades to its level, which cascades to its code grants.
+      await tx.coreMinistry.delete({ where: { id: ministryId } })
     })
 
     revalidatePath('/admin/offices-config')
+    revalidatePath('/admin/offices-users')
+    // The level (and its code grants) just went away, so the cached reference set is stale.
+    updateTag(ADMIN_DATA_TAG)
     return { success: true }
   } catch (error: any) {
     return { error: error.message }
@@ -152,7 +194,7 @@ export async function saveDepartment(data: {
   const trimmedBudget = (data.budget_id || `DEPT_${Date.now()}`).trim()
 
   try {
-    if (data.id) {
+    await prisma.$transaction(async (tx) => {
       const updateData: any = {
         name: trimmed,
         code: trimmedBudget,
@@ -160,26 +202,53 @@ export async function saveDepartment(data: {
       if (data.ministry_id) {
         updateData.ministryId = BigInt(data.ministry_id)
       }
-      await prisma.coreDepartment.update({
-        where: { id: BigInt(data.id) },
-        data: updateData,
+
+      const department = data.id
+        ? await tx.coreDepartment.update({
+          where: { id: BigInt(data.id) },
+          data: updateData,
+        })
+        : await tx.coreDepartment.create({ data: updateData })
+
+      // Like a ministry, a department owns a level (its code grants) and an office (its login),
+      // kept in step with the name and budget id the admin edits here.
+      const level =
+        (await tx.coreOfficeLevel.findFirst({
+          where: { departmentId: department.id },
+          orderBy: { id: 'asc' },
+        })) ??
+        (await tx.coreOfficeLevel.create({
+          data: { departmentId: department.id, levelName: 'দপ্তর', levelOrder: 1 },
+        }))
+
+      const office = await tx.coreOffice.findFirst({
+        where: { departmentId: department.id, officeTypeId: null },
       })
-    } else {
-      const createData: any = {
-        name: trimmed,
-        code: trimmedBudget,
+      if (office) {
+        await tx.coreOffice.update({
+          where: { id: office.id },
+          data: { name: trimmed, budgetId: trimmedBudget, officeLevelId: level.id },
+        })
+      } else {
+        await tx.coreOffice.create({
+          data: {
+            budgetId: trimmedBudget,
+            name: trimmed,
+            departmentId: department.id,
+            officeLevelId: level.id,
+            isActive: true,
+          },
+        })
       }
-      if (data.ministry_id) {
-        createData.ministryId = BigInt(data.ministry_id)
-      }
-      await prisma.coreDepartment.create({
-        data: createData,
-      })
-    }
+    })
 
     revalidatePath('/admin/offices-config')
+    revalidatePath('/admin/offices-users')
     return { success: true }
   } catch (error: any) {
+    if (error?.code === 'P2002') {
+      return { error: 'এই বাজেট আইডিটি ইতিমধ্যে অন্য অফিসের জন্য ব্যবহৃত হচ্ছে।' }
+    }
     return { error: error.message }
   }
 }
@@ -189,11 +258,22 @@ export async function deleteDepartment(id: string) {
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
   try {
-    await prisma.coreDepartment.delete({
-      where: { id: BigInt(id) },
+    const departmentId = BigInt(id)
+    await prisma.$transaction(async (tx) => {
+      // Remove only the department's own office row (the one with no office type). A head or
+      // field office under it keeps core_offices.department_id restrictive, so the delete still
+      // refuses loudly when real offices are attached.
+      await tx.coreOffice.deleteMany({ where: { departmentId, officeTypeId: null } })
+      // Deleting the department cascades to its level, which cascades to its code grants.
+      await tx.coreDepartment.delete({
+        where: { id: departmentId },
+      })
     })
 
     revalidatePath('/admin/offices-config')
+    revalidatePath('/admin/offices-users')
+    // The level (and its code grants) just went away, so the cached reference set is stale.
+    updateTag(ADMIN_DATA_TAG)
     return { success: true }
   } catch (error: any) {
     return { error: error.message }
@@ -292,23 +372,21 @@ export async function deleteOfficeType(id: string) {
 export async function getOfficeLevels(): Promise<OfficeLevelItem[]> {
   const levels = await prisma.coreOfficeLevel.findMany({
     include: {
-      officeType: {
-        select: {
-          name: true,
-          departmentId: true,
-          department: { select: { name: true } },
-        },
-      },
+      officeType: { select: { name: true } },
+      ministry: { select: { name: true } },
+      department: { select: { name: true } },
     },
-    orderBy: { levelOrder: 'asc' },
+    orderBy: [{ levelOrder: 'asc' }, { id: 'asc' }],
   })
 
   return levels.map((l) => ({
     id: String(l.id),
-    office_type_id: String(l.officeTypeId),
+    office_type_id: l.officeTypeId ? String(l.officeTypeId) : '',
     office_type_name: l.officeType?.name,
-    department_id: l.officeType?.departmentId ? String(l.officeType.departmentId) : '',
-    department_name: l.officeType?.department?.name,
+    ministry_id: l.ministryId ? String(l.ministryId) : '',
+    ministry_name: l.ministry?.name,
+    department_id: l.departmentId ? String(l.departmentId) : '',
+    department_name: l.department?.name,
     level_name: l.levelName,
     level_order: l.levelOrder,
     created_at: l.createdAt.toISOString(),
@@ -317,7 +395,8 @@ export async function getOfficeLevels(): Promise<OfficeLevelItem[]> {
 
 export async function saveOfficeLevel(data: {
   id?: string
-  office_type_id: string
+  owner_type: LevelOwnerType
+  owner_id: string
   level_name: string
   level_order?: number
 }) {
@@ -326,24 +405,26 @@ export async function saveOfficeLevel(data: {
 
   const trimmedName = data.level_name.trim()
   if (!trimmedName) return { error: 'লেভেলের নাম আবশ্যক' }
+  if (!data.owner_id) return { error: 'স্তরের মালিক নির্বাচন আবশ্যক' }
+
+  // A level has exactly one owner, so picking a new one clears the other two links.
+  const ownerId = BigInt(data.owner_id)
+  const ownership =
+    data.owner_type === 'ministry'
+      ? { ministryId: ownerId, departmentId: null, officeTypeId: null }
+      : data.owner_type === 'department'
+        ? { ministryId: null, departmentId: ownerId, officeTypeId: null }
+        : { ministryId: null, departmentId: null, officeTypeId: ownerId }
 
   try {
     if (data.id) {
       await prisma.coreOfficeLevel.update({
         where: { id: BigInt(data.id) },
-        data: {
-          officeTypeId: BigInt(data.office_type_id),
-          levelName: trimmedName,
-          levelOrder: data.level_order ?? 1,
-        },
+        data: { ...ownership, levelName: trimmedName, levelOrder: data.level_order ?? 1 },
       })
     } else {
       await prisma.coreOfficeLevel.create({
-        data: {
-          officeTypeId: BigInt(data.office_type_id),
-          levelName: trimmedName,
-          levelOrder: data.level_order ?? 1,
-        },
+        data: { ...ownership, levelName: trimmedName, levelOrder: data.level_order ?? 1 },
       })
     }
 
@@ -364,6 +445,9 @@ export async function deleteOfficeLevel(id: string) {
     })
 
     revalidatePath('/admin/offices-config')
+    // Deleting the level also drops the economic codes granted to it, so the cached
+    // reference set the budget sheets read must be refreshed.
+    updateTag(ADMIN_DATA_TAG)
     return { success: true }
   } catch (error: any) {
     return { error: error.message }

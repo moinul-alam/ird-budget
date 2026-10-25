@@ -6,7 +6,9 @@ export async function getOfficeTypeIdForOffice(officeId: number): Promise<number
     where: { id: BigInt(officeId) },
     select: { officeTypeId: true },
   })
-  return office ? Number(office.officeTypeId) : null
+  // Ministry/department offices carry a NULL office type, which must stay null rather than
+  // collapse to 0 — a falsey 0 would be indistinguishable from a real (never-assigned) type.
+  return office && office.officeTypeId !== null ? Number(office.officeTypeId) : null
 }
 
 export async function loadFormBasicInitial(submissionId: number) {

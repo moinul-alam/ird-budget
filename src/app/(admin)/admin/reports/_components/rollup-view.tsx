@@ -4,17 +4,26 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { CheckCircle2, Clock } from 'lucide-react'
 import { groupCodesByCategory } from '@/lib/budget/group-codes'
+import { reportStatusLabel } from '@/lib/report/specs'
+import { ReportDownloader } from '@/components/report-downloader'
+import type { ReportSpec } from '@/lib/report/export'
 import type { RollupReport } from '@/lib/budget/report'
-
-const statusLabel = (status: 'submitted' | 'draft' | 'not_started') =>
-  status === 'submitted' ? 'দাখিলকৃত' : status === 'draft' ? 'খসড়া' : 'শুরু করেনি'
 
 /**
  * The code-wise + office-wise body shared by the level and group roll-ups: a
  * category-grouped code table (each code summed across the offices in scope) and
- * each office's own grand total below it.
+ * each office's own grand total below it. Its two download buttons are fed specs
+ * built by the page, so each file mirrors the table above it.
  */
-export function RollupView({ report }: { report: RollupReport }) {
+export function RollupView({
+  report,
+  codeSpec,
+  officeSpec,
+}: {
+  report: RollupReport
+  codeSpec: ReportSpec
+  officeSpec: ReportSpec
+}) {
   const groups = groupCodesByCategory(report.codes)
   const activeCodes = report.codes.filter((c) => c.amount !== 0).length
 
@@ -24,10 +33,11 @@ export function RollupView({ report }: { report: RollupReport }) {
     <div className="space-y-6">
       {/* Code-wise totals */}
       <Card className="border-slate-200 shadow-sm overflow-hidden">
-        <CardHeader className="border-b border-slate-100 pb-3">
+        <CardHeader className="border-b border-slate-100 pb-3 flex flex-row items-center justify-between gap-4">
           <CardTitle className="text-base font-bold text-slate-900">
             কোডভিত্তিক মোট ({toBanglaNumber(activeCodes)} টি খাত)
           </CardTitle>
+          <ReportDownloader spec={codeSpec} />
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -96,10 +106,11 @@ export function RollupView({ report }: { report: RollupReport }) {
 
       {/* Per-office totals */}
       <Card className="border-slate-200 shadow-sm overflow-hidden">
-        <CardHeader className="border-b border-slate-100 pb-3">
+        <CardHeader className="border-b border-slate-100 pb-3 flex flex-row items-center justify-between gap-4">
           <CardTitle className="text-base font-bold text-slate-900">
             অফিসভিত্তিক মোট ({toBanglaNumber(report.offices.length)} টি অফিস)
           </CardTitle>
+          <ReportDownloader spec={officeSpec} />
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -146,7 +157,7 @@ export function RollupView({ report }: { report: RollupReport }) {
                           ) : office.status === 'draft' ? (
                             <Clock className="h-3 w-3" />
                           ) : null}
-                          <span>{statusLabel(office.status)}</span>
+                          <span>{reportStatusLabel(office.status)}</span>
                         </Badge>
                       </td>
                       <td className="py-3 px-4 font-mono font-bold text-slate-900 text-right">

@@ -16,13 +16,72 @@ import {
   Shield,
   Menu,
   ChevronDown,
-  UserCheck,
   Building,
   Building2,
   SlidersHorizontal,
   Calculator
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
+
+type AdminNavItem = {
+  href: string
+  label: string
+  icon: LucideIcon
+  superAdminOnly?: boolean
+}
+
+type AdminNavGroup = {
+  label: string
+  icon: LucideIcon
+  iconClass: string
+  items: AdminNavItem[]
+}
+
+// Mirrors the current admin sidebar structure so the profile menu stays in sync
+const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
+  {
+    label: 'অফিস ব্যবস্থাপনা',
+    icon: Building,
+    iconClass: 'text-purple-500',
+    items: [
+      { href: '/admin/offices-config', label: 'অরগানোগ্রাম', icon: Building },
+      { href: '/admin/offices-management/head-offices', label: 'হেড অফিসসমূহ', icon: Building },
+      { href: '/admin/offices-management/field-offices', label: 'মাঠ পর্যায়ের অফিসসমূহ', icon: Building2 },
+      { href: '/admin/offices-management/group-budget', label: 'গ্রুপ বাজেট নির্ধারণ', icon: Layers },
+    ],
+  },
+  {
+    label: 'বাজেট সেটিংস',
+    icon: SlidersHorizontal,
+    iconClass: 'text-blue-500',
+    items: [
+      { href: '/admin/budgets', label: 'বাজেট দাখিল উন্মুক্তকরণ', icon: SlidersHorizontal },
+      { href: '/admin/codes', label: 'ইকোনমিক কোড সেটিংস', icon: FileText },
+      { href: '/admin/settings', label: 'প্রাপ্যতা ও বরাদ্দ নির্ধারণ', icon: Settings },
+      { href: '/admin/formulas', label: 'কোড ক্যালকুলেশন ফরমুলা', icon: Calculator, superAdminOnly: true },
+    ],
+  },
+  {
+    label: 'প্রতিবেদনসমূহ',
+    icon: FileSpreadsheet,
+    iconClass: 'text-emerald-500',
+    items: [
+      { href: '/admin/reports/combined', label: 'সমন্বিত রিপোর্ট', icon: Layers },
+      { href: '/admin/reports/individual', label: 'অফিসভিত্তিক রিপোর্ট', icon: FileText },
+      { href: '/admin/reports/summary', label: 'কোডভিত্তিক সারসংক্ষেপ রিপোর্ট', icon: FileSpreadsheet },
+    ],
+  },
+  {
+    label: 'ইউজার সেটিংস',
+    icon: Users,
+    iconClass: 'text-purple-500',
+    items: [
+      { href: '/admin/offices-users', label: 'অফিস ইউজারসমূহ', icon: Users },
+      { href: '/admin/users', label: 'এডমিন ইউজার সেটিংস', icon: ShieldCheck, superAdminOnly: true },
+    ],
+  },
+]
 
 export function AdminShell({
   children,
@@ -140,71 +199,66 @@ export function AdminShell({
 
           {/* Profile Dropdown Menu */}
           {profileDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-white text-slate-800 shadow-xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95">
-              <div className="px-4 py-2.5 border-b border-slate-100">
-                <p className="text-xs font-bold text-slate-900 truncate">ব্যবহারকারী: {session.username}</p>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <span className={`inline-block w-2 h-2 rounded-full ${isSuperAdmin ? 'bg-emerald-500' : 'bg-blue-500'}`} />
-                  <p className="text-[11px] font-semibold text-slate-500">
-                    ভূমিকা: {isSuperAdmin ? 'সুপার অ্যাডমিন' : 'অ্যাডমিন'}
-                  </p>
+            <div className="absolute right-0 mt-2 w-72 max-h-[calc(100vh-5.5rem)] overflow-y-auto rounded-2xl bg-white text-slate-800 shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95">
+              <div className="px-4 py-3 border-b border-slate-100">
+                <div className="flex items-center gap-2.5">
+                  <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 border ${isSuperAdmin
+                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                    : 'bg-blue-50 text-blue-600 border-blue-200'
+                    }`}>
+                    {isSuperAdmin ? <ShieldCheck className="h-5 w-5" /> : <Shield className="h-5 w-5" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-900 pl-0.5">{session.username}</p>
+                    <p className="text-[11px] font-semibold text-slate-500 pl-0.5">
+                      {isSuperAdmin ? 'সুপার অ্যাডমিন' : 'অ্যাডমিন'}
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <div className="p-1 space-y-0.5">
-                <Link
-                  href="/admin/budgets"
-                  onClick={() => setProfileDropdownOpen(false)}
-                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-bold text-slate-700 hover:text-blue-700 hover:bg-blue-50/80 rounded-xl transition-colors cursor-pointer text-left"
-                >
-                  <SlidersHorizontal className="h-4 w-4 text-emerald-600" />
-                  বাজেট উন্মুক্তকরণ
-                </Link>
-
-                <Link
-                  href="/admin/offices-config"
-                  onClick={() => setProfileDropdownOpen(false)}
-                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-bold text-slate-700 hover:text-blue-700 hover:bg-blue-50/80 rounded-xl transition-colors cursor-pointer text-left"
-                >
-                  <Building className="h-4 w-4 text-purple-600" />
-                  অফিস কনফিগারেশন
-                </Link>
-
-                <Link
-                  href="/admin/codes"
-                  onClick={() => setProfileDropdownOpen(false)}
-                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-bold text-slate-700 hover:text-blue-700 hover:bg-blue-50/80 rounded-xl transition-colors cursor-pointer text-left"
-                >
-                  <FileText className="h-4 w-4 text-amber-600" />
-                  কোড কনফিগারেশন
-                </Link>
-
-                <Link
-                  href="/admin/settings"
-                  onClick={() => setProfileDropdownOpen(false)}
-                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-bold text-slate-700 hover:text-blue-700 hover:bg-blue-50/80 rounded-xl transition-colors cursor-pointer text-left"
-                >
-                  <Settings className="h-4 w-4 text-blue-600" />
-                  প্রাপ্যতা ও বরাদ্দ নির্ধারণ
-                </Link>
-
-                {isSuperAdmin && (
-                  <Link
-                    href="/admin/users"
-                    onClick={() => setProfileDropdownOpen(false)}
-                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-bold text-slate-700 hover:text-emerald-700 hover:bg-emerald-50/80 rounded-xl transition-colors cursor-pointer text-left"
-                  >
-                    <UserCheck className="h-4 w-4 text-emerald-600" />
-                    অ্যাক্সেস কন্ট্রোল ও ইউজার
-                  </Link>
-                )}
+              <div className="p-1.5">
+                {ADMIN_NAV_GROUPS.map((group) => {
+                  const visibleItems = group.items.filter((item) => !item.superAdminOnly || isSuperAdmin)
+                  if (visibleItems.length === 0) return null
+                  const GroupIcon = group.icon
+                  return (
+                    <div
+                      key={group.label}
+                      className="pb-1.5 mb-1.5 border-b border-slate-100 last:border-0 last:mb-0 last:pb-0"
+                    >
+                      <div className="flex items-center gap-2 px-2.5 py-1.5">
+                        <GroupIcon className={`h-3.5 w-3.5 shrink-0 ${group.iconClass}`} />
+                        <span className="pl-0.5 text-[10px] font-bold tracking-wide text-slate-400">
+                          {group.label}
+                        </span>
+                      </div>
+                      <div className="space-y-0.5">
+                        {visibleItems.map((item) => {
+                          const ItemIcon = item.icon
+                          return (
+                            <Link
+                              key={item.href}
+                              href={item.href}
+                              onClick={() => setProfileDropdownOpen(false)}
+                              className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-blue-700 hover:bg-blue-50/80 transition-colors"
+                            >
+                              <ItemIcon className="h-4 w-4 shrink-0 text-slate-400" />
+                              <span className="pl-0.5">{item.label}</span>
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
 
-              <div className="p-1 border-t border-slate-100 mt-1">
+              <div className="p-1.5 border-t border-slate-100">
                 <form action={logoutAdmin}>
                   <button
                     type="submit"
-                    className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer text-left"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer text-left"
                   >
                     <LogOut className="h-4 w-4 text-rose-600" />
                     লগআউট

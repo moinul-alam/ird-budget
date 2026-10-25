@@ -33,13 +33,21 @@ import {
   UserPlus
 } from 'lucide-react'
 
+/** The two roles, labelled once so the trigger and the options can never disagree. */
+const ROLE_LABELS: Record<'admin' | 'superadmin', string> = {
+  admin: 'অ্যাডমিন (Admin)',
+  superadmin: 'সুপার অ্যাডমিন (SuperAdmin)',
+}
+
 interface UsersClientProps {
   initialUsers: AdminUserItem[]
   officeTypes: { id: number; name: string }[]
   currentUserId: number
+  /** The password a blank field creates, so the hint matches what the server applies. */
+  defaultAdminPassword: string
 }
 
-export function UsersClient({ initialUsers, officeTypes, currentUserId }: UsersClientProps) {
+export function UsersClient({ initialUsers, officeTypes, currentUserId, defaultAdminPassword }: UsersClientProps) {
   const [users, setUsers] = useState<AdminUserItem[]>(initialUsers)
 
   // Edit Modal State
@@ -111,10 +119,12 @@ export function UsersClient({ initialUsers, officeTypes, currentUserId }: UsersC
     setCreating(true)
     setCreateError(null)
 
+    // An empty field is passed through as-is: the server falls back to its own default,
+    // so the password created is the one the hint above the button names.
     const res = await createAdminUser(
       createUsername.trim(),
       createRole,
-      createPassword.trim() || '123456'
+      createPassword.trim()
     )
 
     if (res.error) {
@@ -320,14 +330,16 @@ export function UsersClient({ initialUsers, officeTypes, currentUserId }: UsersC
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="create-role" className="text-sm font-bold text-slate-700">ইউজার টাইপ / রোল</Label>
+                <Label htmlFor="create-role" className="text-sm font-bold text-slate-700">ইউজার রোল</Label>
                 <Select value={createRole} onValueChange={(v) => setCreateRole(v as 'admin' | 'superadmin')}>
                   <SelectTrigger id="create-role" className="w-full rounded-xl">
-                    <SelectValue placeholder="রোল নির্বাচন করুন" />
+                    <SelectValue placeholder="রোল নির্বাচন করুন">
+                      {ROLE_LABELS[createRole]}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="admin">অ্যাডমিন (Admin - বিভাগীয় অ্যাক্সেস)</SelectItem>
-                    <SelectItem value="superadmin">সুপার অ্যাডমিন (SuperAdmin - সর্বময় অ্যাক্সেস)</SelectItem>
+                    <SelectItem value="admin">{ROLE_LABELS.admin}</SelectItem>
+                    <SelectItem value="superadmin">{ROLE_LABELS.superadmin}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -340,12 +352,12 @@ export function UsersClient({ initialUsers, officeTypes, currentUserId }: UsersC
                 <Input
                   id="create-pwd"
                   type="text"
-                  placeholder="পাসওয়ার্ড লিখুন (খালি রাখলে ডিফল্ট: 123456)"
+                  placeholder={`পাসওয়ার্ড লিখুন (খালি রাখলে ডিফল্ট: ${defaultAdminPassword})`}
                   value={createPassword}
                   onChange={(e) => setCreatePassword(e.target.value)}
                   className="rounded-xl border-slate-200"
                 />
-                <p className="text-xs text-slate-400">ডিফল্ট পাসওয়ার্ড: <span className="font-mono font-semibold">123456</span></p>
+                <p className="text-xs text-slate-400">ডিফল্ট পাসওয়ার্ড: <span className="font-mono font-semibold">{defaultAdminPassword}</span></p>
               </div>
             </div>
 
@@ -401,14 +413,16 @@ export function UsersClient({ initialUsers, officeTypes, currentUserId }: UsersC
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="role-select" className="text-sm font-bold text-slate-700">ইউজার টাইপ / রোল</Label>
+                <Label htmlFor="role-select" className="text-sm font-bold text-slate-700">ইউজার রোল</Label>
                 <Select value={role} onValueChange={(v) => setRole(v as 'admin' | 'superadmin')}>
                   <SelectTrigger id="role-select" className="w-full rounded-xl">
-                    <SelectValue placeholder="রোল নির্বাচন করুন" />
+                    <SelectValue placeholder="রোল নির্বাচন করুন">
+                      {ROLE_LABELS[role]}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="superadmin">সুপার অ্যাডমিন (SuperAdmin - সর্বময় অ্যাক্সেস)</SelectItem>
-                    <SelectItem value="admin">অ্যাডমিন (Admin - বিভাগীয় অ্যাক্সেস)</SelectItem>
+                    <SelectItem value="admin">{ROLE_LABELS.admin}</SelectItem>
+                    <SelectItem value="superadmin">{ROLE_LABELS.superadmin}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -417,7 +431,9 @@ export function UsersClient({ initialUsers, officeTypes, currentUserId }: UsersC
                 <Label htmlFor="active-select" className="text-sm font-bold text-slate-700">অ্যাকাউন্ট স্ট্যাটাস</Label>
                 <Select value={active ? 'true' : 'false'} onValueChange={(v) => setActive(v === 'true')}>
                   <SelectTrigger id="active-select" className="w-full rounded-xl">
-                    <SelectValue placeholder="স্ট্যাটাস নির্বাচন করুন" />
+                    <SelectValue placeholder="স্ট্যাটাস নির্বাচন করুন">
+                      {active ? 'সক্রিয় (Active)' : 'নিষ্ক্রিয় (Inactive)'}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="true">সক্রিয় (Active)</SelectItem>
@@ -439,7 +455,7 @@ export function UsersClient({ initialUsers, officeTypes, currentUserId }: UsersC
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="rounded-xl border-slate-200"
                 />
-                <p className="text-xs text-slate-400">যেকোনো সংখ্যার পাসওয়ার্ড দিতে পারেন (ডিফল্ট: 123456)</p>
+                <p className="text-xs text-slate-400">যেকোনো অক্ষর বা সংখ্যার পাসওয়ার্ড দিতে পারেন।</p>
               </div>
             </div>
 

@@ -513,6 +513,24 @@ export const strings = {
     officeReport: 'অফিসের বাজেট প্রতিবেদন',
     groupReport: 'গ্রুপ একত্রিত প্রতিবেদন',
     codeWiseReport: 'কোড ভিত্তিক একত্রিত প্রতিবেদন',
+    officeListReport: 'অফিসভিত্তিক প্রতিবেদন',
+
+    // Column headings of the downloadable files. They match the tables on screen.
+    serialColumn: 'ক্রম',
+    codeColumn: 'কোড',
+    codeNameColumn: 'খরচের বিবরণ',
+    amountColumn: 'পরিমাণ (৳)',
+    budgetIdColumn: 'বাজেট আইডি',
+    officeNameColumn: 'অফিসের নাম',
+    departmentColumn: 'বিভাগ',
+    officeTypeColumn: 'অফিসের ধরণ',
+    statusColumn: 'দাখিল স্ট্যাটাস',
+    officeTotalColumn: 'মোট বাজেট (৳)',
+
+    // File name stems, prefixed to the scope name.
+    codeWiseFile: 'কোডভিত্তিক-মোট',
+    officeWiseFile: 'অফিসভিত্তিক-মোট',
+    officeListFile: 'অফিসের-তালিকা',
   },
 
   admin: {

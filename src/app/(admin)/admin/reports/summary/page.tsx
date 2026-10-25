@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db/client'
 import { strings } from '@/lib/strings'
 import { Card, CardContent } from '@/components/ui/card'
 import { getActiveCycle, rollupOffices } from '@/lib/budget/report'
+import { buildCodeWiseSpec, buildOfficeTotalsSpec } from '@/lib/report/specs'
 import { RollupView } from '../_components/rollup-view'
 import { ReportScopeSelect, type ScopeOption } from '../_components/report-scope-select'
 
@@ -30,14 +31,21 @@ export default async function SummaryReportPage({
     searchParams,
     getActiveCycle(),
     prisma.coreOfficeLevel.findMany({
-      include: { officeType: { select: { name: true } } },
+      include: {
+        officeType: { select: { name: true } },
+        ministry: { select: { name: true } },
+        department: { select: { name: true } },
+      },
       orderBy: [{ officeTypeId: 'asc' }, { levelOrder: 'asc' }],
     }),
   ])
 
+  // A level's owner names it: an office type for the field hierarchy, otherwise the
+  // ministry or department that owns it. Without this every ministry/department level
+  // reads as a generic "অফিস — দপ্তর" and cannot be told apart in the dropdown.
   const options: ScopeOption[] = levels.map((l) => ({
     value: String(l.id),
-    label: `${l.officeType?.name || 'অফিস'} — ${l.levelName}`,
+    label: `${l.officeType?.name || l.ministry?.name || l.department?.name || 'অফিস'} — ${l.levelName}`,
   }))
 
   const selectedId = params.level || options[0]?.value || ''
@@ -55,6 +63,33 @@ export default async function SummaryReportPage({
     })
     report = await rollupOffices(offices.map((o) => Number(o.id)), cycle.id)
   }
+
+  // The two downloadable files are named after the level on screen, so several levels
+  // can be exported without the downloads overwriting one another.
+  const scopeName = options.find((o) => o.value === selectedId)?.label ?? ''
+  const fileStem = [strings.reports.codeWiseFile, scopeName, cycle?.fiscal_year]
+    .filter(Boolean)
+    .join('-')
+  const codeSpec = report
+    ? buildCodeWiseSpec({
+        title: strings.reports.codeWiseReport,
+        scopeName,
+        fileName: fileStem,
+        codes: report.codes,
+        grandTotal: report.grand_total,
+      })
+    : null
+  const officeSpec = report
+    ? buildOfficeTotalsSpec({
+        title: strings.reports.codeWiseReport,
+        scopeName,
+        fileName: [strings.reports.officeWiseFile, scopeName, cycle?.fiscal_year]
+          .filter(Boolean)
+          .join('-'),
+        offices: report.offices,
+        grandTotal: report.grand_total,
+      })
+    : null
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -106,8 +141,8 @@ export default async function SummaryReportPage({
             কোনো অফিস স্তর নির্ধারিত নেই।
           </CardContent>
         </Card>
-      ) : report ? (
-        <RollupView report={report} />
+      ) : report && codeSpec && officeSpec ? (
+        <RollupView report={report} codeSpec={codeSpec} officeSpec={officeSpec} />
       ) : null}
     </div>
   )

@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/db/client'
 import { getAdminSession } from '@/lib/auth-admin'
+import { DEFAULT_ADMIN_PASSWORD } from '@/lib/admin/defaults'
 import { revalidatePath } from 'next/cache'
 import crypto from 'crypto'
 
@@ -62,7 +63,7 @@ export async function createAdminUser(
     return { error: 'অনুগ্রহ করে একটি সঠিক ইউজারনেম দিন।' }
   }
 
-  const cleanPwd = (password || '123').trim()
+  const cleanPwd = (password || DEFAULT_ADMIN_PASSWORD).trim()
   const pwdHash = hashPassword(cleanPwd)
 
   // Check duplicate username

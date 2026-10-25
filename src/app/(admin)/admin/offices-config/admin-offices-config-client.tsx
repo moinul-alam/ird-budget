@@ -16,6 +16,7 @@ import {
   DepartmentItem,
   OfficeTypeHierarchyItem,
   OfficeLevelItem,
+  LevelOwnerType,
   saveMinistry,
   deleteMinistry,
   saveDepartment,
@@ -83,7 +84,9 @@ export function AdminOfficesConfigClient({
 
   // Filtering dropdowns for relational views
   const [filterDeptForTypes, setFilterDeptForTypes] = useState<string>('all')
-  const [filterTypeForHierarchy, setFilterTypeForHierarchy] = useState<string>('all')
+  // Which owner the level table is filtered to: every ministry, every department, every office
+  // type, or all of them.
+  const [levelOwnerFilter, setLevelOwnerFilter] = useState<string>('all')
 
   // Modals state
   const [minModal, setMinModal] = useState<MinistryModalState>({
@@ -105,7 +108,8 @@ export function AdminOfficesConfigClient({
 
   const [hierarchyModal, setHierarchyModal] = useState<HierarchyModalState>({
     open: false,
-    office_type_id: '',
+    owner_type: 'office_type',
+    owner_id: '',
     level_name: '',
     level_order: 1,
   })
@@ -275,8 +279,8 @@ export function AdminOfficesConfigClient({
 
   // Handle Tab 4 Save (Office Level)
   const handleSaveOfficeLevel = () => {
-    if (!hierarchyModal.office_type_id) {
-      showStatus('অফিসের ধরণ নির্বাচন আবশ্যক', 'error')
+    if (!hierarchyModal.owner_id) {
+      showStatus('স্তরের মালিক নির্বাচন আবশ্যক', 'error')
       return
     }
     if (!hierarchyModal.level_name.trim()) {
@@ -291,7 +295,8 @@ export function AdminOfficesConfigClient({
     startTransition(async () => {
       const res = await saveOfficeLevel({
         id: hierarchyModal.id,
-        office_type_id: hierarchyModal.office_type_id,
+        owner_type: hierarchyModal.owner_type,
+        owner_id: hierarchyModal.owner_id,
         level_name: hierarchyModal.level_name,
         level_order: hierarchyModal.level_order,
       })
@@ -306,8 +311,8 @@ export function AdminOfficesConfigClient({
         })
         setHierarchyModal({
           open: false,
-          id: undefined,
-          office_type_id: '',
+          owner_type: 'office_type',
+          owner_id: '',
           level_name: '',
           level_order: 1,
         })
@@ -422,15 +427,14 @@ export function AdminOfficesConfigClient({
       ? officeTypes
       : officeTypes.filter((ot) => String(ot.department_id) === filterDeptForTypes)
 
-  // Tab 4: filtered office levels by office_type_id
-  const filteredOfficeLevelsForTab4 = officeLevels
-    .filter((lvl) => (filterTypeForHierarchy === 'all' ? true : String(lvl.office_type_id) === filterTypeForHierarchy))
-    .sort((a, b) => a.level_order - b.level_order)
+  // Tab 4: which kind of owner a level belongs to. A level links to exactly one owner, so the
+  // link that is present tells us the kind without storing it separately.
+  const levelOwnerKind = (lvl: OfficeLevelItem): LevelOwnerType =>
+    lvl.ministry_id ? 'ministry' : lvl.office_type_id ? 'office_type' : 'department'
 
-  // Office types that have at least one office level configured
-  const officeTypesWithHierarchy = officeTypes.filter((ot) =>
-    officeLevels.some((lvl) => lvl.office_type_id === ot.id)
-  )
+  const filteredOfficeLevelsForTab4 = officeLevels
+    .filter((lvl) => levelOwnerFilter === 'all' || levelOwnerKind(lvl) === levelOwnerFilter)
+    .sort((a, b) => a.level_order - b.level_order)
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -568,12 +572,12 @@ export function AdminOfficesConfigClient({
       {/* Tab 4: Hierarchy */}
       {activeTab === 'hierarchy' && (
         <TabOfficeLevels
-          officeLevels={officeLevels}
           filteredOfficeLevels={filteredOfficeLevelsForTab4}
+          ministries={ministries}
+          departments={departments}
           officeTypes={officeTypes}
-          officeTypesWithHierarchy={officeTypesWithHierarchy}
-          filterTypeForHierarchy={filterTypeForHierarchy}
-          setFilterTypeForHierarchy={setFilterTypeForHierarchy}
+          levelOwnerFilter={levelOwnerFilter}
+          setLevelOwnerFilter={setLevelOwnerFilter}
           hierarchyModal={hierarchyModal}
           setHierarchyModal={setHierarchyModal}
           onSaveOfficeLevel={handleSaveOfficeLevel}

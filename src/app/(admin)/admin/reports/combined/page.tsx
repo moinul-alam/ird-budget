@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db/client'
 import { strings } from '@/lib/strings'
 import { Card, CardContent } from '@/components/ui/card'
 import { getActiveCycle, rollupOffices } from '@/lib/budget/report'
+import { buildCodeWiseSpec, buildOfficeTotalsSpec } from '@/lib/report/specs'
 import { RollupView } from '../_components/rollup-view'
 import { ReportScopeSelect, type ScopeOption } from '../_components/report-scope-select'
 
@@ -60,6 +61,31 @@ export default async function CombinedReportPage({
     report = await rollupOffices(offices.map((o) => Number(o.id)), cycle.id)
   }
 
+  // Named after the group rule on screen, so several groups can be exported in a row.
+  const scopeName = options.find((o) => o.value === selectedId)?.label ?? ''
+  const codeSpec = report
+    ? buildCodeWiseSpec({
+        title: strings.reports.groupReport,
+        scopeName,
+        fileName: [strings.reports.codeWiseFile, scopeName, cycle?.fiscal_year]
+          .filter(Boolean)
+          .join('-'),
+        codes: report.codes,
+        grandTotal: report.grand_total,
+      })
+    : null
+  const officeSpec = report
+    ? buildOfficeTotalsSpec({
+        title: strings.reports.groupReport,
+        scopeName,
+        fileName: [strings.reports.officeWiseFile, scopeName, cycle?.fiscal_year]
+          .filter(Boolean)
+          .join('-'),
+        offices: report.offices,
+        grandTotal: report.grand_total,
+      })
+    : null
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       <div>
@@ -110,8 +136,8 @@ export default async function CombinedReportPage({
             কোনো গ্রুপ বাজেট সেটিং তৈরি করা হয়নি।
           </CardContent>
         </Card>
-      ) : report ? (
-        <RollupView report={report} />
+      ) : report && codeSpec && officeSpec ? (
+        <RollupView report={report} codeSpec={codeSpec} officeSpec={officeSpec} />
       ) : null}
     </div>
   )

@@ -3,9 +3,20 @@
 import { useState, useMemo } from 'react'
 import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
 import { groupCodesByCategory } from '@/lib/budget/group-codes'
+import { buildCodeWiseSpec, buildOfficeListSpec } from '@/lib/report/specs'
+import { strings } from '@/lib/strings'
+import { ReportDownloader } from '@/components/report-downloader'
+import type { ReportSpec } from '@/lib/report/export'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import Link from 'next/link'
 import { Search, CheckCircle2, Clock, FileSpreadsheet, X } from 'lucide-react'
 
@@ -42,6 +53,24 @@ interface DetailProps {
 function OfficeDetail({ detail }: { detail: DetailProps }) {
   const groups = groupCodesByCategory(detail.rows)
   let rowNumber = 0
+
+  // Mirrors the table below it, including the office it belongs to in the header.
+  const reportSpec = useMemo<ReportSpec>(
+    () =>
+      buildCodeWiseSpec({
+        title: strings.reports.officeReport,
+        scopeName: detail.office.name,
+        headOfficeName: [detail.office.department_name, detail.office.office_type_name]
+          .filter(Boolean)
+          .join(' • '),
+        fileName: [strings.reports.officeReport, detail.office.name, detail.office.budget_id]
+          .filter(Boolean)
+          .join('-'),
+        codes: detail.rows,
+        grandTotal: detail.total,
+      }),
+    [detail]
+  )
 
   return (
     <Card className="border-blue-200 shadow-sm overflow-hidden">
@@ -81,6 +110,7 @@ function OfficeDetail({ detail }: { detail: DetailProps }) {
         </div>
 
         <div className="flex items-center gap-3">
+          <ReportDownloader spec={reportSpec} />
           <div className="text-right">
             <span className="text-[11px] font-bold text-slate-500 uppercase block">সর্বমোট</span>
             <span className="text-lg font-black text-blue-800 font-mono">
@@ -182,8 +212,19 @@ export function IndividualReportsClient({
   detail: DetailProps | null
 }) {
   const [searchQuery, setSearchQuery] = useState('')
-  const [departmentFilter, setDepartmentFilter] = useState<'all' | 'tax' | 'vat'>('all')
+  const [officeTypeFilter, setOfficeTypeFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<'all' | 'submitted' | 'draft' | 'not_started'>('all')
+
+  // Office types come from the rows themselves, so the filter never goes stale as types are
+  // added and needs no hardcoded Bengali names (which are easy to mistype character by
+  // character and then silently match nothing).
+  const officeTypeOptions = useMemo(
+    () =>
+      Array.from(new Set(offices.map((off) => off.office_type_name))).sort((a, b) =>
+        a.localeCompare(b, 'bn')
+      ),
+    [offices]
+  )
 
   const filteredOffices = useMemo(() => {
     return offices.filter((off) => {
@@ -195,16 +236,27 @@ export function IndividualReportsClient({
 
       if (!matchesSearch) return false
 
-      if (departmentFilter === 'tax' && !off.department_name.includes('আয়কর')) return false
-      if (departmentFilter === 'vat' && off.department_name.includes('আয়কর')) return false
+      if (officeTypeFilter !== 'all' && off.office_type_name !== officeTypeFilter) return false
 
       if (statusFilter !== 'all' && off.status !== statusFilter) return false
 
       return true
     })
-  }, [offices, searchQuery, departmentFilter, statusFilter])
+  }, [offices, searchQuery, officeTypeFilter, statusFilter])
 
   const submittedCount = useMemo(() => offices.filter((o) => o.status === 'submitted').length, [offices])
+
+  // Exports the rows currently on screen — the search and filters are already applied.
+  const listSpec = useMemo<ReportSpec>(
+    () =>
+      buildOfficeListSpec({
+        title: strings.reports.officeListReport,
+        scopeName: [cycleName, fiscalYear].filter(Boolean).join(' • '),
+        fileName: [strings.reports.officeListFile, fiscalYear].filter(Boolean).join('-'),
+        offices: filteredOffices,
+      }),
+    [filteredOffices, cycleName, fiscalYear]
+  )
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -260,33 +312,22 @@ export function IndividualReportsClient({
               />
             </div>
 
-            {/* Department Filter */}
-            <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold">
-              <button
-                type="button"
-                onClick={() => setDepartmentFilter('all')}
-                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${departmentFilter === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'text-slate-500'
-                  }`}
-              >
-                সকল বিভাগ
-              </button>
-              <button
-                type="button"
-                onClick={() => setDepartmentFilter('tax')}
-                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${departmentFilter === 'tax' ? 'bg-blue-600 text-white shadow-2xs' : 'text-slate-500'
-                  }`}
-              >
-                আয়কর বিভাগ
-              </button>
-              <button
-                type="button"
-                onClick={() => setDepartmentFilter('vat')}
-                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${departmentFilter === 'vat' ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-500'
-                  }`}
-              >
-                কাস্টম্‌স ও ভ্যাট
-              </button>
-            </div>
+            {/* Office Type Filter — a dropdown because the number of types is unbounded */}
+            <Select value={officeTypeFilter} onValueChange={(v) => setOfficeTypeFilter(v ?? 'all')}>
+              <SelectTrigger className="w-full md:w-64 h-10 rounded-xl border-slate-200 text-xs font-bold">
+                <SelectValue placeholder="সব অফিসের ধরণ">
+                  {officeTypeFilter === 'all' ? 'সব অফিসের ধরণ' : officeTypeFilter}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent className="rounded-xl text-xs max-h-72">
+                <SelectItem value="all">সব অফিসের ধরণ</SelectItem>
+                {officeTypeOptions.map((typeName) => (
+                  <SelectItem key={typeName} value={typeName}>
+                    {typeName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             {/* Status Filter */}
             <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold">
@@ -321,13 +362,16 @@ export function IndividualReportsClient({
 
       {/* Offices List Table */}
       <Card className="border-slate-200 shadow-sm overflow-hidden">
-        <CardHeader className="border-b border-slate-100 pb-3 flex flex-row items-center justify-between">
-          <CardTitle className="text-base font-bold text-slate-900">
-            অফিসের তালিকা ({toBanglaNumber(filteredOffices.length)} টি)
-          </CardTitle>
-          <span className="text-xs font-bold text-slate-500">
-            মোট দাখিল: {toBanglaNumber(submittedCount)} টি অফিস
-          </span>
+        <CardHeader className="border-b border-slate-100 pb-3 flex flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <CardTitle className="text-base font-bold text-slate-900">
+              অফিসের তালিকা ({toBanglaNumber(filteredOffices.length)} টি)
+            </CardTitle>
+            <span className="text-xs font-bold text-slate-500">
+              মোট দাখিল: {toBanglaNumber(submittedCount)} টি অফিস
+            </span>
+          </div>
+          <ReportDownloader spec={listSpec} />
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">

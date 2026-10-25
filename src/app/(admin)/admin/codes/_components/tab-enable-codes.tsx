@@ -15,22 +15,42 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Search, CheckCircle2 } from 'lucide-react'
 import { BudgetCategoryItem, ExpenseCodeFullItem } from '@/app/actions/admin-codes'
-import { OfficeTypeItem } from '../_types/codes'
-import { DepartmentItem, OfficeLevelItem } from '@/app/actions/admin-offices-config'
+import { CodeScopeType, OfficeTypeItem } from '../_types/codes'
+import { DepartmentItem, MinistryItem, OfficeLevelItem } from '@/app/actions/admin-offices-config'
 import { ConfirmToggleAllDialog } from './code-modals'
 
+const SCOPE_LABELS: Record<CodeScopeType, string> = {
+  office_type: 'অফিসের ধরণ',
+  ministry: 'মন্ত্রণালয় / বিভাগ',
+  department: 'দপ্তর / সংস্থা',
+}
+
+/** The card each selector sits in, so the row wraps cleanly however many boxes are shown. */
+const BOX_CLASS = 'flex-1 min-w-[200px] bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs'
+
 interface TabEnableCodesProps {
+  scopeOwnerType: CodeScopeType
+  setScopeOwnerType: (val: CodeScopeType) => void
+
+  ministries: MinistryItem[]
+  selectedMinistryId: string
+  setSelectedMinistryId: (id: string) => void
+
   departments: DepartmentItem[]
   selectedDepartmentId?: string
   setSelectedDepartmentId: (id: string) => void
+
   officeTypes: OfficeTypeItem[]
   selectedOfficeTypeId: string
   setSelectedOfficeTypeId: (id: string) => void
   selectedOfficeType?: OfficeTypeItem
-  officeLevels: OfficeLevelItem[]
+
+  /** Levels owned by whichever organisation is in scope — the grants apply to these. */
+  scopedLevels: OfficeLevelItem[]
   selectedLevelId: string
   setSelectedLevelId: (lvlId: string) => void
   selectedOfficeLevel?: OfficeLevelItem
+
   enabledCount: number
   totalCodesCount: number
   searchQuery: string
@@ -45,6 +65,11 @@ interface TabEnableCodesProps {
 }
 
 export function TabEnableCodes({
+  scopeOwnerType,
+  setScopeOwnerType,
+  ministries,
+  selectedMinistryId,
+  setSelectedMinistryId,
   departments,
   selectedDepartmentId,
   setSelectedDepartmentId,
@@ -52,7 +77,7 @@ export function TabEnableCodes({
   selectedOfficeTypeId,
   setSelectedOfficeTypeId,
   selectedOfficeType,
-  officeLevels,
+  scopedLevels,
   selectedLevelId,
   setSelectedLevelId,
   selectedOfficeLevel,
@@ -68,15 +93,10 @@ export function TabEnableCodes({
   handleToggleCode,
   isPending,
 }: TabEnableCodesProps) {
-  // Filter office types based on selected department
+  // The office type list is only narrowed by a department in office-type scope.
   const filteredOfficeTypes = selectedDepartmentId
     ? officeTypes.filter((ot) => ot.department_id === selectedDepartmentId)
     : officeTypes
-
-  // Filter levels based on selected office type
-  const availableLevels = officeLevels.filter(
-    (lvl) => lvl.office_type_id === selectedOfficeTypeId
-  )
 
   // Track selected checkboxes (code IDs)
   const [selectedCodeIds, setSelectedCodeIds] = useState<number[]>([])
@@ -148,97 +168,143 @@ export function TabEnableCodes({
           >
             অর্গানোগ্রাম
           </a>{' '}
-          মেনুর <span className="font-bold">মাঠ অফিসের স্তর</span> অপশনে স্তর তৈরি করুন।
+          মেনু থেকে মন্ত্রণালয়/বিভাগ, দপ্তর/সংস্থা ও অফিসের ধরণের স্তর নির্ধারণ করুন।
         </p>
       </div>
 
-      {/* Selection Control Card: All 4 in a single row */}
+      {/* Selection Control Card */}
       <Card className="border-slate-200 shadow-sm bg-gradient-to-r from-blue-50/70 via-indigo-50/40 to-white">
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-center">
-            {/* Box 1: দপ্তর/সংস্থা */}
-            <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
+          <div className="flex flex-wrap gap-3 items-stretch">
+            {/* Box 1: স্তরের মালিকের ধরন */}
+            <div className={BOX_CLASS}>
               <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                দপ্তর / সংস্থা
+                স্তরের মালিকের ধরন
               </label>
               <Select
-                value={selectedDepartmentId ? String(selectedDepartmentId) : ''}
+                value={scopeOwnerType}
                 onValueChange={(val) => {
-                  if (val) {
-                    setSelectedDepartmentId(val)
-                    const firstMatchingType = officeTypes.find((ot) => ot.department_id === val)
-                    if (firstMatchingType) {
-                      setSelectedOfficeTypeId(firstMatchingType.id)
-                    }
-                  }
+                  if (val) setScopeOwnerType(val as CodeScopeType)
                 }}
               >
                 <SelectTrigger className="w-full rounded-xl border-slate-300 font-bold text-xs bg-slate-50/50 hover:bg-white transition-colors">
-                  <span className="truncate text-slate-900 font-bold">
-                    {departments.find((d) => d.id === selectedDepartmentId)?.name || 'দপ্তর/সংস্থা নির্বাচন করুন'}
-                  </span>
+                  <SelectValue placeholder="স্তরের ধরন নির্বাচন করুন">
+                    {SCOPE_LABELS[scopeOwnerType]}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent className="rounded-xl text-xs">
-                  {departments.map((d) => (
-                    <SelectItem key={d.id} value={String(d.id)}>
-                      {d.name}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="office_type">{SCOPE_LABELS.office_type}</SelectItem>
+                  <SelectItem value="ministry">{SCOPE_LABELS.ministry}</SelectItem>
+                  <SelectItem value="department">{SCOPE_LABELS.department}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Box 2: অফিসের ধরণ */}
-            <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
-              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                অফিসের ধরণ
-              </label>
-              <Select
-                value={String(selectedOfficeTypeId)}
-                onValueChange={(val) => {
-                  if (val) {
-                    setSelectedOfficeTypeId(val)
-                  }
-                }}
-              >
-                <SelectTrigger className="w-full rounded-xl border-slate-300 font-bold text-xs bg-slate-50/50 hover:bg-white transition-colors">
-                  <span className="truncate text-slate-900 font-bold">
-                    {selectedOfficeType?.name || 'অফিসের ধরণ নির্বাচন করুন'}
-                  </span>
-                </SelectTrigger>
-                <SelectContent className="rounded-xl text-xs">
-                  {filteredOfficeTypes.map((ot) => (
-                    <SelectItem key={ot.id} value={String(ot.id)}>
-                      {ot.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Box 3: মাঠ অফিসের স্তর */}
-            <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs">
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                  মাঠ অফিসের স্তর
+            {/* Box 2a: মন্ত্রণালয় / বিভাগ (ministry scope) */}
+            {scopeOwnerType === 'ministry' && (
+              <div className={BOX_CLASS}>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  মন্ত্রণালয় / বিভাগ
                 </label>
+                <Select
+                  value={selectedMinistryId ? String(selectedMinistryId) : ''}
+                  onValueChange={(val) => {
+                    if (val) setSelectedMinistryId(val)
+                  }}
+                >
+                  <SelectTrigger className="w-full rounded-xl border-slate-300 font-bold text-xs bg-slate-50/50 hover:bg-white transition-colors">
+                    <span className="truncate text-slate-900 font-bold">
+                      {ministries.find((m) => m.id === selectedMinistryId)?.name || 'মন্ত্রণালয়/বিভাগ নির্বাচন করুন'}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl text-xs">
+                    {ministries.map((m) => (
+                      <SelectItem key={m.id} value={String(m.id)}>
+                        {m.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+            )}
+
+            {/* Box 2b: দপ্তর / সংস্থা (office-type filter and department scope) */}
+            {(scopeOwnerType === 'office_type' || scopeOwnerType === 'department') && (
+              <div className={BOX_CLASS}>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  দপ্তর / সংস্থা
+                </label>
+                <Select
+                  value={selectedDepartmentId ? String(selectedDepartmentId) : ''}
+                  onValueChange={(val) => {
+                    if (val) setSelectedDepartmentId(val)
+                  }}
+                >
+                  <SelectTrigger className="w-full rounded-xl border-slate-300 font-bold text-xs bg-slate-50/50 hover:bg-white transition-colors">
+                    <span className="truncate text-slate-900 font-bold">
+                      {departments.find((d) => d.id === selectedDepartmentId)?.name || 'দপ্তর/সংস্থা নির্বাচন করুন'}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl text-xs">
+                    {departments.map((d) => (
+                      <SelectItem key={d.id} value={String(d.id)}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Box 3: অফিসের ধরণ (office-type scope only) */}
+            {scopeOwnerType === 'office_type' && (
+              <div className={BOX_CLASS}>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  অফিসের ধরণ
+                </label>
+                <Select
+                  value={String(selectedOfficeTypeId)}
+                  onValueChange={(val) => {
+                    if (val) setSelectedOfficeTypeId(val)
+                  }}
+                >
+                  <SelectTrigger className="w-full rounded-xl border-slate-300 font-bold text-xs bg-slate-50/50 hover:bg-white transition-colors">
+                    <span className="truncate text-slate-900 font-bold">
+                      {selectedOfficeType?.name || 'অফিসের ধরণ নির্বাচন করুন'}
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl text-xs">
+                    {filteredOfficeTypes.map((ot) => (
+                      <SelectItem key={ot.id} value={String(ot.id)}>
+                        {ot.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Box 4: স্তর */}
+            <div className={BOX_CLASS}>
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                স্তর
+              </label>
               <Select
-                value={selectedLevelId || (availableLevels[0]?.id || '')}
+                value={selectedLevelId || (scopedLevels[0]?.id || '')}
                 onValueChange={(val) => {
                   if (val) setSelectedLevelId(val)
                 }}
-                disabled={availableLevels.length === 0}
+                disabled={scopedLevels.length === 0}
               >
                 <SelectTrigger className="w-full rounded-xl border-slate-300 font-bold text-xs bg-slate-50/50 hover:bg-white transition-colors">
                   <span className="truncate text-slate-900 font-bold">
-                    {availableLevels.length === 0
+                    {scopedLevels.length === 0
                       ? 'স্তর নির্ধারিত নেই'
-                      : (selectedOfficeLevel?.level_name || availableLevels[0]?.level_name || 'স্তর নির্বাচন করুন')}
+                      : (selectedOfficeLevel?.level_name || scopedLevels[0]?.level_name || 'স্তর নির্বাচন করুন')}
                   </span>
                 </SelectTrigger>
                 <SelectContent className="rounded-xl text-xs">
-                  {availableLevels.map((lvl) => (
+                  {scopedLevels.map((lvl) => (
                     <SelectItem key={lvl.id} value={lvl.id}>
                       {lvl.level_name}
                     </SelectItem>
@@ -247,15 +313,15 @@ export function TabEnableCodes({
               </Select>
             </div>
 
-            {/* Box 4: সক্রিয় কোডের সংখ্যা */}
-            <div className="bg-white p-3 rounded-xl border border-slate-200/80 shadow-2xs flex items-center justify-between">
+            {/* Box 5: সক্রিয় কোডের সংখ্যা */}
+            <div className={`${BOX_CLASS} flex items-center justify-between`}>
               <div className="flex items-center gap-2.5">
                 <div className="h-9 w-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
                   <CheckCircle2 className="h-4 w-4" />
                 </div>
                 <div>
                   <span className="text-[10px] font-bold text-slate-500 block uppercase tracking-wider">
-                    সক্রিয় কোডের সংখ্যা
+                    সক্রিয় কোডের সংখ্যা
                   </span>
                   <span className="text-base font-black text-blue-700 font-mono">
                     {toBanglaNumber(enabledCount)}{' '}
@@ -283,7 +349,7 @@ export function TabEnableCodes({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="কোড নম্বর, ক্যাটাগরি অথবা নাম দিয়ে সার্চ করুন..."
+                placeholder="কোড নম্বর, ক্যাটাগরি অথবা নাম দিয়ে সার্চ করুন..."
                 className="pl-9 rounded-xl border-slate-200 text-xs"
               />
             </div>
@@ -362,7 +428,7 @@ export function TabEnableCodes({
                 {filteredCodes.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-8 text-center text-slate-400">
-                      কোনো বাজেট কোড পাওয়া যায়নি।
+                      কোনো বাজেট কোড পাওয়া যায়নি।
                     </td>
                   </tr>
                 ) : (
