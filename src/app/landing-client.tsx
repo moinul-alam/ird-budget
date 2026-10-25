@@ -400,7 +400,7 @@ export function LandingClient() {
       </header>
 
       {/* ================ MAIN ================ */}
-      <main className="relative z-10 mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 items-start gap-8 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-[1.05fr_minmax(0,24rem)] lg:gap-14 lg:py-16">
+      <main className="relative z-10 mx-auto grid w-full max-w-6xl flex-1 grid-cols-1 items-start gap-8 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-[minmax(0,32rem)_minmax(0,24rem)] lg:justify-between lg:gap-14 lg:py-16">
         {/* ---------- Action card (first on mobile, right on desktop) ---------- */}
         <section className="order-1 w-full lg:order-2">
           <div className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white p-7 shadow-[0_24px_60px_-28px_rgba(15,23,42,0.28)] sm:rounded-[32px] sm:p-9">
