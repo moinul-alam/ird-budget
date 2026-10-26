@@ -297,18 +297,18 @@ export function LandingClient() {
 
   const lookupTitle = lookupOffice
     ? lookupOffice.headOffice
-      ? `${lookupOffice.name} · ${strings.landing.headOfficePrefix}: ${lookupOffice.headOffice}`
+      ? `${lookupOffice.name} · ${lookupOffice.headOffice}`
       : lookupOffice.name
     : ''
 
-  // Flat pill: icon and text are siblings separated by a flex gap, and the text is truncatable.
-  // No nested "badge" wrapper, so the icon can never look padded or sit on top of the first character.
+  // Mirrors the budget-id input box: same shape, padding, border and fixed height, so the result
+  // reads as a sibling field and swapping it in/out never changes the row height (no layout blink).
   const chipBase =
-    'inline-flex max-w-full min-w-0 items-center gap-3 rounded-full border px-3 py-4 text-xs font-bold'
+    'flex h-14 w-full min-w-0 items-center gap-3 rounded-2xl border px-4 text-xs font-bold'
   const chipIcon = 'h-3.5 w-3.5 shrink-0'
   // The icon is a spinning (transformed) element in the waiting state, which lets it composite
   // above later siblings. Lifting the label keeps its first character on top in every state.
-  const chipText = 'relative z-10 min-w-0 truncate pl-1'
+  const chipText = 'relative z-10 min-w-0 break-words leading-snug'
 
   const statusPill = englishOnlyWarning ? (
     <span className={`${chipBase} border-amber-200 bg-amber-50 text-amber-700`}>
@@ -326,13 +326,11 @@ export function LandingClient() {
       className={`${chipBase} border-emerald-200 bg-emerald-50 text-emerald-800`}
     >
       <CheckCircle2 className={`${chipIcon} text-emerald-600`} />
-      <span className={chipText}>
-        {lookupOffice.name}
+      <span className={`${chipText} flex flex-col`}>
+        {/* Field office: name on top, head office on the second line. Head office: name only. */}
+        <span>{lookupOffice.name}</span>
         {lookupOffice.headOffice && (
-          <span className="font-semibold text-emerald-600/80">
-            {' · '}
-            {strings.landing.headOfficePrefix}: {lookupOffice.headOffice}
-          </span>
+          <span className="font-semibold text-emerald-600/80">{lookupOffice.headOffice}</span>
         )}
       </span>
     </span>
@@ -450,7 +448,7 @@ export function LandingClient() {
                       autoComplete="off"
                       spellCheck={false}
                       aria-describedby="budget_id_status"
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-4 pr-4 text-base font-semibold text-slate-900 transition-colors placeholder:font-normal placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15 focus:placeholder:text-transparent"
+                      className="h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-4 pr-4 text-base font-semibold text-slate-900 transition-colors placeholder:font-normal placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15 focus:placeholder:text-transparent"
                     />
                     {/* Invisible twin of the digits — its width is what the field contracts to.
                         `w-max` keeps it at the true text width instead of being clamped by the
@@ -488,7 +486,7 @@ export function LandingClient() {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="পাসওয়ার্ড লিখুন"
                     autoComplete="current-password"
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-4 pr-12 font-medium text-slate-900 transition-all placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15"
+                    className="h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-4 pr-12 font-medium text-slate-900 transition-all placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15"
                   />
                   <button
                     type="button"
@@ -508,7 +506,7 @@ export function LandingClient() {
                 <button
                   type="button"
                   onClick={handleOpenRegModal}
-                  className="group order-2 flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-600 bg-emerald-600 px-4 py-4 font-heading text-sm font-bold text-white shadow-lg shadow-emerald-600/25 transition-all hover:border-emerald-500 hover:bg-emerald-500 active:scale-[0.99] sm:order-1 sm:flex-1"
+                  className="group order-2 flex h-14 w-full items-center justify-center gap-2 rounded-2xl border border-emerald-600 bg-emerald-600 px-4 font-heading text-sm font-bold text-white shadow-lg shadow-emerald-600/25 transition-all hover:border-emerald-500 hover:bg-emerald-500 active:scale-[0.99] sm:order-1 sm:flex-1"
                 >
                   <Plus className="h-4 w-4" />
                   {strings.landing.registerButton}
@@ -516,7 +514,7 @@ export function LandingClient() {
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="order-1 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-4 font-heading text-base font-bold text-white shadow-lg shadow-blue-600/30 transition-all hover:from-blue-500 hover:to-blue-400 active:scale-[0.99] disabled:opacity-70 sm:order-2 sm:flex-[1.5]"
+                  className="order-1 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-500 px-6 font-heading text-base font-bold text-white shadow-lg shadow-blue-600/30 transition-all hover:from-blue-500 hover:to-blue-400 active:scale-[0.99] disabled:opacity-70 sm:order-2 sm:flex-[1.5]"
                 >
                   {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <LogIn className="h-5 w-5" />}
                   {strings.landing.loginButton}

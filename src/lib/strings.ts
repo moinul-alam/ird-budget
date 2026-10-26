@@ -50,7 +50,6 @@ export const strings = {
     budgetIdLengthHint: '১৩ ডিজিটের বাজেট আইডি লিখুন',
     englishOnly: 'ইংরেজি সংখ্যায় লিখুন (0-9)',
     checking: 'যাচাই করা হচ্ছে...',
-    headOfficePrefix: 'হেড অফিস',
     noOffice: 'অফিস নেই',
     adminLogin: 'এডমিন লগইন',
     registerButton: 'অফিস নিবন্ধন',
