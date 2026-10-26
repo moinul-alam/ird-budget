@@ -1,7 +1,7 @@
 import { AdminLoginClient } from './admin-login-client'
 
 export const metadata = {
-  title: 'এডমিন লগিন | আইআরডি বাজেট সিস্টেম',
+  title: 'এডমিন লগিন',
   description: 'এডমিন পোর্টাল',
 }
 

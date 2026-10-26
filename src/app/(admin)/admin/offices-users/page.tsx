@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db/client'
 import { OfficeUsersClient } from './office-users-client'
 
 export const metadata = {
-  title: 'সকল অফিস ইউজার ব্যবস্থাপনা | আইআরডি বাজেট সিস্টেম',
+  title: 'সকল অফিস ইউজার ব্যবস্থাপনা',
 }
 
 export default async function AdminOfficesUsersPage() {

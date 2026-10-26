@@ -8,7 +8,7 @@ import {
 import { AdminBudgetsClient } from './admin-budgets-client'
 
 export const metadata = {
-  title: 'বাজেট উন্মুক্তকরণ | আইআরডি বাজেট সিস্টেম',
+  title: 'বাজেট উন্মুক্তকরণ',
   description: 'বাজেট সাইকেল নির্ধারণ, অর্থবছর ও বাজেটের ধরণ ব্যবস্থাপনা',
 }
 

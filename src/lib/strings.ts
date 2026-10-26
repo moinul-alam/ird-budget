@@ -3,8 +3,23 @@
 // RULE: Never hardcode UI strings in components.
 // Always import and use from here.
 
+/**
+ * The system name and the department it belongs to. These two constants are the only
+ * place the name is written: the in-app headers, the landing page, the browser tab
+ * (APP_TITLE) and every page's metadata (through the root layout's title template)
+ * all derive from them, so renaming the system is a one-line change.
+ */
+const APP_NAME = 'বাজেট প্রিপারেশন সিস্টেম'
+const ORGANIZATION_NAME = 'অভ্যন্তরীণ সম্পদ বিভাগ'
+
+/** Full system name — what the browser tab shows, e.g. "… | অভ্যন্তরীণ সম্পদ বিভাগ". */
+export const APP_TITLE = `${APP_NAME} | ${ORGANIZATION_NAME}`
+
+/** Meta description, composed from the same two names. */
+export const APP_DESCRIPTION = `${ORGANIZATION_NAME}ের বাজেট ব্যবস্থাপনা সিস্টেম`
+
 export const strings = {
-  appName: 'বাজেট প্রিপারেশন সিস্টেম',
+  appName: APP_NAME,
   loading: 'লোড হচ্ছে...',
   saving: 'সংরক্ষণ হচ্ছে...',
   saved: 'সংরক্ষিত হয়েছে ✓',
@@ -42,8 +57,8 @@ export const strings = {
   },
 
   landing: {
-    title: 'বাজেট প্রিপারেশন সিস্টেম',
-    subtitle: 'অভ্যন্তরীণ সম্পদ বিভাগ',
+    title: APP_NAME,
+    subtitle: ORGANIZATION_NAME,
     officeLogin: 'অফিস লগিন',
     budgetIdLabel: 'বাজেট আইডি লিখুন',
     budgetIdPlaceholder: '১৩ ডিজিটের বাজেট আইডি',

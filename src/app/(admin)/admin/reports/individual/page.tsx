@@ -6,7 +6,7 @@ import { getActiveCycle } from '@/lib/budget/report'
 import { IndividualReportsClient, type OfficeCodeRow, type OfficeReportItem } from './individual-reports-client'
 
 export const metadata = {
-  title: 'অফিসভিত্তিক প্রতিবেদন | আইআরডি বাজেট ব্যবস্থাপনা',
+  title: 'অফিসভিত্তিক প্রতিবেদন',
 }
 
 export default async function IndividualReportPage({

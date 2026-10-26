@@ -5,7 +5,7 @@ import { getBudgetCategories, getExpenseCodesWithCategoryAndMapping, getFormulaT
 import { AdminCodesClient } from './admin-codes-client'
 
 export const metadata = {
-  title: 'ইকোনমিক কোড সেটিংস | আইআরডি বাজেট ব্যবস্থাপনা',
+  title: 'ইকোনমিক কোড সেটিংস',
   description: 'বাজেট কোড তৈরি, ক্যাটাগরি এবং অফিসের ধরণ অনুযায়ী প্রদর্শন নির্ধারণ',
 }
 

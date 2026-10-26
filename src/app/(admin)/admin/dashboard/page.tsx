@@ -23,7 +23,7 @@ import {
 export const dynamic = 'force-dynamic'
 
 export const metadata = {
-  title: 'অ্যাডমিন ড্যাশবোর্ড | আইআরডি বাজেট ব্যবস্থাপনা',
+  title: 'অ্যাডমিন ড্যাশবোর্ড',
 }
 
 export default async function AdminDashboardPage() {

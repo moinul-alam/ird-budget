@@ -6,7 +6,7 @@ import { prisma } from '@/lib/db/client'
 import { UsersClient } from './users-client'
 
 export const metadata = {
-  title: 'ইউজার ও অ্যাক্সেস কন্ট্রোল (ACL) | আইআরডি বাজেট সিস্টেম',
+  title: 'ইউজার ও অ্যাক্সেস কন্ট্রোল (ACL)',
 }
 
 export default async function AdminUsersPage() {

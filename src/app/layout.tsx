@@ -1,9 +1,16 @@
 import type { Metadata } from "next";
+import { APP_DESCRIPTION, APP_TITLE } from "@/lib/strings";
 import "./globals.css";
 
+// The name lives in src/lib/strings.ts only. `default` is the tab title for pages that
+// set none, and `template` appends it to every page that does — so a page declares just
+// its own name ("এডমিন ড্যাশবোর্ড") and never repeats the system name.
 export const metadata: Metadata = {
-  title: "আইআরডি বাজেট ব্যবস্থাপনা",
-  description: "অভ্যন্তরীণ সম্পদ বিভাগের বাজেট ব্যবস্থাপনা সিস্টেম",
+  title: {
+    default: APP_TITLE,
+    template: `%s | ${APP_TITLE}`,
+  },
+  description: APP_DESCRIPTION,
 };
 
 export default function RootLayout({

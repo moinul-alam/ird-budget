@@ -15,7 +15,7 @@ import { loadGrades } from '@/lib/office/load-form-data'
 import { AdminSettingsClient } from './admin-settings-client'
 
 export const metadata = {
-  title: 'বাজেট সেটিংস | আইআরডি বাজেট সিস্টেম',
+  title: 'বাজেট সেটিংস',
   description: 'বাজেট কোডসমূহ, বেতন-ভাতা, যানবাহন ও সরঞ্জামের পূর্বনির্ধারিত মান ব্যবস্থাপনা',
 }
 

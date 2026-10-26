@@ -4,7 +4,7 @@ import { getGroupBudgetSettings, getOfficeTypes, getOfficeLevels } from '@/app/a
 import { GroupBudgetClient } from './group-budget-client'
 
 export const metadata = {
-  title: 'গ্রুপ বাজেট নির্ধারণ | আইআরডি বাজেট সিস্টেম',
+  title: 'গ্রুপ বাজেট নির্ধারণ',
 }
 
 export default async function AdminGroupBudgetPage() {

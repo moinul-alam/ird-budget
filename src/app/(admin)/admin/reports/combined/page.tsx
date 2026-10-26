@@ -9,7 +9,7 @@ import { RollupView } from '../_components/rollup-view'
 import { ReportScopeSelect, type ScopeOption } from '../_components/report-scope-select'
 
 export const metadata = {
-  title: `${strings.reports.groupReport} | আইআরডি বাজেট ব্যবস্থাপনা`,
+  title: strings.reports.groupReport,
 }
 
 /**

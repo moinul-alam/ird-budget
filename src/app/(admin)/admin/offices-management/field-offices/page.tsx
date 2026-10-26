@@ -5,7 +5,7 @@ import { getMinistries, getDepartments, getOfficeTypes, getOfficeLevels } from '
 import { FieldOfficesClient } from './field-offices-client'
 
 export const metadata = {
-  title: 'মাঠ পর্যায়ের সকল অফিস | আইআরডি বাজেট সিস্টেম',
+  title: 'মাঠ পর্যায়ের সকল অফিস',
 }
 
 export default async function AdminFieldOfficesPage() {

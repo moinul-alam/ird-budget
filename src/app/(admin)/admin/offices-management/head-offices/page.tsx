@@ -5,7 +5,7 @@ import { getMinistries, getDepartments, getOfficeTypes } from '@/app/actions/adm
 import { HeadOfficesClient } from './head-offices-client'
 
 export const metadata = {
-  title: 'হেড অফিসসমূহ | আইআরডি বাজেট সিস্টেম',
+  title: 'হেড অফিসসমূহ',
 }
 
 export default async function AdminHeadOfficesPage() {

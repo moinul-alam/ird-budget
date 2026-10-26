@@ -4,7 +4,7 @@ import { getDepartments, getOfficeTypes, getMinistries, getOfficeLevels } from '
 import { AdminOfficesConfigClient } from './admin-offices-config-client'
 
 export const metadata = {
-  title: 'অফিস কনফিগারেশন | আইআরডি বাজেট ব্যবস্থাপনা',
+  title: 'অফিস কনফিগারেশন',
   description: 'মন্ত্রণালয়/বিভাগ, দপ্তর/সংস্থা, অফিসের ধরণ এবং মাঠ অফিসের স্তর',
 }
 
