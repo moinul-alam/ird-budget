@@ -17,18 +17,23 @@ export default async function OfficeLayout({
   // Whether the drawer offers the final budget sheet at all.
   const cycle = await getOpenCycle()
 
-  // Forms are read-only when no cycle is open, or once the office has submitted.
+  // Forms are read-only when no cycle is open, before the office has started its
+  // budget, and once it has submitted.
   let locked = true
   let lockNotice: string = strings.dashboard.formsLocked
   if (cycle !== null) {
-    const state = session.submission_id ? await getSubmissionState(session.submission_id) : null
-    locked = session.submission_id ? state?.isLocked ?? true : true
-    lockNotice = strings.dashboard.lockedNotice
+    if (!session.submission_id) {
+      lockNotice = strings.dashboard.startRequiredNotice
+    } else {
+      const state = await getSubmissionState(session.submission_id)
+      locked = state?.isLocked ?? true
+      lockNotice = strings.dashboard.lockedNotice
+    }
   }
 
   return (
     <FormGuardProvider>
-      <AppShell user={session} hasOpenCycle={cycle !== null}>
+      <AppShell user={session} budgetStarted={cycle !== null && Boolean(session.submission_id)}>
         <FormLockProvider locked={locked} notice={lockNotice}>
           {children}
         </FormLockProvider>

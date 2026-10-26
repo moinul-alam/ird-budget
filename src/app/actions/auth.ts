@@ -19,41 +19,31 @@ function hashPassword(password: string): string {
 // Office Auth (Budget ID + Password via office_users)
 // ----------------------------------------------------
 
-export async function getOrCreateOfficeSubmission(officeId: number) {
-  // 1. Fetch active cycle
-  let cycle = await prisma.coreBudgetCycle.findFirst({
+/**
+ * The office's submission id for the cycle that is currently open, or null.
+ *
+ * This is a read-only lookup on purpose: a draft must not be minted just because
+ * someone signed in. The office starts its budget from the dashboard offer, and only
+ * that decision creates the row.
+ */
+export async function findOpenCycleSubmission(officeId: number) {
+  const cycle = await prisma.coreBudgetCycle.findFirst({
     where: { status: 'open' },
     orderBy: { id: 'desc' },
+    select: { id: true },
   })
-
-  if (!cycle) {
-    // Fallback to latest cycle
-    cycle = await prisma.coreBudgetCycle.findFirst({
-      orderBy: { id: 'desc' },
-    })
-  }
 
   if (!cycle) return null
 
-  // 2. Find or create submission for this office and cycle
-  let submission = await prisma.officeSubmission.findUnique({
+  const submission = await prisma.officeSubmission.findUnique({
     where: {
       officeId_cycleId: {
         officeId: BigInt(officeId),
         cycleId: cycle.id,
       },
     },
+    select: { id: true },
   })
-
-  if (!submission) {
-    submission = await prisma.officeSubmission.create({
-      data: {
-        officeId: BigInt(officeId),
-        cycleId: cycle.id,
-        status: 'draft',
-      },
-    })
-  }
 
   return submission ? Number(submission.id) : null
 }
@@ -121,8 +111,9 @@ export async function loginOffice(budgetId: string, passwordInput: string) {
       data: { lastLoginAt: new Date() },
     })
 
-    // 5. Resolve submission_id for the current cycle
-    const submissionId = await getOrCreateOfficeSubmission(Number(office.id))
+    // 5. Attach an already-started submission for the open cycle, if there is one.
+    //    Signing in never creates the draft — the office starts it from the dashboard.
+    const submissionId = await findOpenCycleSubmission(Number(office.id))
 
     // 6. Set custom cookie for office session
     const cookieStore = await cookies()
@@ -206,8 +197,8 @@ export async function registerOffice(formData: FormData) {
       },
     })
 
-    // 5. Resolve active submission
-    const submissionId = await getOrCreateOfficeSubmission(Number(newOffice.id))
+    // 5. Attach the submission if the office had already started one for this cycle
+    const submissionId = await findOpenCycleSubmission(Number(newOffice.id))
 
     // 6. Log them in
     const cookieStore = await cookies()

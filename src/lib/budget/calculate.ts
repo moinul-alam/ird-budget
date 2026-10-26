@@ -72,8 +72,6 @@ export interface BudgetContext {
     monthly_bill: number;
     due: number;
   } | null;
-  /** True for a কর সার্কেল, which is the only office type that raises a postal demand. */
-  officeTypeIsTaxCircle: boolean;
   /**
    * Form 7 / 8 vehicles. The purchased fuel's own price comes straight off
    * `ref_fuel_types.unit_price`, and its category names the economic code the cost
@@ -332,13 +330,13 @@ export const formulaRegistry: Record<string, (ctx: BudgetContext, code: string) 
       .filter((u) => u.economic_code === code)
       .reduce((sum, u) => sum + num(u.annual_cost), 0),
 
-  // ডাক — only a কর সার্কেল raises a postal demand (the flag on the office type). The
-  // non-filer count (tin − returns) is multiplied by the notices each non-filer is
-  // served and the cost of one notice; both come from the ডাক card on /admin/settings.
-  // Every other office type keeps 0 and overrides the line by hand (see
+  // ডাক — only a কর সার্কেল raises a postal demand, and only a কর সার্কেল fills ফর্ম ১২
+  // (the form tells every other office to leave it empty). So the office's own return info
+  // is the signal: the non-filer count (tin − returns) is multiplied by the notices each
+  // non-filer is served and the cost of one notice, both from the ডাক card on /admin/settings.
+  // An office that never filled the form computes 0 and types the allotment by hand (see
   // `allow_manual_override` on the code).
   postal_demand: (ctx) => {
-    if (!ctx.officeTypeIsTaxCircle) return 0
     const info = ctx.returnInfo
     if (!info) return 0
     const nonFilerCount = Math.max(0, int(info.tin_count) - int(info.return_submitted_count))

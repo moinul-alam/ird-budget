@@ -16,7 +16,6 @@ import {
   DepartmentItem,
   OfficeTypeHierarchyItem,
   OfficeLevelItem,
-  LevelOwnerType,
   saveMinistry,
   deleteMinistry,
   saveDepartment,
@@ -84,9 +83,6 @@ export function AdminOfficesConfigClient({
 
   // Filtering dropdowns for relational views
   const [filterDeptForTypes, setFilterDeptForTypes] = useState<string>('all')
-  // Which owner the level table is filtered to: every ministry, every department, every office
-  // type, or all of them.
-  const [levelOwnerFilter, setLevelOwnerFilter] = useState<string>('all')
 
   // Modals state
   const [minModal, setMinModal] = useState<MinistryModalState>({
@@ -104,15 +100,15 @@ export function AdminOfficesConfigClient({
     open: false,
     name: '',
     department_id: '',
-    is_tax_circle: false,
   })
 
   const [hierarchyModal, setHierarchyModal] = useState<HierarchyModalState>({
     open: false,
-    owner_type: 'office_type',
-    owner_id: '',
+    ministry_id: '',
+    department_id: '',
+    office_type_id: '',
     level_name: '',
-    level_order: 1,
+    level_order: 3,
   })
 
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
@@ -235,7 +231,6 @@ export function AdminOfficesConfigClient({
         id: officeTypeModal.id,
         name: officeTypeModal.name,
         department_id: officeTypeModal.department_id?.toString(),
-        is_tax_circle: officeTypeModal.is_tax_circle,
       })
 
       if (res.error) {
@@ -246,7 +241,6 @@ export function AdminOfficesConfigClient({
           open: false,
           name: '',
           department_id: departments[0]?.id?.toString() || '',
-          is_tax_circle: false,
         })
 
         const dep = departments.find((d) => d.id === officeTypeModal.department_id)
@@ -259,7 +253,6 @@ export function AdminOfficesConfigClient({
                   name: officeTypeModal.name.trim(),
                   department_id: officeTypeModal.department_id?.toString(),
                   department_name: dep?.name || '',
-                  is_tax_circle: officeTypeModal.is_tax_circle,
                 }
                 : ot
             )
@@ -274,7 +267,6 @@ export function AdminOfficesConfigClient({
               department_name: dep?.name || '',
               hierarchy_order: null,
               is_group_budget: false,
-              is_tax_circle: officeTypeModal.is_tax_circle,
             },
           ])
         }
@@ -284,8 +276,8 @@ export function AdminOfficesConfigClient({
 
   // Handle Tab 4 Save (Office Level)
   const handleSaveOfficeLevel = () => {
-    if (!hierarchyModal.owner_id) {
-      showStatus('স্তরের মালিক নির্বাচন আবশ্যক', 'error')
+    if (!hierarchyModal.office_type_id) {
+      showStatus('অফিসের ধরণ নির্বাচন আবশ্যক', 'error')
       return
     }
     if (!hierarchyModal.level_name.trim()) {
@@ -300,8 +292,8 @@ export function AdminOfficesConfigClient({
     startTransition(async () => {
       const res = await saveOfficeLevel({
         id: hierarchyModal.id,
-        owner_type: hierarchyModal.owner_type,
-        owner_id: hierarchyModal.owner_id,
+        owner_type: 'office_type',
+        owner_id: hierarchyModal.office_type_id,
         level_name: hierarchyModal.level_name,
         level_order: hierarchyModal.level_order,
       })
@@ -316,10 +308,11 @@ export function AdminOfficesConfigClient({
         })
         setHierarchyModal({
           open: false,
-          owner_type: 'office_type',
-          owner_id: '',
+          ministry_id: '',
+          department_id: '',
+          office_type_id: '',
           level_name: '',
-          level_order: 1,
+          level_order: 3,
         })
       }
     })
@@ -355,6 +348,7 @@ export function AdminOfficesConfigClient({
         title: 'মন্ত্রণালয়/বিভাগ মোছা সম্ভব নয়',
         description: `"${m.name}" এর অধীনে ${toBanglaNumber(linkedDepts.length)}টি দপ্তর/সংস্থা বিদ্যমান রয়েছে। প্রথমে সংশ্লিষ্ট দপ্তরসমূহ অপসারণ করুন।`,
         onConfirm: () => setConfirmModal((prev) => ({ ...prev, open: false })),
+        blocked: true,
       })
       return
     }
@@ -366,9 +360,18 @@ export function AdminOfficesConfigClient({
       onConfirm: () => {
         startTransition(async () => {
           const res = await deleteMinistry(m.id)
-          setConfirmModal((prev) => ({ ...prev, open: false }))
-          if (res.error) showStatus(res.error, 'error')
-          else {
+          if (res.error) {
+            // Budget data (draft or submitted) is attached to this ministry, so it cannot be
+            // removed — keep the reason in front of the admin rather than a fleeting banner.
+            setConfirmModal({
+              open: true,
+              title: 'মন্ত্রণালয়/বিভাগ মোছা সম্ভব নয়',
+              description: res.error,
+              onConfirm: () => setConfirmModal((prev) => ({ ...prev, open: false })),
+              blocked: true,
+            })
+          } else {
+            setConfirmModal((prev) => ({ ...prev, open: false }))
             showStatus('মন্ত্রণালয়/বিভাগ সফলভাবে মুছে ফেলা হয়েছে')
             setMinistries((prev) => prev.filter((item) => item.id !== m.id))
           }
@@ -385,6 +388,7 @@ export function AdminOfficesConfigClient({
         title: 'দপ্তর/সংস্থা মোছা সম্ভব নয়',
         description: `"${d.name}" এর অধীনে ${toBanglaNumber(linkedTypes.length)}টি অফিসের ধরণ বিদ্যমান রয়েছে। প্রথমে সম্পর্কিত অফিসের ধরণসমূহ অপসারণ করুন।`,
         onConfirm: () => setConfirmModal((prev) => ({ ...prev, open: false })),
+        blocked: true,
       })
       return
     }
@@ -396,9 +400,18 @@ export function AdminOfficesConfigClient({
       onConfirm: () => {
         startTransition(async () => {
           const res = await deleteDepartment(d.id)
-          setConfirmModal((prev) => ({ ...prev, open: false }))
-          if (res.error) showStatus(res.error, 'error')
-          else {
+          if (res.error) {
+            // Budget data (draft or submitted) is attached to this department, so it cannot be
+            // removed — keep the reason in front of the admin rather than a fleeting banner.
+            setConfirmModal({
+              open: true,
+              title: 'দপ্তর/সংস্থা মোছা সম্ভব নয়',
+              description: res.error,
+              onConfirm: () => setConfirmModal((prev) => ({ ...prev, open: false })),
+              blocked: true,
+            })
+          } else {
+            setConfirmModal((prev) => ({ ...prev, open: false }))
             showStatus('দপ্তর/সংস্থা সফলভাবে মুছে ফেলা হয়েছে')
             setDepartments((prev) => prev.filter((item) => item.id !== d.id))
           }
@@ -432,13 +445,10 @@ export function AdminOfficesConfigClient({
       ? officeTypes
       : officeTypes.filter((ot) => String(ot.department_id) === filterDeptForTypes)
 
-  // Tab 4: which kind of owner a level belongs to. A level links to exactly one owner, so the
-  // link that is present tells us the kind without storing it separately.
-  const levelOwnerKind = (lvl: OfficeLevelItem): LevelOwnerType =>
-    lvl.ministry_id ? 'ministry' : lvl.office_type_id ? 'office_type' : 'department'
-
-  const filteredOfficeLevelsForTab4 = officeLevels
-    .filter((lvl) => levelOwnerFilter === 'all' || levelOwnerKind(lvl) === levelOwnerFilter)
+  // Tab 4 lists only office-type (field-office) levels. Ministry and department levels are
+  // auto-provisioned by their own tabs, so they are not shown or editable here.
+  const officeTypeLevelsForTab4 = officeLevels
+    .filter((lvl) => lvl.office_type_id)
     .sort((a, b) => a.level_order - b.level_order)
 
   return (
@@ -577,12 +587,11 @@ export function AdminOfficesConfigClient({
       {/* Tab 4: Hierarchy */}
       {activeTab === 'hierarchy' && (
         <TabOfficeLevels
-          filteredOfficeLevels={filteredOfficeLevelsForTab4}
+          officeTypeLevels={officeTypeLevelsForTab4}
+          officeLevels={officeLevels}
           ministries={ministries}
           departments={departments}
           officeTypes={officeTypes}
-          levelOwnerFilter={levelOwnerFilter}
-          setLevelOwnerFilter={setLevelOwnerFilter}
           hierarchyModal={hierarchyModal}
           setHierarchyModal={setHierarchyModal}
           onSaveOfficeLevel={handleSaveOfficeLevel}

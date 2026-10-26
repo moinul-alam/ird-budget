@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition } from 'react'
 import { toBanglaNumber } from '@/lib/bangla'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -57,22 +57,20 @@ export function HeadOfficesClient({
   const [isPending, startTransition] = useTransition()
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [filterOfficeTypeId, setFilterOfficeTypeId] = useState('all')
 
-  // Head Office Modal
+  // Head Office Modal — a head office is the top level of one অফিসের ধরণ, and the type already
+  // pins down its দপ্তর/সংস্থা and মন্ত্রণালয়/বিভাগ, so the type is the only thing to pick.
   const [modal, setModal] = useState<{
     open: boolean
     id?: string
     name: string
     budget_id?: string
-    ministry_id: string
-    department_id: string
     office_type_id: string
   }>({
     open: false,
     name: '',
     budget_id: '',
-    ministry_id: '',
-    department_id: '',
     office_type_id: '',
   })
 
@@ -82,6 +80,9 @@ export function HeadOfficesClient({
     title: string
     description: string
     onConfirm: () => void
+    /** Set when deletion is refused (e.g. the office holds budget data): the dialog then only
+     *  explains why instead of offering a confirm button. */
+    blocked?: boolean
   }>({
     open: false,
     title: '',
@@ -94,33 +95,20 @@ export function HeadOfficesClient({
     setTimeout(() => setStatusMessage(null), 3000)
   }
 
-  // Derived filtered departments for selected ministry in modal
-  const modalDepartments = useMemo(() => {
-    if (!modal.ministry_id) return departments
-    return departments.filter((d) => d.ministry_id === modal.ministry_id)
-  }, [departments, modal.ministry_id])
-
-  // Derived filtered office types for selected department in modal
-  const modalOfficeTypes = useMemo(() => {
-    if (!modal.department_id) return officeTypes
-    return officeTypes.filter((ot) => ot.department_id === modal.department_id)
-  }, [officeTypes, modal.department_id])
+  // The মন্ত্রণালয়/বিভাগ → দপ্তর/সংস্থা picked implicitly by the chosen office type.
+  const selectedOfficeType = officeTypes.find((ot) => ot.id === modal.office_type_id)
+  const selectedDepartment = departments.find(
+    (d) => String(d.id) === String(selectedOfficeType?.department_id),
+  )
+  const selectedMinistry = ministries.find((m) => m.id === selectedDepartment?.ministry_id)
 
   // Open Add modal with smart defaults
   const handleOpenAdd = () => {
-    const defaultMin = ministries[0]?.id || ''
-    const defaultDepts = defaultMin ? departments.filter((d) => d.ministry_id === defaultMin) : departments
-    const defaultDeptId = defaultDepts[0]?.id?.toString() || departments[0]?.id?.toString() || ''
-    const defaultTypes = defaultDeptId ? officeTypes.filter((ot) => ot.department_id === defaultDeptId) : officeTypes
-    const defaultTypeId = defaultTypes[0]?.id?.toString() || officeTypes[0]?.id?.toString() || ''
-
     setModal({
       open: true,
       name: '',
       budget_id: '',
-      ministry_id: defaultMin,
-      department_id: defaultDeptId,
-      office_type_id: defaultTypeId,
+      office_type_id: officeTypes[0]?.id?.toString() || '',
     })
   }
 
@@ -131,21 +119,17 @@ export function HeadOfficesClient({
       id: item.id,
       name: item.name,
       budget_id: item.budget_id || '',
-      ministry_id: item.ministry_id || ministries[0]?.id || '',
-      department_id: item.department_id,
       office_type_id: item.office_type_id,
     })
   }
 
-  // Open Duplicate modal: copies ministry, department, office type, keeping name EMPTY
+  // Open Duplicate modal: copies the office type, keeping name EMPTY
   const handleOpenDuplicate = (item: HeadOfficeItem) => {
     setModal({
       open: true,
       id: undefined, // Create new record
       name: '', // User has to type the name
       budget_id: '',
-      ministry_id: item.ministry_id || ministries[0]?.id || '',
-      department_id: item.department_id,
       office_type_id: item.office_type_id,
     })
     showStatus(`"${item.name}" থেকে অনুলিপি করা হচ্ছে। অনুগ্রহ করে নতুন হেড অফিসের নাম ও বাজেট আইডি লিখুন।`, 'success')
@@ -155,10 +139,6 @@ export function HeadOfficesClient({
   const handleSave = () => {
     if (!modal.name.trim()) {
       showStatus('হেড অফিসের নাম আবশ্যক', 'error')
-      return
-    }
-    if (!modal.department_id) {
-      showStatus('দপ্তর/সংস্থা নির্বাচন আবশ্যক', 'error')
       return
     }
     if (!modal.office_type_id) {
@@ -171,7 +151,6 @@ export function HeadOfficesClient({
         id: modal.id,
         name: modal.name,
         budget_id: modal.budget_id?.trim() || undefined,
-        department_id: modal.department_id,
         office_type_id: modal.office_type_id,
       })
 
@@ -182,9 +161,9 @@ export function HeadOfficesClient({
         const trimmedBudget = modal.budget_id?.trim() || undefined
         setModal((prev) => ({ ...prev, open: false, budget_id: '' }))
 
-        const dept = departments.find((d) => d.id === modal.department_id)
         const typeObj = officeTypes.find((ot) => ot.id === modal.office_type_id)
-        const minObj = ministries.find((m) => m.id === modal.ministry_id)
+        const dept = departments.find((d) => String(d.id) === String(typeObj?.department_id))
+        const minObj = ministries.find((m) => m.id === dept?.ministry_id)
 
         if (modal.id) {
           setHeadOffices((prev) =>
@@ -194,9 +173,9 @@ export function HeadOfficesClient({
                   ...h,
                   name: modal.name.trim(),
                   budget_id: trimmedBudget,
-                  department_id: modal.department_id,
+                  department_id: String(typeObj?.department_id || ''),
                   department_name: dept?.name || '',
-                  ministry_id: modal.ministry_id,
+                  ministry_id: dept?.ministry_id || '',
                   ministry_name: minObj?.name || '',
                   office_type_id: modal.office_type_id,
                   office_type_name: typeObj?.name || '',
@@ -210,9 +189,9 @@ export function HeadOfficesClient({
               id: String(Date.now()),
               name: modal.name.trim(),
               budget_id: trimmedBudget,
-              department_id: modal.department_id,
+              department_id: String(typeObj?.department_id || ''),
               department_name: dept?.name || '',
-              ministry_id: modal.ministry_id,
+              ministry_id: dept?.ministry_id || '',
               ministry_name: minObj?.name || '',
               office_type_id: modal.office_type_id,
               office_type_name: typeObj?.name || '',
@@ -234,10 +213,18 @@ export function HeadOfficesClient({
       onConfirm: () => {
         startTransition(async () => {
           const res = await deleteHeadOffice(item.id)
-          setConfirmModal((prev) => ({ ...prev, open: false }))
           if (res.error) {
-            showStatus(res.error, 'error')
+            // The server refused (budget data attached, or field offices still under it): show
+            // the reason in the dialog rather than a transient banner.
+            setConfirmModal({
+              open: true,
+              title: 'হেড অফিস মোছা সম্ভব নয়',
+              description: res.error,
+              onConfirm: () => setConfirmModal((prev) => ({ ...prev, open: false })),
+              blocked: true,
+            })
           } else {
+            setConfirmModal((prev) => ({ ...prev, open: false }))
             showStatus('হেড অফিস সফলভাবে মুছে ফেলা হয়েছে')
             setHeadOffices((prev) => prev.filter((h) => h.id !== item.id))
           }
@@ -246,12 +233,22 @@ export function HeadOfficesClient({
     })
   }
 
-  const filteredHeadOffices = headOffices.filter(
-    (h) =>
-      h.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      h.department_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      h.office_type_name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // Office types that actually have head offices, used by the toolbar filter.
+  const headOfficeTypeOptions = Array.from(
+    new Map(
+      headOffices
+        .filter((h) => h.office_type_id)
+        .map((h) => [h.office_type_id, h.office_type_name] as const),
+    ).entries(),
+  ).map(([id, name]) => ({ id, name }))
+
+  const filteredHeadOffices = headOffices.filter((h) => {
+    if (filterOfficeTypeId !== 'all' && h.office_type_id !== filterOfficeTypeId) return false
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return true
+    // The admin may type either a head office name or a budget ID.
+    return h.name.toLowerCase().includes(q) || (h.budget_id || '').toLowerCase().includes(q)
+  })
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -301,12 +298,38 @@ export function HeadOfficesClient({
                 <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-slate-400" />
                 <Input
                   type="text"
-                  placeholder="হেড অফিস খুঁজুন..."
+                  placeholder="নাম বা বাজেট আইডি খুঁজুন..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-8 text-xs h-9 rounded-xl border-slate-200 bg-slate-50/50"
                 />
               </div>
+            )}
+
+            {headOfficeTypeOptions.length > 1 && (
+              <Select
+                value={filterOfficeTypeId}
+                onValueChange={(val) => {
+                  if (val) setFilterOfficeTypeId(val)
+                }}
+              >
+                <SelectTrigger className="w-40 sm:w-44 text-xs h-9 rounded-xl border-slate-200 bg-slate-50/50 shrink-0">
+                  <SelectValue placeholder="সব অফিসের ধরণ">
+                    {filterOfficeTypeId === 'all'
+                      ? 'সব অফিসের ধরণ'
+                      : headOfficeTypeOptions.find((ot) => ot.id === filterOfficeTypeId)?.name ||
+                        'সব অফিসের ধরণ'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="rounded-xl text-xs max-h-60">
+                  <SelectItem value="all">সব অফিসের ধরণ</SelectItem>
+                  {headOfficeTypeOptions.map((ot) => (
+                    <SelectItem key={ot.id} value={ot.id}>
+                      {ot.name || '—'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
 
             {departments.length > 0 && officeTypes.length > 0 && (
@@ -368,11 +391,19 @@ export function HeadOfficesClient({
                     <th className="py-3 px-4 w-16">ক্রম</th>
                     <th className="py-3 px-4">হেড অফিসের নাম</th>
                     <th className="py-3 px-4">বাজেট আইডি</th>
+                    <th className="py-3 px-4 w-44">অফিসের ধরণ</th>
                     <th className="py-3 px-4">দপ্তর / সংস্থা</th>
-                    <th className="py-3 px-4 text-center w-36">একশন</th>
+                    <th className="py-3 px-3 text-center w-32">একশন</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
+                  {filteredHeadOffices.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-10 px-4 text-center text-xs text-slate-500">
+                        অনুসন্ধান বা ফিল্টার অনুযায়ী কোনো হেড অফিস পাওয়া যায়নি।
+                      </td>
+                    </tr>
+                  )}
                   {filteredHeadOffices.map((h, idx) => (
                     <tr key={h.id} className="hover:bg-slate-50/60 transition-colors">
                       <td className="py-3.5 px-4 font-mono font-semibold text-slate-600">
@@ -390,10 +421,15 @@ export function HeadOfficesClient({
                           <span className="text-slate-400 text-xs italic">নির্ধারিত নেই</span>
                         )}
                       </td>
+                      <td className="py-3.5 px-4">
+                        <span className="inline-block whitespace-nowrap px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-lg font-bold">
+                          {h.office_type_name || '—'}
+                        </span>
+                      </td>
                       <td className="py-3.5 px-4 font-semibold text-slate-700">
                         {h.department_name || '—'}
                       </td>
-                      <td className="py-3.5 px-4 text-center">
+                      <td className="py-3.5 px-3 text-center">
                         <div className="flex items-center justify-center gap-1">
                           <Button
                             variant="ghost"
@@ -445,72 +481,7 @@ export function HeadOfficesClient({
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* ১. মন্ত্রণালয়/বিভাগ (Dropdown) */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">মন্ত্রণালয় / বিভাগ</Label>
-              <Select
-                value={modal.ministry_id}
-                onValueChange={(val) => {
-                  if (val) {
-                    const depts = departments.filter((d) => d.ministry_id === val)
-                    const firstDeptId = depts[0]?.id?.toString() || departments[0]?.id?.toString() || ''
-                    const types = officeTypes.filter((ot) => ot.department_id === firstDeptId)
-                    setModal((prev) => ({
-                      ...prev,
-                      ministry_id: val,
-                      department_id: firstDeptId,
-                      office_type_id: types[0]?.id?.toString() || '',
-                    }))
-                  }
-                }}
-              >
-                <SelectTrigger className="w-full rounded-xl border-slate-200 text-xs h-10">
-                  <SelectValue placeholder="মন্ত্রণালয়/বিভাগ নির্বাচন করুন">
-                    {ministries.find((m) => m.id === modal.ministry_id)?.name || 'মন্ত্রণালয়/বিভাগ নির্বাচন করুন'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="rounded-xl text-xs">
-                  {ministries.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* ২. দপ্তর/সংস্থা (Dropdown) */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">দপ্তর / সংস্থা</Label>
-              <Select
-                value={String(modal.department_id || '')}
-                onValueChange={(val) => {
-                  if (val) {
-                    const types = officeTypes.filter((ot) => ot.department_id === val)
-                    setModal((prev) => ({
-                      ...prev,
-                      department_id: val,
-                      office_type_id: types[0]?.id?.toString() || '',
-                    }))
-                  }
-                }}
-              >
-                <SelectTrigger className="w-full rounded-xl border-slate-200 text-xs h-10">
-                  <SelectValue placeholder="দপ্তর/সংস্থা নির্বাচন করুন">
-                    {departments.find((d) => d.id === modal.department_id)?.name || 'দপ্তর/সংস্থা নির্বাচন করুন'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="rounded-xl text-xs">
-                  {modalDepartments.map((d) => (
-                    <SelectItem key={d.id} value={String(d.id)}>
-                      {d.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* ৩. অফিসের ধরণ (Dropdown) */}
+            {/* ১. অফিসের ধরণ (Dropdown) — determines মন্ত্রণালয়/বিভাগ and দপ্তর/সংস্থা */}
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-700">অফিসের ধরণ</Label>
               <Select
@@ -523,20 +494,23 @@ export function HeadOfficesClient({
               >
                 <SelectTrigger className="w-full rounded-xl border-slate-200 text-xs h-10">
                   <SelectValue placeholder="অফিসের ধরণ নির্বাচন করুন">
-                    {officeTypes.find((ot) => ot.id === modal.office_type_id)?.name || 'অফিসের ধরণ নির্বাচন করুন'}
+                    {selectedOfficeType?.name || 'অফিসের ধরণ নির্বাচন করুন'}
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent className="rounded-xl text-xs">
-                  {modalOfficeTypes.map((ot) => (
+                <SelectContent className="rounded-xl text-xs max-h-60">
+                  {officeTypes.map((ot) => (
                     <SelectItem key={ot.id} value={String(ot.id)}>
-                      {ot.name}
+                      {ot.department_name ? `${ot.name} — ${ot.department_name}` : ot.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <p className="text-[11px] text-slate-500">
+                {selectedMinistry?.name || '—'} → {selectedDepartment?.name || '—'}
+              </p>
             </div>
 
-            {/* ৪. হেড অফিসের নাম (Typed field) */}
+            {/* ২. হেড অফিসের নাম (Typed field) */}
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-700">হেড অফিসের নাম</Label>
               <Input
@@ -548,7 +522,7 @@ export function HeadOfficesClient({
               />
             </div>
 
-            {/* ৫. বাজেট আইডি (Typed field) */}
+            {/* ৩. বাজেট আইডি (Typed field) */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-bold text-slate-700">বাজেট আইডি</Label>
@@ -610,17 +584,19 @@ export function HeadOfficesClient({
               onClick={() => setConfirmModal((prev) => ({ ...prev, open: false }))}
               className="rounded-xl text-xs font-semibold"
             >
-              বাতিল
+              {confirmModal.blocked ? 'ঠিক আছে' : 'বাতিল'}
             </Button>
-            <Button
-              type="button"
-              onClick={confirmModal.onConfirm}
-              disabled={isPending}
-              className="rounded-xl text-white font-bold text-xs bg-rose-600 hover:bg-rose-700"
-            >
-              {isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-              মুছে ফেলা নিশ্চিত করুন
-            </Button>
+            {!confirmModal.blocked && (
+              <Button
+                type="button"
+                onClick={confirmModal.onConfirm}
+                disabled={isPending}
+                className="rounded-xl text-white font-bold text-xs bg-rose-600 hover:bg-rose-700"
+              >
+                {isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                মুছে ফেলা নিশ্চিত করুন
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

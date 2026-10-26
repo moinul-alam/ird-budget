@@ -46,17 +46,19 @@ export function ConfirmDeleteDialog({
             onClick={() => setConfirmModal((prev) => ({ ...prev, open: false }))}
             className="rounded-xl text-xs font-semibold"
           >
-            বাতিল
+            {confirmModal.blocked ? 'ঠিক আছে' : 'বাতিল'}
           </Button>
-          <Button
-            type="button"
-            onClick={confirmModal.onConfirm}
-            disabled={isPending}
-            className="rounded-xl text-white font-bold text-xs bg-rose-600 hover:bg-rose-700"
-          >
-            {isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-            মুছে ফেলা নিশ্চিত করুন
-          </Button>
+          {!confirmModal.blocked && (
+            <Button
+              type="button"
+              onClick={confirmModal.onConfirm}
+              disabled={isPending}
+              className="rounded-xl text-white font-bold text-xs bg-rose-600 hover:bg-rose-700"
+            >
+              {isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+              মুছে ফেলা নিশ্চিত করুন
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

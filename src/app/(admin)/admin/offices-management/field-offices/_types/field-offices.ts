@@ -26,4 +26,7 @@ export interface ConfirmModalState {
   title: string
   description: string
   onConfirm: () => void
+  /** When true the action is not allowed (e.g. the office holds budget data) and the dialog only
+   *  explains why instead of offering a confirm button. */
+  blocked?: boolean
 }

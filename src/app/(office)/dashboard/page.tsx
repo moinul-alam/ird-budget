@@ -3,12 +3,24 @@ import Link from 'next/link'
 import { strings } from '@/lib/strings'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ArrowRight, BarChart3, CheckCircle2, Clock, Info, Lock, RotateCcw } from 'lucide-react'
+import {
+  ArrowRight,
+  BarChart3,
+  CalendarClock,
+  CalendarRange,
+  CheckCircle2,
+  Clock,
+  Coins,
+  Info,
+  Lock,
+  RotateCcw,
+} from 'lucide-react'
 import { toBanglaAmount, toBanglaDate, toBanglaNumber } from '@/lib/bangla'
 import { getOfficeSession } from '@/lib/session'
 import { getOfficeDashboard } from '@/lib/office/dashboard'
 import { FORM_COUNT, FORM_ITEMS, FORM_SHADES } from '@/lib/office/forms'
 import { UnlockBudgetCard } from './_components/unlock-budget-card'
+import { StartBudgetCard } from './_components/start-budget-card'
 
 export default async function DashboardPage() {
   const session = await getOfficeSession()
@@ -117,74 +129,109 @@ export default async function DashboardPage() {
   const completedCount = completedForms.length
   const progressPct = Math.round((completedCount / FORM_COUNT) * 100)
 
-  return (
-    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-8">
-      {headerBlock}
+  // সেকশন ১: the cycle — one group titled "চলমান বাজেট চক্র" holding the three facts
+  // that describe it (fiscal year, budget type, submission state). Both the
+  // not-started view and the full dashboard open with it.
+  const cycleGroupBlock = (
+    <div className="rounded-2xl overflow-hidden border border-slate-200/90 bg-white shadow-sm">
+      {/* Group title */}
+      <div className="flex items-center gap-2.5 px-5 py-3.5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
+        <CalendarClock className="h-4 w-4 shrink-0 text-blue-100" />
+        <span className="text-sm font-bold tracking-wide">{strings.dashboard.openCycleLabel}</span>
+      </div>
 
-      {/* সেকশন ১: the cycle, answered by fiscal year / type / submission state */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Title box — prominent */}
-        <div className="rounded-2xl p-5 bg-gradient-to-br from-blue-600 to-indigo-700 text-white border border-blue-700 shadow-lg shadow-blue-600/20 flex flex-col justify-center min-h-[6.5rem] lg:scale-[1.04]">
-          <span className="text-[18px] font-bold uppercase tracking-wider text-blue-100">
-            {strings.dashboard.openCycleLabel}
-          </span>
-        </div>
-
+      {/* Three facts, kept in one group and separated by dividers rather than card edges */}
+      <div className="grid grid-cols-1 divide-y divide-slate-100 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
         {/* অর্থবছর */}
-        <div className="rounded-2xl p-5 bg-violet-50 border border-violet-200 flex flex-col justify-center min-h-[6.5rem]">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-violet-500">
-            {strings.dashboard.fiscalYearLabel}
-          </span>
-          <span className="mt-1.5 text-xl font-black text-violet-900 font-mono tracking-tight">
-            {toBanglaNumber(cycle.fiscal_year)}
-          </span>
+        <div className="flex items-start gap-3.5 p-5 sm:p-6">
+          <div className="h-10 w-10 rounded-xl bg-violet-50 border border-violet-200 flex items-center justify-center shrink-0">
+            <CalendarRange className="h-5 w-5 text-violet-600" />
+          </div>
+          <div className="min-w-0">
+            <span className="block text-[11px] font-bold uppercase tracking-wider text-violet-500">
+              {strings.dashboard.fiscalYearLabel}
+            </span>
+            <span className="mt-1 block text-xl font-black text-slate-900 font-mono tracking-tight">
+              {toBanglaNumber(cycle.fiscal_year)}
+            </span>
+          </div>
         </div>
 
         {/* বাজেটের ধরন */}
-        <div className="rounded-2xl p-5 bg-teal-50 border border-teal-200 flex flex-col justify-center min-h-[6.5rem]">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-teal-600">
-            {strings.dashboard.budgetTypeLabel}
-          </span>
-          <span className="mt-1.5 text-xl font-black text-teal-900 leading-tight">
-            {cycle.budget_type}
-          </span>
+        <div className="flex items-start gap-3.5 p-5 sm:p-6">
+          <div className="h-10 w-10 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center shrink-0">
+            <Coins className="h-5 w-5 text-indigo-600" />
+          </div>
+          <div className="min-w-0">
+            <span className="block text-[11px] font-bold uppercase tracking-wider text-indigo-600">
+              {strings.dashboard.budgetTypeLabel}
+            </span>
+            <span className="mt-1 block text-xl font-black text-slate-900 leading-tight">
+              {cycle.budget_type}
+            </span>
+          </div>
         </div>
 
         {/* দাখিলের অবস্থা */}
-        <div
-          className={`rounded-2xl p-5 border flex flex-col justify-center min-h-[6.5rem] ${isSubmitted ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'
-            }`}
-        >
-          <span
-            className={`text-[11px] font-bold uppercase tracking-wider ${isSubmitted ? 'text-emerald-600' : 'text-amber-600'
-              }`}
-          >
-            {strings.dashboard.submissionStateLabel}
-          </span>
-          <span
-            className={`mt-1.5 flex items-center gap-1.5 text-sm font-black ${isSubmitted ? 'text-emerald-900' : 'text-amber-900'
+        <div className="flex items-start gap-3.5 p-5 sm:p-6">
+          <div
+            className={`h-10 w-10 rounded-xl border flex items-center justify-center shrink-0 ${isSubmitted ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'
               }`}
           >
             {isSubmitted ? (
-              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
             ) : isRevision ? (
-              <RotateCcw className="h-4 w-4 text-amber-600 shrink-0" />
+              <RotateCcw className="h-5 w-5 text-amber-600" />
             ) : (
-              <Clock className="h-4 w-4 text-amber-600 shrink-0" />
+              <Clock className="h-5 w-5 text-amber-600" />
             )}
-            {isSubmitted
-              ? strings.dashboard.submittedOn
-              : isRevision
-                ? strings.dashboard.revisionNotSubmitted
-                : strings.dashboard.notSubmitted}
-          </span>
-          {isSubmitted && submission?.submittedAt ? (
-            <span className="mt-0.5 text-[11px] font-medium text-emerald-700">
-              {toBanglaDate(submission.submittedAt)}
+          </div>
+          <div className="min-w-0">
+            <span
+              className={`block text-[11px] font-bold uppercase tracking-wider ${isSubmitted ? 'text-emerald-600' : 'text-amber-600'
+                }`}
+            >
+              {strings.dashboard.submissionStateLabel}
             </span>
-          ) : null}
+            <span
+              className={`mt-1 block text-sm font-black ${isSubmitted ? 'text-emerald-900' : 'text-amber-900'
+                }`}
+            >
+              {isSubmitted
+                ? strings.dashboard.submittedOn
+                : isRevision
+                  ? strings.dashboard.revisionNotSubmitted
+                  : strings.dashboard.notSubmitted}
+            </span>
+            {isSubmitted && submission?.submittedAt ? (
+              <span className="mt-0.5 block text-[11px] font-medium text-emerald-700">
+                {toBanglaDate(submission.submittedAt)}
+              </span>
+            ) : null}
+          </div>
         </div>
       </div>
+    </div>
+  )
+
+  // ── Cycle open but nothing started: the office decides whether to begin ────
+  // The session is the gate as well as the database, so a cookie that fell behind
+  // (for example a second tab that logged in before the cycle opened) is healed by
+  // the same "start" click instead of leaving the office with locked forms.
+  if (!session.submission_id || !submission) {
+    return (
+      <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-8">
+        {headerBlock}
+        {cycleGroupBlock}
+        <StartBudgetCard />
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-8">
+      {headerBlock}
+      {cycleGroupBlock}
 
       {/* Unlock: only while the budget is submitted and the cycle is still open */}
       {isSubmitted && submission ? (

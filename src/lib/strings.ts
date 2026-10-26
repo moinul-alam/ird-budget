@@ -474,6 +474,14 @@ export const strings = {
     submittedOn: 'দাখিল সম্পন্ন',
     revisionNotSubmitted: 'সংশোধিত বাজেট দাখিল করা হয় নি',
 
+    // Start offer — shown while a cycle is open but the office has not started
+    startCardTitle: 'বাজেট প্রস্তুত শুরু করুন',
+    startCardMessage:
+      'চলমান চক্রের জন্য আপনার অফিসের বাজেট এখনো শুরু করা হয়নি। শুরু করলে একটি খসড়া বাজেট তৈরি হবে এবং ১২টি ফরম পূরণ করা যাবে। খসড়া স্বয়ংক্রিয়ভাবে সংরক্ষিত থাকে, চাইলে পরে দাখিল করা যাবে।',
+    startButton: 'হ্যাঁ, শুরু করুন',
+    starting: 'শুরু হচ্ছে...',
+    startRequiredNotice: 'বাজেট শুরু করার পর ফরমগুলো পূরণ করা যাবে',
+
     // Summary cards
     totalBudget: 'মোট বাজেটের পরিমাণ',
     totalBudgetNote: 'সকল ফরমের প্রাক্কলিত সর্বমোট বরাদ্দ',

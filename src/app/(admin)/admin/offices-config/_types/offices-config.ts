@@ -3,7 +3,6 @@ import {
   DepartmentItem,
   OfficeTypeHierarchyItem,
   OfficeLevelItem,
-  LevelOwnerType,
 } from '@/app/actions/admin-offices-config'
 
 export interface AdminOfficesConfigClientProps {
@@ -35,15 +34,17 @@ export interface OfficeTypeModalState {
   id?: string
   name: string
   department_id: string
-  /** কর সার্কেল হলে true — ফর্ম ১২-এর ডাক খরচ শুধু এই ধরনের অফিসে হিসাব হয়। */
-  is_tax_circle: boolean
 }
 
 export interface HierarchyModalState {
   open: boolean
   id?: string
-  owner_type: LevelOwnerType
-  owner_id: string
+  /** মন্ত্রণালয় → দপ্তর/সংস্থা → অফিসের ধরণ: the chain that leads to the level's owner. The
+   *  created level always belongs to the selected office type (the hierarchy tab only declares
+   *  field-office levels; ministry/department levels are provisioned by their own tabs). */
+  ministry_id: string
+  department_id: string
+  office_type_id: string
   level_name: string
   level_order: number
 }
@@ -62,4 +63,7 @@ export interface ConfirmModalState {
   title: string
   description: string
   onConfirm: () => void
+  /** When true the action is not allowed (e.g. the office holds budget data): the dialog only
+   *  explains why and offers a dismiss button instead of a confirm button. */
+  blocked?: boolean
 }

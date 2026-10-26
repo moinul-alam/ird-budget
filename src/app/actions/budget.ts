@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/db/client'
 import { computeSubmissionSheet } from '@/lib/budget/sheet'
-import { getOfficeSession } from '@/lib/session'
+import { getOfficeSession, setOfficeSession } from '@/lib/session'
 
 /**
  * The submission the signed-in office owns, or null when there is no session.
@@ -302,6 +302,59 @@ export async function submitBudget(
     return { success: true }
   } catch (error: any) {
     return { success: false, error: `বাজেট দাখিল ব্যর্থ হয়েছে: ${error.message}` }
+  }
+}
+
+/**
+ * Start this office's budget for the open cycle. The dashboard offer calls this and
+ * only then does the draft row exist — signing in no longer creates one.
+ *
+ * Idempotent: `upsert` returns the row that is already there, so a second click or two
+ * tabs racing each other cannot trip the (office, cycle) unique key.
+ */
+export async function startBudget() {
+  const session = await getOfficeSession()
+  if (!session) {
+    return { success: false, error: 'অনুগ্রহ করে পুনরায় লগইন করুন।' }
+  }
+
+  const officeId = session.office_id ?? Number(session.id)
+  if (!officeId || Number.isNaN(officeId)) {
+    return { success: false, error: 'অফিস শনাক্ত করা যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।' }
+  }
+
+  try {
+    const cycle = await prisma.coreBudgetCycle.findFirst({
+      where: { status: 'open' },
+      orderBy: { id: 'desc' },
+      select: { id: true },
+    })
+
+    if (!cycle) {
+      return { success: false, error: 'বর্তমানে কোনো বাজেট চক্র চালু নেই।' }
+    }
+
+    const submission = await prisma.officeSubmission.upsert({
+      where: {
+        officeId_cycleId: { officeId: BigInt(officeId), cycleId: cycle.id },
+      },
+      update: {},
+      create: {
+        officeId: BigInt(officeId),
+        cycleId: cycle.id,
+        status: 'draft',
+      },
+      select: { id: true },
+    })
+
+    // Every form reads the submission id from the session cookie, so it has to carry
+    // the new row before the dashboard (and the drawer beneath it) re-renders.
+    await setOfficeSession({ ...session, submission_id: Number(submission.id) })
+
+    return { success: true }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'অজ্ঞাত ত্রুটি'
+    return { success: false, error: `বাজেট শুরু করা যায়নি: ${message}` }
   }
 }
 

@@ -5,6 +5,7 @@ import { getAdminSession } from '@/lib/auth-admin'
 import { revalidatePath } from 'next/cache'
 import { getOfficeTypes, getDepartments, getMinistries } from './admin-offices-config'
 import { DEFAULT_OFFICE_PASSWORD } from '@/lib/office/defaults'
+import { budgetDataBlockMessage } from '@/lib/office/budget-data'
 
 export interface HeadOfficeItem {
   id: string
@@ -50,7 +51,10 @@ const nameCollator = new Intl.Collator('bn', { numeric: true, sensitivity: 'base
 
 export async function getHeadOffices(): Promise<HeadOfficeItem[]> {
   const offices = await prisma.coreOffice.findMany({
-    where: { parentOfficeId: null },
+    // A head office is a root office that sits under an office type. Root offices without one are
+    // the ministry/department accounts themselves (created for login and code grants), so they
+    // belong on their own tabs, not in the head-office list.
+    where: { parentOfficeId: null, officeTypeId: { not: null } },
     include: {
       department: {
         select: { name: true },
@@ -86,7 +90,6 @@ export async function getHeadOffices(): Promise<HeadOfficeItem[]> {
 export async function saveHeadOffice(data: {
   id?: string
   name: string
-  department_id: string
   office_type_id: string
   budget_id?: string
 }) {
@@ -95,18 +98,26 @@ export async function saveHeadOffice(data: {
 
   const trimmed = data.name.trim()
   if (!trimmed) return { error: 'হেড অফিসের নাম আবশ্যক' }
-  if (!data.department_id) return { error: 'দপ্তর/সংস্থা নির্বাচন আবশ্যক' }
   if (!data.office_type_id) return { error: 'অফিসের ধরণ নির্বাচন আবশ্যক' }
   const trimmedBudget = data.budget_id ? data.budget_id.trim() : ''
 
   try {
-    // A head office always sits at the top level of its office type, so the level is
-    // resolved from the office type's hierarchy instead of being picked by the admin.
-    const topLevel = await prisma.coreOfficeLevel.findFirst({
-      where: { officeTypeId: BigInt(data.office_type_id) },
-      orderBy: [{ levelOrder: 'asc' }, { id: 'asc' }],
-      select: { id: true },
+    // A head office sits at the top level of its office type, and the office type already fixes
+    // the দপ্তর/সংস্থা (and through it the মন্ত্রণালয়/বিভাগ), so the admin only picks the type and
+    // the rest is resolved here.
+    const officeType = await prisma.coreOfficeType.findUnique({
+      where: { id: BigInt(data.office_type_id) },
+      select: {
+        departmentId: true,
+        officeLevels: {
+          orderBy: [{ levelOrder: 'asc' }, { id: 'asc' }],
+          take: 1,
+          select: { id: true },
+        },
+      },
     })
+    if (!officeType) return { error: 'অফিসের ধরণ পাওয়া যায়নি' }
+    const topLevelId = officeType.officeLevels[0]?.id ?? null
 
     // Verify budget_id uniqueness
     if (trimmedBudget) {
@@ -127,9 +138,9 @@ export async function saveHeadOffice(data: {
         data: {
           name: trimmed,
           budgetId: trimmedBudget || undefined,
-          departmentId: BigInt(data.department_id),
+          departmentId: officeType.departmentId,
           officeTypeId: BigInt(data.office_type_id),
-          officeLevelId: topLevel ? topLevel.id : null,
+          officeLevelId: topLevelId,
         },
       })
     } else {
@@ -138,9 +149,9 @@ export async function saveHeadOffice(data: {
         data: {
           name: trimmed,
           budgetId: trimmedBudget,
-          departmentId: BigInt(data.department_id),
+          departmentId: officeType.departmentId,
           officeTypeId: BigInt(data.office_type_id),
-          officeLevelId: topLevel ? topLevel.id : null,
+          officeLevelId: topLevelId,
           isActive: true,
         },
       })
@@ -160,6 +171,11 @@ export async function deleteHeadOffice(id: string) {
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
   try {
+    // Budget data (a draft or a sent submission) outlives the configuration row, so an office
+    // that has started budgeting can only be edited or copied, never removed.
+    const budgetMessage = await budgetDataBlockMessage({ id: BigInt(id) }, 'হেড অফিসে')
+    if (budgetMessage) return { error: budgetMessage }
+
     // Check for child offices
     const children = await prisma.coreOffice.findFirst({
       where: { parentOfficeId: BigInt(id) },
@@ -349,6 +365,11 @@ export async function deleteFieldOffice(id: string) {
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
   try {
+    // A field office that has started budgeting (draft or submitted) must be preserved — the
+    // admin can edit or copy it instead of deleting it.
+    const budgetMessage = await budgetDataBlockMessage({ id: BigInt(id) }, 'মাঠ পর্যায়ের অফিসে')
+    if (budgetMessage) return { error: budgetMessage }
+
     await prisma.coreOffice.delete({
       where: { id: BigInt(id) },
     })

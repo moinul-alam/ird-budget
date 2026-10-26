@@ -32,12 +32,13 @@ import { useState, useRef, useEffect } from 'react'
 export function AppShell({
   children,
   user,
-  hasOpenCycle,
+  budgetStarted,
 }: {
   children: React.ReactNode
   user: { id: string; name: string; office_id?: number; budget_id?: string; submission_id?: number }
-  /** When no cycle is open the forms are presented but not actionable. */
-  hasOpenCycle: boolean
+  /** True once the office has accepted the offer and holds a submission for the open
+   *  cycle; the forms and the final budget sheet stay out of reach until then. */
+  budgetStarted: boolean
 }) {
   const pathname = usePathname()
   const { requestNavigation } = useFormGuard()
@@ -45,7 +46,7 @@ export function AppShell({
   // Drawer open/collapse state (Desktop & Mobile) - default expanded on login/dashboard
   const [drawerOpen, setDrawerOpen] = useState(true)
   // Forms submenu accordion in drawer — collapsed until a cycle is open
-  const [formsSubmenuOpen, setFormsSubmenuOpen] = useState(hasOpenCycle)
+  const [formsSubmenuOpen, setFormsSubmenuOpen] = useState(budgetStarted)
   
   // Profile dropdown menu in top bar
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
@@ -84,18 +85,25 @@ export function AppShell({
       requestNavigation(href)
     }
 
-  // Theme colors for USER: slate-900 with rich indigo/blue accents
-  const brandDarkBg = 'bg-slate-900 text-white'
+  // Role color profile: Office User = indigo. It drives the shell chrome (top bar, drawer,
+  // borders, hover/active states, profile chip). Semantic accents stay as they are — the emerald
+  // final-budget highlight, the amber history icon, the form-number shades and the rose logout.
+  const brandDarkBg = 'bg-indigo-950 text-white'
+  const shellBorder = 'border-indigo-900/40'
+  const shellDivider = 'border-indigo-800/60'
+  const shellHover = 'hover:bg-indigo-900/60'
+  const shellActive = 'bg-indigo-600'
+  const shellAccent = 'text-indigo-400'
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-slate-100">
-      {/* 1. TOP BAR: Same color as left drawer (slate-900) */}
-      <header className={`h-16 shrink-0 flex items-center justify-between px-4 sm:px-6 ${brandDarkBg} border-b border-slate-800 z-30 shadow-md`}>
+      {/* 1. TOP BAR: Same color as left drawer (indigo-950) */}
+      <header className={`h-16 shrink-0 flex items-center justify-between px-4 sm:px-6 ${brandDarkBg} border-b ${shellBorder} z-30 shadow-md`}>
         {/* Left Section: Drawer Toggle Button & Dashboard Shortcut */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => setDrawerOpen((prev) => !prev)}
-            className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            className={`p-2 rounded-xl text-slate-300 hover:text-white ${shellHover} transition-colors cursor-pointer`}
             title={drawerOpen ? 'ড্রয়ার সংকুচিত করুন' : 'ড্রয়ার প্রসারিত করুন'}
             aria-label="Toggle Navigation Drawer"
           >
@@ -105,14 +113,15 @@ export function AppShell({
           <Link
             href="/dashboard"
             onClick={handleNav('/dashboard')}
-            className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            title="ড্যাশবোর্ড"
+            className={`flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
               pathname === '/dashboard'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-300 hover:text-white hover:bg-slate-800'
+                ? `${shellActive} text-white shadow-xs`
+                : `text-slate-300 hover:text-white ${shellHover}`
             }`}
           >
-            <LayoutDashboard className="h-4 w-4 text-blue-400" />
-            <span>ড্যাশবোর্ড</span>
+            <LayoutDashboard className={`h-4 w-4 ${shellAccent}`} />
+            <span className="hidden sm:inline">ড্যাশবোর্ড</span>
           </Link>
         </div>
 
@@ -134,9 +143,9 @@ export function AppShell({
         <div className="relative" ref={profileDropdownRef}>
           <button
             onClick={() => setProfileDropdownOpen((prev) => !prev)}
-            className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl hover:bg-slate-800 transition-all text-slate-200 cursor-pointer border border-slate-700/60"
+            className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl ${shellHover} transition-all text-slate-200 cursor-pointer border ${shellDivider}`}
           >
-            <div className="h-7 w-7 rounded-full bg-blue-600/30 text-blue-400 border border-blue-500/40 flex items-center justify-center font-bold text-xs shrink-0">
+            <div className="h-7 w-7 rounded-full bg-indigo-600/30 text-indigo-400 border border-indigo-500/40 flex items-center justify-center font-bold text-xs shrink-0">
               <User className="h-4 w-4" />
             </div>
             <span className="text-xs font-bold truncate max-w-[120px] sm:max-w-[200px]">
@@ -164,9 +173,9 @@ export function AppShell({
                     setProfileDropdownOpen(false)
                     handleNav('/office/office-info')(e)
                   }}
-                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-bold text-slate-700 hover:text-blue-700 hover:bg-blue-50/80 rounded-xl transition-colors cursor-pointer text-left"
+                  className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-bold text-slate-700 hover:text-indigo-700 hover:bg-indigo-50/80 rounded-xl transition-colors cursor-pointer text-left"
                 >
-                  <Building2 className="h-4 w-4 text-blue-600" />
+                  <Building2 className="h-4 w-4 text-indigo-600" />
                   অফিসের তথ্য
                 </Link>
               </div>
@@ -201,7 +210,7 @@ export function AppShell({
         <aside
           className={`
             fixed lg:relative inset-y-0 left-0 z-40 lg:z-10
-            h-full ${brandDarkBg} border-r border-slate-800
+            h-full ${brandDarkBg} border-r ${shellBorder}
             flex flex-col transition-all duration-200 ease-in-out shrink-0
             ${drawerOpen ? 'w-72 translate-x-0' : '-translate-x-full lg:translate-x-0 lg:w-0 lg:overflow-hidden'}
           `}
@@ -214,10 +223,10 @@ export function AppShell({
                 <button
                   type="button"
                   onClick={() => setFormsSubmenuOpen((prev) => !prev)}
-                  className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-extrabold text-slate-400 uppercase tracking-wider hover:bg-slate-800/60 hover:text-slate-200 transition-colors cursor-pointer"
+                  className={`w-full flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-extrabold text-slate-400 uppercase tracking-wider hover:text-slate-200 transition-colors cursor-pointer ${shellHover}`}
                 >
                   <span className="flex items-center gap-2">
-                    <Layers className="h-3.5 w-3.5 text-blue-400" />
+                    <Layers className={`h-3.5 w-3.5 ${shellAccent}`} />
                     {strings.dashboard.budgetForms} ({toBanglaNumber(FORM_COUNT)} টি)
                   </span>
                   <ChevronDown
@@ -228,7 +237,7 @@ export function AppShell({
                 </button>
 
                 {formsSubmenuOpen && (
-                  <div className="mt-1 space-y-0.5 pl-2 border-l border-slate-800 ml-3">
+                  <div className={`mt-1 space-y-0.5 pl-2 border-l ${shellBorder} ml-3`}>
                     {FORM_ITEMS.map((item, idx) => {
                       const isActive = pathname === item.href
                       const shade = FORM_SHADES[idx]
@@ -238,8 +247,8 @@ export function AppShell({
                           href={item.href}
                           className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all ${
                             isActive
-                              ? 'bg-blue-600/30 text-blue-300 font-bold border border-blue-500/30'
-                              : 'text-slate-400 hover:bg-slate-800/70 hover:text-white'
+                              ? 'bg-indigo-600/30 text-indigo-300 font-bold border border-indigo-500/30'
+                              : `text-slate-400 hover:text-white ${shellHover}`
                           }`}
                           onClick={handleNav(item.href)}
                         >
@@ -249,7 +258,7 @@ export function AppShell({
                           >
                             {toBanglaNumber(item.num)}
                           </span>
-                          <span className="truncate">{item.title}</span>
+                          <span className="min-w-0 leading-5">{item.title}</span>
                         </Link>
                       )
                     })}
@@ -257,15 +266,15 @@ export function AppShell({
                 )}
               </div>
 
-              {/* চূড়ান্ত বাজেট (Final Budget Sheet) — only while a cycle is open */}
-              {hasOpenCycle && (
+              {/* চূড়ান্ত বাজেট (Final Budget Sheet) — only once the budget has been started */}
+              {budgetStarted && (
                 <div className="pt-2">
                   <Link
                     href="/office/budget-sheet"
                     className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                       pathname === '/office/budget-sheet'
                         ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'text-emerald-400 hover:bg-slate-800/80 hover:text-emerald-300'
+                        : `text-emerald-400 hover:text-emerald-300 ${shellHover}`
                     }`}
                     onClick={handleNav('/office/budget-sheet')}
                   >
@@ -279,7 +288,7 @@ export function AppShell({
               <button
                 type="button"
                 onClick={() => setBudgetsModalOpen(true)}
-                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:bg-slate-800/80 hover:text-white transition-all cursor-pointer text-left"
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-slate-300 hover:text-white transition-all cursor-pointer text-left ${shellHover}`}
               >
                 <History className="h-4 w-4 shrink-0 text-amber-400" />
                 <span>{strings.dashboard.submittedBudgets}</span>
@@ -287,7 +296,7 @@ export function AppShell({
             </div>
 
             {/* Drawer Footer with Logout */}
-            <div className="p-3.5 border-t border-slate-800/80 bg-slate-950/40">
+            <div className={`p-3.5 border-t ${shellBorder} bg-indigo-900/20`}>
               <form action={logout}>
                 <button
                   type="submit"
@@ -327,24 +336,26 @@ export function AppShell({
           </DialogHeader>
 
           <div className="py-3 space-y-3">
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-slate-800">অর্থবছর ২০২৫-২০২৬ (বর্তমান চক্র)</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  আইডি: #{user.submission_id || 'খসড়া'}
-                </p>
+            {budgetStarted && (
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-slate-800">অর্থবছর ২০২৫-২০২৬ (বর্তমান চক্র)</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    আইডি: #{user.submission_id}
+                  </p>
+                </div>
+                <Link
+                  href="/office/budget-sheet"
+                  onClick={(e) => {
+                    setBudgetsModalOpen(false)
+                    handleNav('/office/budget-sheet')(e)
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-2xs"
+                >
+                  বাজেট শিট দেখুন
+                </Link>
               </div>
-              <Link
-                href="/office/budget-sheet"
-                onClick={(e) => {
-                  setBudgetsModalOpen(false)
-                  handleNav('/office/budget-sheet')(e)
-                }}
-                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-2xs"
-              >
-                বাজেট শিট দেখুন
-              </Link>
-            </div>
+            )}
 
             <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-2xl bg-white">
               <p className="text-xs text-slate-400 font-medium">

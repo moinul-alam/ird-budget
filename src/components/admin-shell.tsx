@@ -19,7 +19,8 @@ import {
   Building,
   Building2,
   SlidersHorizontal,
-  Calculator
+  Calculator,
+  LayoutGrid
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
@@ -106,29 +107,41 @@ export function AdminShell({
   const [reportsGroupOpen, setReportsGroupOpen] = useState(false)
   const [usersGroupOpen, setUsersGroupOpen] = useState(false)
 
-  // Profile dropdown menu
+  // Profile dropdown menu (identity + logout only)
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false)
   const profileDropdownRef = useRef<HTMLDivElement>(null)
 
-  // Close profile dropdown when clicking outside
+  // Features (function) menu — holds the navigation shortcuts, opened from the grid icon
+  const [featuresDropdownOpen, setFeaturesDropdownOpen] = useState(false)
+  const featuresDropdownRef = useRef<HTMLDivElement>(null)
+
+  // Close either dropdown when clicking outside of it
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(target)) {
         setProfileDropdownOpen(false)
+      }
+      if (featuresDropdownRef.current && !featuresDropdownRef.current.contains(target)) {
+        setFeaturesDropdownOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Admin color scheme: distinct tone (Superadmin: dark emerald/slate-950, Admin: dark indigo/slate-900)
-  const topBarBg = isSuperAdmin
-    ? 'bg-slate-950 text-white border-emerald-900/40'
-    : 'bg-slate-900 text-white border-slate-800'
+  // Role color profile: SuperAdmin = violet, Admin = blue. It drives the shell chrome (top bar,
+  // drawer, borders, hover/active states, profile chips). Semantic accents inside the drawer
+  // (group icons, the rose logout) keep their own colors.
+  const shellSurface = isSuperAdmin ? 'bg-violet-950' : 'bg-blue-950'
+  const shellBorder = isSuperAdmin ? 'border-violet-900/40' : 'border-blue-900/40'
+  const shellDivider = isSuperAdmin ? 'border-violet-800/60' : 'border-blue-800/60'
+  const shellHover = isSuperAdmin ? 'hover:bg-violet-900/60' : 'hover:bg-blue-900/60'
+  const shellActive = isSuperAdmin ? 'bg-violet-600' : 'bg-blue-600'
+  const shellAccent = isSuperAdmin ? 'text-violet-400' : 'text-blue-400'
 
-  const drawerBg = isSuperAdmin
-    ? 'bg-slate-950 text-white border-emerald-900/30'
-    : 'bg-slate-900 text-white border-slate-800'
+  const topBarBg = `${shellSurface} text-white ${shellBorder}`
+  const drawerBg = `${shellSurface} text-white ${shellBorder}`
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-slate-50">
@@ -138,7 +151,7 @@ export function AdminShell({
         <div className="flex items-center gap-3">
           <button
             onClick={() => setDrawerOpen((prev) => !prev)}
-            className="p-2 rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+            className={`p-2 rounded-xl text-slate-300 hover:text-white ${shellHover} transition-colors cursor-pointer`}
             title={drawerOpen ? 'ড্রয়ার সংকুচিত করুন' : 'ড্রয়ার প্রসারিত করুন'}
             aria-label="Toggle Navigation Drawer"
           >
@@ -147,13 +160,14 @@ export function AdminShell({
 
           <Link
             href="/admin/dashboard"
-            className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${pathname === '/admin/dashboard'
-              ? isSuperAdmin ? 'bg-emerald-600 text-white shadow-xs' : 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-300 hover:text-white hover:bg-slate-800'
+            title={strings.dashboard.title}
+            className={`flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${pathname === '/admin/dashboard'
+              ? `${shellActive} text-white shadow-xs`
+              : `text-slate-300 hover:text-white ${shellHover}`
               }`}
           >
-            <LayoutDashboard className={`h-4 w-4 ${isSuperAdmin ? 'text-emerald-400' : 'text-blue-400'}`} />
-            <span>{strings.dashboard.title}</span>
+            <LayoutDashboard className={`h-4 w-4 ${shellAccent}`} />
+            <span className="hidden sm:inline">{strings.dashboard.title}</span>
           </Link>
         </div>
 
@@ -174,99 +188,131 @@ export function AdminShell({
           </span>
         </div>
 
-        {/* Right Section: Profile Name with Dropdown */}
-        <div className="relative" ref={profileDropdownRef}>
-          <button
-            onClick={() => setProfileDropdownOpen((prev) => !prev)}
-            className="flex items-center gap-2.5 px-3 py-1.5 rounded-xl hover:bg-slate-800 transition-all text-slate-200 cursor-pointer border border-slate-700/60"
-          >
-            <div className={`h-7 w-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 border ${isSuperAdmin
-              ? 'bg-emerald-600/30 text-emerald-400 border-emerald-500/40'
-              : 'bg-blue-600/30 text-blue-400 border-blue-500/40'
-              }`}>
-              {isSuperAdmin ? <ShieldCheck className="h-4 w-4" /> : <Shield className="h-4 w-4" />}
-            </div>
-            <div className="text-left hidden sm:block">
-              <span className="text-xs font-bold block truncate max-w-[120px]">
-                {session.username}
-              </span>
-              <span className="text-[10px] text-slate-400 block -mt-0.5">
-                {isSuperAdmin ? 'সুপার অ্যাডমিন' : 'অ্যাডমিন'}
-              </span>
-            </div>
-            <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
-          </button>
+        {/* Right Section: Features (function) menu + Profile menu */}
+        <div className="flex items-center gap-2">
+          {/* Features menu — all navigation shortcuts live here, behind the grid icon */}
+          <div className="relative" ref={featuresDropdownRef}>
+            <button
+              onClick={() => {
+                setFeaturesDropdownOpen((prev) => !prev)
+                setProfileDropdownOpen(false)
+              }}
+              className={`flex items-center justify-center h-9 w-9 rounded-xl ${shellHover} transition-all cursor-pointer border ${featuresDropdownOpen
+                ? isSuperAdmin ? 'bg-violet-600/20 text-violet-300 border-violet-500/40' : 'bg-blue-600/20 text-blue-300 border-blue-500/40'
+                : shellDivider + ' text-slate-200'
+                }`}
+              title="ফিচারসমূহ"
+              aria-label="Features"
+            >
+              <LayoutGrid className="h-[18px] w-[18px]" />
+            </button>
 
-          {/* Profile Dropdown Menu */}
-          {profileDropdownOpen && (
-            <div className="absolute right-0 mt-2 w-72 max-h-[calc(100vh-5.5rem)] overflow-y-auto rounded-2xl bg-white text-slate-800 shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95">
-              <div className="px-4 py-3 border-b border-slate-100">
-                <div className="flex items-center gap-2.5">
-                  <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 border ${isSuperAdmin
-                    ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-                    : 'bg-blue-50 text-blue-600 border-blue-200'
-                    }`}>
-                    {isSuperAdmin ? <ShieldCheck className="h-5 w-5" /> : <Shield className="h-5 w-5" />}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-slate-900 pl-0.5">{session.username}</p>
-                    <p className="text-[11px] font-semibold text-slate-500 pl-0.5">
-                      {isSuperAdmin ? 'সুপার অ্যাডমিন' : 'অ্যাডমিন'}
-                    </p>
-                  </div>
+            {featuresDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-72 max-h-[calc(100vh-5.5rem)] overflow-y-auto rounded-2xl bg-white text-slate-800 shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95">
+                <div className="px-4 py-2 border-b border-slate-100">
+                  <p className="text-[10px] font-bold tracking-wide text-slate-400">ফিচারসমূহ</p>
+                </div>
+
+                <div className="p-1.5">
+                  {ADMIN_NAV_GROUPS.map((group) => {
+                    const visibleItems = group.items.filter((item) => !item.superAdminOnly || isSuperAdmin)
+                    if (visibleItems.length === 0) return null
+                    const GroupIcon = group.icon
+                    return (
+                      <div
+                        key={group.label}
+                        className="pb-1.5 mb-1.5 border-b border-slate-100 last:border-0 last:mb-0 last:pb-0"
+                      >
+                        <div className="flex items-center gap-2 px-2.5 py-1.5">
+                          <GroupIcon className={`h-3.5 w-3.5 shrink-0 ${group.iconClass}`} />
+                          <span className="pl-0.5 text-[10px] font-bold tracking-wide text-slate-400">
+                            {group.label}
+                          </span>
+                        </div>
+                        <div className="space-y-0.5">
+                          {visibleItems.map((item) => {
+                            const ItemIcon = item.icon
+                            return (
+                              <Link
+                                key={item.href}
+                                href={item.href}
+                                onClick={() => setFeaturesDropdownOpen(false)}
+                                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 transition-colors ${isSuperAdmin ? 'hover:text-violet-700 hover:bg-violet-50/80' : 'hover:text-blue-700 hover:bg-blue-50/80'}`}
+                              >
+                                <ItemIcon className="h-4 w-4 shrink-0 text-slate-400" />
+                                <span className="pl-0.5">{item.label}</span>
+                              </Link>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
+            )}
+          </div>
 
-              <div className="p-1.5">
-                {ADMIN_NAV_GROUPS.map((group) => {
-                  const visibleItems = group.items.filter((item) => !item.superAdminOnly || isSuperAdmin)
-                  if (visibleItems.length === 0) return null
-                  const GroupIcon = group.icon
-                  return (
-                    <div
-                      key={group.label}
-                      className="pb-1.5 mb-1.5 border-b border-slate-100 last:border-0 last:mb-0 last:pb-0"
-                    >
-                      <div className="flex items-center gap-2 px-2.5 py-1.5">
-                        <GroupIcon className={`h-3.5 w-3.5 shrink-0 ${group.iconClass}`} />
-                        <span className="pl-0.5 text-[10px] font-bold tracking-wide text-slate-400">
-                          {group.label}
-                        </span>
-                      </div>
-                      <div className="space-y-0.5">
-                        {visibleItems.map((item) => {
-                          const ItemIcon = item.icon
-                          return (
-                            <Link
-                              key={item.href}
-                              href={item.href}
-                              onClick={() => setProfileDropdownOpen(false)}
-                              className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:text-blue-700 hover:bg-blue-50/80 transition-colors"
-                            >
-                              <ItemIcon className="h-4 w-4 shrink-0 text-slate-400" />
-                              <span className="pl-0.5">{item.label}</span>
-                            </Link>
-                          )
-                        })}
-                      </div>
+          {/* Profile menu — identity and logout only */}
+          <div className="relative" ref={profileDropdownRef}>
+            <button
+              onClick={() => {
+                setProfileDropdownOpen((prev) => !prev)
+                setFeaturesDropdownOpen(false)
+              }}
+              className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl ${shellHover} transition-all text-slate-200 cursor-pointer border ${shellDivider}`}
+            >
+              <div className={`h-7 w-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 border ${isSuperAdmin
+                ? 'bg-violet-600/30 text-violet-400 border-violet-500/40'
+                : 'bg-blue-600/30 text-blue-400 border-blue-500/40'
+                }`}>
+                {isSuperAdmin ? <ShieldCheck className="h-4 w-4" /> : <Shield className="h-4 w-4" />}
+              </div>
+              <div className="text-left hidden sm:block">
+                <span className="text-xs font-bold block truncate max-w-[120px]">
+                  {session.username}
+                </span>
+                <span className="text-[10px] text-slate-400 block -mt-0.5">
+                  {isSuperAdmin ? 'সুপার অ্যাডমিন' : 'অ্যাডমিন'}
+                </span>
+              </div>
+              <ChevronDown className={`h-3.5 w-3.5 text-slate-400 transition-transform ${profileDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Profile Dropdown Menu */}
+            {profileDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-72 rounded-2xl bg-white text-slate-800 shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95">
+                <div className="px-4 py-3 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 border ${isSuperAdmin
+                      ? 'bg-violet-50 text-violet-600 border-violet-200'
+                      : 'bg-blue-50 text-blue-600 border-blue-200'
+                      }`}>
+                      {isSuperAdmin ? <ShieldCheck className="h-5 w-5" /> : <Shield className="h-5 w-5" />}
                     </div>
-                  )
-                })}
-              </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-900 pl-0.5">{session.username}</p>
+                      <p className="text-[11px] font-semibold text-slate-500 pl-0.5">
+                        {isSuperAdmin ? 'সুপার অ্যাডমিন' : 'অ্যাডমিন'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
-              <div className="p-1.5 border-t border-slate-100">
-                <form action={logoutAdmin}>
-                  <button
-                    type="submit"
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer text-left"
-                  >
-                    <LogOut className="h-4 w-4 text-rose-600" />
-                    লগআউট
-                  </button>
-                </form>
+                <div className="p-1.5">
+                  <form action={logoutAdmin}>
+                    <button
+                      type="submit"
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer text-left"
+                    >
+                      <LogOut className="h-4 w-4 text-rose-600" />
+                      লগআউট
+                    </button>
+                  </form>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </header>
 
@@ -296,7 +342,7 @@ export function AdminShell({
                 <button
                   type="button"
                   onClick={() => setOfficeGroupOpen((prev) => !prev)}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white ${shellHover} transition-colors cursor-pointer`}
                 >
                   <div className="flex items-center gap-2.5">
                     <Building className="h-4 w-4 text-purple-400" />
@@ -306,13 +352,13 @@ export function AdminShell({
                 </button>
 
                 {officeGroupOpen && (
-                  <div className="pl-3 space-y-1 pt-0.5 border-l-2 border-slate-700/60 ml-3">
+                  <div className={`pl-3 space-y-1 pt-0.5 border-l-2 ${shellDivider} ml-3`}>
                     <Link
                       href="/admin/offices-config"
                       onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${pathname.startsWith('/admin/offices-config')
-                        ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                        ? shellActive + ' text-white'
+                        : 'text-slate-400 ' + shellHover + ' hover:text-white'
                         }`}
                     >
                       <Building className="h-3.5 w-3.5 shrink-0" />
@@ -323,8 +369,8 @@ export function AdminShell({
                       href="/admin/offices-management/head-offices"
                       onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${pathname.startsWith('/admin/offices-management/head-offices')
-                        ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                        ? shellActive + ' text-white'
+                        : 'text-slate-400 ' + shellHover + ' hover:text-white'
                         }`}
                     >
                       <Building className="h-3.5 w-3.5 shrink-0" />
@@ -335,8 +381,8 @@ export function AdminShell({
                       href="/admin/offices-management/field-offices"
                       onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${pathname.startsWith('/admin/offices-management/field-offices')
-                        ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                        ? shellActive + ' text-white'
+                        : 'text-slate-400 ' + shellHover + ' hover:text-white'
                         }`}
                     >
                       <Building2 className="h-3.5 w-3.5 shrink-0" />
@@ -347,8 +393,8 @@ export function AdminShell({
                       href="/admin/offices-management/group-budget"
                       onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${pathname.startsWith('/admin/offices-management/group-budget')
-                        ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                        ? shellActive + ' text-white'
+                        : 'text-slate-400 ' + shellHover + ' hover:text-white'
                         }`}
                     >
                       <Layers className="h-3.5 w-3.5 shrink-0" />
@@ -363,7 +409,7 @@ export function AdminShell({
                 <button
                   type="button"
                   onClick={() => setBudgetGroupOpen((prev) => !prev)}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white ${shellHover} transition-colors cursor-pointer`}
                 >
                   <div className="flex items-center gap-2.5">
                     <SlidersHorizontal className="h-4 w-4 text-blue-400" />
@@ -373,13 +419,13 @@ export function AdminShell({
                 </button>
 
                 {budgetGroupOpen && (
-                  <div className="pl-3 space-y-1 pt-0.5 border-l-2 border-slate-700/60 ml-3">
+                  <div className={`pl-3 space-y-1 pt-0.5 border-l-2 ${shellDivider} ml-3`}>
                     <Link
                       href="/admin/budgets"
                       onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${pathname.startsWith('/admin/budgets')
-                        ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                        ? shellActive + ' text-white'
+                        : 'text-slate-400 ' + shellHover + ' hover:text-white'
                         }`}
                     >
                       <SlidersHorizontal className="h-3.5 w-3.5 shrink-0" />
@@ -390,8 +436,8 @@ export function AdminShell({
                       href="/admin/codes"
                       onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${pathname.startsWith('/admin/codes')
-                        ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                        ? shellActive + ' text-white'
+                        : 'text-slate-400 ' + shellHover + ' hover:text-white'
                         }`}
                     >
                       <FileText className="h-3.5 w-3.5 shrink-0" />
@@ -402,8 +448,8 @@ export function AdminShell({
                       href="/admin/settings"
                       onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${pathname.startsWith('/admin/settings')
-                        ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                        ? shellActive + ' text-white'
+                        : 'text-slate-400 ' + shellHover + ' hover:text-white'
                         }`}
                     >
                       <Settings className="h-3.5 w-3.5 shrink-0" />
@@ -415,8 +461,8 @@ export function AdminShell({
                         href="/admin/formulas"
                         onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
                         className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${pathname.startsWith('/admin/formulas')
-                          ? 'bg-emerald-600 text-white'
-                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                          ? shellActive + ' text-white'
+                          : 'text-slate-400 ' + shellHover + ' hover:text-white'
                           }`}
                       >
                         <Calculator className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
@@ -436,7 +482,7 @@ export function AdminShell({
                 <button
                   type="button"
                   onClick={() => setReportsGroupOpen((prev) => !prev)}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white ${shellHover} transition-colors cursor-pointer`}
                 >
                   <div className="flex items-center gap-2.5">
                     <FileSpreadsheet className="h-4 w-4 text-emerald-400" />
@@ -446,13 +492,13 @@ export function AdminShell({
                 </button>
 
                 {reportsGroupOpen && (
-                  <div className="pl-3 space-y-1 pt-0.5 border-l-2 border-slate-700/60 ml-3">
+                  <div className={`pl-3 space-y-1 pt-0.5 border-l-2 ${shellDivider} ml-3`}>
                     <Link
                       href="/admin/reports/combined"
                       onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${pathname === '/admin/reports/combined'
-                        ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                        ? shellActive + ' text-white'
+                        : 'text-slate-400 ' + shellHover + ' hover:text-white'
                         }`}
                     >
                       <Layers className="h-3.5 w-3.5 shrink-0" />
@@ -463,8 +509,8 @@ export function AdminShell({
                       href="/admin/reports/individual"
                       onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${pathname === '/admin/reports/individual'
-                        ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                        ? shellActive + ' text-white'
+                        : 'text-slate-400 ' + shellHover + ' hover:text-white'
                         }`}
                     >
                       <FileText className="h-3.5 w-3.5 shrink-0" />
@@ -475,8 +521,8 @@ export function AdminShell({
                       href="/admin/reports/summary"
                       onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${pathname === '/admin/reports/summary'
-                        ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                        ? shellActive + ' text-white'
+                        : 'text-slate-400 ' + shellHover + ' hover:text-white'
                         }`}
                     >
                       <FileSpreadsheet className="h-3.5 w-3.5 shrink-0" />
@@ -491,7 +537,7 @@ export function AdminShell({
                 <button
                   type="button"
                   onClick={() => setUsersGroupOpen((prev) => !prev)}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white ${shellHover} transition-colors cursor-pointer`}
                 >
                   <div className="flex items-center gap-2.5">
                     <Users className="h-4 w-4 text-purple-400" />
@@ -501,13 +547,13 @@ export function AdminShell({
                 </button>
 
                 {usersGroupOpen && (
-                  <div className="pl-3 space-y-1 pt-0.5 border-l-2 border-slate-700/60 ml-3">
+                  <div className={`pl-3 space-y-1 pt-0.5 border-l-2 ${shellDivider} ml-3`}>
                     <Link
                       href="/admin/offices-users"
                       onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${pathname === '/admin/offices-users'
-                        ? isSuperAdmin ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white'
-                        : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                        ? shellActive + ' text-white'
+                        : 'text-slate-400 ' + shellHover + ' hover:text-white'
                         }`}
                     >
                       <Users className="h-3.5 w-3.5 shrink-0" />
@@ -519,8 +565,8 @@ export function AdminShell({
                         href="/admin/users"
                         onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
                         className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${pathname === '/admin/users'
-                          ? 'bg-purple-600 text-white'
-                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                          ? shellActive + ' text-white'
+                          : 'text-slate-400 ' + shellHover + ' hover:text-white'
                           }`}
                       >
                         <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-purple-400" />
@@ -532,7 +578,7 @@ export function AdminShell({
               </div>
             </nav>
 
-            <div className="p-3.5 border-t border-slate-800 bg-slate-950/40">
+            <div className={`p-3.5 border-t ${isSuperAdmin ? 'border-violet-900/40 bg-violet-900/20' : 'border-blue-900/40 bg-blue-900/20'}`}>
               <form action={logoutAdmin}>
                 <button
                   type="submit"

@@ -54,10 +54,6 @@ model CoreOfficeType {
   departmentId  BigInt   @map("department_id")
   name          String   @db.Text
   isGroupBudget Boolean  @default(false) @map("is_group_budget")
-  /// A কর সার্কেল raises a postal demand on non-filers (ডাক ব্যয়, 3211119); every
-  /// other office leaves that line at zero. The engine reads this flag instead of
-  /// testing the office type's name for 'সার্কেল', so the rule is admin-set data.
-  isTaxCircle   Boolean  @default(false) @map("is_tax_circle")
   sortOrder     Int      @default(1) @map("sort_order")
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz

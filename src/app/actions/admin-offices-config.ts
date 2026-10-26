@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db/client'
 import { getAdminSession } from '@/lib/auth-admin'
 import { revalidatePath, updateTag } from 'next/cache'
 import { ADMIN_DATA_TAG } from '@/lib/budget/fetcher'
+import { budgetDataBlockMessage } from '@/lib/office/budget-data'
 
 export interface MinistryItem {
   id: string
@@ -29,8 +30,6 @@ export interface OfficeTypeHierarchyItem {
   hierarchy_order?: number | null
   hierarchy_label?: string
   is_group_budget: boolean
-  /** Marks a কর সার্কেল — the only office type that raises a postal demand (ফর্ম ১২). */
-  is_tax_circle: boolean
   created_at?: string
 }
 
@@ -141,6 +140,10 @@ export async function deleteMinistry(id: string) {
 
   try {
     const ministryId = BigInt(id)
+    // A ministry that has started budgeting (draft or submitted) must be preserved.
+    const budgetMessage = await budgetDataBlockMessage({ ministryId }, 'মন্ত্রণালয়/বিভাগে')
+    if (budgetMessage) return { error: budgetMessage }
+
     await prisma.$transaction(async (tx) => {
       // The ministry's own office row goes first: core_offices.ministry_id is restrictive, so
       // it would otherwise block the delete. Its login row cascades away with it.
@@ -220,7 +223,9 @@ export async function saveDepartment(data: {
           orderBy: { id: 'asc' },
         })) ??
         (await tx.coreOfficeLevel.create({
-          data: { departmentId: department.id, levelName: 'দপ্তর', levelOrder: 1 },
+          // A department sits at tier 2 on the global scale (ministry = 1, office-type levels
+          // start at 3), so its auto-created level is fixed at 2.
+          data: { departmentId: department.id, levelName: 'দপ্তর', levelOrder: 2 },
         }))
 
       const office = await tx.coreOffice.findFirst({
@@ -261,6 +266,13 @@ export async function deleteDepartment(id: string) {
 
   try {
     const departmentId = BigInt(id)
+    // A department that has started budgeting (draft or submitted) must be preserved.
+    const budgetMessage = await budgetDataBlockMessage(
+      { departmentId, officeTypeId: null },
+      'দপ্তর/সংস্থায়',
+    )
+    if (budgetMessage) return { error: budgetMessage }
+
     await prisma.$transaction(async (tx) => {
       // Remove only the department's own office row (the one with no office type). A head or
       // field office under it keeps core_offices.department_id restrictive, so the delete still
@@ -303,7 +315,6 @@ export async function getOfficeTypes(): Promise<OfficeTypeHierarchyItem[]> {
     hierarchy_order: t.sortOrder,
     hierarchy_label: `Level ${t.sortOrder}`,
     is_group_budget: t.isGroupBudget,
-    is_tax_circle: t.isTaxCircle,
     created_at: t.createdAt.toISOString(),
   }))
 }
@@ -313,8 +324,6 @@ export async function saveOfficeType(data: {
   name: string
   department_id: string
   is_group_budget?: boolean
-  /** কর সার্কেল হলে true — এর উপরেই ডাক খরচ (ফর্ম ১২) নির্ভর করে। */
-  is_tax_circle?: boolean
   sort_order?: number
 }) {
   const session = await getAdminSession()
@@ -331,7 +340,6 @@ export async function saveOfficeType(data: {
           name: trimmed,
           departmentId: BigInt(data.department_id),
           isGroupBudget: data.is_group_budget ?? false,
-          isTaxCircle: data.is_tax_circle ?? false,
           sortOrder: data.sort_order ?? 1,
         },
       })
@@ -341,7 +349,6 @@ export async function saveOfficeType(data: {
           name: trimmed,
           departmentId: BigInt(data.department_id),
           isGroupBudget: data.is_group_budget ?? false,
-          isTaxCircle: data.is_tax_circle ?? false,
           sortOrder: data.sort_order ?? 1,
         },
       })
@@ -424,14 +431,17 @@ export async function saveOfficeLevel(data: {
         : { ministryId: null, departmentId: null, officeTypeId: ownerId }
 
   try {
+    // Tier 3 is the first field-office level (ministry = 1, department = 2). The modal always
+    // sends an explicit order, so the fallback only guards a caller that omits one.
+    const levelOrder = data.level_order ?? 3
     if (data.id) {
       await prisma.coreOfficeLevel.update({
         where: { id: BigInt(data.id) },
-        data: { ...ownership, levelName: trimmedName, levelOrder: data.level_order ?? 1 },
+        data: { ...ownership, levelName: trimmedName, levelOrder },
       })
     } else {
       await prisma.coreOfficeLevel.create({
-        data: { ...ownership, levelName: trimmedName, levelOrder: data.level_order ?? 1 },
+        data: { ...ownership, levelName: trimmedName, levelOrder },
       })
     }
 

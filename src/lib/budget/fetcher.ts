@@ -66,8 +66,6 @@ export interface RefData {
   utilityTypes: Array<{ id: number; name: string; economicCode: string | null }>
   /** Each allowance card names the engine formula that consumes it. */
   allowanceTypes: Array<{ id: number; name: string; formulaKey: string | null }>
-  /** `is_tax_circle` marks the only office type that raises a postal demand. */
-  officeTypes: Array<{ id: number; name: string; isTaxCircle: boolean }>
   economicCodes: EconomicCodeRow[]
   budgetCategories: Array<{ id: number; code: string; title: string; sortOrder: number }>
   levelCodeMappings: Array<{ officeLevelId: number; economicCodeId: number }>
@@ -93,7 +91,6 @@ async function loadRefData(): Promise<RefData> {
     itEquipmentTypeRows,
     utilityTypeRows,
     allowanceTypeRows,
-    officeTypeRows,
     economicCodeRows,
     budgetCategoryRows,
     levelCodeMappingRows,
@@ -141,7 +138,6 @@ async function loadRefData(): Promise<RefData> {
     }),
     prisma.refUtilityType.findMany({ select: { id: true, name: true, economicCodeId: true } }),
     prisma.refAllowanceType.findMany({ select: { id: true, name: true, formulaKey: true } }),
-    prisma.coreOfficeType.findMany({ select: { id: true, name: true, isTaxCircle: true } }),
     prisma.refEconomicCode.findMany({
       where: { isActive: true },
       select: {
@@ -254,11 +250,6 @@ async function loadRefData(): Promise<RefData> {
       name: t.name,
       formulaKey: t.formulaKey,
     })),
-    officeTypes: officeTypeRows.map((t) => ({
-      id: Number(t.id),
-      name: t.name,
-      isTaxCircle: t.isTaxCircle,
-    })),
     economicCodes: economicCodeRows.map((c) => ({
       id: Number(c.id),
       code: c.code,
@@ -348,7 +339,6 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
     prisma.officeSubmission.findUnique({
       where: { id: BigInt(submissionId) },
       select: {
-        office: { select: { officeTypeId: true } },
         cycle: { select: { salaryMonths: true } },
       },
     }),
@@ -373,7 +363,6 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
   const itEquipmentTypeById = new Map(ref.itEquipmentTypes.map((t) => [t.id, t]))
   const utilityTypeEconomicCodeById = new Map(ref.utilityTypes.map((t) => [t.id, t.economicCode]))
   const allowanceTypeFormulaKeyById = new Map(ref.allowanceTypes.map((t) => [t.id, t.formulaKey]))
-  const officeTypeById = new Map(ref.officeTypes.map((t) => [t.id, t]))
 
   // Form 5 allowance cards: the office supplies the count and, for the cards that
   // ask for a figure, the rate or lump sum too. The engine dispatches on the card's
@@ -454,8 +443,6 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
     }
   })
 
-  const officeType = officeTypeById.get(Number(submission?.office?.officeTypeId))
-
   return {
     staff: formattedStaff,
     newStaff: formattedNewStaff,
@@ -471,7 +458,6 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
       monthly_bill: Number(houseRent.monthlyRent || 0),
       due: Number(houseRent.arrearsDue || 0),
     } : null,
-    officeTypeIsTaxCircle: Boolean(officeType?.isTaxCircle),
     vehicles: formattedVehicles,
     vehicleRent: formattedVehicleRent,
     returnInfo: returnInfo ? {

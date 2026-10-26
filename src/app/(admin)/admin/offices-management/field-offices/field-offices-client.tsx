@@ -266,10 +266,18 @@ export function FieldOfficesClient({
       onConfirm: () => {
         startTransition(async () => {
           const res = await deleteFieldOffice(item.id)
-          setConfirmModal((prev) => ({ ...prev, open: false }))
           if (res.error) {
-            showStatus(res.error, 'error')
+            // The server refused (budget data attached): show the reason in the dialog rather
+            // than a transient banner.
+            setConfirmModal({
+              open: true,
+              title: 'মাঠ পর্যায়ের অফিস মোছা সম্ভব নয়',
+              description: res.error,
+              onConfirm: () => setConfirmModal((prev) => ({ ...prev, open: false })),
+              blocked: true,
+            })
           } else {
+            setConfirmModal((prev) => ({ ...prev, open: false }))
             showStatus('অফিস এবং ইউজার সফলভাবে মুছে ফেলা হয়েছে')
             setFieldOffices((prev) => prev.filter((f) => f.id !== item.id))
           }
@@ -367,17 +375,19 @@ export function FieldOfficesClient({
               onClick={() => setConfirmModal((prev) => ({ ...prev, open: false }))}
               className="rounded-xl text-xs font-semibold"
             >
-              বাতিল
+              {confirmModal.blocked ? 'ঠিক আছে' : 'বাতিল'}
             </Button>
-            <Button
-              type="button"
-              onClick={confirmModal.onConfirm}
-              disabled={isPending}
-              className="rounded-xl text-white font-bold text-xs bg-rose-600 hover:bg-rose-700"
-            >
-              {isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-              মুছে ফেলা নিশ্চিত করুন
-            </Button>
+            {!confirmModal.blocked && (
+              <Button
+                type="button"
+                onClick={confirmModal.onConfirm}
+                disabled={isPending}
+                className="rounded-xl text-white font-bold text-xs bg-rose-600 hover:bg-rose-700"
+              >
+                {isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                মুছে ফেলা নিশ্চিত করুন
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
