@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/db/client'
 import { getOfficeSession, setOfficeSession } from '@/lib/session'
+import { assertOfficePlacement } from '@/lib/office/placement'
 import { revalidatePath } from 'next/cache'
 
 interface SelectOption {
@@ -71,9 +72,17 @@ export async function getDepartments(ministryId?: string): Promise<(SelectOption
 
 export async function getParentOffices(departmentId: string): Promise<SelectOption[]> {
   const deptIdNum = BigInt(departmentId)
+  const selfId = await currentOfficeId()
 
   const offices = await prisma.coreOffice.findMany({
-    where: { departmentId: deptIdNum },
+    // Only a head office can head another office, and an office must never be offered itself —
+    // anything else would be refused by the validator anyway, so the list matches it exactly.
+    where: {
+      departmentId: deptIdNum,
+      parentOfficeId: null,
+      officeTypeId: { not: null },
+      ...(selfId ? { id: { not: BigInt(selfId) } } : {}),
+    },
     select: { id: true, name: true },
     orderBy: { id: 'asc' },
   })
@@ -174,7 +183,6 @@ export async function updateMyOfficeProfile(data: {
   officeTypeId: string
   officeLevelId: string
   parentOfficeId: string
-  departmentId: string
 }) {
   const officeId = await currentOfficeId()
   if (!officeId) {
@@ -199,20 +207,27 @@ export async function updateMyOfficeProfile(data: {
       return { error: 'এই বাজেট আইডিটি ইতিমধ্যে অন্য অফিসের জন্য ব্যবহৃত হচ্ছে।' }
     }
 
-    const parent = await prisma.coreOffice.findUnique({
-      where: { id: BigInt(data.parentOfficeId) },
-      select: { departmentId: true },
+    // The office may re-point itself at a type, level and head office, but only a combination
+    // the validator accepts: a level of its own type, a head office of the same type and
+    // department, and never itself. The department follows the type rather than the parent, so
+    // a wrong pick cannot silently file the office under another দপ্তর/সংস্থা.
+    const placement = await assertOfficePlacement({
+      officeTypeId: data.officeTypeId,
+      officeLevelId: data.officeLevelId,
+      parentOfficeId: data.parentOfficeId,
+      excludeOfficeId: officeId,
     })
+    if (!placement.ok) return { error: placement.error }
 
     await prisma.coreOffice.update({
       where: { id: BigInt(officeId) },
       data: {
         name: trimmedName,
         budgetId: trimmedBudget,
-        officeTypeId: BigInt(data.officeTypeId),
-        officeLevelId: BigInt(data.officeLevelId),
-        parentOfficeId: BigInt(data.parentOfficeId),
-        departmentId: parent?.departmentId ?? BigInt(data.departmentId),
+        officeTypeId: placement.officeTypeId,
+        officeLevelId: placement.officeLevelId,
+        parentOfficeId: placement.parentOfficeId,
+        departmentId: placement.departmentId,
       },
     })
 

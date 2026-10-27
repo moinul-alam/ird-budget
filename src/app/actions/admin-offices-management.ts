@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { getOfficeTypes, getDepartments, getMinistries } from './admin-offices-config'
 import { DEFAULT_OFFICE_PASSWORD } from '@/lib/office/defaults'
 import { budgetDataBlockMessage } from '@/lib/office/budget-data'
+import { assertOfficePlacement, resolveTopLevelId } from '@/lib/office/placement'
 
 export interface HeadOfficeItem {
   id: string
@@ -104,20 +105,13 @@ export async function saveHeadOffice(data: {
   try {
     // A head office sits at the top level of its office type, and the office type already fixes
     // the দপ্তর/সংস্থা (and through it the মন্ত্রণালয়/বিভাগ), so the admin only picks the type and
-    // the rest is resolved here.
-    const officeType = await prisma.coreOfficeType.findUnique({
-      where: { id: BigInt(data.office_type_id) },
-      select: {
-        departmentId: true,
-        officeLevels: {
-          orderBy: [{ levelOrder: 'asc' }, { id: 'asc' }],
-          take: 1,
-          select: { id: true },
-        },
-      },
+    // the rest is resolved here — through the same validator every other office writer uses.
+    const placement = await assertOfficePlacement({
+      officeTypeId: data.office_type_id,
+      excludeOfficeId: data.id,
     })
-    if (!officeType) return { error: 'অফিসের ধরণ পাওয়া যায়নি' }
-    const topLevelId = officeType.officeLevels[0]?.id ?? null
+    if (!placement.ok) return { error: placement.error }
+    const topLevelId = await resolveTopLevelId(placement.officeTypeId)
 
     // Verify budget_id uniqueness
     if (trimmedBudget) {
@@ -132,25 +126,41 @@ export async function saveHeadOffice(data: {
       }
     }
 
+    // One head office per office type is the shape the whole tab assumes (see the unique index
+    // on head offices). Refuse the duplicate here so the admin reads Bangla, not a raw
+    // constraint violation.
+    const conflictingHeadOffice = await prisma.coreOffice.findFirst({
+      where: {
+        officeTypeId: placement.officeTypeId,
+        parentOfficeId: null,
+        ...(data.id && { id: { not: BigInt(data.id) } }),
+      },
+      select: { id: true },
+    })
+    if (conflictingHeadOffice) {
+      return { error: 'এই অফিসের ধরণের অধীনে ইতিমধ্যে একটি হেড অফিস বিদ্যমান রয়েছে।' }
+    }
+
     if (data.id) {
       await prisma.coreOffice.update({
         where: { id: BigInt(data.id) },
         data: {
           name: trimmed,
           budgetId: trimmedBudget || undefined,
-          departmentId: officeType.departmentId,
-          officeTypeId: BigInt(data.office_type_id),
+          departmentId: placement.departmentId,
+          officeTypeId: placement.officeTypeId,
           officeLevelId: topLevelId,
         },
       })
     } else {
       if (!trimmedBudget) return { error: 'বাজেট আইডি আবশ্যক' }
+
       await prisma.coreOffice.create({
         data: {
           name: trimmed,
           budgetId: trimmedBudget,
-          departmentId: officeType.departmentId,
-          officeTypeId: BigInt(data.office_type_id),
+          departmentId: placement.departmentId,
+          officeTypeId: placement.officeTypeId,
           officeLevelId: topLevelId,
           isActive: true,
         },
@@ -252,7 +262,6 @@ export async function saveFieldOffice(data: {
   budget_id: string
   head_office_id: string
   office_type_id: string
-  department_id?: string
   /** The field office's level — it decides which economic codes the admin grants it. */
   office_level_id?: string
   password?: string
@@ -271,6 +280,17 @@ export async function saveFieldOffice(data: {
   if (!data.office_level_id) return { error: 'মাঠ পর্যায়ের অফিসের স্তর নির্বাচন আবশ্যক' }
 
   try {
+    // The office type owns the দপ্তর/সংস্থা, and both the level and the head office must belong
+    // to that same type — so the whole placement is validated in one place, never trusted from
+    // the client. The department is taken from the type, so the two can never drift apart.
+    const placement = await assertOfficePlacement({
+      officeTypeId: data.office_type_id,
+      officeLevelId: data.office_level_id,
+      parentOfficeId: data.head_office_id,
+      excludeOfficeId: data.id,
+    })
+    if (!placement.ok) return { error: placement.error }
+
     // Check unique budget_id
     const existing = await prisma.coreOffice.findFirst({
       where: {
@@ -284,33 +304,18 @@ export async function saveFieldOffice(data: {
 
     const pwdHash = require('crypto').createHash('sha256').update(pwd).digest('hex')
 
-  // Get departmentId from office_type if not provided
-  let departmentId: bigint
-  if (data.department_id) {
-    departmentId = BigInt(data.department_id)
-  } else {
-    const officeType = await prisma.coreOfficeType.findUnique({
-      where: { id: BigInt(data.office_type_id) },
-      select: { departmentId: true },
-    })
-    if (!officeType) {
-      return { error: 'অফিসের ধরণ পাওয়া যায়নি' }
-    }
-    departmentId = officeType.departmentId
-  }
-
-  if (data.id) {
-    await prisma.coreOffice.update({
-      where: { id: BigInt(data.id) },
-      data: {
-        name: trimmedName,
-        budgetId: trimmedBudget,
-        parentOfficeId: BigInt(data.head_office_id),
-        officeTypeId: BigInt(data.office_type_id),
-        departmentId: departmentId,
-        officeLevelId: BigInt(data.office_level_id),
-      },
-    })
+    if (data.id) {
+      await prisma.coreOffice.update({
+        where: { id: BigInt(data.id) },
+        data: {
+          name: trimmedName,
+          budgetId: trimmedBudget,
+          parentOfficeId: placement.parentOfficeId,
+          officeTypeId: placement.officeTypeId,
+          departmentId: placement.departmentId,
+          officeLevelId: placement.officeLevelId,
+        },
+      })
 
       // Update password
       await prisma.officeUser.upsert({
@@ -330,10 +335,10 @@ export async function saveFieldOffice(data: {
         data: {
           name: trimmedName,
           budgetId: trimmedBudget,
-          parentOfficeId: BigInt(data.head_office_id),
-          officeTypeId: BigInt(data.office_type_id),
-          departmentId: departmentId,
-          officeLevelId: BigInt(data.office_level_id),
+          parentOfficeId: placement.parentOfficeId,
+          officeTypeId: placement.officeTypeId,
+          departmentId: placement.departmentId,
+          officeLevelId: placement.officeLevelId,
           isActive: true,
         },
       })
@@ -369,6 +374,16 @@ export async function deleteFieldOffice(id: string) {
     // admin can edit or copy it instead of deleting it.
     const budgetMessage = await budgetDataBlockMessage({ id: BigInt(id) }, 'মাঠ পর্যায়ের অফিসে')
     if (budgetMessage) return { error: budgetMessage }
+
+    // `parent_office_id` is SetNull, so deleting a field office that has children would quietly
+    // promote those children to head offices. Refuse instead, and let the admin re-point them.
+    const children = await prisma.coreOffice.findFirst({
+      where: { parentOfficeId: BigInt(id) },
+      select: { id: true },
+    })
+    if (children) {
+      return { error: 'এই মাঠ পর্যায়ের অফিসের অধীনে অন্য অফিস বিদ্যমান রয়েছে, তাই এটি মুছে ফেলা যাবে না। প্রথমে সেগুলো সরান বা অন্য হেড অফিসে স্থানান্তর করুন।' }
+    }
 
     await prisma.coreOffice.delete({
       where: { id: BigInt(id) },

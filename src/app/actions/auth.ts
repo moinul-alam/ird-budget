@@ -7,6 +7,7 @@ import { z } from 'zod'
 import crypto from 'crypto'
 import { setAdminSession, clearAdminSession } from '@/lib/auth-admin'
 import { DEFAULT_OFFICE_PASSWORD } from '@/lib/office/defaults'
+import { assertOfficePlacement } from '@/lib/office/placement'
 
 const OFFICE_COOKIE = 'office_session'
 
@@ -145,10 +146,14 @@ export async function registerOffice(formData: FormData) {
   try {
     const name = (formData.get('name') as string)?.trim()
     const budgetId = (formData.get('budget_id') as string)?.trim()
-    const typeId = parseInt(formData.get('type_id') as string, 10)
+    const rawTypeId = formData.get('type_id') as string
+    const typeId = rawTypeId ? parseInt(rawTypeId, 10) : NaN
     const parentId = formData.get('parent_id') ? parseInt(formData.get('parent_id') as string, 10) : null
     const levelId = formData.get('level_id') ? parseInt(formData.get('level_id') as string, 10) : null
     const customPassword = (formData.get('password') as string)?.trim() || DEFAULT_OFFICE_PASSWORD
+
+    if (!name) return { error: 'অফিসের নাম আবশ্যক' }
+    if (!budgetId) return { error: 'বাজেট আইডি আবশ্যক' }
 
     // 1. Check if budget_id exists
     const existing = await prisma.coreOffice.findUnique({
@@ -160,23 +165,25 @@ export async function registerOffice(formData: FormData) {
       return { error: 'বাজেট কোডটি ইতিমধ্যেই নিবন্ধিত' }
     }
 
-    // 2. Fetch department_id from office_types
-    const ot = await prisma.coreOfficeType.findUnique({
-      where: { id: BigInt(typeId) },
-      select: { departmentId: true },
+    // 2. Validate the placement through the same validator every other office writer uses: the
+    //    office type fixes the department, the level must belong to that type, and the parent
+    //    must be a head office of the same type and department.
+    const placement = await assertOfficePlacement({
+      officeTypeId: typeId,
+      officeLevelId: levelId,
+      parentOfficeId: parentId,
     })
-
-    const deptId = ot?.departmentId || BigInt(10)
+    if (!placement.ok) return { error: placement.error }
 
     // 3. Insert office
     const newOffice = await prisma.coreOffice.create({
       data: {
         name,
         budgetId,
-        departmentId: deptId,
-        officeTypeId: BigInt(typeId),
-        officeLevelId: levelId ? BigInt(levelId) : null,
-        parentOfficeId: parentId ? BigInt(parentId) : null,
+        departmentId: placement.departmentId,
+        officeTypeId: placement.officeTypeId,
+        officeLevelId: placement.officeLevelId,
+        parentOfficeId: placement.parentOfficeId,
         isActive: true,
       },
       select: {

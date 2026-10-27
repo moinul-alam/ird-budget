@@ -334,11 +334,32 @@ export async function saveOfficeType(data: {
 
   try {
     if (data.id) {
+      const typeId = BigInt(data.id)
+      const nextDepartmentId = BigInt(data.department_id)
+      const current = await prisma.coreOfficeType.findUnique({
+        where: { id: typeId },
+        select: { departmentId: true },
+      })
+
+      // Moving a type to another দপ্তর/সংস্থা leaves the offices beneath it filed under the old
+      // one — their department_id is a separate column — so the same office would read as two
+      // different departments depending on the screen. Refuse while offices are attached rather
+      // than desync them silently.
+      if (current && current.departmentId !== nextDepartmentId) {
+        const attached = await prisma.coreOffice.findFirst({
+          where: { officeTypeId: typeId },
+          select: { id: true },
+        })
+        if (attached) {
+          return { error: 'এই অফিসের ধরণের অধীনে অফিস বিদ্যমান থাকায় দপ্তর/সংস্থা পরিবর্তন করা যাবে না। প্রথমে সংশ্লিষ্ট অফিসসমূহ সরান।' }
+        }
+      }
+
       await prisma.coreOfficeType.update({
-        where: { id: BigInt(data.id) },
+        where: { id: typeId },
         data: {
           name: trimmed,
-          departmentId: BigInt(data.department_id),
+          departmentId: nextDepartmentId,
           isGroupBudget: data.is_group_budget ?? false,
           sortOrder: data.sort_order ?? 1,
         },
@@ -368,8 +389,20 @@ export async function deleteOfficeType(id: string) {
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
   try {
+    const officeTypeId = BigInt(id)
+
+    // Offices reference the type with `Restrict`, so the delete would refuse anyway — but with a
+    // raw FK violation. Say it in Bangla instead, in the same slot the admin already reads.
+    const inUse = await prisma.coreOffice.findFirst({
+      where: { officeTypeId },
+      select: { id: true },
+    })
+    if (inUse) {
+      return { error: 'এই অফিসের ধরণের অধীনে অফিস বিদ্যমান রয়েছে, তাই এটি মুছে ফেলা যাবে না। প্রথমে সংশ্লিষ্ট অফিসসমূহ সরান।' }
+    }
+
     await prisma.coreOfficeType.delete({
-      where: { id: BigInt(id) },
+      where: { id: officeTypeId },
     })
 
     revalidatePath('/admin/offices-config')
@@ -457,8 +490,22 @@ export async function deleteOfficeLevel(id: string) {
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
   try {
+    const levelId = BigInt(id)
+
+    // `core_offices.office_level_id` is SetNull and the office's code grants are keyed by its
+    // level, so deleting a level an office sits on would blank that office's sheet with no error
+    // at all. Refuse while any office still points here (a ministry/department's own level is
+    // covered too, since that entity's login office references it).
+    const inUse = await prisma.coreOffice.findFirst({
+      where: { officeLevelId: levelId },
+      select: { id: true },
+    })
+    if (inUse) {
+      return { error: 'এই স্তরের অধীনে অফিস বিদ্যমান রয়েছে, তাই স্তরটি মুছে ফেলা যাবে না। প্রথমে সংশ্লিষ্ট অফিসসমূহ সরান বা অন্য স্তরে স্থানান্তর করুন।' }
+    }
+
     await prisma.coreOfficeLevel.delete({
-      where: { id: BigInt(id) },
+      where: { id: levelId },
     })
 
     revalidatePath('/admin/offices-config')

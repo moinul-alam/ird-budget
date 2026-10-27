@@ -165,7 +165,6 @@ export function OfficeInfoClient({
         officeTypeId: draft.officeTypeId,
         officeLevelId: draft.officeLevelId,
         parentOfficeId: draft.parentOfficeId,
-        departmentId: draft.departmentId,
       })
 
       if (res.error) {
