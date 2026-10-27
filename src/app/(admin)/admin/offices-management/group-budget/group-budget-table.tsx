@@ -94,7 +94,6 @@ export function GroupBudgetTable({
                   const firstLevel = officeLevels.filter((lvl) => lvl.office_type_id === firstOt?.id).sort((a, b) => a.level_order - b.level_order)[0]
                   setGroupModal({
                     open: true,
-                    department_id: firstOt?.department_id?.toString() || '',
                     office_type_id: firstOt?.id?.toString() || '',
                     office_level_id: firstLevel?.id || '',
                     is_group_budget: true,
@@ -143,7 +142,6 @@ export function GroupBudgetTable({
                     setGroupModal({
                       open: true,
                       id: undefined,
-                      department_id: firstOt?.department_id?.toString() || '',
                       office_type_id: firstOt?.id?.toString() || '',
                       office_level_id: firstLevel?.id || '',
                       is_group_budget: true,
@@ -176,7 +174,7 @@ export function GroupBudgetTable({
                         {toBanglaNumber(idx + 1)}
                       </td>
                       <td className="py-3.5 px-4 font-bold text-slate-700">
-                        {g.department_name || 'সাধারণ'}
+                        {officeTypes.find((ot) => ot.id === g.office_type_id)?.department_name || 'সাধারণ'}
                       </td>
                       <td className="py-3.5 px-4 font-bold text-slate-900 text-sm">
                         {g.office_type_name || '—'}
@@ -212,7 +210,6 @@ export function GroupBudgetTable({
                               setGroupModal({
                                 open: true,
                                 id: g.id,
-                                department_id: g.department_id,
                                 office_type_id: g.office_type_id,
                                 office_level_id: g.office_level_id || '',
                                 is_group_budget: g.is_group_budget,
@@ -260,7 +257,6 @@ export function GroupBudgetTable({
                 value={String(groupModal.office_type_id || '')}
                 onValueChange={(val) => {
                   if (val) {
-                    const selectedOt = officeTypes.find((ot) => ot.id === val)
                     const matchingLevels = officeLevels
                       .filter((lvl) => lvl.office_type_id === val)
                       .sort((a, b) => a.level_order - b.level_order)
@@ -268,7 +264,6 @@ export function GroupBudgetTable({
                       ...prev,
                       office_type_id: val,
                       office_level_id: matchingLevels[0]?.id || '',
-                      department_id: selectedOt?.department_id || prev.department_id,
                     }))
                   }
                 }}
@@ -310,7 +305,6 @@ export function GroupBudgetTable({
                           ...prev,
                           office_level_id: val,
                           office_type_id: selectedLevel?.office_type_id || prev.office_type_id,
-                          department_id: selectedLevel?.department_id || prev.department_id,
                         }))
                       }
                     }}

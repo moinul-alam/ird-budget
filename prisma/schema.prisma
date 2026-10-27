@@ -53,7 +53,6 @@ model CoreOfficeType {
   id            BigInt   @id @default(autoincrement())
   departmentId  BigInt   @map("department_id")
   name          String   @db.Text
-  isGroupBudget Boolean  @default(false) @map("is_group_budget")
   sortOrder     Int      @default(1) @map("sort_order")
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -61,8 +60,6 @@ model CoreOfficeType {
   department     CoreDepartment           @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   officeLevels   CoreOfficeLevel[]
   offices        CoreOffice[]
-  vehicleConfigs AdminVehicleConfig[]
-  rentConfigs    AdminVehicleRentConfig[]
   itConfigs      AdminItConfig[]
   groupRules     AdminGroupBudgetRule[]
 
@@ -110,7 +107,7 @@ model CoreOffice {
   ministry     CoreMinistry?       @relation("MinistryOffices", fields: [ministryId], references: [id], onDelete: Restrict)
   department   CoreDepartment?     @relation(fields: [departmentId], references: [id], onDelete: Restrict, name: "DepartmentOffices")
   officeType   CoreOfficeType?     @relation(fields: [officeTypeId], references: [id], onDelete: Restrict)
-  officeLevel  CoreOfficeLevel?    @relation(fields: [officeLevelId], references: [id], onDelete: SetNull)
+  officeLevel  CoreOfficeLevel?    @relation(fields: [officeLevelId], references: [id], onDelete: Restrict)
   parentOffice CoreOffice?         @relation("OfficeHierarchy", fields: [parentOfficeId], references: [id], onDelete: SetNull)
   childOffices CoreOffice[]        @relation("OfficeHierarchy")
   officeUsers  OfficeUser[]
@@ -390,22 +387,6 @@ model RefUtilityType {
 // DOMAIN 3: ADMIN CONFIGURATION (Rates & Defaults)
 // ============================================================
 
-model AdminRate {
-  id          BigInt   @id @default(autoincrement())
-  key         String   @unique @db.VarChar(50)
-  name        String   @db.Text
-  value       Decimal  @db.Decimal(14, 2)
-  unit        String   @default("টাকা") @db.VarChar(20)
-  description String?  @db.Text
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
-
-  houseRents  OfficeFormHouseRent[]
-  returnInfos OfficeFormReturnInfo[]
-
-  @@map("admin_rates")
-}
-
 // The /admin/settings "বেতন-ভাতা" tab. Each row is one tile: a scalar rate
 // (`input_type = 'number'`), a rate applied to a grade range (`'grade'`), or a
 // grade-banded table whose rows live in AdminSalarySlab (`'slab'`). The tile
@@ -453,7 +434,6 @@ model AdminSalarySlab {
 
 model AdminVehicleConfig {
   id                         BigInt   @id @default(autoincrement())
-  officeTypeId               BigInt?  @map("office_type_id")
   vehicleTypeId              BigInt   @map("vehicle_type_id")
   /// জ্বালানির ধরন (তেল / গ্যাস) — একই ধরনের সব জ্বালানি একই অর্থনৈতিক কোডে ব্যয় হয়,
   /// তাই কনফিগারেশনটি নির্দিষ্ট জ্বালানের বদলে ধরন চেনে।
@@ -462,7 +442,6 @@ model AdminVehicleConfig {
   createdAt                  DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt                  DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  officeType   CoreOfficeType?         @relation(fields: [officeTypeId], references: [id], onDelete: Cascade)
   vehicleType  RefVehicleType          @relation(fields: [vehicleTypeId], references: [id], onDelete: Cascade)
   fuelCategory RefFuelCategory         @relation(fields: [fuelCategoryId], references: [id], onDelete: Restrict)
   vehicles     OfficeFormVehicleGovt[]
@@ -490,13 +469,11 @@ model AdminVehicleAllowanceConfig {
 
 model AdminVehicleRentConfig {
   id              BigInt   @id @default(autoincrement())
-  officeTypeId    BigInt?  @map("office_type_id")
   vehicleTypeId   BigInt   @map("vehicle_type_id")
   monthlyRentRate Decimal? @default(0) @map("monthly_rent_rate") @db.Decimal(14, 2)
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  officeType  CoreOfficeType?         @relation(fields: [officeTypeId], references: [id], onDelete: Cascade)
   vehicleType RefVehicleType          @relation(fields: [vehicleTypeId], references: [id], onDelete: Cascade)
   vehicles    OfficeFormVehicleRent[]
 
@@ -722,7 +699,6 @@ model OfficeFormHouseRent {
   id                BigInt    @id @default(autoincrement())
   submissionId      BigInt    @unique @map("submission_id")
   monthlyRent       Decimal   @default(0) @map("monthly_rent") @db.Decimal(14, 2)
-  vatRateId         BigInt?   @map("vat_rate_id")
   arrearsDue        Decimal   @default(0) @map("arrears_due") @db.Decimal(14, 2)
   annualTotal       Decimal   @default(0) @map("annual_total") @db.Decimal(14, 2)
   contractStartDate DateTime? @map("contract_start_date") @db.Date
@@ -731,7 +707,6 @@ model OfficeFormHouseRent {
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   submission OfficeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  vatRate    AdminRate?       @relation(fields: [vatRateId], references: [id])
 
   @@map("office_form_house_rent")
 }
@@ -775,13 +750,11 @@ model OfficeFormReturnInfo {
   submissionId         BigInt   @unique @map("submission_id")
   tinCount             Int      @default(0) @map("tin_count")
   returnSubmittedCount Int      @default(0) @map("return_submitted_count")
-  postalRateId         BigInt?  @map("postal_rate_id")
   totalPostalDemand    Decimal  @default(0) @map("total_postal_demand") @db.Decimal(14, 2)
   createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   submission OfficeSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
-  postalRate AdminRate?       @relation(fields: [postalRateId], references: [id])
 
   @@map("office_form_return_info")
 }

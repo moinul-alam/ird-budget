@@ -52,7 +52,6 @@ export interface HierarchyModalState {
 export interface GroupModalState {
   open: boolean
   id?: string
-  department_id: string
   office_type_id: string
   office_level_id?: string
   is_group_budget: boolean

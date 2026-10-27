@@ -266,7 +266,6 @@ export function AdminOfficesConfigClient({
               department_id: officeTypeModal.department_id?.toString(),
               department_name: dep?.name || '',
               hierarchy_order: null,
-              is_group_budget: false,
             },
           ])
         }
@@ -323,7 +322,7 @@ export function AdminOfficesConfigClient({
     setConfirmModal({
       open: true,
       title: 'মাঠ অফিসের স্তর মুছুন',
-      description: `আপনি কি নিশ্চিতভাবে "${lvl.level_name}" (লেভেল ${toBanglaNumber(lvl.level_order)}) স্তরটি মুছে ফেলতে চান?`,
+      description: `আপনি কি নিশ্চিতভাবে "${lvl.level_name}" (স্তর ${toBanglaNumber(lvl.level_order)}) স্তরটি মুছে ফেলতে চান?`,
       onConfirm: () => {
         startTransition(async () => {
           const res = await deleteOfficeLevel(lvl.id)

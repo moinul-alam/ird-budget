@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/db/client'
 import { getAdminSession } from '@/lib/auth-admin'
 import { revalidatePath } from 'next/cache'
+import { SALARY_MONTHS_MAX, SALARY_MONTHS_MIN } from '@/lib/constants'
 
 export interface BudgetTypeItem {
   id: string
@@ -213,7 +214,11 @@ export async function saveCycle(data: {
   // বেতন-মাস is the number of months the sheet annualises by; a fiscal year holds
   // twelve at most, so anything outside that range is a typo, not a budget.
   const salaryMonths = Number(data.salary_months)
-  if (!Number.isInteger(salaryMonths) || salaryMonths < 1 || salaryMonths > 12) {
+  if (
+    !Number.isInteger(salaryMonths) ||
+    salaryMonths < SALARY_MONTHS_MIN ||
+    salaryMonths > SALARY_MONTHS_MAX
+  ) {
     return { error: 'বেতন-মাস ১ থেকে ১২ এর মধ্যে একটি পূর্ণসংখ্যা হতে হবে' }
   }
 

@@ -1,6 +1,7 @@
 'use server'
 
 import { cookies } from 'next/headers'
+import { SESSION_MAX_AGE_SECONDS } from '@/lib/constants'
 
 export interface OfficeSession {
   id: string
@@ -33,6 +34,6 @@ export async function setOfficeSession(session: OfficeSession): Promise<void> {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: SESSION_MAX_AGE_SECONDS,
   })
 }

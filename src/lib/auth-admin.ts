@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import crypto from 'crypto'
+import { SESSION_MAX_AGE_SECONDS } from '@/lib/constants'
 
 export interface AdminSession {
   id: number
@@ -50,7 +51,7 @@ export async function setAdminSession(session: AdminSession) {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
     path: '/',
-    maxAge: 60 * 60 * 24 * 7, // 7 days
+    maxAge: SESSION_MAX_AGE_SECONDS, // 7 days
   })
 }
 

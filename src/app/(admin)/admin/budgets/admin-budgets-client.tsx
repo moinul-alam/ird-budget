@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { toBanglaNumber } from '@/lib/bangla'
+import { SALARY_MONTHS_MAX, SALARY_MONTHS_MIN } from '@/lib/constants'
 import {
   Layers,
   Calendar,
@@ -134,7 +135,11 @@ export function AdminBudgetsClient({
       showStatus('সকল তথ্য পূরণ করুন', 'error')
       return
     }
-    if (!Number.isInteger(cycleModal.salary_months) || cycleModal.salary_months < 1 || cycleModal.salary_months > 12) {
+    if (
+      !Number.isInteger(cycleModal.salary_months) ||
+      cycleModal.salary_months < SALARY_MONTHS_MIN ||
+      cycleModal.salary_months > SALARY_MONTHS_MAX
+    ) {
       showStatus('বেতন-মাস ১ থেকে ১২ এর মধ্যে একটি পূর্ণসংখ্যা হতে হবে', 'error')
       return
     }

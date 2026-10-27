@@ -628,7 +628,7 @@ export const strings = {
           draftSubtitle: 'খসড়া চলমান অফিসসমূহ স্তরভিত্তিক বিন্যাসে',
           groupSubmittedSubtitle: 'গ্রুপ বাজেটভুক্ত দাখিলকৃত অফিসসমূহ স্তরভিত্তিক বিন্যাসে',
           groupDraftSubtitle: 'গ্রুপ বাজেটভুক্ত খসড়া অফিসসমূহ স্তরভিত্তিক বিন্যাসে',
-          levelColumn: 'অফিস লেভেল',
+          levelColumn: 'অফিসের স্তর',
           submittedCountColumn: 'দাখিলকৃত অফিস',
           draftCountColumn: 'খসড়া অফিস',
           amountColumn: 'বাজেটের পরিমাণ',

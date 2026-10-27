@@ -97,7 +97,7 @@ export function AppShell({
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-slate-100">
       {/* 1. TOP BAR: Same color as left drawer (indigo-950) */}
-      <header className={`h-16 shrink-0 flex items-center justify-between px-4 sm:px-6 ${brandDarkBg} border-b ${shellBorder} z-30 shadow-md`}>
+      <header className={`relative h-16 shrink-0 flex items-center justify-between px-4 sm:px-6 ${brandDarkBg} border-b ${shellBorder} z-30 shadow-md`}>
         {/* Left Section: Drawer Toggle Button */}
         <div className="flex items-center gap-3">
           <button
@@ -110,8 +110,11 @@ export function AppShell({
           </button>
         </div>
 
-        {/* Middle Section: Application Logo + Name */}
-        <div className="flex items-center gap-2.5">
+        {/* Middle Section: Application Logo + Name.
+            Absolutely centered against the bar itself, because the side sections
+            (a 36px toggle vs. a much wider profile chip) are asymmetric and would
+            otherwise leave the logo visibly off-centre. */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2.5 pointer-events-none max-w-[calc(100%-10rem)] sm:max-w-[calc(100%-18rem)]">
           <div className="h-9 w-9 rounded-full bg-white flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
             <img
               src="/images/bdgovlogo.png"
@@ -119,7 +122,7 @@ export function AppShell({
               className="h-8 w-8 object-contain"
             />
           </div>
-          <span className="font-extrabold text-sm sm:text-base tracking-tight text-slate-100 max-w-[200px] sm:max-w-none font-title pl-0.5">
+          <span className="font-extrabold text-sm sm:text-base tracking-tight text-slate-100 truncate font-title pl-0.5">
             {strings.appName}
           </span>
         </div>

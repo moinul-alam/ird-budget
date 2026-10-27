@@ -35,7 +35,6 @@ export function GroupBudgetClient({
 
   const [groupModal, setGroupModal] = useState<GroupModalState>({
     open: false,
-    department_id: '',
     office_type_id: '',
     office_level_id: '',
     is_group_budget: true,

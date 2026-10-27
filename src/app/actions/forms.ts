@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db/client'
 import { formBasicSchema } from '@/lib/schemas/forms'
 import { ADMIN_DATA_TAG } from '@/lib/budget/fetcher'
 import { getOfficeSession } from '@/lib/session'
+import { loadSalaryMonths } from '@/lib/office/load-form-data'
 
 /**
  * The submission the signed-in office owns, or null when there is no session.
@@ -492,12 +493,6 @@ export async function saveFormHouseRent(
   if (guard) return guard
 
   try {
-    // The rate row is only kept as the FK target of `vat_rate_id`; the VAT
-    // percentage itself is read from /admin/settings (see loadVatPercentage).
-    const vatRate = await prisma.adminRate.findFirst({
-      where: { key: 'vat_percentage' },
-    })
-
     const contractStartDate = data.contract_start_date
       ? new Date(data.contract_start_date)
       : null
@@ -505,13 +500,16 @@ export async function saveFormHouseRent(
       ? new Date(data.contract_end_date)
       : null
 
+    // The stored mirror follows the engine's `office_rent` formula, which annualises the
+    // monthly rent with the cycle's বেতন-মাস rather than an assumed twelve.
+    const salaryMonths = await loadSalaryMonths()
+
     await prisma.officeFormHouseRent.upsert({
       where: { submissionId: BigInt(submissionId) },
       update: {
         monthlyRent: data.monthly_bill,
         arrearsDue: data.due,
-        vatRateId: vatRate?.id,
-        annualTotal: (data.monthly_bill * 12) + data.due,
+        annualTotal: (data.monthly_bill * salaryMonths) + data.due,
         contractStartDate,
         contractEndDate,
       },
@@ -519,8 +517,7 @@ export async function saveFormHouseRent(
         submissionId: BigInt(submissionId),
         monthlyRent: data.monthly_bill,
         arrearsDue: data.due,
-        vatRateId: vatRate?.id,
-        annualTotal: (data.monthly_bill * 12) + data.due,
+        annualTotal: (data.monthly_bill * salaryMonths) + data.due,
         contractStartDate,
         contractEndDate,
       },
@@ -540,20 +537,16 @@ export async function saveFormReturnInfo(
   if (guard) return guard
 
   try {
-    // Same precedence as the budget engine: the /admin/settings card wins and the
-    // legacy admin_rates row is only a fallback. The stored mirror matches code
-    // 3211119, which reads both the per-notice cost and the notices per non-filer
-    // from the ডাক card.
+    // The /admin/settings ডাক card is the sole source: its value is the per-notice cost
+    // and its second field the notices served per non-filer. The stored mirror matches
+    // code 3211119, which reads both numbers from that same card.
     const tile = await prisma.adminSalaryConfig.findUnique({
       where: { key: 'postal_rate' },
       select: { value: true, secondaryValue: true },
     })
-    const legacyRate = await prisma.adminRate.findFirst({
-      where: { key: 'postal_expense_rate' },
-    })
 
-    // No compiled-in rate either: whatever the tables do not supply reads as 0.
-    const rate = tile ? Number(tile.value) : legacyRate ? Number(legacyRate.value) : 0
+    // No compiled-in rate either: whatever the table does not supply reads as 0.
+    const rate = tile ? Number(tile.value) : 0
     const notices = Number(tile?.secondaryValue) || 0
     const nonFilerCount = Math.max(0, data.tin_count - data.return_submitted_count)
     const totalPostalDemand = nonFilerCount * notices * rate
@@ -563,14 +556,12 @@ export async function saveFormReturnInfo(
       update: {
         tinCount: data.tin_count,
         returnSubmittedCount: data.return_submitted_count,
-        postalRateId: legacyRate?.id,
         totalPostalDemand,
       },
       create: {
         submissionId: BigInt(submissionId),
         tinCount: data.tin_count,
         returnSubmittedCount: data.return_submitted_count,
-        postalRateId: legacyRate?.id,
         totalPostalDemand,
       },
     })

@@ -6,6 +6,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { strings } from '@/lib/strings'
 import { toEnglishNumber, toBanglaNumber } from '@/lib/bangla'
+import { BUDGET_ID_LENGTH } from '@/lib/constants'
 import { searchOffice, getDepartments, getParentOffices, getOfficeTypes, getMinistriesList, getOfficeLevelsForType } from '@/app/actions/office'
 import { loginOffice, registerOffice } from '@/app/actions/auth'
 import {
@@ -113,7 +114,7 @@ export function LandingClient() {
   const [loginError, setLoginError] = useState<string | null>(null)
   const [showForgotModal, setShowForgotModal] = useState(false)
 
-  // Runs the office lookup. Only ever called with a complete 13-digit ID, so no database
+  // Runs the office lookup. Only ever called with a complete budget id, so no database
   // connection is ever spent on a partial value.
   const runLookup = (englishId: string) => {
     // Same ID, already resolved (e.g. the blur caused by clicking লগইন করুন) — skip the extra query
@@ -141,7 +142,7 @@ export function LandingClient() {
   const handleLookup = () => {
     const englishId = toEnglishNumber(budgetId.trim())
 
-    if (englishId.length !== 13) {
+    if (englishId.length !== BUDGET_ID_LENGTH) {
       // Partial ID: prompt for the missing digits instead of querying, which would only ever miss
       lookupSeq.current += 1
       setLookupOffice(null)
@@ -152,20 +153,20 @@ export function LandingClient() {
     runLookup(englishId)
   }
 
-  // The field accepts 13 English digits only: Bengali numerals (০-৯) and every other
+  // The field accepts English digits only: Bengali numerals (০-৯) and every other
   // character are discarded as they are typed, with a prompt to switch to English.
   const handleBudgetIdChange = (value: string) => {
     const digitsOnly = value.replace(/[^0-9]/g, '')
     setEnglishOnlyWarning(digitsOnly !== value)
-    const nextId = digitsOnly.slice(0, 13)
+    const nextId = digitsOnly.slice(0, BUDGET_ID_LENGTH)
     setBudgetId(nextId)
 
     // Editing the ID invalidates any previous result
     lookupSeq.current += 1
     setLookupOffice(null)
 
-    // The moment the 13th digit lands, look the office up — no need to wait for a blur
-    if (nextId.length === 13) runLookup(nextId)
+    // The moment the last digit lands, look the office up — no need to wait for a blur
+    if (nextId.length === BUDGET_ID_LENGTH) runLookup(nextId)
     else setLookupState('idle')
   }
 
@@ -178,7 +179,7 @@ export function LandingClient() {
       setLoginError('বাজেট আইডি লিখুন')
       return
     }
-    if (englishId.length !== 13) {
+    if (englishId.length !== BUDGET_ID_LENGTH) {
       setLoginError(strings.landing.budgetIdLengthHint)
       return
     }
@@ -443,7 +444,7 @@ export function LandingClient() {
                       }}
                       placeholder={strings.landing.budgetIdPlaceholder}
                       inputMode="numeric"
-                      maxLength={13}
+                      maxLength={BUDGET_ID_LENGTH}
                       dir="ltr"
                       autoComplete="off"
                       spellCheck={false}

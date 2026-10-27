@@ -301,7 +301,7 @@ export async function toggleCodeForOfficeType(
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
   if (!officeLevelId) {
-    return { error: 'অফিস লেভেল নির্বাচন আবশ্যক' }
+    return { error: 'অফিসের স্তর নির্বাচন আবশ্যক' }
   }
 
   try {
@@ -340,7 +340,7 @@ export async function toggleBulkCodesForOfficeType(
   if (!codeIds || codeIds.length === 0) return { error: 'কোনো কোড নির্বাচন করা হয়নি' }
 
   if (!officeLevelId) {
-    return { error: 'অফিস লেভেল নির্বাচন আবশ্যক' }
+    return { error: 'অফিসের স্তর নির্বাচন আবশ্যক' }
   }
 
   try {

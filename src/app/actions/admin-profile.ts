@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/db/client'
 import { getAdminSession } from '@/lib/auth-admin'
+import { MIN_PASSWORD_LENGTH } from '@/lib/constants'
 import crypto from 'crypto'
 
 /**
@@ -10,9 +11,6 @@ import crypto from 'crypto'
  * superadmin managing *other* people's accounts, while these actions only ever touch the
  * row behind the caller's own session.
  */
-
-/** Every password is compared against this floor, so a one-character password can't be set. */
-const MIN_PASSWORD_LENGTH = 6
 
 function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password).digest('hex')

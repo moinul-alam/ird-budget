@@ -152,15 +152,12 @@ export async function loadFormLeaveEncashmentInitial(submissionId: number) {
   }
 }
 
-export async function loadVehicleFuelConfigsForOfficeType(officeTypeId: number) {
-  // Rows with a NULL office type are the global defaults the settings page
-  // manages; every office type inherits them alongside its own rows.
-  // A config names the fuel category, not a fuel: the office picks the exact fuel.
-  // Lubricant and maintenance belong to the vehicle type, not to the category.
+export async function loadVehicleFuelConfigs() {
+  // The vehicle fuel configuration is global: /admin/settings owns one set of rows and
+  // every office type reads the same table. A config names the fuel category, not a
+  // fuel — the office picks the exact fuel. Lubricant and maintenance belong to the
+  // vehicle type, not to the category.
   const configs = await prisma.adminVehicleConfig.findMany({
-    where: {
-      OR: [{ officeTypeId: BigInt(officeTypeId) }, { officeTypeId: null }],
-    },
     include: {
       vehicleType: { include: { allowanceConfig: true } },
       fuelCategory: { select: { id: true, categoryNameBn: true } },
@@ -169,7 +166,6 @@ export async function loadVehicleFuelConfigsForOfficeType(officeTypeId: number) 
   })
   return configs.map((c) => ({
     id: Number(c.id),
-    office_type_id: c.officeTypeId === null ? null : Number(c.officeTypeId),
     car_type_id: Number(c.vehicleTypeId),
     fuel_category_id: Number(c.fuelCategoryId),
     car_type: { id: Number(c.vehicleType.id), name: c.vehicleType.name },
@@ -223,18 +219,14 @@ export async function loadFormVehiclesGovtInitial(submissionId: number) {
   }))
 }
 
-export async function loadVehicleRentConfigsForOfficeType(officeTypeId: number) {
-  // NULL office type marks a global default row (see loadVehicleFuelConfigs…).
+export async function loadVehicleRentConfigs() {
+  // The rent rate is a global configuration (see loadVehicleFuelConfigs).
   const configs = await prisma.adminVehicleRentConfig.findMany({
-    where: {
-      OR: [{ officeTypeId: BigInt(officeTypeId) }, { officeTypeId: null }],
-    },
     include: { vehicleType: { select: { id: true, name: true } } },
     orderBy: { id: 'asc' },
   })
   return configs.map((c) => ({
     id: Number(c.id),
-    office_type_id: c.officeTypeId === null ? null : Number(c.officeTypeId),
     car_type_id: Number(c.vehicleTypeId),
     car_type: { id: Number(c.vehicleType.id), name: c.vehicleType.name },
     monthly_rent_allowance: Number(c.monthlyRentRate),
@@ -265,8 +257,7 @@ export async function loadFormVehiclesRentInitial(submissionId: number) {
 
 /**
  * The office-rent VAT rate. /admin/settings tab 1 is where it is edited, so the
- * `office_rent_vat_percent` tile wins; the legacy admin_rates row only remains
- * as a fallback for databases that predate the tile. With neither present the rate
+ * `office_rent_vat_percent` card is the sole source. With no card present the rate
  * reads as 0 — no percentage is compiled in.
  */
 export async function loadVatPercentage(): Promise<number> {
@@ -274,10 +265,7 @@ export async function loadVatPercentage(): Promise<number> {
     where: { key: 'office_rent_vat_percent' },
     select: { value: true },
   })
-  if (tile) return Number(tile.value)
-
-  const rate = await prisma.adminRate.findFirst({ where: { key: 'vat_percentage' } })
-  return rate ? Number(rate.value) : 0
+  return tile ? Number(tile.value) : 0
 }
 
 /**
@@ -383,7 +371,12 @@ export async function loadSalaryMonths(): Promise<number> {
     orderBy: { id: 'desc' },
     select: { salaryMonths: true },
   })
-  return cycle?.salaryMonths ?? 0
+  // A missing open cycle (or an unset বেতন-মাস) would silently annualise every monthly
+  // figure to zero, so it fails loudly instead of rendering an all-zero sheet.
+  if (!cycle || !cycle.salaryMonths) {
+    throw new Error('সক্রিয় বাজেট চক্র বা বেতন-মাস পাওয়া যায়নি — মাসিক হিসাব বন্ধ।')
+  }
+  return cycle.salaryMonths
 }
 
 export async function loadFormReturnInfoInitial(submissionId: number) {

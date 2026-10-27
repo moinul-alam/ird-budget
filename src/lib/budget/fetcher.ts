@@ -469,6 +469,13 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
     }
   })
 
+  // A submission whose cycle cannot be resolved would make every monthly-derived figure
+  // read as zero; fail loudly instead of rendering a silently empty sheet.
+  const salaryMonths = submission?.cycle?.salaryMonths
+  if (!salaryMonths) {
+    throw new Error('সক্রিয় বাজেট চক্র বা বেতন-মাস পাওয়া যায়নি — মাসিক হিসাব বন্ধ।')
+  }
+
   return {
     staff: formattedStaff,
     newStaff: formattedNewStaff,
@@ -492,7 +499,7 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
     } : null,
     itEquipment: formattedITEquipment,
     salary: ref.salary,
-    salary_months: Number(submission?.cycle?.salaryMonths ?? 0),
+    salary_months: salaryMonths,
     allowances,
   }
 }

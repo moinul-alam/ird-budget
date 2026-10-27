@@ -8,6 +8,8 @@ import crypto from 'crypto'
 import { setAdminSession, clearAdminSession } from '@/lib/auth-admin'
 import { DEFAULT_OFFICE_PASSWORD } from '@/lib/office/defaults'
 import { assertOfficePlacement } from '@/lib/office/placement'
+import { BUDGET_ID_LENGTH, SESSION_MAX_AGE_SECONDS } from '@/lib/constants'
+import { toBanglaNumber } from '@/lib/bangla'
 
 const OFFICE_COOKIE = 'office_session'
 
@@ -132,7 +134,7 @@ export async function loginOffice(budgetId: string, passwordInput: string) {
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge: 60 * 60 * 24 * 7, // 1 week
+        maxAge: SESSION_MAX_AGE_SECONDS, // 1 week
       }
     )
 
@@ -154,6 +156,11 @@ export async function registerOffice(formData: FormData) {
 
     if (!name) return { error: 'অফিসের নাম আবশ্যক' }
     if (!budgetId) return { error: 'বাজেট আইডি আবশ্যক' }
+    // The landing form already restricts input to English digits, but the id is the office's
+    // primary identifier — validate it here too rather than trusting the client.
+    if (budgetId.length !== BUDGET_ID_LENGTH || !/^[0-9]+$/.test(budgetId)) {
+      return { error: `বাজেট আইডি ${toBanglaNumber(BUDGET_ID_LENGTH)} সংখ্যার ইংরেজি অঙ্কে হতে হবে` }
+    }
 
     // 1. Check if budget_id exists
     const existing = await prisma.coreOffice.findUnique({
@@ -223,7 +230,7 @@ export async function registerOffice(formData: FormData) {
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         path: '/',
-        maxAge: 60 * 60 * 24 * 7,
+        maxAge: SESSION_MAX_AGE_SECONDS,
       }
     )
 

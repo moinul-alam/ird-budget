@@ -2,10 +2,9 @@ import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { getVehicleTypes } from '@/app/actions/admin-settings'
 import {
-  getOfficeTypeIdForOffice,
   loadFormVehiclesRentInitial,
   loadSalaryMonths,
-  loadVehicleRentConfigsForOfficeType,
+  loadVehicleRentConfigs,
 } from '@/lib/office/load-form-data'
 import { Form8Client } from './form-8-client'
 
@@ -14,15 +13,12 @@ export default async function Form8Page() {
   if (!session) redirect('/')
 
   const submissionId = session.submission_id ?? null
-  const officeId = session.office_id ?? Number(session.id)
 
   const carTypes = await getVehicleTypes()
 
-  // The rent rate is configured per office type, so resolve that first.
-  const officeTypeId = await getOfficeTypeIdForOffice(officeId)
-
+  // The rent rate is a global configuration, so no office-type lookup is needed here.
   const [rentConfigs, initialData, salaryMonths] = await Promise.all([
-    officeTypeId ? loadVehicleRentConfigsForOfficeType(officeTypeId) : Promise.resolve([]),
+    loadVehicleRentConfigs(),
     submissionId ? loadFormVehiclesRentInitial(submissionId) : Promise.resolve([]),
     loadSalaryMonths(),
   ])

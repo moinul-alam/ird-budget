@@ -28,8 +28,6 @@ export interface OfficeTypeHierarchyItem {
   department_id?: string
   department_name?: string
   hierarchy_order?: number | null
-  hierarchy_label?: string
-  is_group_budget: boolean
   created_at?: string
 }
 
@@ -51,8 +49,6 @@ export interface OfficeLevelItem {
 
 export interface GroupBudgetSettingItem {
   id: string
-  department_id: string
-  department_name?: string
   office_type_id: string
   office_type_name?: string
   office_level_id?: string
@@ -84,7 +80,9 @@ export async function saveMinistry(data: { id?: string; name: string; budget_id?
 
   const trimmed = data.name.trim()
   if (!trimmed) return { error: 'মন্ত্রণালয়/বিভাগের নাম আবশ্যক' }
-  const trimmedBudget = (data.budget_id || `MIN_${Date.now()}`).trim()
+  // The budget id is the entity's real identifier; it must be entered, never invented.
+  const trimmedBudget = (data.budget_id || '').trim()
+  if (!trimmedBudget) return { error: 'বাজেট আইডি আবশ্যক' }
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -140,6 +138,14 @@ export async function deleteMinistry(id: string) {
 
   try {
     const ministryId = BigInt(id)
+
+    // A top tier with any child must never be deleted — say it in Bangla rather than
+    // letting the RESTRICT FK surface a raw Postgres error.
+    const childDepartments = await prisma.coreDepartment.count({ where: { ministryId } })
+    if (childDepartments > 0) {
+      return { error: 'এই মন্ত্রণালয়/বিভাগের অধীনে দপ্তর/সংস্থা বিদ্যমান, তাই এটি মুছে ফেলা যাবে না। প্রথমে সংশ্লিষ্ট দপ্তর/সংস্থাসমূহ সরান।' }
+    }
+
     // A ministry that has started budgeting (draft or submitted) must be preserved.
     const budgetMessage = await budgetDataBlockMessage({ ministryId }, 'মন্ত্রণালয়/বিভাগে')
     if (budgetMessage) return { error: budgetMessage }
@@ -196,7 +202,9 @@ export async function saveDepartment(data: {
 
   const trimmed = data.name.trim()
   if (!trimmed) return { error: 'বিভাগের নাম আবশ্যক' }
-  const trimmedBudget = (data.budget_id || `DEPT_${Date.now()}`).trim()
+  // The budget id is the entity's real identifier; it must be entered, never invented.
+  const trimmedBudget = (data.budget_id || '').trim()
+  if (!trimmedBudget) return { error: 'বাজেট আইডি আবশ্যক' }
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -266,6 +274,14 @@ export async function deleteDepartment(id: string) {
 
   try {
     const departmentId = BigInt(id)
+
+    // A top tier with any child must never be deleted — say it in Bangla rather than
+    // letting the RESTRICT FK surface a raw Postgres error.
+    const childTypes = await prisma.coreOfficeType.count({ where: { departmentId } })
+    if (childTypes > 0) {
+      return { error: 'এই দপ্তর/সংস্থার অধীনে অফিসের ধরণ বিদ্যমান, তাই এটি মুছে ফেলা যাবে না। প্রথমে সংশ্লিষ্ট অফিসের ধরণসমূহ সরান।' }
+    }
+
     // A department that has started budgeting (draft or submitted) must be preserved.
     const budgetMessage = await budgetDataBlockMessage(
       { departmentId, officeTypeId: null },
@@ -313,8 +329,6 @@ export async function getOfficeTypes(): Promise<OfficeTypeHierarchyItem[]> {
     department_id: t.departmentId ? String(t.departmentId) : undefined,
     department_name: t.department?.name,
     hierarchy_order: t.sortOrder,
-    hierarchy_label: `Level ${t.sortOrder}`,
-    is_group_budget: t.isGroupBudget,
     created_at: t.createdAt.toISOString(),
   }))
 }
@@ -323,7 +337,6 @@ export async function saveOfficeType(data: {
   id?: string
   name: string
   department_id: string
-  is_group_budget?: boolean
   sort_order?: number
 }) {
   const session = await getAdminSession()
@@ -360,7 +373,6 @@ export async function saveOfficeType(data: {
         data: {
           name: trimmed,
           departmentId: nextDepartmentId,
-          isGroupBudget: data.is_group_budget ?? false,
           sortOrder: data.sort_order ?? 1,
         },
       })
@@ -369,7 +381,6 @@ export async function saveOfficeType(data: {
         data: {
           name: trimmed,
           departmentId: BigInt(data.department_id),
-          isGroupBudget: data.is_group_budget ?? false,
           sortOrder: data.sort_order ?? 1,
         },
       })
@@ -414,7 +425,7 @@ export async function deleteOfficeType(id: string) {
 }
 
 // -------------------------------------------------------------------
-// TAB 4: অফিস লেভেল (core_office_levels)
+// TAB 4: অফিস স্তর (core_office_levels)
 // -------------------------------------------------------------------
 export async function getOfficeLevels(): Promise<OfficeLevelItem[]> {
   const levels = await prisma.coreOfficeLevel.findMany({
@@ -451,7 +462,7 @@ export async function saveOfficeLevel(data: {
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
   const trimmedName = data.level_name.trim()
-  if (!trimmedName) return { error: 'লেভেলের নাম আবশ্যক' }
+  if (!trimmedName) return { error: 'স্তরের নাম আবশ্যক' }
   if (!data.owner_id) return { error: 'স্তরের মালিক নির্বাচন আবশ্যক' }
 
   // A level has exactly one owner, so picking a new one clears the other two links.
@@ -536,8 +547,6 @@ export async function getGroupBudgetSettings(): Promise<GroupBudgetSettingItem[]
 
   return rules.map((r) => ({
     id: String(r.id),
-    department_id: '', // Office type doesn't directly link to department in new schema
-    department_name: '',
     office_type_id: String(r.officeTypeId),
     office_type_name: r.officeType?.name,
     office_level_id: r.officeLevelId ? String(r.officeLevelId) : undefined,

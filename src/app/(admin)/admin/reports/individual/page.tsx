@@ -19,7 +19,7 @@ export default async function IndividualReportPage({
     redirect('/admin/login')
   }
 
-  const [params, cycle, offices] = await Promise.all([
+  const [params, cycle, offices, groupRules] = await Promise.all([
     searchParams,
     getActiveCycle(),
     prisma.coreOffice.findMany({
@@ -30,7 +30,23 @@ export default async function IndividualReportPage({
       },
       orderBy: { id: 'asc' },
     }),
+    // "গ্রুপ বাজেট" is defined solely by the flagged rules on
+    // /admin/offices-management/group-budget (office type × optional level) — the same
+    // source the dashboard card and the combined report read.
+    prisma.adminGroupBudgetRule.findMany({
+      where: { isGroupBudget: true },
+      select: { officeTypeId: true, officeLevelId: true },
+    }),
   ])
+
+  // A rule with no level covers every level of its office type, matching the combined report.
+  const isGroupBudgetOffice = (officeTypeId: number | null, officeLevelId: number | null) =>
+    officeTypeId !== null &&
+    groupRules.some(
+      (rule) =>
+        Number(rule.officeTypeId) === officeTypeId &&
+        (rule.officeLevelId === null || Number(rule.officeLevelId) === officeLevelId)
+    )
 
   const submissions = cycle
     ? await prisma.officeSubmission.findMany({
@@ -62,7 +78,10 @@ export default async function IndividualReportPage({
       name: off.name,
       department_name: deptName,
       office_type_name: off.officeType?.name || 'অফিস',
-      is_group_budget: off.officeType?.isGroupBudget || false,
+      is_group_budget: isGroupBudgetOffice(
+        off.officeTypeId !== null ? Number(off.officeTypeId) : null,
+        off.officeLevelId !== null ? Number(off.officeLevelId) : null
+      ),
       status: (sub?.status === 'submitted' ? 'submitted' : sub ? 'draft' : 'not_started') as
         | 'submitted'
         | 'draft'

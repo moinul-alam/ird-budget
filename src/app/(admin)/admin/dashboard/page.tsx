@@ -180,7 +180,7 @@ export default async function AdminDashboardPage() {
       // across office types (every type has its own "সার্কেল"), so the office type is
       // carried alongside as the row's context line.
       levelId: off.officeLevel ? Number(off.officeLevel.id) : 0,
-      levelName: off.officeLevel?.levelName || 'লেভেল নির্ধারিত নয়',
+      levelName: off.officeLevel?.levelName || 'স্তর নির্ধারিত নয়',
       levelOwner: cleanTypeName(off.officeType?.name) || null,
       levelOrder: off.officeLevel?.levelOrder ?? 999,
       isGroup,

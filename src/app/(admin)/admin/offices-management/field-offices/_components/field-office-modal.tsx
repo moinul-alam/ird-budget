@@ -174,7 +174,7 @@ export function FieldOfficeModal({
               <SelectContent className="rounded-xl text-xs">
                 {modalOfficeTypes.map((ot) => (
                   <SelectItem key={ot.id} value={String(ot.id)}>
-                    {ot.name} (লেভেল {toBanglaNumber(ot.hierarchy_order)})
+                    {ot.name} (ক্রম {toBanglaNumber(ot.hierarchy_order)})
                   </SelectItem>
                 ))}
               </SelectContent>

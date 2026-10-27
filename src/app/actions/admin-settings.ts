@@ -202,9 +202,28 @@ export async function deleteVehicleType(id: number) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
+  const vehicleTypeId = BigInt(id)
+
+  // The type's fuel/rent configs cascade away with it, but an office that already
+  // declared a vehicle against one of those configs would be left pointing at nothing.
+  // Refuse in Bangla rather than letting the FK surface a raw Postgres error.
+  const [govtInUse, rentInUse] = await Promise.all([
+    prisma.officeFormVehicleGovt.findFirst({
+      where: { config: { vehicleTypeId } },
+      select: { id: true },
+    }),
+    prisma.officeFormVehicleRent.findFirst({
+      where: { config: { vehicleTypeId } },
+      select: { id: true },
+    }),
+  ])
+  if (govtInUse || rentInUse) {
+    return { error: 'এই যানবাহনের ধরনটি অফিসের বাজেটে ব্যবহৃত হয়েছে, তাই মুছে ফেলা যাবে না।' }
+  }
+
   try {
     await prisma.refVehicleType.delete({
-      where: { id: BigInt(id) },
+      where: { id: vehicleTypeId },
     })
 
     revalidatePath(SETTINGS_PATH)
@@ -307,9 +326,20 @@ export async function deleteFuelType(id: number) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
+  const fuelTypeId = BigInt(id)
+
+  // An office's form 7 row names the exact fuel it buys, so the row must survive.
+  const inUse = await prisma.officeFormVehicleGovt.findFirst({
+    where: { fuelTypeId },
+    select: { id: true },
+  })
+  if (inUse) {
+    return { error: 'এই জ্বালানিটি অফিসের বাজেটে ব্যবহৃত হয়েছে, তাই মুছে ফেলা যাবে না।' }
+  }
+
   try {
     await prisma.refFuelType.delete({
-      where: { id: BigInt(id) },
+      where: { id: fuelTypeId },
     })
 
     revalidatePath(SETTINGS_PATH)
@@ -431,7 +461,6 @@ export async function saveVehicleConfigForType(data: {
             vehicleTypeId_fuelCategoryId: { vehicleTypeId, fuelCategoryId },
           },
           create: {
-            officeTypeId: null,
             vehicleTypeId,
             fuelCategoryId,
             monthlyFuelQuotaLiter: quota.monthly_fuel_quota_liter,
@@ -458,6 +487,16 @@ export async function deleteVehicleConfigForType(vehicleTypeId: number) {
 
   const id = BigInt(vehicleTypeId)
 
+  // A config row is the FK target of the office's form 7 rows; removing it while any
+  // exist would orphan them.
+  const inUse = await prisma.officeFormVehicleGovt.findFirst({
+    where: { config: { vehicleTypeId: id } },
+    select: { id: true },
+  })
+  if (inUse) {
+    return { error: 'এই যানবাহনের ধরনের কনফিগারেশন অফিসের বাজেটে ব্যবহৃত হয়েছে, তাই মুছে ফেলা যাবে না।' }
+  }
+
   try {
     await prisma.$transaction([
       prisma.adminVehicleConfig.deleteMany({ where: { vehicleTypeId: id } }),
@@ -478,7 +517,6 @@ export async function deleteVehicleConfigForType(vehicleTypeId: number) {
 
 export interface VehicleRentConfigItem {
   id: number
-  office_type_id: number | null
   vehicle_type_id: number
   vehicle_type_name: string
   monthly_rent_rate: number
@@ -494,7 +532,6 @@ export async function getVehicleRentConfigs(): Promise<VehicleRentConfigItem[]> 
 
   return configs.map((c) => ({
     id: Number(c.id),
-    office_type_id: c.officeTypeId === null ? null : Number(c.officeTypeId),
     vehicle_type_id: Number(c.vehicleTypeId),
     vehicle_type_name: c.vehicleType.name,
     monthly_rent_rate: Number(c.monthlyRentRate || 0),
@@ -510,7 +547,6 @@ export async function saveVehicleRentConfig(data: {
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
   const payload = {
-    officeTypeId: null,
     vehicleTypeId: BigInt(data.vehicle_type_id),
     monthlyRentRate: data.monthly_rent_rate,
   }
@@ -537,9 +573,21 @@ export async function deleteVehicleRentConfig(id: number) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
+  const configId = BigInt(id)
+
+  // A rent config is the FK target of the office's form 8 rows; removing it while any
+  // exist would orphan them.
+  const inUse = await prisma.officeFormVehicleRent.findFirst({
+    where: { vehicleRentConfigId: configId },
+    select: { id: true },
+  })
+  if (inUse) {
+    return { error: 'এই ভাড়ার কনফিগারেশন অফিসের বাজেটে ব্যবহৃত হয়েছে, তাই মুছে ফেলা যাবে না।' }
+  }
+
   try {
     await prisma.adminVehicleRentConfig.delete({
-      where: { id: BigInt(id) },
+      where: { id: configId },
     })
 
     revalidatePath(SETTINGS_PATH)
@@ -637,9 +685,20 @@ export async function deleteUtilityType(id: number) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
+  const utilityTypeId = BigInt(id)
+
+  // An office's utility row names this type; removing it while any exist would orphan them.
+  const inUse = await prisma.officeFormUtility.findFirst({
+    where: { utilityTypeId },
+    select: { id: true },
+  })
+  if (inUse) {
+    return { error: 'এই ইউটিলিটির ধরনটি অফিসের বাজেটে ব্যবহৃত হয়েছে, তাই মুছে ফেলা যাবে না।' }
+  }
+
   try {
     await prisma.refUtilityType.delete({
-      where: { id: BigInt(id) },
+      where: { id: utilityTypeId },
     })
 
     revalidatePath(SETTINGS_PATH)
@@ -722,9 +781,21 @@ export async function deleteItEquipmentType(id: number) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
+  const equipmentTypeId = BigInt(id)
+
+  // The type's admin_it_config rows cascade away with it, but an office's form 10 rows
+  // reference those configs; refuse while any exist rather than orphaning them.
+  const inUse = await prisma.officeFormItEquipment.findFirst({
+    where: { config: { equipmentTypeId } },
+    select: { id: true },
+  })
+  if (inUse) {
+    return { error: 'এই সরঞ্জামের ধরনটি অফিসের বাজেটে ব্যবহৃত হয়েছে, তাই মুছে ফেলা যাবে না।' }
+  }
+
   try {
     await prisma.refItEquipmentType.delete({
-      where: { id: BigInt(id) },
+      where: { id: equipmentTypeId },
     })
 
     revalidatePath(SETTINGS_PATH)
