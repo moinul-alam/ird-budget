@@ -104,13 +104,11 @@ CREATE TRIGGER "core_offices_placement_trigger"
   BEFORE INSERT OR UPDATE ON "core_offices"
   FOR EACH ROW EXECUTE FUNCTION "core_offices_placement_check"();
 
--- 4. Exactly one login/root office per ministry, one per department, and one head office per
---    office type — the shape every screen already assumes.
+-- 4. Exactly one login/root office per ministry, and one per department. (There is deliberately
+--    no "one head office per office type" index: a type may hold many offices that were never
+--    given a parent, and the live data has 60+ of them under a single type.)
 CREATE UNIQUE INDEX "core_offices_ministry_root_key"
   ON "core_offices" ("ministry_id") WHERE "ministry_id" IS NOT NULL;
 
 CREATE UNIQUE INDEX "core_offices_department_root_key"
   ON "core_offices" ("department_id") WHERE "office_type_id" IS NULL AND "department_id" IS NOT NULL;
-
-CREATE UNIQUE INDEX "core_offices_head_office_key"
-  ON "core_offices" ("office_type_id") WHERE "parent_office_id" IS NULL AND "office_type_id" IS NOT NULL;

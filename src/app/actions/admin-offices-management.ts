@@ -126,21 +126,6 @@ export async function saveHeadOffice(data: {
       }
     }
 
-    // One head office per office type is the shape the whole tab assumes (see the unique index
-    // on head offices). Refuse the duplicate here so the admin reads Bangla, not a raw
-    // constraint violation.
-    const conflictingHeadOffice = await prisma.coreOffice.findFirst({
-      where: {
-        officeTypeId: placement.officeTypeId,
-        parentOfficeId: null,
-        ...(data.id && { id: { not: BigInt(data.id) } }),
-      },
-      select: { id: true },
-    })
-    if (conflictingHeadOffice) {
-      return { error: 'এই অফিসের ধরণের অধীনে ইতিমধ্যে একটি হেড অফিস বিদ্যমান রয়েছে।' }
-    }
-
     if (data.id) {
       await prisma.coreOffice.update({
         where: { id: BigInt(data.id) },
