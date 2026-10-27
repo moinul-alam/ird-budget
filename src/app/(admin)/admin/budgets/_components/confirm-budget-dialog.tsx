@@ -30,7 +30,7 @@ export function ConfirmBudgetDialog({
       <DialogContent className="sm:max-w-md rounded-2xl p-6">
         <DialogHeader>
           <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
-            <AlertTriangle className={`h-5 w-5 ${confirmModal.isArchive ? 'text-amber-600' : 'text-rose-600'}`} />
+            <AlertTriangle className="h-5 w-5 text-rose-600" />
             <span>{confirmModal.title}</span>
           </DialogTitle>
         </DialogHeader>
@@ -52,14 +52,10 @@ export function ConfirmBudgetDialog({
             type="button"
             onClick={confirmModal.onConfirm}
             disabled={isPending}
-            className={`rounded-xl text-white font-bold text-xs ${
-              confirmModal.isArchive
-                ? 'bg-amber-600 hover:bg-amber-700'
-                : 'bg-rose-600 hover:bg-rose-700'
-            }`}
+            className="rounded-xl text-white font-bold text-xs bg-rose-600 hover:bg-rose-700"
           >
             {isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-            {confirmModal.isArchive ? 'আর্কাইভ নিশ্চিত করুন' : 'মুছে ফেলা নিশ্চিত করুন'}
+            মুছে ফেলা নিশ্চিত করুন
           </Button>
         </DialogFooter>
       </DialogContent>

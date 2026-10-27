@@ -77,9 +77,21 @@ removing a parent orphans rather than deletes its children).
 the multiplier the engine annualises every monthly figure with. It lives on the cycle, not
 in a global setting, because two cycles can legitimately have different month counts.
 
-`status` is `open` or `closed`. **The application allows only one open cycle at a time**;
-that rule is enforced in [admin-budgets.ts](src/app/actions/admin-budgets.ts), not by a
-database constraint.
+`status` is one of three values, and the difference between the last two is deliberate:
+
+| Value | Means |
+| ----- | ----- |
+| `open` | The submission window: offices can draft and submit against it. |
+| `closed` | Shut for now. Still in the working set — reopening it is fully reversible, and **opening a different cycle sweeps it to `closed`**. |
+| `archived` | Retired history. Holds submitted data, so it can never be deleted, and it is **not** touched when another cycle opens. |
+
+**The application allows only one open cycle at a time**; opening a cycle closes the others.
+That rule is enforced in [admin-budgets.ts](src/app/actions/admin-budgets.ts), not by a
+database constraint — there is no partial unique index on `status`, and `status` is a bare
+`VARCHAR(20)` with no `CHECK`, so the three values are a code-level contract.
+
+`status` is written by exactly one action, `saveCycle`, and only from a form — the cycle
+table on `/admin/budgets` reports the state and does not change it.
 
 ***
 

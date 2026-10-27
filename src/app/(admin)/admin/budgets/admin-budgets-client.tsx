@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { toBanglaNumber } from '@/lib/bangla'
 import { SALARY_MONTHS_MAX, SALARY_MONTHS_MIN } from '@/lib/constants'
 import {
@@ -22,8 +23,7 @@ import {
   saveFiscalYear,
   deleteFiscalYear,
   saveCycle,
-  toggleCycleStatus,
-  deleteOrArchiveCycle,
+  deleteCycle,
 } from '@/app/actions/admin-budgets'
 import {
   AdminBudgetsClientProps,
@@ -32,6 +32,7 @@ import {
   FiscalYearModalState,
   CycleModalState,
   ConfirmBudgetModalState,
+  isBudgetTab,
 } from './_types/budgets'
 import { TabBudgetTypes } from './_components/tab-budget-types'
 import { TabFiscalYears } from './_components/tab-fiscal-years'
@@ -43,9 +44,25 @@ export function AdminBudgetsClient({
   initialFiscalYears,
   initialCycles,
 }: AdminBudgetsClientProps) {
-  const [activeTab, setActiveTab] = useState<BudgetTabType>(
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+
+  // The active tab lives in the URL (?tab=cycles) rather than in component state — the
+  // same convention the other admin pages follow. Saving runs a server action that
+  // revalidates this path and re-renders the segment, which drops local state and would
+  // otherwise bounce the user back to the first tab after every save.
+  const defaultTab: BudgetTabType =
     initialBudgetTypes.length > 0 && initialFiscalYears.length > 0 ? 'cycles' : 'budget_types'
-  )
+  const tabParam = searchParams.get('tab')
+  const activeTab: BudgetTabType = isBudgetTab(tabParam) ? tabParam : defaultTab
+  const setActiveTab = (tab: BudgetTabType) => {
+    if (tab === activeTab) return
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', tab)
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+  }
+
   const [isPending, startTransition] = useTransition()
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
@@ -75,12 +92,11 @@ export function AdminBudgetsClient({
     status: 'open',
   })
 
-  // Delete / Archive Confirmation Dialog
+  // Delete Confirmation Dialog
   const [confirmModal, setConfirmModal] = useState<ConfirmBudgetModalState>({
     open: false,
     title: '',
     description: '',
-    isArchive: false,
     onConfirm: () => { },
   })
 
@@ -174,70 +190,29 @@ export function AdminBudgetsClient({
     })
   }
 
-  // Toggle Cycle Status (Open / Close)
-  const handleToggleStatus = (cycle: CycleItem) => {
-    const nextStatus = cycle.status === 'open' ? 'closed' : 'open'
-    startTransition(async () => {
-      const res = await toggleCycleStatus(cycle.id, nextStatus)
-      if (res.error) {
-        showStatus(res.error, 'error')
-      } else {
-        showStatus(`বাজেট সাইকেল স্ট্যাটাস পরিবর্তিত হয়েছে (${nextStatus === 'open' ? 'উন্মুক্ত (Open)' : 'বন্ধ (Closed)'})`)
-        setCycles((prev) =>
-          prev.map((c) => {
-            if (nextStatus === 'open') {
-              return { ...c, status: c.id === cycle.id ? 'open' : 'closed' }
-            }
-            return c.id === cycle.id ? { ...c, status: nextStatus } : c
-          })
-        )
-      }
-    })
-  }
-
-  // Delete or Archive Cycle
+  // Delete a cycle permanently. Only ever offered for a cycle with no submissions — the
+  // server refuses the rest, because those submissions are the record of what offices
+  // actually filed.
   const handleDeleteCycle = (cycle: CycleItem) => {
-    if (cycle.has_data) {
-      setConfirmModal({
-        open: true,
-        title: 'বাজেট আর্কাইভ করুন',
-        description: `এই বাজেটে (${toBanglaNumber(cycle.submission_count || 0)} টি) দাখিলকৃত তথ্য রয়েছে। এটি ডিলিট করা সম্ভব নয়। আপনি কি এই বাজেট বন্ধ ও আর্কাইভ করতে চান?`,
-        isArchive: true,
-        onConfirm: () => {
-          startTransition(async () => {
-            const res = await deleteOrArchiveCycle(cycle.id)
-            setConfirmModal((prev) => ({ ...prev, open: false }))
-            if (res.error) {
-              showStatus(res.error, 'error')
-            } else {
-              showStatus('বাজেট সফলভাবে আর্কাইভ (বন্ধ) করা হয়েছে')
-              setCycles((prev) =>
-                prev.map((c) => (c.id === cycle.id ? { ...c, status: 'closed' } : c))
-              )
-            }
-          })
-        },
-      })
-    } else {
-      setConfirmModal({
-        open: true,
-        title: 'বাজেট সাইকেল মুছুন',
-        description: 'আপনি কি নিশ্চিতভাবে এই বাজেট সাইকেলটি মুছে ফেলতে চান? এতে কোনো দাখিলকৃত তথ্য নেই।',
-        isArchive: false,
-        onConfirm: () => {
-          startTransition(async () => {
-            const res = await deleteOrArchiveCycle(cycle.id)
-            setConfirmModal((prev) => ({ ...prev, open: false }))
-            if (res.error) {
-              showStatus(res.error, 'error')
-            } else {
-              showStatus('বাজেট সাইকেল সফলভাবে মুছে ফেলা হয়েছে')
-              setCycles((prev) => prev.filter((c) => c.id !== cycle.id))
-            }
-          })
-        },
-      })
-    }
+    setConfirmModal({
+      open: true,
+      title: 'বাজেট চক্র মুছুন',
+      description:
+        `"${toBanglaNumber(cycle.fiscal_year)} — ${cycle.budget_type_name}" চক্রটি মুছে ফেলতে চান? এতে কোনো অফিসের দাখিলকৃত তথ্য নেই।`,
+      onConfirm: () => {
+        startTransition(async () => {
+          const res = await deleteCycle(cycle.id)
+          setConfirmModal((prev) => ({ ...prev, open: false }))
+          if (res.error) {
+            showStatus(res.error, 'error')
+            setCycles(await getCyclesList())
+          } else {
+            showStatus('বাজেট চক্র সফলভাবে মুছে ফেলা হয়েছে')
+            setCycles((prev) => prev.filter((c) => c.id !== cycle.id))
+          }
+        })
+      },
+    })
   }
 
   const canCreateCycle = budgetTypes.length > 0 && fiscalYears.length > 0
@@ -248,7 +223,6 @@ export function AdminBudgetsClient({
       open: true,
       title: 'বাজেটের ধরণ মুছুন',
       description: `আপনি কি নিশ্চিতভাবে "${b.name}" বাজেটের ধরণটি মুছে ফেলতে চান?`,
-      isArchive: false,
       onConfirm: () => {
         startTransition(async () => {
           const res = await deleteBudgetType(b.id)
@@ -270,7 +244,6 @@ export function AdminBudgetsClient({
       open: true,
       title: 'অর্থবছর মুছুন',
       description: `আপনি কি নিশ্চিতভাবে "${f.year}" অর্থবছরটি মুছে ফেলতে চান?`,
-      isArchive: false,
       onConfirm: () => {
         startTransition(async () => {
           const res = await deleteFiscalYear(f.id)
@@ -360,7 +333,7 @@ export function AdminBudgetsClient({
               }`}
           >
             <SlidersHorizontal className="h-4 w-4" />
-            <span>বাজেট চক্র নির্ধারণ</span>
+            <span>বাজেট চক্র</span>
             {!canCreateCycle && (
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold">
                 লকড
@@ -404,7 +377,6 @@ export function AdminBudgetsClient({
           cycleModal={cycleModal}
           setCycleModal={setCycleModal}
           onSaveCycle={handleSaveCycle}
-          onToggleStatus={handleToggleStatus}
           onDeleteCycle={handleDeleteCycle}
           setActiveTab={setActiveTab}
           showStatus={showStatus}

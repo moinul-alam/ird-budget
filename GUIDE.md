@@ -281,6 +281,15 @@ UNIQUE(fiscal_year_id, budget_type_id)
 It also carries `salary_months` (1–12) — the multiplier the engine uses for annual
 salary/allowance and IT-supply calculations for that cycle.
 
+A cycle's `status` is `open`, `closed` or `archived`. The first two are a pause — reopening
+is reversible, and opening a *different* cycle sweeps them shut; `archived` is a retirement
+that survives opening a different cycle, which is what makes it more than a label. Status is
+changed deliberately rather than by a one-click toggle: the cycle table only *reports* the
+current state, and moving a cycle is done through its edit dialog (সম্পাদনা → স্ট্যাটাস →
+সংরক্ষণ) on
+[/admin/budgets](src/app/(admin)/admin/budgets/_components/tab-cycles.tsx); see
+**[SCHEMA.md](SCHEMA.md)** for the precise difference.
+
 ### Domain 2 — `ref_` : reference data the admin fully controls (14 tables)
 
 `ref_employee_categories`, `ref_grades`, `ref_budget_categories`, `ref_formula_types`,
@@ -359,7 +368,7 @@ multi-row forms) so re-saving never duplicates rows.
 | `/`                                            | Public landing — office login (13-digit Budget ID) and office registration |
 | `/admin/login`                                 | Admin / superadmin login (`/superadmin/login` redirects here)              |
 | `/admin/dashboard`                             | Overview                                                                   |
-| `/admin/budgets`                               | Budget cycles (fiscal year × type, status, বেতন-মাস)                       |
+| `/admin/budgets`                               | Budget cycles (fiscal year × type, `?tab=` deep links, উন্মুক্ত/বন্ধ/আর্কাইভড status, বেতন-মাস) |
 | `/admin/codes`                                 | Budget categories + economic codes, formulas, per-level enablement         |
 | `/admin/formulas`                              | Read-only view of the formula registry and code→form bindings              |
 | `/admin/offices-config`                        | Office types, levels, hierarchy                                            |
@@ -424,10 +433,11 @@ them, so changing that code means changing the rule:
 
 | Invariant | Where |
 | --------- | ----- |
-| One open budget cycle at a time | [admin-budgets.ts](src/app/actions/admin-budgets.ts) — the database has no such constraint |
+| One open budget cycle at a time | [admin-budgets.ts](src/app/actions/admin-budgets.ts) — the database has no such constraint. Opening a cycle sweeps the other **`open`** cycles to `closed`; an **`archived`** cycle is never swept |
 | An office's level and type must belong to its own department | [placement.ts](src/lib/office/placement.ts) (`assertOfficePlacement`), with the `core_offices_placement_trigger` as backstop |
 | Forms are read-only once the budget is submitted | The form save guard; a submitted budget must be unlocked deliberately to edit |
 | A parent with children is never deleted | Pre-checks in the delete actions, so the admin sees a Bangla message rather than a raw Postgres error |
+| A cycle that received submissions is never deleted | [deleteCycle](src/app/actions/admin-budgets.ts) refuses it, and the UI does not offer the button at all — the cycle is archived instead |
 | The seed never opens a second cycle | [seed.js](prisma/seed.js) — it provisions the first one only, and leaves which cycle is open to the admin |
 | `AUTH_SECRET`, `OFFICE_DEFAULT_PASSWORD`, `ADMIN_DEFAULT_PASSWORD` must be set | The app throws instead of falling back to a default |
 

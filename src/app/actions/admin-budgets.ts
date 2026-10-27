@@ -17,13 +17,24 @@ export interface FiscalYearItem {
   created_at?: string
 }
 
+/**
+ * The three states a budget cycle can be in.
+ *
+ * - `open`     — the submission window: offices can enter and submit.
+ * - `closed`   — the window is shut for now. Still a live object: it can be reopened in
+ *                one click, and opening a *different* cycle closes it.
+ * - `archived` — retired. Read-only history: it holds submitted data, so it can never be
+ *                deleted, and it is deliberately *not* touched when another cycle opens.
+ */
+export type CycleStatus = 'open' | 'closed' | 'archived'
+
 export interface CycleItem {
   id: number
   fiscal_year: string
   budget_type_name: string
   /** বেতন-মাস — the cycle's annualising multiplier for monthly figures. */
   salary_months: number
-  status: 'open' | 'closed'
+  status: CycleStatus
   has_data?: boolean
   submission_count?: number
   opened_at?: string | null
@@ -187,7 +198,7 @@ export async function getCyclesList(): Promise<CycleItem[]> {
       fiscal_year: c.fiscalYear.year,
       budget_type_name: c.budgetType.name,
       salary_months: c.salaryMonths,
-      status: c.status as 'open' | 'closed',
+      status: c.status as CycleStatus,
       has_data: count > 0,
       submission_count: count,
       opened_at: c.openedAt?.toISOString(),
@@ -202,7 +213,7 @@ export async function saveCycle(data: {
   fiscal_year: string
   budget_type_name: string
   salary_months: number
-  status: 'open' | 'closed'
+  status: CycleStatus
 }) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
@@ -251,9 +262,12 @@ export async function saveCycle(data: {
       // inside the same transaction, so a rejected save — most likely the unique
       // (fiscal year × budget type) index — cannot leave the installation with the
       // previously open cycle closed and no replacement.
+      //
+      // Only `open` cycles are swept. An archived cycle is a deliberate, final decision,
+      // so opening a new cycle must not quietly drag it back into the working set.
       if (data.status === 'open') {
         await tx.coreBudgetCycle.updateMany({
-          where: { id: { not: row.id } },
+          where: { id: { not: row.id }, status: 'open' },
           data: { status: 'closed' },
         })
       }
@@ -270,66 +284,32 @@ export async function saveCycle(data: {
   }
 }
 
-export async function toggleCycleStatus(id: number, targetStatus: 'open' | 'closed') {
+/**
+ * Permanently removes a cycle. Only a cycle that never received a submission can go this
+ * way; anything else must be archived, because the data behind it is the record of what
+ * offices actually submitted.
+ */
+export async function deleteCycle(id: number) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
 
   try {
-    if (targetStatus === 'open') {
-      // Close other cycles
-      await prisma.coreBudgetCycle.updateMany({
-        where: { id: { not: BigInt(id) } },
-        data: { status: 'closed' },
-      })
+    // `office_submissions.cycle_id` is RESTRICT, so Postgres would refuse this anyway.
+    // Counting first turns that raw constraint error into a sentence an admin can act on.
+    const submissionCount = await prisma.officeSubmission.count({
+      where: { cycleId: BigInt(id) },
+    })
+    if (submissionCount > 0) {
+      return {
+        error: `এই চক্রে ${submissionCount} টি অফিসের দাখিলকৃত তথ্য রয়েছে — মুছে ফেলা সম্ভব নয়, আর্কাইভ করুন`,
+      }
     }
 
-    await prisma.coreBudgetCycle.update({
-      where: { id: BigInt(id) },
-      data: {
-        status: targetStatus,
-        openedAt: targetStatus === 'open' ? new Date() : undefined,
-        closedAt: targetStatus === 'closed' ? new Date() : undefined,
-      },
-    })
+    await prisma.coreBudgetCycle.delete({ where: { id: BigInt(id) } })
 
     revalidatePath('/admin/budgets')
     revalidatePath('/dashboard')
     return { success: true }
-  } catch (error: any) {
-    return { error: error.message }
-  }
-}
-
-export async function deleteOrArchiveCycle(id: number) {
-  const session = await getAdminSession()
-  if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
-
-  try {
-    // Check if submissions exist
-    const subs = await prisma.officeSubmission.findFirst({
-      where: { cycleId: BigInt(id) },
-    })
-
-    if (subs) {
-      // Has data: Archive by marking status = 'closed'
-      await prisma.coreBudgetCycle.update({
-        where: { id: BigInt(id) },
-        data: { status: 'closed' },
-      })
-
-      revalidatePath('/admin/budgets')
-      revalidatePath('/dashboard')
-      return { success: true, archived: true }
-    }
-
-    // No submissions: Safely remove
-    await prisma.coreBudgetCycle.delete({
-      where: { id: BigInt(id) },
-    })
-
-    revalidatePath('/admin/budgets')
-    revalidatePath('/dashboard')
-    return { success: true, deleted: true }
   } catch (error: any) {
     return { error: error.message }
   }

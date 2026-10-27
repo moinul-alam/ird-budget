@@ -19,20 +19,39 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
 import {
   Plus,
   Edit2,
   Trash2,
-  Archive,
   Loader2,
   SlidersHorizontal,
-  Lock,
-  Unlock,
   AlertTriangle,
 } from 'lucide-react'
-import { BudgetTypeItem, FiscalYearItem, CycleItem } from '@/app/actions/admin-budgets'
-import { CycleModalState, BudgetTabType } from '../_types/budgets'
+import { BudgetTypeItem, FiscalYearItem, CycleItem, CycleStatus } from '@/app/actions/admin-budgets'
+import { CycleModalState, BudgetTabType, CYCLE_STATUS_LABEL } from '../_types/budgets'
+
+/** উন্মুক্ত → বন্ধ → আর্কাইভড — the order the edit dialog presents them in. */
+const CYCLE_STATUS_ORDER: CycleStatus[] = ['open', 'closed', 'archived']
+
+/** Colour per state: green = live, slate = paused, amber = retired. */
+const CYCLE_STATUS_COLOR: Record<CycleStatus, string> = {
+  open: 'bg-emerald-600 text-white shadow-xs',
+  closed: 'bg-slate-600 text-white shadow-xs',
+  archived: 'bg-amber-600 text-white shadow-xs',
+}
+
+/** The table's read-only chip — same palette, softer fill. */
+const CYCLE_STATUS_BADGE: Record<CycleStatus, { chip: string; dot: string }> = {
+  open: { chip: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500' },
+  closed: { chip: 'bg-slate-100 text-slate-600 border-slate-200', dot: 'bg-slate-400' },
+  archived: { chip: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' },
+}
+
+const CYCLE_STATUS_HINT: Record<CycleStatus, string> = {
+  open: '• উন্মুক্ত থাকা অবস্থায় অফিসগুলো বাজেট তৈরি ও দাখিল করতে পারবে।',
+  closed: '• বন্ধ অবস্থায় কোনো অফিস বাজেট এন্ট্রি বা পরিবর্তন করতে পারবে না, তবে চক্রটি সক্রিয় তালিকায় থাকবে এবং পরে আবার উন্মুক্ত করা যাবে।',
+  archived: '• আর্কাইভ করা চক্র ইতিহাস হিসেবে সংরক্ষিত থাকে — নতুন চক্র উন্মুক্ত করলে এটি স্বয়ংক্রিয়ভাবে বন্ধ হয় না, এবং দাখিলকৃত তথ্য থাকলে কখনো মুছে ফেলা যায় না।',
+}
 
 interface TabCyclesProps {
   cycles: CycleItem[]
@@ -42,7 +61,6 @@ interface TabCyclesProps {
   cycleModal: CycleModalState
   setCycleModal: React.Dispatch<React.SetStateAction<CycleModalState>>
   onSaveCycle: () => void
-  onToggleStatus: (cycle: CycleItem) => void
   onDeleteCycle: (cycle: CycleItem) => void
   setActiveTab: (tab: BudgetTabType) => void
   showStatus: (text: string, type?: 'success' | 'error') => void
@@ -57,7 +75,6 @@ export function TabCycles({
   cycleModal,
   setCycleModal,
   onSaveCycle,
-  onToggleStatus,
   onDeleteCycle,
   setActiveTab,
   showStatus,
@@ -190,35 +207,15 @@ export function TabCycles({
                         )}
                       </td>
                       <td className="py-3.5 px-4">
-                        <button
-                          type="button"
-                          onClick={() => onToggleStatus(c)}
-                          className="cursor-pointer group flex items-center gap-1.5"
-                          title="স্ট্যাটাস পরিবর্তন করতে ক্লিক করুন"
-                        >
-                          <Badge
-                            variant="outline"
-                            className={`text-xs font-bold gap-1 rounded-full px-2.5 py-0.5 transition-all ${c.status === 'open'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-300 group-hover:bg-emerald-100'
-                              : 'bg-slate-100 text-slate-600 border-slate-300 group-hover:bg-slate-200'
-                              }`}
-                          >
-                            {c.status === 'open' ? (
-                              <>
-                                <Unlock className="h-3 w-3 text-emerald-600" />
-                                <span>উন্মুক্ত (Open)</span>
-                              </>
-                            ) : (
-                              <>
-                                <Lock className="h-3 w-3 text-slate-500" />
-                                <span>বন্ধ (Closed)</span>
-                              </>
-                            )}
-                          </Badge>
-                        </button>
+                        {/* Read-only: this column reports state, it does not choose it. Changing
+                            status is an explicit decision, so it lives behind সম্পাদনা → সংরক্ষণ. */}
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-bold ${CYCLE_STATUS_BADGE[c.status].chip}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${CYCLE_STATUS_BADGE[c.status].dot}`} />
+                          {CYCLE_STATUS_LABEL[c.status]}
+                        </span>
                       </td>
                       <td className="py-3.5 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
+                        <div className="inline-flex items-center gap-1">
                           <Button
                             variant="ghost"
                             size="sm"
@@ -238,22 +235,15 @@ export function TabCycles({
                             <Edit2 className="h-3.5 w-3.5" />
                           </Button>
 
-                          {c.has_data ? (
+                          {/* A cycle that received submissions is the record of what offices
+                              filed, so it is archived instead of deleted — the button is not
+                              offered at all rather than offered and refused. */}
+                          {!c.has_data && (
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => onDeleteCycle(c)}
-                              className="h-8 px-2 text-amber-700 hover:text-amber-800 hover:bg-amber-50 rounded-lg text-xs font-bold gap-1"
-                              title="ডাটা থাকায় মুছে ফেলার পরিবর্তে আর্কাইভ করা হবে"
-                            >
-                              <Archive className="h-3.5 w-3.5" />
-                              <span>আর্কাইভ</span>
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => onDeleteCycle(c)}
+                              disabled={isPending}
                               className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50 rounded-lg"
                               title="মুছে ফেলুন"
                             >
@@ -361,34 +351,23 @@ export function TabCycles({
 
             <div className="space-y-1.5 pt-1">
               <Label className="text-xs font-bold text-slate-700">স্ট্যাটাস</Label>
-              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setCycleModal((prev) => ({ ...prev, status: 'open' }))}
-                  className={`py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${cycleModal.status === 'open'
-                    ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                    }`}
-                >
-                  <Unlock className="h-3.5 w-3.5" />
-                  <span>ওপেন</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCycleModal((prev) => ({ ...prev, status: 'closed' }))}
-                  className={`py-2 px-3 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${cycleModal.status === 'closed'
-                    ? 'bg-rose-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                    }`}
-                >
-                  <Lock className="h-3.5 w-3.5" />
-                  <span>ক্লোজ্ড</span>
-                </button>
+              <div className="grid grid-cols-3 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
+                {CYCLE_STATUS_ORDER.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setCycleModal((prev) => ({ ...prev, status: s }))}
+                    className={`py-2 px-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${cycleModal.status === s
+                      ? CYCLE_STATUS_COLOR[s]
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                      }`}
+                  >
+                    {CYCLE_STATUS_LABEL[s]}
+                  </button>
+                ))}
               </div>
-              <p className="text-[11px] text-slate-500 mt-1">
-                {cycleModal.status === 'open'
-                  ? '• ওপেন থাকা অবস্থায় ইউজাররা বাজেট তৈরি ও দাখিল করতে পারবে।'
-                  : '• ক্লোজ্ড অবস্থায় কোনো অফিস বাজেট ডাটা এন্ট্রি বা পরিবর্তন করতে পারবে না।'}
+              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                {CYCLE_STATUS_HINT[cycleModal.status]}
               </p>
             </div>
           </div>

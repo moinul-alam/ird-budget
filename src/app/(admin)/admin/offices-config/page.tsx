@@ -4,7 +4,7 @@ import { getDepartments, getOfficeTypes, getMinistries, getOfficeLevels } from '
 import { AdminOfficesConfigClient } from './admin-offices-config-client'
 
 export const metadata = {
-  title: 'অফিস কনফিগারেশন',
+  title: 'অফিস ব্যবস্থাপনা',
   description: 'মন্ত্রণালয়/বিভাগ, দপ্তর/সংস্থা, অফিসের ধরণ এবং মাঠ অফিসের স্তর',
 }
 
