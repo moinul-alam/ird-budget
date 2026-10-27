@@ -165,7 +165,20 @@ async function seedFiscalYears() {
 // getOrCreateOfficeSubmission in src/app/actions/auth.ts) and returns null when
 // no cycle exists at all. Without one here, an office user signs in and every
 // form has no submission to save against.
+//
+// Only ever provisions the *first* cycle: the app allows one open cycle at a time,
+// and which one is open is an admin decision on /admin/budgets. A seed that opens a
+// cycle whenever its (fiscal year × budget type) pair is missing would happily create
+// a second open one and bypass that rule.
 async function seedBudgetCycle() {
+  const existingCycles = await prisma.coreBudgetCycle.count()
+  if (existingCycles > 0) {
+    console.log(
+      `  core_budget_cycles  : skipped (${existingCycles} already exist — the open cycle is an admin decision)`
+    )
+    return
+  }
+
   const fiscalYear = await prisma.refFiscalYear.findFirst({
     orderBy: { sortOrder: 'desc' },
     select: { id: true, year: true },
@@ -177,18 +190,6 @@ async function seedBudgetCycle() {
 
   if (!fiscalYear || !budgetType) {
     console.log('  core_budget_cycles  : skipped (needs a fiscal year and a budget type)')
-    return
-  }
-
-  const existing = await prisma.coreBudgetCycle.findUnique({
-    where: {
-      fiscalYearId_budgetTypeId: { fiscalYearId: fiscalYear.id, budgetTypeId: budgetType.id },
-    },
-    select: { id: true },
-  })
-
-  if (existing) {
-    console.log(`  core_budget_cycles  : "${fiscalYear.year} ${budgetType.name}" already exists`)
     return
   }
 
@@ -417,7 +418,7 @@ async function seedGrades() {
 
   const seedGrades = Array.from({ length: 20 }, (_, i) => ({
     gradeNo: i + 1,
-    categoryId: categoryIdByName.get(i + 1 <= 10 ? 'officer' : 'staff')!,
+    categoryId: categoryIdByName.get(i + 1 <= 10 ? 'officer' : 'staff'),
   }))
 
   let created = 0
@@ -734,44 +735,6 @@ async function seedSalaryConfig() {
 }
 
 // ---------------------------------------------------------------------------
-// Admin rates
-// ---------------------------------------------------------------------------
-// Every admin_rates key the application reads must exist, otherwise the budget
-// engine and the return-info form fall back to hardcoded values. Do not re-add
-// `house_rent_percent` or `postal_rate`: both were superseded by the tab-1
-// `house_rent` slab and by `postal_expense_rate`, and nothing reads them.
-const SEED_RATES = [
-  { key: 'medical_allowance_monthly', name: 'মাসিক চিকিৎসা ভাতা', value: 1500, unit: 'টাকা', description: 'প্রতি কর্মকর্তা/কর্মচারীর মাসিক চিকিৎসা ভাতা' },
-  { key: 'festival_bonus_multiplier', name: 'উৎসব বোনাস গুণক', value: 2, unit: 'গুণ', description: 'উৎসব বোনাস = মূল বেতন × গুণক' },
-  { key: 'provident_fund_percent', name: 'ভবিষ্যৎ তহবিলের হার', value: 10, unit: '%', description: 'মূল বেতনের শতাংশ হিসেবে ভবিষ্যৎ তহবিল' },
-  { key: 'education_allowance', name: 'শিক্ষা ভাতা', value: 500, unit: 'টাকা', description: 'জনপ্রতি মাসিক শিক্ষা ভাতা' },
-  { key: 'fuel_price_octane', name: 'অকটেনের দাম', value: 130, unit: 'টাকা/লিটার', description: 'প্রতি লিটার অকটেনের দাম' },
-  { key: 'fuel_price_diesel', name: 'ডিজেলের দাম', value: 110, unit: 'টাকা/লিটার', description: 'প্রতি লিটার ডিজেলের দাম' },
-  { key: 'fuel_price_cng', name: 'সিএনজি গ্যাসের দাম', value: 45, unit: 'টাকা/কেজি', description: 'প্রতি কেজি সিএনজি গ্যাসের দাম' },
-  { key: 'vat_percentage', name: 'ভ্যাটের হার', value: 15, unit: '%', description: 'অফিস ভাড়ার উপর ভ্যাট (form 9)' },
-  { key: 'postal_expense_rate', name: 'ডাক ব্যয়ের হার', value: 50, unit: 'টাকা', description: 'বাজেট হিসাবে প্রতি রিটার্নে ডাক ব্যয়' },
-]
-
-async function seedAdminRates() {
-  let created = 0
-
-  for (const item of SEED_RATES) {
-    const existing = await prisma.adminRate.findUnique({
-      where: { key: item.key },
-      select: { id: true },
-    })
-    if (existing) continue
-
-    await prisma.adminRate.create({ data: item })
-    created += 1
-  }
-
-  console.log(
-    `  admin_rates         : ${created} created, ${SEED_RATES.length - created} already present`
-  )
-}
-
-// ---------------------------------------------------------------------------
 
 async function main() {
   console.log('Seeding database...')
@@ -792,7 +755,6 @@ async function main() {
   await seedItEquipmentTypes()
   await seedUtilityTypes()
   await seedSalaryConfig()
-  await seedAdminRates()
   console.log('Done.')
 }
 

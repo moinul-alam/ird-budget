@@ -155,6 +155,9 @@ export function AdminBudgetsClient({
 
       if (res.error) {
         showStatus(res.error, 'error')
+        // A save can be rejected *and* still have moved cycles, so re-read rather than
+        // trust the statuses currently on screen.
+        setCycles(await getCyclesList())
       } else {
         showStatus('বাজেট সাইকেল সফলভাবে সংরক্ষিত হয়েছে')
         setCycleModal({

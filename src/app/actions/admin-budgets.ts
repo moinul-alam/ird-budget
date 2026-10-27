@@ -232,40 +232,32 @@ export async function saveCycle(data: {
   if (!budgetType) return { error: 'নির্বাচিত বাজেটের ধরণ পাওয়া যায়নি' }
 
   try {
-    // If opening this cycle, close all other cycles
-    if (data.status === 'open') {
-      await prisma.coreBudgetCycle.updateMany({
-        where: { id: { not: data.id ? BigInt(data.id) : undefined } },
-        data: { status: 'closed' },
-      })
-    }
+    await prisma.$transaction(async (tx) => {
+      const payload = {
+        fiscalYearId: fiscalYear.id,
+        budgetTypeId: budgetType.id,
+        title: `${data.fiscal_year.trim()} ${data.budget_type_name.trim()}`,
+        salaryMonths,
+        status: data.status,
+        openedAt: data.status === 'open' ? new Date() : undefined,
+        closedAt: data.status === 'closed' ? new Date() : undefined,
+      }
 
-    if (data.id) {
-      await prisma.coreBudgetCycle.update({
-        where: { id: BigInt(data.id) },
-        data: {
-          fiscalYearId: fiscalYear.id,
-          budgetTypeId: budgetType.id,
-          title: `${data.fiscal_year.trim()} ${data.budget_type_name.trim()}`,
-          salaryMonths,
-          status: data.status,
-          openedAt: data.status === 'open' ? new Date() : undefined,
-          closedAt: data.status === 'closed' ? new Date() : undefined,
-        },
-      })
-    } else {
-      await prisma.coreBudgetCycle.create({
-        data: {
-          fiscalYearId: fiscalYear.id,
-          budgetTypeId: budgetType.id,
-          title: `${data.fiscal_year.trim()} ${data.budget_type_name.trim()}`,
-          salaryMonths,
-          status: data.status,
-          openedAt: data.status === 'open' ? new Date() : undefined,
-          closedAt: data.status === 'closed' ? new Date() : undefined,
-        },
-      })
-    }
+      const row = data.id
+        ? await tx.coreBudgetCycle.update({ where: { id: BigInt(data.id) }, data: payload })
+        : await tx.coreBudgetCycle.create({ data: payload })
+
+      // Opening a cycle closes every other one. This runs *after* the write above and
+      // inside the same transaction, so a rejected save — most likely the unique
+      // (fiscal year × budget type) index — cannot leave the installation with the
+      // previously open cycle closed and no replacement.
+      if (data.status === 'open') {
+        await tx.coreBudgetCycle.updateMany({
+          where: { id: { not: row.id } },
+          data: { status: 'closed' },
+        })
+      }
+    })
 
     revalidatePath('/admin/budgets')
     revalidatePath('/dashboard')

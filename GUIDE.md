@@ -36,7 +36,7 @@ is Prisma over a Postgres TCP connection. Moving to another Postgres host is a
 | Artifact                                     | Role                                                                                      |
 | -------------------------------------------- | ----------------------------------------------------------------------------------------- |
 | [prisma/schema.prisma](prisma/schema.prisma) | **Single source of truth for the schema.** Change this first.                             |
-| [prisma/migrations/](prisma/migrations)      | Immutable, ordered history of how the database reached its current shape (27 migrations). |
+| [prisma/migrations/](prisma/migrations)      | Immutable, ordered history of how the database reached its current shape (32 migrations). |
 | [prisma/seed.js](prisma/seed.js)             | Minimum data required for the app to work after a wipe.                                   |
 | [prisma.config.ts](prisma.config.ts)         | Prisma CLI config (schema path, seed command, datasource URL).                            |
 | [src/lib/db/client.ts](src/lib/db/client.ts) | The one `PrismaClient` instance, memoised on `globalThis` in dev.                         |
@@ -103,7 +103,7 @@ puts Neon and Supabase within 4 ms of each other.
 ird-budget/
 ├── prisma/
 │   ├── schema.prisma              # schema source of truth
-│   ├── migrations/                # 27 ordered migrations
+│   ├── migrations/                # 32 ordered migrations
 │   ├── seed.js                    # idempotent seed (admin + reference data)
 │   └── seed-head-offices.js       # one-time NBR head-office import
 ├── resources/                     # data files referenced by the seed, plus stale SQL (§16)
@@ -185,9 +185,13 @@ value, summed to a total.
 | [src/lib/budget/group-codes.ts](src/lib/budget/group-codes.ts) | Pure category grouping for the drill-down and roll-up tables.                                  |
 
 `office_budget_sheet` stores **only manual overrides** — auto values are never persisted —
-so reports must recompute, not sum that table. `rollupOffices` recomputes each submission
-through `computeSubmissionSheet`, capped at 4 concurrent submissions (`mapLimit`) because
-each costs \~15 queries against a remote database.
+so a draft is recomputed, never summed from that table. `rollupOffices` recomputes each
+submission through `computeSubmissionSheet`, capped at 4 concurrent submissions (`mapLimit`)
+because each costs \~15 queries against a remote database.
+
+On submit, the whole vector is frozen into `office_budget_snapshots` in the same transaction
+as the status change, and everything downstream reads that instead of the forms — so an admin
+rate change after submission cannot move a submitted number (SCHEMA.md §5.3).
 
 Which codes an office may submit is gated by `office_level_economic_code_mapping` for the
 office's own `core_office_levels` row (with an `is_enabled` flag). A level with no rows
@@ -211,8 +215,10 @@ Each roll-up shows two tables — the code-wise column summed across the offices
 `?office=`), matching the settings tabs, so a re-render keeps it. Roll-up rows accumulate on
 `row.id` (the economic-code id), not the code string.
 
-There is **no separate reporting dataset and no snapshot at submit** — a report is
-recomputed live each time it is opened.
+There is **no separate reporting dataset**: a report reads the submission's frozen snapshot
+once one exists, and otherwise recomputes the draft live through the engine. Either way it
+never sums a stored total, so a report cannot disagree with the sheet it came from (see
+SCHEMA.md §5.3).
 
 ***
 
@@ -253,7 +259,10 @@ first run, so a row you renamed or added by hand survives re-seeding.
 
 ***
 
-## 8. Database schema map — 44 tables
+## 8. Database schema map — 45 tables
+
+The full per-table reference, every foreign key and its delete rule, and the integrity rules
+the database enforces are in **[SCHEMA.md](SCHEMA.md)**. This section is the map.
 
 Domain prefixes are load-bearing: they indicate who owns the data.
 
@@ -284,23 +293,24 @@ Referential links inside this domain:
 `ref_fuel_types.unit_price` and `ref_it_equipment_types.unit_price` are the prices edited on
 `/admin/settings` (per litre, per unit).
 
-### Domain 3 — `admin_` : rates and per-office-type configuration (7 tables)
+### Domain 3 — `admin_` : rates and per-office-type configuration (6 tables)
 
-`admin_rates` (key/value rates plus VAT and postal rates), `admin_salary_config` (the salary
-tiles `/admin/settings` tab 1 renders — `key` unique, with `input_type`
-`number`/`grade`/`slab`, `value_format`, the value, and the optional `secondary_*` pair),
+`admin_salary_config` (the salary tiles `/admin/settings` tab 1 renders — `key` unique, with
+`input_type` `number`/`grade`/`slab`, `value_format`, the value, and the optional
+`secondary_*` pair),
 `admin_salary_slabs` (grade-banded values such as house rent, FK → `admin_salary_config.key`),
 `admin_vehicle_config`, `admin_vehicle_allowance_config`, `admin_vehicle_rent_config`,
 `admin_it_config`.
 
-### Domain 4 — `office_` : submissions and the twelve forms (15 tables)
+### Domain 4 — `office_` : submissions and the twelve forms (17 tables)
 
 `office_users`, `office_submissions` (`UNIQUE(office_id, cycle_id)`), then the per-form
 tables: `office_form_basic`, `office_form_staff_working`, `office_form_staff_suspended`,
 `office_form_staff_new_recruits`, `office_form_allowances`, `office_form_leave_encashment`,
 `office_form_vehicles_govt`, `office_form_vehicles_rent`, `office_form_house_rent`,
-`office_form_it_equipment`, `office_form_utilities`, `office_form_return_info`, and the output
-table `office_budget_sheet` (manual overrides per economic code).
+`office_form_it_equipment`, `office_form_utilities`, `office_form_return_info`, the draft
+output table `office_budget_sheet` (manual overrides per economic code), and the freeze pair
+`office_budget_snapshots` + `office_budget_snapshot_rows`, written on submit.
 
 All form tables cascade from `office_submissions`. `office_form_vehicles_govt` also hangs off
 configuration: a row points at an `admin_vehicle_config` **and** at the `ref_fuel_type` the
@@ -352,7 +362,7 @@ multi-row forms) so re-saving never duplicates rows.
 | `/admin/budgets`                               | Budget cycles (fiscal year × type, status, বেতন-মাস)                       |
 | `/admin/codes`                                 | Budget categories + economic codes, formulas, per-level enablement         |
 | `/admin/formulas`                              | Read-only view of the formula registry and code→form bindings              |
-| `/admin/offices-config`                        | Office types, levels, hierarchy, tax-circle flag                           |
+| `/admin/offices-config`                        | Office types, levels, hierarchy                                            |
 | `/admin/offices-management/head-offices`       | Head offices                                                               |
 | `/admin/offices-management/field-offices`      | Field offices (incl. level)                                                |
 | `/admin/offices-management/group-budget`       | Group-budget rules                                                         |
@@ -382,8 +392,6 @@ the *arithmetic* is new; then register it in `formulaRegistry` in
 Edit the `ref_allowance_types` row's descriptive columns (`label_bn`, `count_label_bn`,
 `has_basic`, `has_amount`, `has_due`, `formula_key`). The card is rendered from that data.
 
-### Modify an existing form
-
 ### Add a form step
 
 Create `src/app/(office)/office/form-N/(page.tsx, form-N-client.tsx)` using `FormShell`, add
@@ -411,13 +419,25 @@ the old column.
 
 ## 12. Invariants enforced in application code
 
-Not everything is a database constraint:
+Not everything is a database constraint. These hold only because the write path enforces
+them, so changing that code means changing the rule:
+
+| Invariant | Where |
+| --------- | ----- |
+| One open budget cycle at a time | [admin-budgets.ts](src/app/actions/admin-budgets.ts) — the database has no such constraint |
+| An office's level and type must belong to its own department | [placement.ts](src/lib/office/placement.ts) (`assertOfficePlacement`), with the `core_offices_placement_trigger` as backstop |
+| Forms are read-only once the budget is submitted | The form save guard; a submitted budget must be unlocked deliberately to edit |
+| A parent with children is never deleted | Pre-checks in the delete actions, so the admin sees a Bangla message rather than a raw Postgres error |
+| The seed never opens a second cycle | [seed.js](prisma/seed.js) — it provisions the first one only, and leaves which cycle is open to the admin |
+| `AUTH_SECRET`, `OFFICE_DEFAULT_PASSWORD`, `ADMIN_DEFAULT_PASSWORD` must be set | The app throws instead of falling back to a default |
+
+The database-side rules are in SCHEMA.md §7.
 
 ***
 
 ## 13. Migrations
 
-27 migrations, all applied. The table in this section is the *what and why*; the SQL is in
+32 migrations, all applied. The table in this section is the *what and why*; the SQL is in
 [prisma/migrations/](prisma/migrations).
 
 | Migration                                               | What it did                                                                                                                                                                                                           |
@@ -449,6 +469,11 @@ Not everything is a database constraint:
 | `20261025150000_leave_encashment_first_tile`            | Moved ছুটি নগদায়ন to the first card on the বেতন-ভাতা tab.                                                                                                                                                            |
 | `20261025160000_formula_registry_and_code_links`        | Created `ref_formula_types` and bound every computed code to a formula + source forms; bound form 5 cards; pointed utilities/fuel-categories at codes; added `is_tax_circle`.                                         |
 | `20261025170000_duty_allowance_pair`                    | Merged the two দায়িত্ব ভাতা cards into one rate × quantity card (months as `secondary_value`).                                                                                                                       |
+| `20261025180000_shift_office_level_tiers`               | Moved levels onto one global tier scale — ministry 1, department 2, office-type levels 3+. Rewrote `level_order` only; ids and grants untouched.                                                                      |
+| `20261026100000_drop_tax_circle_flag`                   | Dropped `core_office_types.is_tax_circle`: only a কর সার্কেল fills form 12, so the entered return info is itself the signal and the flag was redundant admin data.                                                     |
+| `20261027100000_budget_submission_snapshots`            | Added `office_budget_snapshots` + `office_budget_snapshot_rows` — the frozen code-wise vector written on submit, versioned per re-submission.                                                                        |
+| `20261027110000_office_hierarchy_constraints`           | Raw SQL: the four office CHECKs, the `core_offices_placement_trigger`, and the two partial unique root keys (SCHEMA.md §7).                                                                                           |
+| `20261027120000_purge_dead_rate_and_scope_columns`      | Dropped `admin_rates` (+ its two FK columns), `core_office_types.is_group_budget`, the two vehicle `office_type_id` columns; moved `office_level_id` to `RESTRICT`; added the `salary_months` CHECK.                     |
 
 ***
 
@@ -474,8 +499,7 @@ Not everything is a database constraint:
 | `ref_utility_types`       | 5                                                                                                    |
 | `admin_salary_config`     | 16 tiles                                                                                             |
 | `admin_salary_slabs`      | 4 grade bands                                                                                        |
-| `admin_rates`             | 9                                                                                                    |
-| `core_budget_cycles`      | 1 open cycle                                                                                         |
+| `core_budget_cycles`      | 1 open cycle — provisioned only when the table is empty                                              |
 
 The admin password is written only on row **creation**, so re-seeding never overwrites a
 password you changed. Reference rows are created only if missing (`ref_allowance_types` is
@@ -548,13 +572,26 @@ it that way. The app is unaffected (Prisma connects as the `postgres` role, whic
 
 ## 17. Localisation & UI conventions
 
+The UI is Bengali-only. Two fonts carry it, set as tokens in
+[globals.css](src/app/globals.css):
+
+| Token | Font | Used for |
+| ----- | ---- | -------- |
+| `--font-sans` / `--font-mono` | Tiro Bangla | Body text |
+| `--font-heading` / `--font-title` | Anek Bangla | Headings (`h1`–`h6`, `.font-title`) |
+
+Numbers are rendered through [bangla.ts](src/lib/bangla.ts) — `toBanglaNumber` — wherever a
+count, id or amount is shown, and lists of Bengali numerals are sorted naturally (১, ২, ৩ …)
+rather than lexically. Shared UI copy is centralised in
+[strings.ts](src/lib/strings.ts) (app name, form titles, section headings); labels used by a
+single screen are written inline in that component.
+
 ***
 
 ## 18. Current status
 
-Implemented and verified: the schema above, the Prisma migration workflow (27 migrations),
+Implemented and verified: the schema above, the Prisma migration workflow (32 migrations),
 seeding, admin and office authentication, the table-driven reference data, the formula
-registry, the calculation engine, the office budget sheet, and the three report routes —
-`npx tsc --noEmit` is clean and `npm run db:drift` reports no difference.
-
-Outstanding / not yet exercised:
+registry, the calculation engine, the office budget sheet, the submission snapshots, and the
+three report routes — `npx tsc --noEmit` is clean and `npm run db:drift` reports no
+difference.
