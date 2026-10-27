@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db/client'
-import { computeSubmissionSheet } from '@/lib/budget/sheet'
+import { getSubmissionSheet } from '@/lib/budget/sheet'
 
 export async function getOfficeTypeIdForOffice(officeId: number): Promise<number | null> {
   const office = await prisma.coreOffice.findUnique({
@@ -440,8 +440,9 @@ export async function loadOfficeDashboardStats(submissionId: number) {
       },
     }),
     // The sheet is the same code-wise vector every report reads, so the dashboard
-    // total can never disagree with what the office sees on the budget sheet.
-    computeSubmissionSheet(submissionId),
+    // total can never disagree with what the office sees on the budget sheet — a
+    // submitted budget reads its frozen snapshot, a draft is recomputed.
+    getSubmissionSheet(submissionId),
   ])
 
   const counts = submission?._count

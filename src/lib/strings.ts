@@ -457,6 +457,19 @@ export const strings = {
     totalRow: 'সর্বমোট',
     recalculateButton: 'পুনরায় গণনা করুন',
     recalculating: 'পুনরায় গণনা হচ্ছে...',
+    saveButton: 'সংরক্ষণ',
+    savingButton: 'সংরক্ষণ হচ্ছে...',
+    savedNotice: 'বাজেট শিট সংরক্ষিত হয়েছে।',
+    submittedBadge: 'দাখিলকৃত',
+    submittedLockedNotice: {
+      before:
+        'বাজেট দাখিল সম্পন্ন হয়েছে। এই শিটটি এখন চূড়ান্তভাবে সংরক্ষিত — কোনো তথ্য পরিবর্তন করতে হলে ',
+      linkLabel: 'ড্যাশবোর্ড',
+      after: ' থেকে আনলক করুন।',
+    },
+    capturedAtLabel: 'সংরক্ষণের সময়',
+    configStaleNotice:
+      'আপনার দাখিলের পর অ্যাডমিনের হার বা সেটিংস পরিবর্তিত হয়েছে। দাখিলকৃত বাজেট চূড়ান্তভাবে সংরক্ষিত থাকায় এর হিসাব অপরিবর্তিত রাখা হয়েছে।',
   },
 
   report: {
@@ -511,7 +524,7 @@ export const strings = {
     fillNow: 'পূরণ করুন',
 
     // Submission lock / unlock
-    lockedNotice: 'বাজেট দাখিল সম্পন্ন হয়েছে — ফরমগুলো এখন শুধুমাত্র পঠনযোগ্য',
+    lockedNotice: 'বাজেট দাখিল সম্পন্ন হয়েছে',
     unlockPrompt: 'বাজেট সংশোধন করতে ক্লিক করুন',
     unlockModalTitle: 'বাজেট সংশোধন করতে চান?',
     unlockModalMessage:
@@ -531,6 +544,43 @@ export const strings = {
   },
 
   reports: {
+    // The submission-status page (/admin/reports/submission-status) — one row per office
+    // showing where its budget stands in the selected cycle.
+    submissionStatus: {
+      title: 'বাজেট দাখিলের অবস্থা',
+      subtitle: 'অর্থবছর ও বাজেটের ধরন নির্বাচন করে প্রতিটি অফিসের দাখিল অবস্থা দেখুন',
+
+      // Cycle scope pickers
+      scopeSubtitle: 'অর্থবছর, বাজেটের ধরন, অফিসের ধরণ ও দাখিলের অবস্থা দিয়ে তালিকা সীমিত করুন',
+      scopeTitle: 'বাজেট চক্র নির্বাচন',
+      fiscalYearLabel: 'অর্থবছর',
+      budgetTypeLabel: 'বাজেটের ধরন',
+      fiscalYearPlaceholder: 'অর্থবছর নির্বাচন করুন',
+      budgetTypePlaceholder: 'বাজেটের ধরন নির্বাচন করুন',
+      openBadge: 'চলমান চক্র',
+
+      // Filters
+      officeTypeLabel: 'অফিসের ধরণ',
+      statusLabel: 'দাখিলের অবস্থা',
+      allOfficeTypes: 'সব অফিসের ধরণ',
+      allStatuses: 'সকল',
+      statusSubmitted: 'দাখিলকৃত',
+      statusDraft: 'খসড়া',
+      statusNotStarted: 'শুরু হয়নি',
+
+      // Table
+      tableTitle: 'অফিসের তালিকা',
+      unitOffices: 'টি অফিস',
+      serialColumn: 'ক্রম',
+      budgetIdColumn: 'বাজেট আইডি',
+      officeNameColumn: 'অফিসের নাম',
+      officeTypeColumn: 'অফিসের ধরণ',
+      statusColumn: 'স্ট্যাটাস',
+      resultCount: 'অফিস সংখ্যা',
+      empty: 'কোনো অফিস পাওয়া যায়নি।',
+      noCycle: 'কোনো বাজেট চক্র পাওয়া যায়নি।',
+    },
+
     officeReport: 'অফিসের বাজেট প্রতিবেদন',
     groupReport: 'গ্রুপ একত্রিত প্রতিবেদন',
     codeWiseReport: 'কোড ভিত্তিক একত্রিত প্রতিবেদন',
@@ -557,6 +607,58 @@ export const strings = {
   admin: {
     dashboard: {
       title: 'এডমিন ড্যাশবোর্ড',
+
+      // The four status cards: each card is split horizontally into a top band
+      // (how many offices) and a bottom band (what those offices add up to).
+      statusCards: {
+        submittedOffices: 'দাখিলকৃত অফিস',
+        draftOffices: 'খসড়া চলমান',
+        groupSubmittedOffices: 'গ্রুপ বাজেট দাখিলকৃত',
+        groupDraftOffices: 'গ্রুপ বাজেট খসড়া চলমান',
+        budgetAmount: 'বাজেটের পরিমাণ',
+        unitOffices: 'টি অফিস',
+        viewDetails: 'বিস্তারিত',
+        submittedCaption: 'দাখিল সম্পন্ন হয়েছে',
+        draftCaption: 'খসড়া প্রস্তুত হচ্ছে',
+        groupSubmittedCaption: 'গ্রুপ বাজেটভুক্ত অফিসের দাখিল সম্পন্ন',
+        groupDraftCaption: 'গ্রুপ বাজেটভুক্ত অফিসের খসড়া চলমান',
+
+        modal: {
+          submittedSubtitle: 'দাখিলকৃত অফিসসমূহ স্তরভিত্তিক বিন্যাসে',
+          draftSubtitle: 'খসড়া চলমান অফিসসমূহ স্তরভিত্তিক বিন্যাসে',
+          groupSubmittedSubtitle: 'গ্রুপ বাজেটভুক্ত দাখিলকৃত অফিসসমূহ স্তরভিত্তিক বিন্যাসে',
+          groupDraftSubtitle: 'গ্রুপ বাজেটভুক্ত খসড়া অফিসসমূহ স্তরভিত্তিক বিন্যাসে',
+          levelColumn: 'অফিস লেভেল',
+          submittedCountColumn: 'দাখিলকৃত অফিস',
+          draftCountColumn: 'খসড়া অফিস',
+          amountColumn: 'বাজেটের পরিমাণ',
+          totalRow: 'সর্বমোট',
+          officeCountChip: 'অফিস',
+          empty: 'এই তালিকায় বর্তমানে কোনো অফিস নেই।',
+          close: 'বন্ধ করুন',
+        },
+      },
+
+      // The configurable analysis section under the status cards: a toggle between the
+      // drill-down pie and the pre-existing department progress cards.
+      analysis: {
+        title: 'তুলনামূলক বিশ্লেষণ',
+        subtitle: 'দাখিলকৃত বাজেটের পরিমাণ স্তর, দপ্তর ও অফিসের ধরণ অনুযায়ী বিতরণ',
+        viewCharts: 'চিত্রে দেখুন',
+        viewDepartments: 'বিভাগসমূহ',
+        totalSubmittedAmount: 'দাখিলকৃত মোট বাজেট',
+        pieTitle: 'স্তরভিত্তিক বিশ্লেষণ',
+        pieSubtitle: 'দপ্তর → অফিসের ধরণ → স্তর; স্লাইসে ক্লিক করে ভেতরে যান',
+        allDepartments: 'সব দপ্তর',
+        drillHint: 'ক্লিক করে ভেতরে যান',
+        tooltipAmount: 'দাখিলকৃত বাজেট',
+        tooltipOffices: 'অফিস সংখ্যা',
+        tooltipShare: 'শতাংশ',
+        otherLabel: 'অন্যান্য',
+        unitOffices: 'টি অফিস',
+        empty: 'দাখিলকৃত কোনো বাজেট এখনো পাওয়া যায়নি।',
+        departmentsEmpty: 'কোনো বিভাগ কনফিগার করা হয়নি। অফিস কনফিগারেশন থেকে বিভাগ যুক্ত করুন।',
+      },
     },
     settings: {
       title: 'প্রাপ্যতা ও বরাদ্দ নির্ধারণ',
@@ -602,6 +704,37 @@ export const strings = {
         scannerPrice: 'স্ক্যানার প্রাক্কলিত দর (টাকা)',
         photocopierPrice: 'ফটোকপিয়ার প্রাক্কলিত দর (টাকা)',
       },
+    },
+    profile: {
+      title: 'প্রোফাইল ও নিরাপত্তা',
+      subtitle: 'আপনার অ্যাকাউন্টের তথ্য দেখুন এবং নিজের পাসওয়ার্ড পরিবর্তন করুন',
+      menuLink: 'প্রোফাইল ও পাসওয়ার্ড',
+
+      // Identity card
+      identityTitle: 'অ্যাকাউন্ট তথ্য',
+      usernameLabel: 'ইউজারনেম',
+      roleLabel: 'ভূমিকা',
+      roleAdmin: 'অ্যাডমিন',
+      roleSuperAdmin: 'সুপার অ্যাডমিন',
+      memberSinceLabel: 'অ্যাকাউন্ট তৈরি',
+
+      // Password card
+      passwordTitle: 'পাসওয়ার্ড পরিবর্তন',
+      passwordSubtitle:
+        'নিরাপত্তার জন্য নিয়মিত পাসওয়ার্ড পরিবর্তন করুন। পরিবর্তনের পর নতুন পাসওয়ার্ড দিয়েই পরবর্তী লগইন করতে হবে।',
+      currentPasswordLabel: 'বর্তমান পাসওয়ার্ড',
+      newPasswordLabel: 'নতুন পাসওয়ার্ড',
+      confirmPasswordLabel: 'নতুন পাসওয়ার্ড নিশ্চিত করুন',
+      currentPasswordPlaceholder: 'বর্তমান পাসওয়ার্ড লিখুন',
+      newPasswordPlaceholder: 'নতুন পাসওয়ার্ড লিখুন',
+      confirmPasswordPlaceholder: 'নতুন পাসওয়ার্ডটি পুনরায় লিখুন',
+      showPassword: 'পাসওয়ার্ড দেখুন',
+      hidePassword: 'পাসওয়ার্ড লুকান',
+      passwordRule: 'কমপক্ষে ৬টি অক্ষর ব্যবহার করুন।',
+      mismatchHint: 'নতুন পাসওয়ার্ড ও নিশ্চিতকরণ পাসওয়ার্ড মিলছে না।',
+      submit: 'পাসওয়ার্ড পরিবর্তন করুন',
+      submitting: 'পরিবর্তন হচ্ছে...',
+      successMessage: 'পাসওয়ার্ড সফলভাবে পরিবর্তন করা হয়েছে।',
     },
   },
 

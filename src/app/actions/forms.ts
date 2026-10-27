@@ -19,8 +19,36 @@ async function currentSubmissionId(): Promise<number | null> {
 /** Shown when a caller names a submission or row its own office does not own. */
 const NOT_OWNED = { error: 'এই দাখিলে আপনার অফিসের প্রবেশাধিকার নেই।' }
 
-export async function saveFormBasic(submissionId: number, formData: FormData) {
+/** Shown when a write targets a submission that has already been dakhil (submitted). */
+const SUBMITTED_LOCKED = {
+  error: 'বাজেট দাখিল সম্পন্ন হয়েছে — এই দাখিলে আর কোনো তথ্য পরিবর্তন করা যাবে না।',
+}
+
+/**
+ * The ownership *and* editability check every form write starts with.
+ *
+ * Ownership alone was the old guard, which left the submitted lock enforced only in the
+ * UI (the forms render `inert`) — a crafted request could still write to a submitted
+ * submission. Here the status is part of the statement itself: the update matches only a
+ * draft, so a submitted row rejects the write before any of the form data lands.
+ *
+ * The same statement stamps `last_data_write_at`, the "your inputs moved" signal — one
+ * query for both, rather than a read for the guard and a second write for the stamp.
+ */
+async function guardDraftWrite(submissionId: number): Promise<{ error: string } | null> {
   if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+
+  const touched = await prisma.officeSubmission.updateMany({
+    where: { id: BigInt(submissionId), status: 'draft' },
+    data: { lastDataWriteAt: new Date() },
+  })
+
+  return touched.count === 0 ? SUBMITTED_LOCKED : null
+}
+
+export async function saveFormBasic(submissionId: number, formData: FormData) {
+  const guard = await guardDraftWrite(submissionId)
+  if (guard) return guard
 
   const parsed = formBasicSchema.safeParse({
     head_of_office: formData.get('head_of_office'),
@@ -67,7 +95,8 @@ export async function saveFormStaffActiveRows(
     due_salary: number
   }>
 ) {
-  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+  const guard = await guardDraftWrite(submissionId)
+  if (guard) return guard
 
   try {
     for (const row of rows) {
@@ -108,7 +137,8 @@ export async function saveFormStaffSuspendedRows(
     suspended_due_salary: number
   }>
 ) {
-  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+  const guard = await guardDraftWrite(submissionId)
+  if (guard) return guard
 
   try {
     for (const row of rows) {
@@ -141,7 +171,8 @@ export async function saveFormStaffSuspendedRows(
 }
 
 export async function deleteFormStaffActiveRow(submissionId: number, gradeId: number) {
-  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+  const guard = await guardDraftWrite(submissionId)
+  if (guard) return guard
 
   try {
     await prisma.officeFormStaffWorking.delete({
@@ -159,7 +190,8 @@ export async function deleteFormStaffActiveRow(submissionId: number, gradeId: nu
 }
 
 export async function deleteFormStaffSuspendedRow(submissionId: number, gradeId: number) {
-  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+  const guard = await guardDraftWrite(submissionId)
+  if (guard) return guard
 
   try {
     await prisma.officeFormStaffSuspended.delete({
@@ -188,7 +220,8 @@ export async function saveFormStaffRow(
     suspended_due_salary: number
   }
 ) {
-  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+  const guard = await guardDraftWrite(submissionId)
+  if (guard) return guard
 
   try {
     // Save active
@@ -252,7 +285,8 @@ export async function saveFormLeave(
     rest_recreation_due: number
   }
 ) {
-  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+  const guard = await guardDraftWrite(submissionId)
+  if (guard) return guard
 
   try {
     await prisma.officeFormLeaveEncashment.upsert({
@@ -289,7 +323,8 @@ export async function saveFormRestRecreation(
     rest_recreation_due: number
   }
 ) {
-  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+  const guard = await guardDraftWrite(submissionId)
+  if (guard) return guard
 
   try {
     const existing = await prisma.officeFormLeaveEncashment.findUnique({
@@ -336,7 +371,8 @@ export async function saveFormAllowanceRow(
     applicable_category?: string | null
   }
 ) {
-  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+  const guard = await guardDraftWrite(submissionId)
+  if (guard) return guard
 
   try {
     const isZero =
@@ -394,7 +430,8 @@ export async function saveFormUtilityRow(
   utilityTypeId: number,
   data: { annual_cost: number; due: number }
 ) {
-  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+  const guard = await guardDraftWrite(submissionId)
+  if (guard) return guard
 
   try {
     await prisma.officeFormUtility.upsert({
@@ -426,7 +463,8 @@ export async function deleteFormUtilityRow(
   submissionId: number,
   utilityTypeId: number
 ) {
-  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+  const guard = await guardDraftWrite(submissionId)
+  if (guard) return guard
 
   try {
     await prisma.officeFormUtility.deleteMany({
@@ -450,7 +488,8 @@ export async function saveFormHouseRent(
     contract_end_date: string | null
   }
 ) {
-  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+  const guard = await guardDraftWrite(submissionId)
+  if (guard) return guard
 
   try {
     // The rate row is only kept as the FK target of `vat_rate_id`; the VAT
@@ -497,7 +536,8 @@ export async function saveFormReturnInfo(
   submissionId: number,
   data: { tin_count: number; return_submitted_count: number }
 ) {
-  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+  const guard = await guardDraftWrite(submissionId)
+  if (guard) return guard
 
   try {
     // Same precedence as the budget engine: the /admin/settings card wins and the
@@ -542,7 +582,8 @@ export async function saveFormReturnInfo(
 }
 
 export async function deleteFormHouseRent(submissionId: number) {
-  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+  const guard = await guardDraftWrite(submissionId)
+  if (guard) return guard
 
   try {
     await prisma.officeFormHouseRent.delete({
@@ -555,7 +596,8 @@ export async function deleteFormHouseRent(submissionId: number) {
 }
 
 export async function deleteFormReturnInfo(submissionId: number) {
-  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+  const guard = await guardDraftWrite(submissionId)
+  if (guard) return guard
 
   try {
     await prisma.officeFormReturnInfo.delete({
@@ -579,7 +621,8 @@ export async function saveFormVehicleRow(
     additional_expense: number
   }
 ) {
-  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+  const guard = await guardDraftWrite(submissionId)
+  if (guard) return guard
 
   try {
     const payload = {
@@ -627,6 +670,10 @@ export async function saveFormVehicleRow(
 export async function deleteFormVehicleRow(rowId: number) {
   const ownedId = await currentSubmissionId()
   if (ownedId === null) return NOT_OWNED
+  // The row id alone does not carry a status, so the draft lock is checked through the
+  // submission this session owns — the same guard every other write uses.
+  const guard = await guardDraftWrite(ownedId)
+  if (guard) return guard
 
   try {
     // Scoped by the submission rather than a bare id: the delete then cannot reach
@@ -648,7 +695,8 @@ export async function saveFormVehicleRentRow(
     count: number
   }
 ) {
-  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+  const guard = await guardDraftWrite(submissionId)
+  if (guard) return guard
 
   try {
     if (data.id) {
@@ -689,6 +737,8 @@ export async function saveFormVehicleRentRow(
 export async function deleteFormVehicleRentRow(rowId: number) {
   const ownedId = await currentSubmissionId()
   if (ownedId === null) return NOT_OWNED
+  const guard = await guardDraftWrite(ownedId)
+  if (guard) return guard
 
   try {
     await prisma.officeFormVehicleRent.deleteMany({
@@ -748,7 +798,8 @@ export async function saveFormITEquipmentRow(
     required_qty: number
   }
 ) {
-  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+  const guard = await guardDraftWrite(submissionId)
+  if (guard) return guard
 
   try {
     const itConfigId = await resolveItConfigId(submissionId, equipmentTypeId)
@@ -787,7 +838,8 @@ export async function deleteFormITEquipmentRow(
   submissionId: number,
   equipmentTypeId: number
 ) {
-  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+  const guard = await guardDraftWrite(submissionId)
+  if (guard) return guard
 
   try {
     // Deleting must not bring a config row into existence, so the lookup is a
@@ -853,7 +905,8 @@ export async function getFormNewStaffRows(submissionId: number): Promise<NewStaf
 }
 
 export async function saveFormNewStaffRows(submissionId: number, rows: NewStaffRecord[]) {
-  if (submissionId !== (await currentSubmissionId())) return NOT_OWNED
+  const guard = await guardDraftWrite(submissionId)
+  if (guard) return guard
 
   try {
     // Clean existing rows

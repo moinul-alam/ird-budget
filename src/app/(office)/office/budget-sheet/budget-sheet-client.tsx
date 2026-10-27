@@ -1,7 +1,7 @@
 'use client'
 
 import { strings } from '@/lib/strings'
-import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaAmount, toBanglaNumber, toBanglaDateTime } from '@/lib/bangla'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -40,6 +40,12 @@ interface BudgetSheetClientProps {
   officeName: string
   /** Head quarter / department for the download header. */
   headOfficeName: string
+  /** True when these rows are the frozen snapshot of an already-submitted budget. */
+  isSubmitted: boolean
+  /** Snapshot only: the admin's rates/config changed after this budget was submitted. */
+  configStale: boolean
+  /** Snapshot only: when the submitted figures were captured (ISO string). */
+  capturedAt: string | null
 }
 
 /** Short labels for the form hint's links. */
@@ -81,6 +87,9 @@ export function BudgetSheetClient({
   officeLevel,
   officeName,
   headOfficeName,
+  isSubmitted,
+  configStale,
+  capturedAt,
 }: BudgetSheetClientProps) {
   const [rows, setRows] = useState<BudgetSheetRowItem[]>(initialRows)
   const [isPending, startTransition] = useTransition()
@@ -183,6 +192,36 @@ export function BudgetSheetClient({
       prev.map((r) => (r.code === code ? { ...r, manual_value: num } : r))
     )
     setPending((prev) => ({ ...prev, [code]: num }))
+  }
+
+  /**
+   * Save the entries typed so far without touching the submission's status — the office
+   * can persist its overrides, review the sheet, and submit later. Only the manual
+   * overrides travel; the computed figures are never stored for a draft.
+   */
+  const handleSave = () => {
+    if (!submissionId) {
+      setErrorMessage('বাজেট দাখিল আইডি পাওয়া যায়নি।')
+      return
+    }
+
+    setErrorMessage(null)
+    setSuccessMessage(null)
+
+    startTransition(async () => {
+      try {
+        const res = await saveManualValues(submissionId, toManualEntries(pending))
+        if (res.success) {
+          setPending({})
+          setSuccessMessage(strings.budgetSheet.savedNotice)
+          setTimeout(() => setSuccessMessage(null), 4000)
+        } else {
+          setErrorMessage(res.error || 'সংরক্ষণ ব্যর্থ হয়েছে।')
+        }
+      } catch (err: any) {
+        setErrorMessage(`সংরক্ষণে ত্রুটি হয়েছে: ${err?.message || 'অজ্ঞাত ত্রুটি'}`)
+      }
+    })
   }
 
   // Handle Submit
@@ -340,7 +379,7 @@ export function BudgetSheetClient({
             variant="outline"
             className="gap-2 font-bold shadow-xs hover:bg-slate-50"
             onClick={handleRecalculate}
-            disabled={isPending || !submissionId}
+            disabled={isPending || !submissionId || isSubmitted}
           >
             {isPending ? (
               <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
@@ -353,6 +392,42 @@ export function BudgetSheetClient({
           <ReportDownloader spec={reportSpec} />
         </div>
       </div>
+
+      {/* Submitted notice: a frozen snapshot is shown, and the figures it holds never move. */}
+      {isSubmitted && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 shadow-xs space-y-2">
+          <div className="flex flex-wrap items-center gap-2.5 text-emerald-900">
+            <Badge className="gap-1.5 bg-emerald-600 text-white border-emerald-600 text-xs">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {strings.budgetSheet.submittedBadge}
+            </Badge>
+            {capturedAt && (
+              <span className="text-xs font-bold">
+                {strings.budgetSheet.capturedAtLabel}: {toBanglaDateTime(capturedAt)}
+              </span>
+            )}
+          </div>
+          <p className="text-xs font-medium leading-relaxed text-emerald-800">
+            {strings.budgetSheet.submittedLockedNotice.before}
+            <Link
+              href="/dashboard"
+              className="font-bold underline underline-offset-2 hover:text-emerald-950"
+            >
+              {strings.budgetSheet.submittedLockedNotice.linkLabel}
+            </Link>
+            {strings.budgetSheet.submittedLockedNotice.after}
+          </p>
+        </div>
+      )}
+
+      {/* Staleness notice: the admin's rates/config moved after this budget was submitted.
+          Purely informational — the frozen snapshot is never re-priced. */}
+      {isSubmitted && configStale && (
+        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
+          <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+          <p className="font-medium leading-relaxed">{strings.budgetSheet.configStaleNotice}</p>
+        </div>
+      )}
 
       {/* Error Message Banner */}
       {errorMessage && (
@@ -529,6 +604,10 @@ export function BudgetSheetClient({
                         // Some computed codes still take an office input, because the
                         // engine can only estimate them (e.g. ডাক).
                         const canOverride = !isManualType && row.allow_manual_override
+                        // A submitted budget is frozen — the figure is printed, never an
+                        // editable box, so the sheet can't invite a write the server
+                        // would reject.
+                        const readOnly = locked || isSubmitted
                         const effectiveValue = row.manual_value !== null ? row.manual_value : (row.auto_value || 0)
                         const hasValue = effectiveValue > 0
 
@@ -560,7 +639,7 @@ export function BudgetSheetClient({
                                 এলো সেটি দেখায়। */}
                             <td className="py-2.5 px-4">
                               <div className="flex items-center justify-end gap-2">
-                                {locked ? (
+                                {readOnly ? (
                                   <span
                                     className={`font-mono font-bold px-2 text-sm ${hasValue ? 'text-slate-900' : 'text-slate-300'}`}
                                   >
@@ -644,15 +723,33 @@ export function BudgetSheetClient({
             <Lock className="h-4 w-4 shrink-0" />
             {lockNotice}
           </div>
+        ) : isSubmitted ? (
+          <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5">
+            <Lock className="h-4 w-4 shrink-0" />
+            {strings.budgetSheet.submittedBadge}
+          </div>
         ) : (
-          <Button
-            className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 shadow-sm"
-            onClick={handleSubmit}
-            disabled={isPending || !submissionId || rows.length === 0}
-          >
-            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            বাজেট দাখিল করুন
-          </Button>
+          <div className="flex items-center gap-3">
+            {/* Persist the manual overrides without submitting — review now, submit later. */}
+            <Button
+              variant="outline"
+              className="gap-2 bg-blue-600 text-white hover:bg-blue-700 border-blue-600 font-bold px-5 shadow-sm"
+              onClick={handleSave}
+              disabled={isPending || !submissionId}
+            >
+              {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {strings.budgetSheet.saveButton}
+            </Button>
+
+            <Button
+              className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 shadow-sm"
+              onClick={handleSubmit}
+              disabled={isPending || !submissionId || rows.length === 0}
+            >
+              {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              বাজেট দাখিল করুন
+            </Button>
+          </div>
         )}
       </div>
 

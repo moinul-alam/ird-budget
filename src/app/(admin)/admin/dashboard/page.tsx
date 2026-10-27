@@ -1,24 +1,23 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { prisma } from '@/lib/db/client'
-import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { toBanglaNumber, cleanTypeName } from '@/lib/bangla'
+import { rollupOffices } from '@/lib/budget/report'
+import {
+  AdminStatusCards,
+  type StatusCardMetrics,
+  type StatusLevelRow,
+} from './status-cards'
+import {
+  DashboardAnalysisPanel,
+  type PieNode,
+  type DashboardAnalysis,
+  type DepartmentCard,
+} from './analysis-panel'
+import { strings } from '@/lib/strings'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
-import {
-  Building2,
-  CheckCircle2,
-  Clock,
-  Coins,
-  TrendingUp,
-  Landmark,
-  ArrowRight,
-  ShieldCheck,
-  FileSpreadsheet,
-  PieChart as PieIcon,
-  Layers,
-  BarChart3
-} from 'lucide-react'
+import { FileSpreadsheet, Layers } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -41,7 +40,9 @@ export default async function AdminDashboardPage() {
   const activeCycle = cycles.find((c: any) => c.status === 'open') || cycles[0] || null
 
 
-  // 2. Fetch all offices with department and office_types
+  // 2. Fetch all offices with department, office_types and the level they sit on.
+  // The level is what the status cards' detail modals group by, so it is read here
+  // rather than in a second round trip.
   const offices = await prisma.coreOffice.findMany({
     include: {
       officeType: {
@@ -49,47 +50,46 @@ export default async function AdminDashboardPage() {
           department: true,
         },
       },
+      officeLevel: { select: { id: true, levelName: true, levelOrder: true } },
     },
     orderBy: { id: 'asc' },
   })
 
-  // 3. Fetch submissions for this cycle
+  // 3. Roll the cycle up through the same entry point every report uses, so this page's
+  // figures can never disagree with the summary or individual reports.
+  //
+  // Reading `office_budget_sheet` directly is what made this card useless: that table
+  // holds only the office's manual overrides, so a budget whose numbers come from the
+  // forms summed to zero. `rollupOffices` computes a draft live and reads a submitted
+  // budget from its frozen snapshot, and skips offices with no submission entirely —
+  // so the work tracks the number of submissions, not the number of offices.
   const cycleId = activeCycle?.id || BigInt(1)
-  const submissions = await prisma.officeSubmission.findMany({
-    where: { cycleId },
-    include: {
-      budgetSheets: {
-        select: {
-          autoValue: true,
-          manualValue: true,
-        },
-      },
-    },
-  })
+  const [rollup, groupRules] = await Promise.all([
+    rollupOffices(
+      offices.map((o) => Number(o.id)),
+      Number(cycleId)
+    ),
+    // "গ্রুপ বাজেট" means one thing in this system: an office whose type × level is
+    // covered by a flagged rule on /admin/offices-management/group-budget — the same set
+    // the combined report builds. The office type's own `is_group_budget` column is a
+    // separate control that screen never writes, which is why this card counted zero.
+    prisma.adminGroupBudgetRule.findMany({
+      where: { isGroupBudget: true },
+      select: { officeTypeId: true, officeLevelId: true },
+    }),
+  ])
 
-  // Submissions map
-  const subMap = new Map<number, any>()
-  let totalSubmittedBudget = 0
-  let totalDraftBudget = 0
+  const rollupByOffice = new Map(rollup.offices.map((o) => [o.office_id, o]))
 
-  for (const sub of submissions) {
-    let subTotal = 0
-    if (sub.budgetSheets) {
-      subTotal = sub.budgetSheets.reduce((sum: any, b: any) => {
-        return sum + (Number(b.manualValue ?? b.autoValue) || 0)
-      }, 0)
-    }
-    subMap.set(Number(sub.officeId), {
-      ...sub,
-      total: subTotal,
-    })
-
-    if (sub.status === 'submitted') {
-      totalSubmittedBudget += subTotal
-    } else {
-      totalDraftBudget += subTotal
-    }
-  }
+  // A rule with no level covers every level of its office type, matching how the
+  // combined report resolves its scope.
+  const isGroupBudgetOffice = (officeTypeId: number | null, officeLevelId: number | null) =>
+    officeTypeId !== null &&
+    groupRules.some(
+      (rule) =>
+        Number(rule.officeTypeId) === officeTypeId &&
+        (rule.officeLevelId === null || Number(rule.officeLevelId) === officeLevelId)
+    )
 
   const allOffices = offices
   const totalOfficesCount = allOffices.length
@@ -126,26 +126,24 @@ export default async function AdminDashboardPage() {
   })
 
   let groupBudgetOffices = 0
-  let groupBudgetSubmitted = 0
 
   // Office list enhanced
   const officeStats = allOffices.map((off) => {
-    const sub = subMap.get(Number(off.id))
-    const isSubmitted = sub?.status === 'submitted'
-    const isDraft = sub?.status === 'draft'
-    const status: 'submitted' | 'draft' | 'not_started' = isSubmitted
-      ? 'submitted'
-      : isDraft
-        ? 'draft'
-        : 'not_started'
+    const rolled = rollupByOffice.get(Number(off.id))
+    const status: 'submitted' | 'draft' | 'not_started' = rolled?.status ?? 'not_started'
+    const isSubmitted = status === 'submitted'
+    const isDraft = status === 'draft'
 
     const deptId = Number(off.officeType?.departmentId || 0)
     let deptName = off.officeType?.department?.name || 'অনির্ধারিত বিভাগ'
     if (deptName.includes(':::min=')) {
       deptName = deptName.split(':::min=')[0]
     }
-    const isGroup = off.officeType?.isGroupBudget || false
-    const subBudget = sub?.total || 0
+    const isGroup = isGroupBudgetOffice(
+      off.officeTypeId !== null ? Number(off.officeTypeId) : null,
+      off.officeLevelId !== null ? Number(off.officeLevelId) : null
+    )
+    const subBudget = rolled?.total ?? 0
 
     // Dynamic aggregation by department
     if (departmentStatsMap.has(deptId)) {
@@ -170,7 +168,6 @@ export default async function AdminDashboardPage() {
 
     if (isGroup) {
       groupBudgetOffices++
-      if (isSubmitted) groupBudgetSubmitted++
     }
 
     return {
@@ -179,19 +176,178 @@ export default async function AdminDashboardPage() {
       budget_id: off.budgetId,
       department: deptName,
       office_type: off.officeType?.name || 'অফিস',
+      // Levels are created on /admin/offices-config?tab=hierarchy. Level names repeat
+      // across office types (every type has its own "সার্কেল"), so the office type is
+      // carried alongside as the row's context line.
+      levelId: off.officeLevel ? Number(off.officeLevel.id) : 0,
+      levelName: off.officeLevel?.levelName || 'লেভেল নির্ধারিত নয়',
+      levelOwner: cleanTypeName(off.officeType?.name) || null,
+      levelOrder: off.officeLevel?.levelOrder ?? 999,
       isGroup,
       status,
-      submitted_at: sub?.submittedAt,
       totalBudget: subBudget,
     }
   })
 
-  const submittedOfficesCount = officeStats.filter((o) => o.status === 'submitted').length
-  const draftOfficesCount = officeStats.filter((o) => o.status === 'draft').length
-  const notStartedOfficesCount = officeStats.filter((o) => o.status === 'not_started').length
+  /**
+   * Groups a slice of the offices by their hierarchy level for a status card's modal.
+   * Ordering follows the hierarchy's own level_order so the modal reads top-down the
+   * same way /admin/offices-config?tab=hierarchy does.
+   */
+  const levelBreakdown = (
+    predicate: (office: (typeof officeStats)[number]) => boolean
+  ): StatusLevelRow[] => {
+    const map = new Map<number, StatusLevelRow>()
+    for (const off of officeStats) {
+      if (!predicate(off)) continue
+      const row = map.get(off.levelId) ?? {
+        levelId: off.levelId,
+        levelName: off.levelName,
+        ownerName: off.levelOwner,
+        levelOrder: off.levelOrder,
+        count: 0,
+        total: 0,
+      }
+      row.count++
+      row.total += off.totalBudget
+      map.set(off.levelId, row)
+    }
+    return Array.from(map.values()).sort(
+      (a, b) =>
+        a.levelOrder - b.levelOrder ||
+        (a.ownerName || '').localeCompare(b.ownerName || '') ||
+        a.levelName.localeCompare(b.levelName)
+    )
+  }
 
-  const submittedPercent = totalOfficesCount > 0 ? Math.round((submittedOfficesCount / totalOfficesCount) * 100) : 0
+  const sumCount = (rows: StatusLevelRow[]) => rows.reduce((sum, r) => sum + r.count, 0)
+  const sumAmount = (rows: StatusLevelRow[]) => rows.reduce((sum, r) => sum + r.total, 0)
+
+  const submittedRows = levelBreakdown((o) => o.status === 'submitted')
+  const draftRows = levelBreakdown((o) => o.status === 'draft')
+  const groupSubmittedRows = levelBreakdown((o) => o.isGroup && o.status === 'submitted')
+  const groupDraftRows = levelBreakdown((o) => o.isGroup && o.status === 'draft')
+
+  const statusCardMetrics: StatusCardMetrics = {
+    submitted: {
+      count: sumCount(submittedRows),
+      amount: sumAmount(submittedRows),
+      scopeCount: totalOfficesCount,
+      rows: submittedRows,
+    },
+    draft: {
+      count: sumCount(draftRows),
+      amount: sumAmount(draftRows),
+      scopeCount: totalOfficesCount,
+      rows: draftRows,
+    },
+    groupSubmitted: {
+      count: sumCount(groupSubmittedRows),
+      amount: sumAmount(groupSubmittedRows),
+      scopeCount: groupBudgetOffices,
+      rows: groupSubmittedRows,
+    },
+    groupDraft: {
+      count: sumCount(groupDraftRows),
+      amount: sumAmount(groupDraftRows),
+      scopeCount: groupBudgetOffices,
+      rows: groupDraftRows,
+    },
+  }
+
   const departmentBreakdowns = Array.from(departmentStatsMap.values())
+
+  // 4. Submitted-only aggregation behind the drill-down pie. The draft figures already
+  // occupy the status cards above, so this section answers one question only: how the
+  // submitted money is spread across departments, then office types, then levels.
+  type MutablePieNode = {
+    key: string
+    label: string
+    context: string | null
+    amount: number
+    count: number
+    children: MutablePieNode[]
+  }
+
+  const submittedOffices = officeStats.filter((o) => o.status === 'submitted')
+  const totalAmount = submittedOffices.reduce((sum, o) => sum + o.totalBudget, 0)
+  const otherLabel = strings.admin.dashboard.analysis.otherLabel
+
+  /**
+   * Finds a node by key, creating it on first sight. Keys are ids or cleaned names —
+   * never display labels — so two offices that share a label still fold into one slice.
+   */
+  const nodeIn = (
+    list: MutablePieNode[],
+    key: string,
+    label: string,
+    context: string | null
+  ): MutablePieNode => {
+    let node = list.find((n) => n.key === key)
+    if (!node) {
+      node = { key, label, context, amount: 0, count: 0, children: [] }
+      list.push(node)
+    }
+    return node
+  }
+
+  // department → office type → level, in one pass, so every slice equals the sum of the
+  // row beneath it and the root equals the grand total.
+  const hierarchy: MutablePieNode[] = []
+  for (const off of submittedOffices) {
+    const typeName = cleanTypeName(off.office_type) || 'অফিস'
+    const department = nodeIn(hierarchy, off.department, off.department, null)
+    const officeType = nodeIn(department.children, typeName, typeName, null)
+    const level = nodeIn(officeType.children, String(off.levelId), off.levelName, null)
+    // One office counts once at each depth it appears on.
+    for (const node of [department, officeType, level]) {
+      node.amount += off.totalBudget
+      node.count++
+    }
+  }
+
+  /**
+   * Sorts a level by amount and collapses everything past the sixth row into one
+   * "অন্যান্য" slice. The residual carries no children, so only a slice worth opening
+   * stays drillable.
+   */
+  const finalizeNodes = (nodes: MutablePieNode[]): PieNode[] => {
+    const sorted = [...nodes].sort((a, b) => b.amount - a.amount)
+    const head = sorted.slice(0, 6).map<PieNode>((n) => ({
+      key: n.key,
+      label: n.label,
+      context: n.context,
+      amount: n.amount,
+      count: n.count,
+      children: finalizeNodes(n.children),
+    }))
+    const tail = sorted.slice(6)
+    if (tail.length === 0) return head
+    return [
+      ...head,
+      {
+        key: '__other__',
+        label: otherLabel,
+        context: null,
+        amount: tail.reduce((sum, n) => sum + n.amount, 0),
+        count: tail.reduce((sum, n) => sum + n.count, 0),
+        children: [],
+      },
+    ]
+  }
+
+  const analysis: DashboardAnalysis = {
+    totalAmount,
+    totalSubmittedOffices: submittedOffices.length,
+    hierarchy: finalizeNodes(hierarchy),
+  }
+
+  const departmentCards: DepartmentCard[] = departmentBreakdowns.map((dept) => ({
+    id: dept.id,
+    name: dept.name,
+    totalOffices: dept.totalOffices,
+    submittedOffices: dept.submittedOffices,
+  }))
 
   // Format cycle title
   let cycleTitle = ''
@@ -262,293 +418,15 @@ export default async function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Top 4 Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Card 1: দাখিলকৃত অফিস */}
-        <Card className="border-slate-200 shadow-xs bg-white rounded-2xl">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                দাখিলকৃত অফিস
-              </span>
-              <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
-                <CheckCircle2 className="h-5 w-5" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-black text-slate-900 font-mono">
-                {toBanglaNumber(submittedOfficesCount)}
-              </span>
-              <span className="text-slate-400 font-bold text-xs">
-                / {toBanglaNumber(totalOfficesCount)} টি
-              </span>
-            </div>
-            <div className="mt-3 w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-              <div
-                className="bg-emerald-600 h-2 rounded-full transition-all duration-500"
-                style={{ width: `${submittedPercent}%` }}
-              />
-            </div>
-            <p className="text-[11px] text-slate-400 mt-2 font-medium">
-              মোট {toBanglaNumber(submittedPercent)}% অফিস দাখিল সম্পন্ন করেছে
-            </p>
-          </CardContent>
-        </Card>
+      {/* Top 4 status cards — each is split horizontally: how many offices on the top
+          band, what those offices add up to on the bottom. Clicking one opens the
+          level-wise breakdown behind its figure. */}
+      <AdminStatusCards metrics={statusCardMetrics} />
 
-        {/* Card 2: খসড়া */}
-        <Card className="border-slate-200 shadow-xs bg-white rounded-2xl">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                খসড়া
-              </span>
-              <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
-                <Clock className="h-5 w-5" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-black text-amber-600 font-mono">
-                {toBanglaNumber(draftOfficesCount)}
-              </span>
-              <span className="text-slate-400 font-bold text-xs">
-                টি খসড়া
-              </span>
-            </div>
-            <div className="mt-3 w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-              <div
-                className="bg-amber-500 h-2 rounded-full transition-all duration-500"
-                style={{ width: `${totalOfficesCount > 0 ? (draftOfficesCount / totalOfficesCount) * 100 : 0}%` }}
-              />
-            </div>
-            <p className="text-[11px] text-slate-400 mt-2 font-medium">
-              বাজেট পূরণের কাজ চলমান রয়েছে
-            </p>
-          </CardContent>
-        </Card>
+      {/* The configurable analysis section: the comparison charts by default, with the
+          pre-existing department progress cards one toggle away. */}
+      <DashboardAnalysisPanel analysis={analysis} departments={departmentCards} />
 
-        {/* Card 3: সর্বমোট দাখিলকৃত বাজেট */}
-        <Card className="border-slate-200 shadow-xs bg-white rounded-2xl">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                সর্বমোট দাখিলকৃত বাজেট
-              </span>
-              <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
-                <Coins className="h-5 w-5" />
-              </div>
-            </div>
-            <div className="mt-3 text-2xl font-black text-blue-700 font-mono truncate">
-              ৳ {toBanglaAmount(totalSubmittedBudget)}
-            </div>
-            <p className="text-[11px] text-slate-400 mt-3 font-medium">
-              খসড়া বাজেটসহ মোট: ৳ {toBanglaAmount(totalSubmittedBudget + totalDraftBudget)}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Card 4: গ্রুপ বাজেট দাখিলের স্ট্যাটাস */}
-        <Card className="border-slate-200 shadow-xs bg-white rounded-2xl">
-          <CardContent className="p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                গ্রুপ বাজেট দাখিলের স্ট্যাটাস
-              </span>
-              <div className="p-2 rounded-xl bg-purple-50 text-purple-600">
-                <Landmark className="h-5 w-5" />
-              </div>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2">
-              <span className="text-3xl font-black text-purple-700 font-mono">
-                {toBanglaNumber(groupBudgetSubmitted)}
-              </span>
-              <span className="text-slate-500 font-bold text-xs">
-                / {toBanglaNumber(groupBudgetOffices)} টি অফিস
-              </span>
-            </div>
-            <div className="mt-3 w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-              <div
-                className="bg-purple-600 h-2 rounded-full transition-all duration-500"
-                style={{ width: `${groupBudgetOffices > 0 ? (groupBudgetSubmitted / groupBudgetOffices) * 100 : 0}%` }}
-              />
-            </div>
-            <div className="flex items-center justify-between mt-2 text-[11px] text-slate-500 font-medium">
-              <span>অগ্রগতি:</span>
-              <span className="font-mono font-bold text-purple-700">
-                {toBanglaNumber(groupBudgetOffices > 0 ? Math.round((groupBudgetSubmitted / groupBudgetOffices) * 100) : 0)}% সম্পন্ন
-              </span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Dynamic Department Comparison Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {departmentBreakdowns.length === 0 ? (
-          <Card className="col-span-full border-slate-200 shadow-sm rounded-2xl p-8 text-center text-slate-400">
-            কোনো বিভাগ কনফিগার করা হয়নি। অফিস কনফিগারেশন থেকে বিভাগ যুক্ত করুন।
-          </Card>
-        ) : (
-          departmentBreakdowns.map((dept, dIdx) => {
-            const percent = dept.totalOffices > 0 ? Math.round((dept.submittedOffices / dept.totalOffices) * 100) : 0
-            const isFirst = dIdx % 2 === 0
-            const colorClass = isFirst
-              ? {
-                badge: 'text-blue-700 bg-blue-50 border-blue-200',
-                iconBg: 'bg-blue-600',
-                bar: 'bg-blue-600',
-                gradient: 'from-blue-50/80 to-white',
-              }
-              : {
-                badge: 'text-emerald-700 bg-emerald-50 border-emerald-200',
-                iconBg: 'bg-emerald-600',
-                bar: 'bg-emerald-600',
-                gradient: 'from-emerald-50/80 to-white',
-              }
-
-            return (
-              <Card key={dept.id} className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
-                <CardHeader className={`bg-gradient-to-r ${colorClass.gradient} border-b border-slate-100 pb-4`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`h-10 w-10 rounded-xl ${colorClass.iconBg} text-white flex items-center justify-center font-bold shadow-xs`}>
-                        <Building2 className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-base font-bold text-slate-900 font-title">
-                          {dept.name}
-                        </CardTitle>
-                        <CardDescription className="text-xs text-slate-500 font-medium">
-                          বিভাগভিত্তিক বাজেট প্রস্তুতি ও দাখিল অগ্রগতি
-                        </CardDescription>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className={`font-mono text-xs font-bold ${colorClass.badge}`}>
-                      {toBanglaNumber(percent)}% সম্পন্ন
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-6 space-y-4">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-600 font-semibold">দাখিলকৃত {dept.name} অফিস:</span>
-                    <span className="font-bold text-slate-900 font-mono">
-                      {toBanglaNumber(dept.submittedOffices)} / {toBanglaNumber(dept.totalOffices)} টি
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-                    <div
-                      className={`${colorClass.bar} h-3 rounded-full transition-all duration-500`}
-                      style={{ width: `${percent}%` }}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 pt-2 text-center">
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <p className="text-[11px] text-slate-500 font-medium">মোট অফিস</p>
-                      <p className="text-lg font-bold text-slate-800 font-mono mt-0.5">{toBanglaNumber(dept.totalOffices)}</p>
-                    </div>
-                    <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100">
-                      <p className="text-[11px] text-emerald-700 font-medium">দাখিলকৃত</p>
-                      <p className="text-lg font-bold text-emerald-800 font-mono mt-0.5">{toBanglaNumber(dept.submittedOffices)}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })
-        )}
-      </div>
-
-      {/* Recent Submissions Live Table */}
-      <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
-        <CardHeader className="border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4">
-          <div>
-            <CardTitle className="text-lg font-bold text-slate-900">
-              অফিসসমূহের বাজেট দাখিলের বর্তমান অবস্থা
-            </CardTitle>
-            <CardDescription className="text-xs text-slate-500 mt-0.5">
-              সকল অফিসের বাজেট আইডি, বিভাগ ও দাখিল স্ট্যাটাস
-            </CardDescription>
-          </div>
-          <Link
-            href="/admin/reports/individual"
-            className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
-          >
-            <span>সকল অফিসের বিস্তারিত দেখুন</span>
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
-                  <th className="py-3.5 px-4 w-16">ক্রম</th>
-                  <th className="py-3.5 px-4">বাজেট আইডি</th>
-                  <th className="py-3.5 px-4">অফিসের নাম</th>
-                  <th className="py-3.5 px-4">বিভাগ</th>
-                  <th className="py-3.5 px-4">বাজেটের পরিমাণ</th>
-                  <th className="py-3.5 px-4 text-center">স্ট্যাটাস</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {officeStats.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400">
-                      কোনো অফিস পাওয়া যায়নি।
-                    </td>
-                  </tr>
-                ) : (
-                  officeStats.map((off: any, idx: number) => (
-                    <tr key={off.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-3 px-4 font-mono font-semibold text-slate-500">
-                        {toBanglaNumber(idx + 1)}
-                      </td>
-                      <td className="py-3 px-4 font-mono font-bold text-blue-700">
-                        {off.budget_id}
-                      </td>
-                      <td className="py-3 px-4 font-bold text-slate-900">
-                        {off.name}
-                      </td>
-                      <td className="py-3 px-4 font-medium text-slate-600">
-                        <span className="px-2 py-0.5 rounded-lg text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-100">
-                          {off.department}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 font-mono font-bold text-slate-800">
-                        {off.totalBudget > 0 ? `৳ ${toBanglaAmount(off.totalBudget)}` : '—'}
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <Badge
-                          variant="outline"
-                          className={`text-xs font-bold gap-1 rounded-full px-2.5 py-0.5 ${off.status === 'submitted'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                            : off.status === 'draft'
-                              ? 'bg-amber-50 text-amber-700 border-amber-300'
-                              : 'bg-slate-100 text-slate-500 border-slate-300'
-                            }`}
-                        >
-                          {off.status === 'submitted' ? (
-                            <>
-                              <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                              <span>দাখিলকৃত</span>
-                            </>
-                          ) : off.status === 'draft' ? (
-                            <>
-                              <Clock className="h-3 w-3 text-amber-600" />
-                              <span>খসড়া</span>
-                            </>
-                          ) : (
-                            <span>শুরু হয়নি</span>
-                          )}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

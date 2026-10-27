@@ -92,14 +92,13 @@ export function AppShell({
   const shellBorder = 'border-indigo-900/40'
   const shellDivider = 'border-indigo-800/60'
   const shellHover = 'hover:bg-indigo-900/60'
-  const shellActive = 'bg-indigo-600'
   const shellAccent = 'text-indigo-400'
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-slate-100">
       {/* 1. TOP BAR: Same color as left drawer (indigo-950) */}
       <header className={`h-16 shrink-0 flex items-center justify-between px-4 sm:px-6 ${brandDarkBg} border-b ${shellBorder} z-30 shadow-md`}>
-        {/* Left Section: Drawer Toggle Button & Dashboard Shortcut */}
+        {/* Left Section: Drawer Toggle Button */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => setDrawerOpen((prev) => !prev)}
@@ -109,20 +108,6 @@ export function AppShell({
           >
             <Menu className="h-5 w-5" />
           </button>
-
-          <Link
-            href="/dashboard"
-            onClick={handleNav('/dashboard')}
-            title="ড্যাশবোর্ড"
-            className={`flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              pathname === '/dashboard'
-                ? `${shellActive} text-white shadow-xs`
-                : `text-slate-300 hover:text-white ${shellHover}`
-            }`}
-          >
-            <LayoutDashboard className={`h-4 w-4 ${shellAccent}`} />
-            <span className="hidden sm:inline">ড্যাশবোর্ড</span>
-          </Link>
         </div>
 
         {/* Middle Section: Application Logo + Name */}
@@ -218,6 +203,22 @@ export function AppShell({
           {/* Drawer Inner Nav */}
           <div className="w-72 flex flex-col h-full">
             <div className="flex-1 overflow-y-auto p-3.5 space-y-1.5 custom-scrollbar">
+              {/* ড্যাশবোর্ড — the drawer leads with the overview, which is where a
+                  console's sidebar normally puts its home link. */}
+              <div className="pt-1">
+                <Link
+                  href="/dashboard"
+                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${pathname === '/dashboard'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : `text-slate-300 hover:text-white ${shellHover}`
+                    }`}
+                  onClick={handleNav('/dashboard')}
+                >
+                  <LayoutDashboard className={`h-4 w-4 shrink-0 ${pathname === '/dashboard' ? 'text-white' : shellAccent}`} />
+                  <span>{strings.dashboard.title}</span>
+                </Link>
+              </div>
+
               {/* Accordion: ফর্মসমূহ (clicking shows all forms serially) */}
               <div className="pt-1">
                 <button

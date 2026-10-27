@@ -20,7 +20,9 @@ import {
   Building2,
   SlidersHorizontal,
   Calculator,
-  LayoutGrid
+  LayoutGrid,
+  KeyRound,
+  ListChecks
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
@@ -68,6 +70,7 @@ const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     icon: FileSpreadsheet,
     iconClass: 'text-emerald-500',
     items: [
+      { href: '/admin/reports/submission-status', label: 'বাজেট দাখিলের অবস্থা', icon: ListChecks },
       { href: '/admin/reports/combined', label: 'সমন্বিত রিপোর্ট', icon: Layers },
       { href: '/admin/reports/individual', label: 'অফিসভিত্তিক রিপোর্ট', icon: FileText },
       { href: '/admin/reports/summary', label: 'কোডভিত্তিক সারসংক্ষেপ রিপোর্ট', icon: FileSpreadsheet },
@@ -147,7 +150,7 @@ export function AdminShell({
     <div className="flex flex-col h-screen overflow-hidden bg-slate-50">
       {/* 1. TOP BAR */}
       <header className={`h-16 shrink-0 flex items-center justify-between px-4 sm:px-6 ${topBarBg} border-b z-30 shadow-md`}>
-        {/* Left Section: Drawer Toggle Button & Dashboard Shortcut */}
+        {/* Left Section: Drawer Toggle Button */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => setDrawerOpen((prev) => !prev)}
@@ -157,18 +160,6 @@ export function AdminShell({
           >
             <Menu className="h-5 w-5" />
           </button>
-
-          <Link
-            href="/admin/dashboard"
-            title={strings.dashboard.title}
-            className={`flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${pathname === '/admin/dashboard'
-              ? `${shellActive} text-white shadow-xs`
-              : `text-slate-300 hover:text-white ${shellHover}`
-              }`}
-          >
-            <LayoutDashboard className={`h-4 w-4 ${shellAccent}`} />
-            <span className="hidden sm:inline">{strings.dashboard.title}</span>
-          </Link>
         </div>
 
         {/* Middle Section: Application Logo + Title */}
@@ -281,34 +272,66 @@ export function AdminShell({
 
             {/* Profile Dropdown Menu */}
             {profileDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-72 rounded-2xl bg-white text-slate-800 shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95">
-                <div className="px-4 py-3 border-b border-slate-100">
-                  <div className="flex items-center gap-2.5">
-                    <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 border ${isSuperAdmin
-                      ? 'bg-violet-50 text-violet-600 border-violet-200'
-                      : 'bg-blue-50 text-blue-600 border-blue-200'
-                      }`}>
-                      {isSuperAdmin ? <ShieldCheck className="h-5 w-5" /> : <Shield className="h-5 w-5" />}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-slate-900 pl-0.5">{session.username}</p>
-                      <p className="text-[11px] font-semibold text-slate-500 pl-0.5">
-                        {isSuperAdmin ? 'সুপার অ্যাডমিন' : 'অ্যাডমিন'}
-                      </p>
+              <div className="absolute right-0 mt-2 w-72 overflow-hidden rounded-2xl bg-white text-slate-800 shadow-2xl ring-1 ring-slate-900/5 z-50 animate-in fade-in zoom-in-95">
+                <div className="max-h-[calc(100vh-5.5rem)] overflow-y-auto overscroll-contain">
+                  {/* Identity header — role-tinted gradient, so SuperAdmin and Admin read
+                      apart at a glance and the popover opens on a deliberate, finished note
+                      instead of a plain grey block. */}
+                  <div
+                    className={`px-4 py-4 ${isSuperAdmin
+                      ? 'bg-gradient-to-br from-violet-600 via-violet-700 to-violet-900'
+                      : 'bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900'
+                      }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-inset ring-white/25 backdrop-blur-sm">
+                        {isSuperAdmin ? <ShieldCheck className="h-5 w-5 text-white" /> : <Shield className="h-5 w-5 text-white" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-black leading-snug text-white">
+                          {session.username}
+                        </p>
+                        <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white ring-1 ring-inset ring-white/20">
+                          <ShieldCheck className="h-3 w-3" />
+                          {isSuperAdmin ? 'সুপার অ্যাডমিন' : 'অ্যাডমিন'}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="p-1.5">
-                  <form action={logoutAdmin}>
-                    <button
-                      type="submit"
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer text-left"
+                  <div className="p-2 space-y-0.5">
+                    {/* Self-service profile — where either admin level rotates its own
+                        password, since neither can do it from the user management screen
+                        without a superadmin. */}
+                    <Link
+                      href="/admin/profile"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className={`group flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-xs font-bold text-slate-700 transition-colors ${isSuperAdmin ? 'hover:bg-violet-50' : 'hover:bg-blue-50'
+                        }`}
                     >
-                      <LogOut className="h-4 w-4 text-rose-600" />
-                      লগআউট
-                    </button>
-                  </form>
+                      <span
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ring-1 ring-inset transition-colors ${isSuperAdmin
+                          ? 'bg-violet-50 text-violet-600 ring-violet-100 group-hover:bg-violet-100'
+                          : 'bg-blue-50 text-blue-600 ring-blue-100 group-hover:bg-blue-100'
+                          }`}
+                      >
+                        <KeyRound className="h-3.5 w-3.5" />
+                      </span>
+                      {strings.admin.profile.menuLink}
+                    </Link>
+
+                    <form action={logoutAdmin}>
+                      <button
+                        type="submit"
+                        className="group flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2.5 text-left text-xs font-bold text-rose-600 transition-colors hover:bg-rose-50 cursor-pointer"
+                      >
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-rose-600 ring-1 ring-inset ring-rose-100 transition-colors group-hover:bg-rose-100">
+                          <LogOut className="h-3.5 w-3.5" />
+                        </span>
+                        লগআউট
+                      </button>
+                    </form>
+                  </div>
                 </div>
               </div>
             )}
@@ -337,6 +360,22 @@ export function AdminShell({
         >
           <div className="w-64 flex flex-col h-full">
             <nav className="flex-1 p-3.5 space-y-2 overflow-y-auto">
+              {/* ড্যাশবোর্ড — the drawer leads with the overview, which is where a
+                  console's sidebar normally puts its home link. */}
+              <div className="pt-1">
+                <Link
+                  href="/admin/dashboard"
+                  onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-bold ${pathname === '/admin/dashboard'
+                    ? shellActive + ' text-white'
+                    : 'text-slate-300 ' + shellHover + ' hover:text-white'
+                    }`}
+                >
+                  <LayoutDashboard className={`h-4 w-4 shrink-0 ${pathname === '/admin/dashboard' ? 'text-white' : shellAccent}`} />
+                  <span>{strings.dashboard.title}</span>
+                </Link>
+              </div>
+
               {/* গ্রুপ ১: অফিস ব্যবস্থাপনা  (Collapsible) */}
               <div className="space-y-1 pt-1">
                 <button
@@ -493,6 +532,18 @@ export function AdminShell({
 
                 {reportsGroupOpen && (
                   <div className={`pl-3 space-y-1 pt-0.5 border-l-2 ${shellDivider} ml-3`}>
+                    <Link
+                      href="/admin/reports/submission-status"
+                      onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors text-xs font-semibold ${pathname === '/admin/reports/submission-status'
+                        ? shellActive + ' text-white'
+                        : 'text-slate-400 ' + shellHover + ' hover:text-white'
+                        }`}
+                    >
+                      <ListChecks className="h-3.5 w-3.5 shrink-0" />
+                      <span>বাজেট দাখিলের অবস্থা</span>
+                    </Link>
+
                     <Link
                       href="/admin/reports/combined"
                       onClick={() => { if (window.innerWidth < 1024) setDrawerOpen(false) }}

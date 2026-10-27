@@ -16,6 +16,9 @@ export default async function BudgetSheetPage() {
   let officeLevel = ''
   let officeName = ''
   let headOfficeName = ''
+  let isSubmitted = false
+  let configStale = false
+  let capturedAt: string | null = null
 
   if (submissionId) {
     const result = await getBudgetSheetData(submissionId)
@@ -26,6 +29,9 @@ export default async function BudgetSheetPage() {
       officeLevel = result.officeLevel || ''
       officeName = result.officeName || ''
       headOfficeName = result.headOfficeName || ''
+      isSubmitted = result.isSubmitted
+      configStale = result.configStale
+      capturedAt = result.capturedAt
     } else {
       initialError = result.error || 'বাজেট তথ্য লোড করা যায়নি।'
     }
@@ -43,6 +49,9 @@ export default async function BudgetSheetPage() {
       officeLevel={officeLevel}
       officeName={officeName}
       headOfficeName={headOfficeName}
+      isSubmitted={isSubmitted}
+      configStale={configStale}
+      capturedAt={capturedAt}
     />
   )
 }

@@ -50,6 +50,26 @@ export function toBanglaAmount(number: number | string | null | undefined): stri
   return toBanglaCurrency(number, false);
 }
 
+/**
+ * Short form of an amount for tight spots (chart centres, chips), on the Indian
+ * crore/lakh scale: 123456789 → ১২.৩৫ কোটি. Use `toBanglaAmount` where the exact
+ * figure matters.
+ */
+export function toBanglaAmountCompact(number: number | string | null | undefined): string {
+  if (number === null || number === undefined || number === '') return '—';
+  const n = Number(number);
+  if (isNaN(n)) return '—';
+
+  const sign = n < 0 ? '-' : '';
+  const abs = Math.abs(n);
+  // toFixed always yields two decimals, so trailing zeros are trimmed back off.
+  const trim = (value: number) => toBanglaNumber(value.toFixed(2).replace(/\.?0+$/, ''));
+
+  if (abs >= 1e7) return `${sign}${trim(abs / 1e7)} কোটি`;
+  if (abs >= 1e5) return `${sign}${trim(abs / 1e5)} লক্ষ`;
+  return `${sign}${toBanglaNumber(Math.round(abs))}`;
+}
+
 const BANGLA_MONTHS = [
   'জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল',
   'মে', 'জুন', 'জুলাই', 'আগস্ট',

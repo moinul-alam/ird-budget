@@ -286,18 +286,18 @@ export default async function DashboardPage() {
         </div>
 
         {/* Card 3: চূড়ান্ত বাজেট — the whole card opens the budget sheet. Green
-            while nothing is submitted, red-accented once it has been. */}
+            while nothing is submitted, calm blue once it has been. */}
         <Link
           href="/office/budget-sheet"
           className={`group p-5 rounded-2xl border shadow-xs flex flex-col justify-between transition-all ${
             isSubmitted
-              ? 'bg-red-50/70 border-red-200 hover:border-red-400'
+              ? 'bg-blue-50/70 border-blue-200 hover:border-blue-400'
               : 'bg-emerald-50/70 border-emerald-200 hover:border-emerald-400'
           }`}
         >
           <span
             className={`text-xs font-bold uppercase tracking-wider block ${
-              isSubmitted ? 'text-red-900' : 'text-emerald-900'
+              isSubmitted ? 'text-blue-900' : 'text-emerald-900'
             }`}
           >
             {strings.dashboard.finalBudget}
@@ -306,7 +306,7 @@ export default async function DashboardPage() {
           <div className="flex-1 flex items-center justify-center text-center py-3">
             <span
               className={`text-xl font-black leading-snug ${
-                isSubmitted ? 'text-red-700' : 'text-emerald-700'
+                isSubmitted ? 'text-blue-700' : 'text-emerald-700'
               }`}
             >
               {isSubmitted ? strings.dashboard.submittedBudgetView : strings.dashboard.finalBudgetReview}
@@ -315,7 +315,7 @@ export default async function DashboardPage() {
 
           <div
             className={`flex items-center justify-end gap-1 text-xs font-bold ${
-              isSubmitted ? 'text-red-700' : 'text-emerald-700'
+              isSubmitted ? 'text-blue-700' : 'text-emerald-700'
             } group-hover:translate-x-0.5 transition-transform`}
           >
             <BarChart3 className="h-3.5 w-3.5" />

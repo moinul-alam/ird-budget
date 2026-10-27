@@ -1,3 +1,4 @@
+import { createHash } from 'crypto'
 import { unstable_cache } from 'next/cache'
 import { prisma } from '@/lib/db/client'
 import type { BudgetContext, BudgetSalary } from './calculate'
@@ -69,6 +70,14 @@ export interface RefData {
   economicCodes: EconomicCodeRow[]
   budgetCategories: Array<{ id: number; code: string; title: string; sortOrder: number }>
   levelCodeMappings: Array<{ officeLevelId: number; economicCodeId: number }>
+  /**
+   * A hash of everything above — the whole admin-owned input set the engine computes
+   * from. Two renders with the same fingerprint would compute the same amounts, so a
+   * captured snapshot can be compared against the current config with one string compare
+   * instead of a per-table audit. Computed here so it can never fall out of step with
+   * the data it describes.
+   */
+  configFingerprint: string
 }
 
 /**
@@ -198,7 +207,7 @@ async function loadRefData(): Promise<RefData> {
     })
   }
 
-  return {
+  const data: Omit<RefData, 'configFingerprint'> = {
     salary,
     gradeCategoryNames: gradeRows.map((g) => ({
       gradeNo: g.gradeNo,
@@ -272,6 +281,23 @@ async function loadRefData(): Promise<RefData> {
       economicCodeId: Number(m.economicCodeId),
     })),
   }
+
+  // Every field above is built in a fixed order from ordered queries, so the same
+  // admin data always stringifies identically and the hash is stable across renders.
+  const configFingerprint = createHash('sha256')
+    .update(JSON.stringify(data))
+    .digest('hex')
+
+  return { ...data, configFingerprint }
+}
+
+/**
+ * The current config fingerprint, read from the same cached reference set the office
+ * side renders from. A snapshot that stored a different value was priced against
+ * admin config that has since changed.
+ */
+export async function getConfigFingerprint(): Promise<string> {
+  return (await getRefData()).configFingerprint
 }
 
 /**

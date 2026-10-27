@@ -266,6 +266,7 @@ model RefEconomicCode {
   formula      RefFormulaType?               @relation(fields: [formulaKey], references: [key], onDelete: SetNull)
   codeMappings OfficeLevelEconomicCodeMapping[]
   budgetSheets OfficeBudgetSheet[]
+  snapshotRows OfficeBudgetSnapshotRow[]
   utilityTypes RefUtilityType[]
   fuelCategories RefFuelCategory[]
 
@@ -544,6 +545,9 @@ model OfficeSubmission {
   cycleId         BigInt    @map("cycle_id")
   status          String    @default("draft") @db.VarChar(20)
   submittedAt     DateTime? @map("submitted_at") @db.Timestamptz
+  /// Last time the office wrote to any of its forms. Kept as the "inputs moved since
+  /// you last looked" signal; it is set by the same guard that enforces draft-only writes.
+  lastDataWriteAt DateTime? @map("last_data_write_at") @db.Timestamptz
   reviewedBy      BigInt?   @map("reviewed_by")
   reviewedAt      DateTime? @map("reviewed_at") @db.Timestamptz
   rejectionReason String?   @map("rejection_reason") @db.Text
@@ -566,6 +570,7 @@ model OfficeSubmission {
   utilities        OfficeFormUtility[]
   returnInfo       OfficeFormReturnInfo?
   budgetSheets     OfficeBudgetSheet[]
+  snapshots        OfficeBudgetSnapshot[]
 
   @@unique([officeId, cycleId])
   @@map("office_submissions")
@@ -781,6 +786,11 @@ model OfficeFormReturnInfo {
   @@map("office_form_return_info")
 }
 
+/**
+ * The draft's working table, not a ledger. A draft is recomputed live from the forms
+ * plus the office's manual overrides held here, so only `manual_value` is ever read
+ * back. The other two columns are mirrors kept for the odd direct query.
+ */
 model OfficeBudgetSheet {
   id             BigInt   @id @default(autoincrement())
   submissionId   BigInt   @map("submission_id")
@@ -796,6 +806,69 @@ model OfficeBudgetSheet {
 
   @@unique([submissionId, economicCodeId])
   @@map("office_budget_sheet")
+}
+
+/**
+ * A frozen copy of one submission's whole code-wise sheet, written in the same
+ * transaction as the status change to `submitted`. Nothing reads the office's forms
+ * once this exists: the sheet, the dashboard total and every report read the rows
+ * below, so a later admin rate change can never move a submitted number.
+ *
+ * One row per submission per version, so `unlock → edit → resubmit` appends a new
+ * version and the earlier one stays as the audit trail it is.
+ */
+model OfficeBudgetSnapshot {
+  id         BigInt   @id @default(autoincrement())
+  submissionId BigInt @map("submission_id")
+  /// 1 for the first submission, then 2, 3 … for each re-submission after an unlock.
+  version    Int      @default(1)
+  /// Content hash of the administrator config the amounts were computed from, so a
+  /// later rate change can be told apart from an identical capture.
+  configFingerprint String @map("config_fingerprint") @db.VarChar(64)
+  capturedAt DateTime @default(now()) @map("captured_at") @db.Timestamptz
+  /// Sum of every row's final value, stored so a report need not re-add the rows.
+  total      Decimal  @default(0) @db.Decimal(16, 2)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  submission OfficeSubmission          @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  rows       OfficeBudgetSnapshotRow[]
+
+  @@unique([submissionId, version])
+  @@map("office_budget_snapshots")
+}
+
+/**
+ * One code of a frozen snapshot. Every field the sheet renders is copied in rather
+ * than read through a relation, so a code that is later renamed, re-categorised or
+ * retired still renders exactly as the office submitted it.
+ */
+model OfficeBudgetSnapshotRow {
+  id                 BigInt   @id @default(autoincrement())
+  snapshotId         BigInt   @map("snapshot_id")
+  /// Kept as a link while the code exists; nulled by the FK if the admin ever
+  /// removes it, which is exactly why the display fields below are copies.
+  economicCodeId     BigInt?  @map("economic_code_id")
+  code               String   @db.VarChar(50)
+  name               String   @db.Text
+  categoryId         BigInt?  @map("category_id")
+  categoryCode       String   @default("") @map("category_code") @db.VarChar(50)
+  categoryName       String   @default("") @map("category_name") @db.Text
+  categorySortOrder  Int      @default(0) @map("category_sort_order")
+  sortOrder          Int      @default(0) @map("sort_order")
+  isManual           Boolean  @default(false) @map("is_manual")
+  allowManualOverride Boolean @default(false) @map("allow_manual_override")
+  sourceForms        Int[]    @default([]) @map("source_forms")
+  autoValue          Decimal  @default(0) @map("auto_value") @db.Decimal(16, 2)
+  manualValue        Decimal? @map("manual_value") @db.Decimal(16, 2)
+  finalValue         Decimal  @default(0) @map("final_value") @db.Decimal(16, 2)
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  snapshot     OfficeBudgetSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  economicCode RefEconomicCode?     @relation(fields: [economicCodeId], references: [id], onDelete: SetNull)
+
+  @@index([snapshotId])
+  @@map("office_budget_snapshot_rows")
 }
 
 // ============================================================

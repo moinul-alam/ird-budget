@@ -1,13 +1,13 @@
 import { prisma } from '@/lib/db/client'
-import { computeSubmissionSheet, getActiveEconomicCodes } from './sheet'
+import { getSubmissionSheet, getActiveEconomicCodes } from './sheet'
 
 /**
  * Rolls several offices' code-wise budgets into one figure set.
  *
- * The numbers are recomputed from the offices' forms through the same engine the
- * office's own budget sheet uses (`computeSubmissionSheet`), so a report can never
- * disagree with the sheet an office submitted. There is no stored per-code ledger to
- * read instead — `office_budget_sheet` only ever held manual overrides.
+ * Each office's numbers come from the same branch point its own budget sheet uses
+ * (`getSubmissionSheet`): a submitted budget is read from its frozen snapshot, a draft
+ * is recomputed from the forms. Because the report reads through that one entry point
+ * it can never disagree with the sheet an office saw when it submitted.
  */
 
 export interface ReportCodeTotal {
@@ -125,7 +125,7 @@ export async function rollupOffices(
     let total = 0
 
     if (sub) {
-      const sheet = await computeSubmissionSheet(sub.id)
+      const sheet = await getSubmissionSheet(sub.id)
       for (const row of sheet.rows) {
         codeTotals.set(row.id, (codeTotals.get(row.id) || 0) + row.final_value)
       }

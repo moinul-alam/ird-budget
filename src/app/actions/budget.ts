@@ -1,7 +1,12 @@
 'use server'
 
 import { prisma } from '@/lib/db/client'
-import { computeSubmissionSheet } from '@/lib/budget/sheet'
+import {
+  computeSubmissionSheet,
+  getSubmissionSheet,
+  writeSubmissionSnapshot,
+} from '@/lib/budget/sheet'
+import { getConfigFingerprint } from '@/lib/budget/fetcher'
 import { getOfficeSession, setOfficeSession } from '@/lib/session'
 
 /**
@@ -50,6 +55,30 @@ interface BudgetSheetDataResponse {
   /** Head quarter (department for a head office, parent office for a field office). */
   headOfficeName: string
   missingForms?: string[]
+  /** True when the rows are the frozen snapshot of an already-submitted budget. */
+  isSubmitted: boolean
+  /** Snapshot only: the admin's rates/config changed after this budget was submitted.
+   *  Informational — a submitted budget is never re-priced. */
+  configStale: boolean
+  /** Snapshot only: when the submitted figures were captured. */
+  capturedAt: string | null
+}
+
+/** The response shape every failure path returns, so the new fields are never forgotten. */
+function emptySheetResponse(error: string): BudgetSheetDataResponse {
+  return {
+    success: false,
+    error,
+    rows: [],
+    totalAuto: 0,
+    totalManual: 0,
+    officeLevel: '',
+    officeName: '',
+    headOfficeName: '',
+    isSubmitted: false,
+    configStale: false,
+    capturedAt: null,
+  }
 }
 
 /**
@@ -57,35 +86,21 @@ interface BudgetSheetDataResponse {
  */
 export async function getBudgetSheetData(submissionId: number): Promise<BudgetSheetDataResponse> {
   if (!submissionId) {
-    return {
-      success: false,
-      error: 'কোনো বাজেট দাখিল (Submission) আইডি পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।',
-      rows: [],
-      totalAuto: 0,
-      totalManual: 0,
-      officeLevel: '',
-      officeName: '',
-      headOfficeName: '',
-    }
+    return emptySheetResponse(
+      'কোনো বাজেট দাখিল (Submission) আইডি পাওয়া যায়নি। অনুগ্রহ করে পুনরায় লগইন করুন।'
+    )
   }
 
   if (submissionId !== (await currentSubmissionId())) {
-    return {
-      success: false,
-      error: NOT_OWNED,
-      rows: [],
-      totalAuto: 0,
-      totalManual: 0,
-      officeLevel: '',
-      officeName: '',
-      headOfficeName: '',
-    }
+    return emptySheetResponse(NOT_OWNED)
   }
 
   try {
     // The sheet is compiled in one place (src/lib/budget/sheet.ts) so the reports,
     // which read the same rows, can never disagree with what the office sees here.
-    const { rows: sheet, total, context: ctx } = await computeSubmissionSheet(submissionId)
+    // A submitted budget returns its frozen snapshot; a draft is computed live.
+    const { rows: sheet, total, context: ctx, source, configStale, capturedAt } =
+      await getSubmissionSheet(submissionId)
 
     const submission = await prisma.officeSubmission.findUnique({
       where: { id: BigInt(submissionId) },
@@ -130,11 +145,14 @@ export async function getBudgetSheetData(submissionId: number): Promise<BudgetSh
     const totalAuto = rows.reduce((sum, r) => sum + (r.auto_value || 0), 0)
     const totalManual = total
 
-    // Check which core forms might still be empty
+    // Check which core forms might still be empty. A frozen snapshot no longer reads
+    // the forms at all, so there is nothing to point the office at.
     const missingForms: string[] = []
-    if (!ctx.staff || ctx.staff.length === 0) missingForms.push('কর্মকর্তা/কর্মচারীর বেতন (ফরম ২/৩)')
-    if (!ctx.utilities || ctx.utilities.length === 0) missingForms.push('ইউটিলিটি ও অন্যান্য বিল (ফরম ১১)')
-    if (!ctx.houseRent) missingForms.push('অফিস ভবন ভাড়া (ফরম ৯)')
+    if (ctx) {
+      if (!ctx.staff || ctx.staff.length === 0) missingForms.push('কর্মকর্তা/কর্মচারীর বেতন (ফরম ২/৩)')
+      if (!ctx.utilities || ctx.utilities.length === 0) missingForms.push('ইউটিলিটি ও অন্যান্য বিল (ফরম ১১)')
+      if (!ctx.houseRent) missingForms.push('অফিস ভবন ভাড়া (ফরম ৯)')
+    }
 
     return {
       success: true,
@@ -145,27 +163,40 @@ export async function getBudgetSheetData(submissionId: number): Promise<BudgetSh
       officeName,
       headOfficeName,
       missingForms,
+      isSubmitted: source === 'snapshot',
+      configStale: Boolean(configStale),
+      capturedAt: capturedAt ? capturedAt.toISOString() : null,
     }
   } catch (err: any) {
     console.error('getBudgetSheetData error:', err)
-    return {
-      success: false,
-      error: `বাজেট হিসাব তৈরিতে সমস্যা হয়েছে: ${err?.message || 'অজ্ঞাত ত্রুটি'}`,
-      rows: [],
-      totalAuto: 0,
-      totalManual: 0,
-      officeLevel: '',
-      officeName: '',
-      headOfficeName: '',
-    }
+    return emptySheetResponse(
+      `বাজেট হিসাব তৈরিতে সমস্যা হয়েছে: ${err?.message || 'অজ্ঞাত ত্রুটি'}`
+    )
   }
 }
 
 /**
- * Recalculate Budget and refresh values
+ * Recalculate Budget and refresh values.
+ *
+ * Only a draft recomputes: it is derived from the forms every time it is opened, so a
+ * refresh re-reads them. A submitted budget reads its frozen snapshot, which cannot
+ * change — recalculating it is meaningless, so this reports that rather than pretending
+ * to do something.
  */
 export async function recalculateBudget(submissionId: number) {
   try {
+    if (submissionId !== (await currentSubmissionId())) {
+      return { success: false, error: NOT_OWNED }
+    }
+
+    const submission = await prisma.officeSubmission.findUnique({
+      where: { id: BigInt(submissionId) },
+      select: { status: true },
+    })
+    if (submission?.status === 'submitted') {
+      return { success: false, error: 'দাখিলকৃত বাজেট চূড়ান্তভাবে সংরক্ষিত — পুনর্গণনার প্রয়োজন নেই।' }
+    }
+
     const data = await getBudgetSheetData(submissionId)
     if (!data.success) {
       return { success: false, error: data.error }
@@ -190,59 +221,84 @@ export interface ManualValueEntry {
   value: number | null
 }
 
+/** `status` of the submission, or null when the id names nothing. */
+async function submissionStatus(submissionId: number): Promise<string | null> {
+  const sub = await prisma.officeSubmission.findUnique({
+    where: { id: BigInt(submissionId) },
+    select: { status: true },
+  })
+  return sub?.status ?? null
+}
+
+/** Shown when the office tries to write to a budget that is already dakhil. */
+const ALREADY_SUBMITTED =
+  'বাজেট ইতিমধ্যে দাখিল করা হয়েছে এবং চূড়ান্তভাবে সংরক্ষিত। সংশোধন করতে হলে প্রথমে আনলক করুন।'
+
+/** One entry of `manual_values` once its economic code has been resolved to a row id. */
+interface ResolvedManualEntry {
+  codeId: number
+  value: number | null
+}
+
 /**
- * The upsert statements for a batch of manual entries, with every code resolved to its
- * row id up front so N entries cost one lookup rather than N. Shared by the submit and
- * the save-without-submitting paths so both write the sheet the same way.
+ * Resolves each entry's economic code to the row it belongs to, so both the write path
+ * and the snapshot's overlay can work from ids rather than codes. One lookup for the
+ * whole batch.
  *
  * The sheet sends the economic code itself (e.g. "3111303"), not a row id. Parsing it as
  * a number was the old bug: every code begins with digits, so the parse always succeeded
  * and the code was used as a primary key instead — which the foreign key on
  * office_budget_sheet.economic_code_id then rejected.
  */
-async function buildManualEntryWrites(
-  submissionId: number,
-  manualValues: ManualValueEntry[]
-) {
+async function resolveManualEntries(manualValues: ManualValueEntry[]): Promise<ResolvedManualEntry[]> {
   if (manualValues.length === 0) return []
 
   const codeRows = await prisma.refEconomicCode.findMany({
     where: { code: { in: manualValues.map((entry) => entry.code) } },
     select: { id: true, code: true },
   })
-  const idByCode = new Map(codeRows.map((row) => [row.code, row.id]))
+  const idByCode = new Map(codeRows.map((row) => [row.code, Number(row.id)]))
 
   return manualValues.map((entry) => {
     const codeId = idByCode.get(entry.code)
     if (codeId === undefined) {
       throw new Error(`কোড শনাক্তকারী অকার্যকর: ${entry.code}`)
     }
+    return { codeId, value: entry.value }
+  })
+}
 
-    return prisma.officeBudgetSheet.upsert({
-      where: {
-        submissionId_economicCodeId: {
-          submissionId: BigInt(submissionId),
-          economicCodeId: codeId,
-        },
-      },
-      update: {
-        manualValue: entry.value,
-        finalValue: entry.value || 0,
-      },
-      create: {
+/** The upsert for one resolved manual entry, bound to whichever client is writing. */
+function manualEntryWrite(
+  client: Pick<typeof prisma, 'officeBudgetSheet'>,
+  submissionId: number,
+  entry: ResolvedManualEntry
+) {
+  return client.officeBudgetSheet.upsert({
+    where: {
+      submissionId_economicCodeId: {
         submissionId: BigInt(submissionId),
-        economicCodeId: codeId,
-        autoValue: 0,
-        manualValue: entry.value,
-        finalValue: entry.value || 0,
+        economicCodeId: BigInt(entry.codeId),
       },
-    })
+    },
+    update: {
+      manualValue: entry.value,
+      finalValue: entry.value || 0,
+    },
+    create: {
+      submissionId: BigInt(submissionId),
+      economicCodeId: BigInt(entry.codeId),
+      autoValue: 0,
+      manualValue: entry.value,
+      finalValue: entry.value || 0,
+    },
   })
 }
 
 /**
  * Store the sheet's manual entries without changing the submission's status — what the
- * "save and leave" answer on the unsaved-changes dialog calls.
+ * সংরক্ষণ button and the "save and leave" answer on the unsaved-changes dialog both call.
+ * A submitted budget is frozen, so it rejects this outright.
  */
 export async function saveManualValues(
   submissionId: number,
@@ -257,10 +313,14 @@ export async function saveManualValues(
   }
 
   try {
-    const writes = await buildManualEntryWrites(submissionId, manualValues)
-    if (writes.length === 0) return { success: true }
+    if ((await submissionStatus(submissionId)) === 'submitted') {
+      return { success: false, error: ALREADY_SUBMITTED }
+    }
 
-    await prisma.$transaction(writes)
+    const resolved = await resolveManualEntries(manualValues)
+    if (resolved.length === 0) return { success: true }
+
+    await prisma.$transaction(resolved.map((entry) => manualEntryWrite(prisma, submissionId, entry)))
     return { success: true }
   } catch (error: any) {
     return { success: false, error: `সংরক্ষণ ত্রুটি: ${error.message}` }
@@ -268,12 +328,16 @@ export async function saveManualValues(
 }
 
 /**
- * Submit budget sheet, writing every manual entry the office made in this visit.
+ * Submit budget sheet, writing every manual entry the office made in this visit and
+ * freezing the resulting sheet.
  *
- * The sheet keeps those entries in the browser and hands them over in this one call, so
- * a session with a dozen edited rows costs the database a single transaction instead of
- * a write per keystroke. The entries are written together with the status change: either
- * the whole sheet is submitted or nothing about it moves.
+ * The entries are written together with the status change and the snapshot, so a
+ * submission can never exist without the frozen figures that back it. The pending entries
+ * are overlaid onto the computed sheet *before* the transaction, because the engine reads
+ * through its own connection and would not see rows this transaction has yet to commit.
+ *
+ * Re-submitting is refused: a submitted budget is immutable, and the only route back to
+ * editing is an explicit unlock (which makes the next submit a new snapshot version).
  */
 export async function submitBudget(
   submissionId: number,
@@ -288,16 +352,35 @@ export async function submitBudget(
   }
 
   try {
-    await prisma.$transaction([
-      ...(await buildManualEntryWrites(submissionId, manualValues)),
-      prisma.officeSubmission.update({
+    if ((await submissionStatus(submissionId)) === 'submitted') {
+      return { success: false, error: ALREADY_SUBMITTED }
+    }
+
+    const resolved = await resolveManualEntries(manualValues)
+    const overrides = new Map<number, number | null>(
+      resolved.map((entry) => [entry.codeId, entry.value])
+    )
+
+    // The sheet the office is about to make final, with the entries still held in the
+    // browser already applied.
+    const sheet = await computeSubmissionSheet(submissionId, overrides)
+    const configFingerprint = await getConfigFingerprint()
+
+    await prisma.$transaction(async (tx) => {
+      for (const entry of resolved) {
+        await manualEntryWrite(tx, submissionId, entry)
+      }
+
+      await writeSubmissionSnapshot(tx, submissionId, sheet, configFingerprint)
+
+      await tx.officeSubmission.update({
         where: { id: BigInt(submissionId) },
         data: {
           status: 'submitted',
           submittedAt: new Date(),
         },
-      }),
-    ])
+      })
+    })
 
     return { success: true }
   } catch (error: any) {

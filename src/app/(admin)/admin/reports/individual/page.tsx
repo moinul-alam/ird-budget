@@ -1,7 +1,7 @@
 import { getAdminSession } from '@/lib/auth-admin'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db/client'
-import { computeSubmissionSheet } from '@/lib/budget/sheet'
+import { getSubmissionSheet } from '@/lib/budget/sheet'
 import { getActiveCycle } from '@/lib/budget/report'
 import { IndividualReportsClient, type OfficeCodeRow, type OfficeReportItem } from './individual-reports-client'
 
@@ -72,8 +72,8 @@ export default async function IndividualReportPage({
     }
   })
 
-  // Drill-down: one office's code-wise budget, computed by the same engine its own
-  // budget sheet uses (reports read what the office submitted, only recomputed).
+  // Drill-down: one office's code-wise budget, read through the same branch point its
+  // own budget sheet uses — a submitted office reads its frozen snapshot.
   const selectedId = params.office ? parseInt(params.office, 10) : null
   const selectedOffice = officeList.find((o) => o.id === selectedId) || null
 
@@ -82,7 +82,7 @@ export default async function IndividualReportPage({
     | null = null
 
   if (selectedOffice?.submission_id) {
-    const sheet = await computeSubmissionSheet(selectedOffice.submission_id)
+    const sheet = await getSubmissionSheet(selectedOffice.submission_id)
     detail = {
       office: selectedOffice,
       rows: sheet.rows.map((r) => ({ ...r, amount: r.final_value })),
