@@ -123,7 +123,7 @@ export function TabDepartments({
                     <th className="py-3 px-4 w-20">ক্রম</th>
                     <th className="py-3 px-4">দপ্তর / সংস্থার নাম</th>
                     <th className="py-3 px-4">বাজেট আইডি</th>
-                    <th className="py-3 px-4">মূল মন্ত্রণালয় / বিভাগ</th>
+                    <th className="py-3 px-4">মন্ত্রণালয় / বিভাগ</th>
                     <th className="py-3 px-4">অফিসের ধরণ সংখ্যা</th>
                     <th className="py-3 px-4 text-center w-28">একশন</th>
                   </tr>
@@ -212,7 +212,7 @@ export function TabDepartments({
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-700">মূল মন্ত্রণালয় / বিভাগ নির্বাচন করুন</Label>
+              <Label className="text-xs font-bold text-slate-700">মন্ত্রণালয় / বিভাগ নির্বাচন করুন</Label>
               <Select
                 value={depModal.ministry_id}
                 onValueChange={(val) => {
