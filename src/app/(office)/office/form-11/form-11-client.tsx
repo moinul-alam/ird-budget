@@ -28,8 +28,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { saveFormUtilityRow, deleteFormUtilityRow } from '@/app/actions/forms'
-import { Plus, Trash2, Edit2, Zap, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { saveFormUtilityRow, deleteFormUtilityRow } from '@/lib/actions/forms/utilities'
+import { Plus, Trash2, Edit2, Zap, AlertTriangle } from 'lucide-react'
+import type { FormUtilitiesInitial } from '@/lib/office/load-form-data'
 import { useState, useTransition, useMemo } from 'react'
 
 export interface Form11UtilityRow {
@@ -42,7 +43,7 @@ export interface Form11UtilityRow {
 export interface Form11ClientProps {
   submissionId: number | null
   utilityTypes: Array<{ id: number; name: string }>
-  initialData: any[]
+  initialData: FormUtilitiesInitial
 }
 
 export function Form11Client({

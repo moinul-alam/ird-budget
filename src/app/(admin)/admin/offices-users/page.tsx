@@ -1,6 +1,6 @@
 import { getAdminSession } from '@/lib/auth-admin'
 import { redirect } from 'next/navigation'
-import { getAllOfficeUsersList } from '@/app/actions/office-users'
+import { getAllOfficeUsersList } from '@/lib/actions/office-users'
 import { prisma } from '@/lib/db/client'
 import { OfficeUsersClient } from './office-users-client'
 

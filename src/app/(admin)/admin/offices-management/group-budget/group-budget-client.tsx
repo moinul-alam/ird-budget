@@ -9,13 +9,13 @@ import {
   saveGroupBudgetSetting,
   deleteGroupBudgetSetting,
   getGroupBudgetSettings,
-} from '@/app/actions/admin-offices-config'
+} from '@/lib/actions/admin-offices-config'
 import {
   GroupModalState,
   ConfirmModalState,
 } from '../../offices-config/_types/offices-config'
 import { ConfirmDeleteDialog } from '../../offices-config/_components/confirm-delete-dialog'
-import { GroupBudgetTable } from './group-budget-table'
+import { GroupBudgetTable } from './_components/group-budget-table'
 
 interface GroupBudgetClientProps {
   initialGroupSettings: GroupBudgetSettingItem[]

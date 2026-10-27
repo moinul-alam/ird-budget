@@ -4,7 +4,7 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight, Files, Loader2 } from 'lucide-react'
 import { strings } from '@/lib/strings'
-import { startBudget } from '@/app/actions/budget'
+import { startBudget } from '@/lib/actions/budget'
 
 /**
  * The offer shown while a cycle is open but this office has not started yet. Nothing

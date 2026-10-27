@@ -26,7 +26,7 @@ import {
   MinistryItem,
   OfficeLevelItem,
   OfficeTypeHierarchyItem,
-} from '@/app/actions/admin-offices-config'
+} from '@/lib/actions/admin-offices-config'
 import { HierarchyModalState, ConfigTabType } from '../_types/offices-config'
 import { getLevelOrderBadge } from '../_lib/helpers'
 

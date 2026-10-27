@@ -1,6 +1,6 @@
 import { getAdminSession } from '@/lib/auth-admin'
 import { redirect } from 'next/navigation'
-import { getAdminUsersList } from '@/app/actions/admin-users'
+import { getAdminUsersList } from '@/lib/actions/admin-users'
 import { DEFAULT_ADMIN_PASSWORD } from '@/lib/admin/defaults'
 import { prisma } from '@/lib/db/client'
 import { UsersClient } from './users-client'

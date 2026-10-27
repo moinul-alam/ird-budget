@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Briefcase, Building2, Plus, Edit2, Trash2, ArrowRight, Loader2 } from 'lucide-react'
-import { DepartmentItem, OfficeTypeHierarchyItem } from '@/app/actions/admin-offices-config'
+import { DepartmentItem, OfficeTypeHierarchyItem } from '@/lib/actions/admin-offices-config'
 import { OfficeTypeModalState, ConfigTabType } from '../_types/offices-config'
 
 interface TabOfficeTypesProps {
@@ -38,7 +38,6 @@ interface TabOfficeTypesProps {
 }
 
 export function TabOfficeTypes({
-  officeTypes,
   filteredOfficeTypes,
   departments,
   filterDeptForTypes,

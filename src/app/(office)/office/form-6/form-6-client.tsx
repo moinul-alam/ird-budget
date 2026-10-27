@@ -14,13 +14,14 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { saveFormLeave } from '@/app/actions/forms'
+import { saveFormLeave } from '@/lib/actions/forms/leave'
+import type { FormLeaveEncashmentInitial } from '@/lib/office/load-form-data'
 import { Plus, Edit2, Trash2, CheckCircle2 } from 'lucide-react'
 import { useState, useTransition } from 'react'
 
 export interface Form6ClientProps {
   submissionId: number | null
-  initialData: any
+  initialData: FormLeaveEncashmentInitial
 }
 
 interface LeaveGroupData {
@@ -66,7 +67,7 @@ export function Form6Client({ submissionId, initialData }: Form6ClientProps) {
     }
   })
 
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
 
   // Modal State
   const [activeGroupKey, setActiveGroupKey] = useState<'officer' | 'staff' | null>(null)

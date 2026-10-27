@@ -1,9 +1,11 @@
 'use client'
 
+import { errorMessage } from '@/lib/errors'
+
 import { useState, useTransition } from 'react'
 import { strings } from '@/lib/strings'
 import { toBanglaDateTime } from '@/lib/bangla'
-import { changeOwnPassword } from '@/app/actions/admin-profile'
+import { changeOwnPassword } from '@/lib/actions/admin-profile'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -127,8 +129,8 @@ export function AdminProfileClient({ username, role, createdAt }: AdminProfileCl
         } else {
           setError(res.error || strings.errors.general)
         }
-      } catch (err: any) {
-        setError(`${strings.errors.general} (${err?.message || ''})`)
+      } catch (err) {
+        setError(`${strings.errors.general} (${errorMessage(err) || ''})`)
       }
     })
   }

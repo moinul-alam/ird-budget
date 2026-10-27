@@ -25,7 +25,7 @@ import {
   deleteOfficeLevel,
   deleteOfficeType,
   getOfficeLevels,
-} from '@/app/actions/admin-offices-config'
+} from '@/lib/actions/admin-offices-config'
 import {
   AdminOfficesConfigClientProps,
   ConfigTabType,

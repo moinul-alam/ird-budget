@@ -86,7 +86,7 @@ in a global setting, because two cycles can legitimately have different month co
 | `archived` | Retired history. Holds submitted data, so it can never be deleted, and it is **not** touched when another cycle opens. |
 
 **The application allows only one open cycle at a time**; opening a cycle closes the others.
-That rule is enforced in [admin-budgets.ts](src/app/actions/admin-budgets.ts), not by a
+That rule is enforced in [admin-budgets.ts](src/lib/actions/admin-budgets.ts), not by a
 database constraint — there is no partial unique index on `status`, and `status` is a bare
 `VARCHAR(20)` with no `CHECK`, so the three values are a code-level contract.
 

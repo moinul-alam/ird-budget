@@ -14,9 +14,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { saveFormAllowanceRow, saveFormRestRecreation } from '@/app/actions/forms'
+import { saveFormAllowanceRow } from '@/lib/actions/forms/allowances'
+import { saveFormRestRecreation } from '@/lib/actions/forms/leave'
 import { Plus, Edit2, Trash2, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { FormAllowancesInitial } from '@/lib/office/load-form-data'
 import { useState, useTransition } from 'react'
 import { calculateAllowance } from '@/lib/budget/calculate'
 
@@ -41,7 +43,7 @@ export interface AllowanceTypeRow {
 export interface Form5ClientProps {
   submissionId: number | null
   allowanceTypes: AllowanceTypeRow[]
-  initialData: any[]
+  initialData: FormAllowancesInitial
   initialLeaveData?: {
     rest_recreation_amount?: number
     rest_recreation_due?: number
@@ -119,7 +121,7 @@ export function Form5Client({
     return map
   })
 
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
 
   // Modal State
   const [activeId, setActiveId] = useState<number | null>(null)

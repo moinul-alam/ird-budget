@@ -1,6 +1,6 @@
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import { getBudgetSheetData } from '@/app/actions/budget'
+import { getBudgetSheetData, type BudgetSheetRowItem } from '@/lib/actions/budget'
 import { BudgetSheetClient } from './budget-sheet-client'
 
 export default async function BudgetSheetPage() {
@@ -9,7 +9,7 @@ export default async function BudgetSheetPage() {
 
   const submissionId = session.submission_id || null
 
-  let initialRows: any[] = []
+  let initialRows: BudgetSheetRowItem[] = []
   let initialTotalManual = 0
   let initialError: string | null = null
   let initialMissingForms: string[] = []

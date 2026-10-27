@@ -1,6 +1,6 @@
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import { getVehicleTypes, getFuelTypes } from '@/app/actions/admin-settings'
+import { getVehicleTypes, getFuelTypes } from '@/lib/actions/admin-settings'
 import {
   loadFormVehiclesGovtInitial,
   loadVehicleFuelConfigs,

@@ -475,3 +475,22 @@ export async function loadOfficeDashboardStats(submissionId: number) {
       : null,
   }
 }
+
+/**
+ * The shape each `load…Initial` function hands a form. Derived from the functions
+ * themselves so a form's props can never drift from what its page actually loads.
+ */
+export type FormBasicInitial = Awaited<ReturnType<typeof loadFormBasicInitial>>
+export type FormStaffWorkingInitial = Awaited<ReturnType<typeof loadFormStaffWorkingInitial>>
+export type FormStaffSuspendedInitial = Awaited<ReturnType<typeof loadFormStaffSuspendedInitial>>
+export type FormAllowancesInitial = Awaited<ReturnType<typeof loadFormAllowancesInitial>>
+export type FormLeaveEncashmentInitial = Awaited<ReturnType<typeof loadFormLeaveEncashmentInitial>>
+export type VehicleFuelConfigRow = Awaited<ReturnType<typeof loadVehicleFuelConfigs>>[number]
+export type FormVehiclesGovtInitial = Awaited<ReturnType<typeof loadFormVehiclesGovtInitial>>
+export type VehicleRentConfigRow = Awaited<ReturnType<typeof loadVehicleRentConfigs>>[number]
+export type FormVehiclesRentInitial = Awaited<ReturnType<typeof loadFormVehiclesRentInitial>>
+export type FormHouseRentInitial = Awaited<ReturnType<typeof loadFormHouseRentInitial>>
+export type FormUtilitiesInitial = Awaited<ReturnType<typeof loadFormUtilitiesInitial>>
+export type ItConfigRow = Awaited<ReturnType<typeof loadItConfigsForOfficeType>>[number]
+export type FormItEquipmentInitial = Awaited<ReturnType<typeof loadFormItEquipmentInitial>>
+export type FormReturnInfoInitial = Awaited<ReturnType<typeof loadFormReturnInfoInitial>>

@@ -30,10 +30,10 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Card, CardContent } from '@/components/ui/card'
-import { saveFormStaffActiveRows, deleteFormStaffActiveRow } from '@/app/actions/forms'
+import { saveFormStaffActiveRows, deleteFormStaffActiveRow } from '@/lib/actions/forms/staff'
 import { Plus, Trash2, Edit2, Users, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useCallback } from 'react'
 
 export interface ActiveStaffRow {
   grade_id: number
@@ -119,7 +119,7 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
   // is what tells the shell there is something worth saving.
   const [savedRows, setSavedRows] = useState<ActiveStaffRow[]>(initialRows)
 
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -254,19 +254,25 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
 
   // Officers and staff are told apart by the grade's own category, and the
   // grade number is read from the reference row rather than assumed from the id.
-  const gradeNoOf = (row: ActiveStaffRow) =>
-    gradeById.get(row.grade_id)?.grade_no ?? row.grade_id
-  const isOfficer = (row: ActiveStaffRow) =>
-    gradeById.get(row.grade_id)?.category === 'officer'
+  // Memoised on `gradeById` so the derived lists below stay stable on renders that
+  // only touch `rows`.
+  const gradeNoOf = useCallback(
+    (row: ActiveStaffRow) => gradeById.get(row.grade_id)?.grade_no ?? row.grade_id,
+    [gradeById]
+  )
+  const isOfficer = useCallback(
+    (row: ActiveStaffRow) => gradeById.get(row.grade_id)?.category === 'officer',
+    [gradeById]
+  )
 
   const officerRows = useMemo(
     () => rows.filter(isOfficer).sort((a, b) => gradeNoOf(a) - gradeNoOf(b)),
-    [rows, gradeById]
+    [rows, isOfficer, gradeNoOf]
   )
 
   const staffRows = useMemo(
     () => rows.filter((r) => !isOfficer(r)).sort((a, b) => gradeNoOf(a) - gradeNoOf(b)),
-    [rows, gradeById]
+    [rows, isOfficer, gradeNoOf]
   )
 
   // Summary calculations
@@ -291,7 +297,7 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
     })
 
     return { officerCount, officerBasic, officerDue, staffCount, staffBasic, staffDue }
-  }, [rows, gradeById])
+  }, [rows, isOfficer])
 
   // Save entire form state to database
   const handleSaveAll = async () => {
@@ -584,7 +590,7 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
               <Select value={selectedGrade} onValueChange={(val) => setSelectedGrade(val ?? '')}>
                 <SelectTrigger id="grade_select" className={cn('h-10 w-full rounded-xl', accent.focus)}>
                   <SelectValue placeholder={strings.form2.selectGrade}>
-                    {(value: any) => {
+                    {(value: unknown) => {
                       const grade = value ? gradeById.get(Number(value)) : undefined
                       return grade ? gradeLabel(grade) : strings.form2.selectGrade
                     }}

@@ -3,7 +3,7 @@ import {
   DepartmentItem,
   OfficeTypeHierarchyItem,
   OfficeLevelItem,
-} from '@/app/actions/admin-offices-config'
+} from '@/lib/actions/admin-offices-config'
 
 export interface AdminOfficesConfigClientProps {
   initialMinistries: MinistryItem[]

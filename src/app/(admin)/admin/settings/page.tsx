@@ -10,7 +10,7 @@ import {
   getUtilityTypes,
   getItEquipmentTypes,
   getEconomicCodeOptions,
-} from '@/app/actions/admin-settings'
+} from '@/lib/actions/admin-settings'
 import { loadGrades } from '@/lib/office/load-form-data'
 import { AdminSettingsClient } from './admin-settings-client'
 

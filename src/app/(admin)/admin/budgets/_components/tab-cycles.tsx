@@ -4,7 +4,7 @@ import { toBanglaNumber } from '@/lib/bangla'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -27,7 +27,7 @@ import {
   SlidersHorizontal,
   AlertTriangle,
 } from 'lucide-react'
-import { BudgetTypeItem, FiscalYearItem, CycleItem, CycleStatus } from '@/app/actions/admin-budgets'
+import { BudgetTypeItem, FiscalYearItem, CycleItem, CycleStatus } from '@/lib/actions/admin-budgets'
 import { CycleModalState, BudgetTabType, CYCLE_STATUS_LABEL } from '../_types/budgets'
 
 /** উন্মুক্ত → বন্ধ → আর্কাইভড — the order the edit dialog presents them in. */

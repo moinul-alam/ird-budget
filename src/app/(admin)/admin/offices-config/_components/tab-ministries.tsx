@@ -13,7 +13,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Landmark, Plus, Edit2, Trash2, Loader2 } from 'lucide-react'
-import { MinistryItem, DepartmentItem } from '@/app/actions/admin-offices-config'
+import { MinistryItem, DepartmentItem } from '@/lib/actions/admin-offices-config'
 import { MinistryModalState } from '../_types/offices-config'
 
 interface TabMinistriesProps {

@@ -14,9 +14,9 @@ import {
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Search, CheckCircle2 } from 'lucide-react'
-import { BudgetCategoryItem, ExpenseCodeFullItem } from '@/app/actions/admin-codes'
+import { BudgetCategoryItem, ExpenseCodeFullItem } from '@/lib/actions/admin-codes'
 import { CodeScopeType, OfficeTypeItem } from '../_types/codes'
-import { DepartmentItem, MinistryItem, OfficeLevelItem } from '@/app/actions/admin-offices-config'
+import { DepartmentItem, MinistryItem, OfficeLevelItem } from '@/lib/actions/admin-offices-config'
 import { ConfirmToggleAllDialog } from './code-modals'
 
 const SCOPE_LABELS: Record<CodeScopeType, string> = {

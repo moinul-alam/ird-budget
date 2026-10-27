@@ -3,10 +3,10 @@
  *
  *   npm run db:seed:hq
  *
- * Reads the two source spreadsheets at the repository root:
+ * Reads the source spreadsheet shipped with the seeder:
  *
- *   head quarters.xlsx   — [office type | head-office name]   (the authoritative name list)
- *   hq with codes.xlsx   — [budget code | head-office name]   (the budget code for each name)
+ *   prisma/data/head-offices.xlsx — sheet `budget_codes`,
+ *                                   [budget code | office type | head-office name]
  *
  * Every row becomes a head office (core_offices with parent_office_id = NULL) under the
  * first ministry's department "জাতীয় রাজস্ব বোর্ড (NBR)", sitting at the top level of its
@@ -17,11 +17,11 @@
  * running it a second time creates nothing and never overwrites an administrator's edit.
  *
  * Data quirks handled here (decided with the administrator):
- *   - 15 names in `head quarters` have no code; they get a temporary "TMP-nnn" budget id to
- *     be corrected by hand in /admin/offices-management/head-offices.
- *   - 2 names appear twice in `hq with codes` with different codes; the first row wins.
- *   - Bengali type/name spelling differs between the files only by Unicode form (য় vs য+়,
- *     and a stray ZWNJ), so all lookups normalise before comparing.
+ *   - a row without a code gets a temporary "TMP-nnn" budget id to be corrected by hand in
+ *     /admin/offices-management/head-offices.
+ *   - a name or a code that appears more than once keeps the first row.
+ *   - Bengali type/name spelling may differ from the organogram only by Unicode form (য় vs
+ *     য+়, and a stray ZWNJ), so all lookups normalise before comparing.
  */
 const fs = require('node:fs')
 const path = require('node:path')
@@ -30,13 +30,11 @@ const { PrismaClient } = require('@prisma/client')
 
 const prisma = new PrismaClient()
 
-const ROOT = process.cwd()
-const HQ_FILE = path.join(ROOT, 'head quarters.xlsx')
-const CODES_FILE = path.join(ROOT, 'hq with codes.xlsx')
+const DATA_FILE = path.join(__dirname, 'data', 'head-offices.xlsx')
 
-// Bengali names use the same glyphs written with different codepoints across the two files
-// (e.g. আয়কর with a precomposed য় vs য + nukta). Fold to one form before comparing, and drop
-// the zero-width joiners that make two otherwise identical strings unequal.
+// Bengali names use the same glyphs written with different codepoints (e.g. আয়কর with a
+// precomposed য় vs য + nukta). Fold to one form before comparing, and drop the zero-width
+// joiners that make two otherwise identical strings unequal.
 const fold = (value) =>
   String(value == null ? '' : value)
     .normalize('NFC')
@@ -54,24 +52,29 @@ function readSheet(file) {
 }
 
 async function loadSourceRows() {
-  if (!fs.existsSync(HQ_FILE) || !fs.existsSync(CODES_FILE)) {
-    throw new Error(`Source spreadsheets not found at ${ROOT}`)
+  if (!fs.existsSync(DATA_FILE)) {
+    throw new Error(`Source spreadsheet not found at ${DATA_FILE}`)
   }
 
-  const codeByName = new Map()
-  for (const row of readSheet(CODES_FILE)) {
-    const code = String(row[0] || '').trim()
-    const name = String(row[1] || '').trim()
-    if (!code || !name) continue
-    if (!codeByName.has(fold(name))) codeByName.set(fold(name), code)
-  }
-
+  const seenCodes = new Set()
+  const seenNames = new Set()
   const entries = []
-  for (const row of readSheet(HQ_FILE)) {
-    const typeName = String(row[0] || '').trim()
-    const name = String(row[1] || '').trim()
+
+  for (const row of readSheet(DATA_FILE)) {
+    const code = String(row[0] || '').trim()
+    const typeName = String(row[1] || '').trim()
+    const name = String(row[2] || '').trim()
     if (!name) continue
-    entries.push({ name, typeName, code: codeByName.get(fold(name)) || null })
+
+    // A duplicated name or budget id would either import twice or break the unique
+    // constraint mid-run; the first row wins, matching the source file's own ordering.
+    const nameKey = fold(name)
+    if (seenNames.has(nameKey)) continue
+    if (code && seenCodes.has(code)) continue
+    seenNames.add(nameKey)
+    if (code) seenCodes.add(code)
+
+    entries.push({ name, typeName, code: code || null })
   }
 
   entries.sort((a, b) => byName.compare(a.name, b.name))

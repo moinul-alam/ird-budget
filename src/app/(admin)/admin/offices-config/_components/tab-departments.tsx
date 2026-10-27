@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Building2, Landmark, Plus, Edit2, Trash2, ArrowRight, Loader2 } from 'lucide-react'
-import { MinistryItem, DepartmentItem, OfficeTypeHierarchyItem } from '@/app/actions/admin-offices-config'
+import { MinistryItem, DepartmentItem, OfficeTypeHierarchyItem } from '@/lib/actions/admin-offices-config'
 import { DepartmentModalState, ConfigTabType } from '../_types/offices-config'
 
 interface TabDepartmentsProps {

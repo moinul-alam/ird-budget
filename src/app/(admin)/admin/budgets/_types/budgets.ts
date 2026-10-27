@@ -3,7 +3,7 @@ import {
   FiscalYearItem,
   CycleItem,
   CycleStatus,
-} from '@/app/actions/admin-budgets'
+} from '@/lib/actions/admin-budgets'
 
 export interface AdminBudgetsClientProps {
   initialBudgetTypes: BudgetTypeItem[]

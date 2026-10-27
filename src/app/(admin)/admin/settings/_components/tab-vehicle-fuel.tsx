@@ -24,7 +24,7 @@ import {
   VehicleTypeItem,
   FuelCategoryItem,
   VehicleConfigItem,
-} from '@/app/actions/admin-settings'
+} from '@/lib/actions/admin-settings'
 import { VehicleFuelConfigModalState } from '../_types/settings'
 
 interface TabVehicleFuelProps {

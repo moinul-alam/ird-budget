@@ -5,7 +5,7 @@ import { strings } from '@/lib/strings'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { saveFormBasic } from '@/app/actions/forms'
+import { saveFormBasic } from '@/lib/actions/forms/basic'
 import { Info, Mail, MapPin, Phone, UserRound } from 'lucide-react'
 import { useState, useCallback, useRef } from 'react'
 

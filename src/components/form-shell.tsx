@@ -1,5 +1,7 @@
 'use client'
 
+import { errorMessage } from '@/lib/errors'
+
 import { strings } from '@/lib/strings'
 import { toBanglaNumber } from '@/lib/bangla'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -14,7 +16,7 @@ import {
 import { Save, Loader2, CheckCircle, ArrowLeft, ArrowRight, RotateCcw, AlertTriangle, Lock } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useRef, useState, useTransition } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { useFormLock } from '@/components/form-lock-provider'
 import { useFormGuard, useRegisterFormGuard } from '@/components/form-guard-provider'
 
@@ -65,11 +67,15 @@ export function FormShell({
   }
 
   // Keep the latest accessors in refs so the guard is registered once per mount
-  // while still seeing the form's current dirty flag and save handler.
+  // while still seeing the form's current dirty flag and save handler. The refs are
+  // refreshed after each commit rather than during render, and the guard only ever reads
+  // them from an event handler, so it always sees the last committed value.
   const dirtyRef = useRef(dirty)
-  dirtyRef.current = dirty
   const onSaveRef = useRef(onSave)
-  onSaveRef.current = onSave
+  useEffect(() => {
+    dirtyRef.current = dirty
+    onSaveRef.current = onSave
+  }, [dirty, onSave])
 
   useRegisterFormGuard({
     isDirty: () => dirtyRef.current,
@@ -104,8 +110,8 @@ export function FormShell({
         }
         setSaveStatus('saved')
         setTimeout(() => setSaveStatus('idle'), 3000)
-      } catch (e: any) {
-        setSaveError(e?.message || 'সংরক্ষণ ব্যর্থ হয়েছে')
+      } catch (e) {
+        setSaveError(errorMessage(e) || 'সংরক্ষণ ব্যর্থ হয়েছে')
         setSaveStatus('idle')
       }
     })
@@ -128,8 +134,8 @@ export function FormShell({
         if (nextHref) {
           router.push(nextHref)
         }
-      } catch (e: any) {
-        setSaveError(e?.message || 'সংরক্ষণ ব্যর্থ হয়েছে')
+      } catch (e) {
+        setSaveError(errorMessage(e) || 'সংরক্ষণ ব্যর্থ হয়েছে')
         setSaveStatus('idle')
       }
     })

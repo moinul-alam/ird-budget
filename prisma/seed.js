@@ -209,7 +209,7 @@ async function seedBudgetCycle() {
 // Reference data: economic codes
 // ---------------------------------------------------------------------------
 async function seedEconomicCodes() {
-  const file = path.join(process.cwd(), 'resources', 'expense_codes_backup_139.json')
+  const file = path.join(process.cwd(), 'prisma', 'data', 'economic-codes.json')
   if (!fs.existsSync(file)) {
     console.log(`  ref_economic_codes  : skipped (${path.relative(process.cwd(), file)} not found)`)
     return

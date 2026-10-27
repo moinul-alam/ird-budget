@@ -13,7 +13,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Plus, Edit2, Trash2, Search, AlertTriangle } from 'lucide-react'
-import { BudgetCategoryItem, ExpenseCodeFullItem } from '@/app/actions/admin-codes'
+import { BudgetCategoryItem, ExpenseCodeFullItem } from '@/lib/actions/admin-codes'
 import { CategoryModalState, CodeModalState } from '../_types/codes'
 
 interface TabCreateCodesProps {

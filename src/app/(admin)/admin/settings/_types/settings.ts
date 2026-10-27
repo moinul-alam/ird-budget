@@ -10,7 +10,7 @@ import {
   UtilityTypeItem,
   ItEquipmentTypeItem,
   EconomicCodeOption,
-} from '@/app/actions/admin-settings'
+} from '@/lib/actions/admin-settings'
 
 export interface AdminSettingsClientProps {
   initialSalaryConfig: SalaryTileItem[]

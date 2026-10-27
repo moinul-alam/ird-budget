@@ -54,10 +54,11 @@ The public landing page is at `/` (office login and registration), the admin con
 | `npm run dev` | Start the app |
 | `npm run build` | `prisma generate` + `next build` |
 | `npm run lint` | ESLint |
+| `npm run test` | Unit tests (Vitest) — the pure helpers, no database needed |
 | `npm run db:generate` | Regenerate the Prisma client after a schema change |
 | `npm run db:deploy` | Apply committed migrations |
 | `npm run db:seed` | Idempotent: admin user + reference data. Fills gaps only |
-| `npm run db:seed:hq` | One-time: import NBR head offices from the root spreadsheets |
+| `npm run db:seed:hq` | One-time: import NBR head offices from `prisma/data/head-offices.xlsx` |
 | `npm run db:drift` | Exits non-zero if the database and `schema.prisma` disagree |
 | `npm run db:studio` | Browse the data |
 | `npm run db:reset` | **Destructive.** Drop everything, re-apply migrations, re-seed |
@@ -75,12 +76,13 @@ The public landing page is at `/` (office login and registration), the admin con
 ## Repository layout
 
 ```
-prisma/          schema.prisma (source of truth), migrations/, seed.js
-resources/       data files the seed reads; stale SQL historically kept here
+prisma/          schema.prisma (source of truth), migrations/, data/ (seed inputs), seed.js
 src/
-  app/           routes — (office)/ portal, (admin)/admin console, actions/ (every mutation)
+  app/           routes — (office)/ portal, (admin)/admin console, error.tsx, not-found.tsx
   components/    ui/ primitives, app-shell, admin-shell, form-shell
-  lib/           db client, sessions, bangla formatting, strings, budget/ engine, office/, report/
+  lib/           actions/ (every mutation), db client, sessions, bangla formatting, strings,
+                 budget/ engine, office/, report/
+vitest.config.ts test runner
 ```
 
 ***

@@ -1,6 +1,6 @@
 import { getAdminSession } from '@/lib/auth-admin'
 import { redirect } from 'next/navigation'
-import { getDepartments, getOfficeTypes, getMinistries, getOfficeLevels } from '@/app/actions/admin-offices-config'
+import { getDepartments, getOfficeTypes, getMinistries, getOfficeLevels } from '@/lib/actions/admin-offices-config'
 import { AdminOfficesConfigClient } from './admin-offices-config-client'
 
 export const metadata = {

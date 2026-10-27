@@ -20,8 +20,8 @@ import {
   HeadOfficeItem,
   saveFieldOffice,
   deleteFieldOffice,
-} from '@/app/actions/admin-offices-management'
-import { MinistryItem, DepartmentItem, OfficeTypeHierarchyItem, OfficeLevelItem } from '@/app/actions/admin-offices-config'
+} from '@/lib/actions/admin-offices-management'
+import { MinistryItem, DepartmentItem, OfficeTypeHierarchyItem, OfficeLevelItem } from '@/lib/actions/admin-offices-config'
 import { FieldOfficeModalState, ConfirmModalState } from './_types/field-offices'
 import { FieldOfficesTable } from './_components/field-offices-table'
 import { FieldOfficeModal } from './_components/field-office-modal'
@@ -90,18 +90,6 @@ export function FieldOfficesClient({
     if (!modal.department_id) return officeTypes
     return officeTypes.filter((ot) => ot.department_id === modal.department_id)
   }, [officeTypes, modal.department_id])
-
-  // Selected office type
-  const selectedTypeObj = useMemo(() => {
-    return officeTypes.find((ot) => ot.id === modal.office_type_id)
-  }, [officeTypes, modal.office_type_id])
-
-  // Computed level
-  const computedOfficeLevel = useMemo(() => {
-    if (selectedTypeObj) return selectedTypeObj.hierarchy_order || 1
-    if (modalOfficeTypes.length > 0) return modalOfficeTypes[0].hierarchy_order || 1
-    return 1
-  }, [selectedTypeObj, modalOfficeTypes])
 
   // Open Add modal
   const handleOpenAdd = () => {

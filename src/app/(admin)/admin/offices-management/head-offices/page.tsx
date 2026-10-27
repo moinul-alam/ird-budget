@@ -1,7 +1,7 @@
 import { getAdminSession } from '@/lib/auth-admin'
 import { redirect } from 'next/navigation'
-import { getHeadOffices } from '@/app/actions/admin-offices-management'
-import { getMinistries, getDepartments, getOfficeTypes } from '@/app/actions/admin-offices-config'
+import { getHeadOffices } from '@/lib/actions/admin-offices-management'
+import { getMinistries, getDepartments, getOfficeTypes } from '@/lib/actions/admin-offices-config'
 import { HeadOfficesClient } from './head-offices-client'
 
 export const metadata = {

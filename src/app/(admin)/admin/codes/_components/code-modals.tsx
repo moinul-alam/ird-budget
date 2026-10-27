@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Loader2 } from 'lucide-react'
-import { BudgetCategoryItem, FormulaTypeItem } from '@/app/actions/admin-codes'
+import { BudgetCategoryItem, FormulaTypeItem } from '@/lib/actions/admin-codes'
 import { CategoryModalState, CodeModalState } from '../_types/codes'
 
 /** A shadcn Select cannot hold an empty value, so "manual" needs a sentinel. */

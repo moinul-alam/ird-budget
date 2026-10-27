@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import { toBanglaNumber } from '@/lib/bangla'
-import { AdminUserItem, updateAdminUserRole, createAdminUser } from '@/app/actions/admin-users'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { AdminUserItem, updateAdminUserRole, createAdminUser } from '@/lib/actions/admin-users'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -47,7 +47,7 @@ interface UsersClientProps {
   defaultAdminPassword: string
 }
 
-export function UsersClient({ initialUsers, officeTypes, currentUserId, defaultAdminPassword }: UsersClientProps) {
+export function UsersClient({ initialUsers, currentUserId, defaultAdminPassword }: UsersClientProps) {
   const [users, setUsers] = useState<AdminUserItem[]>(initialUsers)
 
   // Edit Modal State

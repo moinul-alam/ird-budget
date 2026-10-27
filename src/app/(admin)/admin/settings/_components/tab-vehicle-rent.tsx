@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Plus, Edit2, Trash2, Loader2 } from 'lucide-react'
-import { VehicleTypeItem, VehicleRentConfigItem } from '@/app/actions/admin-settings'
+import { VehicleTypeItem, VehicleRentConfigItem } from '@/lib/actions/admin-settings'
 import { VehicleRentConfigModalState } from '../_types/settings'
 
 interface TabVehicleRentProps {

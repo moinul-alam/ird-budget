@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { saveFormHouseRent, deleteFormHouseRent } from '@/app/actions/forms'
+import { saveFormHouseRent, deleteFormHouseRent } from '@/lib/actions/forms/house-rent'
 import {
   Building2,
   Plus,
@@ -22,14 +22,14 @@ import {
   Calendar,
   AlertTriangle,
   Info,
-  Banknote,
   Receipt,
 } from 'lucide-react'
+import type { FormHouseRentInitial } from '@/lib/office/load-form-data'
 import { useState, useTransition } from 'react'
 
 export interface Form9ClientProps {
   submissionId: number | null
-  initialData: any
+  initialData: FormHouseRentInitial
   vatPercentage: number
   /** বেতন-মাস (/admin/budgets, set on the budget cycle) — annualises the monthly rent like the sheet engine. */
   salaryMonths: number

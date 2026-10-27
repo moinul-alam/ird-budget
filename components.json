@@ -4,7 +4,6 @@
   "rsc": true,
   "tsx": true,
   "tailwind": {
-    "config": "tailwind.config.mjs",
     "css": "src/app/globals.css",
     "baseColor": "neutral",
     "cssVariables": true,
@@ -16,8 +15,7 @@
     "components": "@/components",
     "utils": "@/lib/utils",
     "ui": "@/components/ui",
-    "lib": "@/lib",
-    "hooks": "@/hooks"
+    "lib": "@/lib"
   },
   "menuColor": "default",
   "menuAccent": "subtle",

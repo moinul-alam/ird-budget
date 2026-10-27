@@ -14,7 +14,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { saveFormITEquipmentRow, deleteFormITEquipmentRow } from '@/app/actions/forms'
+import { saveFormITEquipmentRow, deleteFormITEquipmentRow } from '@/lib/actions/forms/it-equipment'
+import type { FormItEquipmentInitial } from '@/lib/office/load-form-data'
 import {
   Plus,
   Trash2,
@@ -25,9 +26,9 @@ import {
   Copy,
   CheckCircle2,
   AlertTriangle,
-  Layers,
   Banknote,
   Cpu,
+  type LucideIcon,
 } from 'lucide-react'
 import { useState, useTransition, useMemo } from 'react'
 
@@ -42,7 +43,7 @@ export interface Form10ClientProps {
     unit_budget: number
     unit_price: number
   }>
-  initialData: any[]
+  initialData: FormItEquipmentInitial
   /** বেতন-ভাতা মাস — the multiplier the budget engine applies to monthly figures. */
   salaryMonths: number
 }
@@ -62,7 +63,7 @@ type EquipmentKey = 'computer' | 'printer' | 'scanner' | 'photocopier'
 interface CardConfig {
   key: EquipmentKey
   title: string
-  icon: any
+  icon: LucideIcon
   iconColor: string
   bgIconColor: string
   // The card slots are fixed by the form design; these aliases bind each slot
@@ -174,7 +175,7 @@ export function Form10Client({
   const activeConfig = useMemo(() => {
     if (!activeModalKey) return null
     return cardConfigs.find((c) => c.key === activeModalKey) || null
-  }, [activeModalKey])
+  }, [activeModalKey, cardConfigs])
 
   const hasData = (key: EquipmentKey) => {
     const d = dataMap[key]
@@ -280,7 +281,7 @@ export function Form10Client({
           }
         })
         .filter((row) => row.qty > 0),
-    [dataMap]
+    [dataMap, cardConfigs]
   )
 
   const computerAccessoriesTotal = useMemo(

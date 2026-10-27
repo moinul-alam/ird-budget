@@ -1,5 +1,5 @@
-import { BudgetCategoryItem, ExpenseCodeFullItem, FormulaTypeItem } from '@/app/actions/admin-codes'
-import { DepartmentItem, MinistryItem, OfficeLevelItem } from '@/app/actions/admin-offices-config'
+import { BudgetCategoryItem, ExpenseCodeFullItem, FormulaTypeItem } from '@/lib/actions/admin-codes'
+import { DepartmentItem, MinistryItem, OfficeLevelItem } from '@/lib/actions/admin-offices-config'
 
 export interface OfficeTypeItem {
   id: string

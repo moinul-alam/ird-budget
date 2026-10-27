@@ -1,5 +1,7 @@
 'use client'
 
+import { errorMessage as describeError } from '@/lib/errors'
+
 import { strings } from '@/lib/strings'
 import { toBanglaAmount, toBanglaNumber, toBanglaDateTime } from '@/lib/bangla'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -14,14 +16,13 @@ import {
   AlertCircle,
   CheckCircle2,
   Search,
-  Filter,
   Save,
   Info,
   Lock,
 } from 'lucide-react'
 import Link from 'next/link'
 import { Fragment, useState, useTransition, useMemo } from 'react'
-import { recalculateBudget, saveManualValues, submitBudget, type BudgetSheetRowItem } from '@/app/actions/budget'
+import { recalculateBudget, saveManualValues, submitBudget, type BudgetSheetRowItem } from '@/lib/actions/budget'
 import { useRouter } from 'next/navigation'
 import { useFormLock } from '@/components/form-lock-provider'
 import { useFormGuard, useRegisterFormGuard } from '@/components/form-guard-provider'
@@ -81,7 +82,6 @@ function toManualEntries(pending: Record<string, number | null>) {
 export function BudgetSheetClient({
   initialRows,
   submissionId,
-  initialTotalManual,
   initialError,
   initialMissingForms = [],
   officeLevel,
@@ -169,8 +169,8 @@ export function BudgetSheetClient({
         } else {
           setErrorMessage(res.error || 'বাজেট পুনর্গণনা ব্যর্থ হয়েছে।')
         }
-      } catch (err: any) {
-        setErrorMessage(`পুনর্গণনায় সমস্যা দেখা দিয়েছে: ${err?.message || 'অজ্ঞাত ত্রুটি'}`)
+      } catch (err) {
+        setErrorMessage(`পুনর্গণনায় সমস্যা দেখা দিয়েছে: ${describeError(err) || 'অজ্ঞাত ত্রুটি'}`)
       }
     })
   }
@@ -218,8 +218,8 @@ export function BudgetSheetClient({
         } else {
           setErrorMessage(res.error || 'সংরক্ষণ ব্যর্থ হয়েছে।')
         }
-      } catch (err: any) {
-        setErrorMessage(`সংরক্ষণে ত্রুটি হয়েছে: ${err?.message || 'অজ্ঞাত ত্রুটি'}`)
+      } catch (err) {
+        setErrorMessage(`সংরক্ষণে ত্রুটি হয়েছে: ${describeError(err) || 'অজ্ঞাত ত্রুটি'}`)
       }
     })
   }
@@ -243,8 +243,8 @@ export function BudgetSheetClient({
         } else {
           setErrorMessage(res.error || 'বাজেট দাখিল ব্যর্থ হয়েছে।')
         }
-      } catch (err: any) {
-        setErrorMessage(`বাজেট দাখিলে ত্রুটি হয়েছে: ${err?.message || 'অজ্ঞাত ত্রুটি'}`)
+      } catch (err) {
+        setErrorMessage(`বাজেট দাখিলে ত্রুটি হয়েছে: ${describeError(err) || 'অজ্ঞাত ত্রুটি'}`)
       }
     })
   }

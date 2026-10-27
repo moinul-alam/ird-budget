@@ -133,8 +133,10 @@ export interface BudgetContext {
   }>;
 }
 
-const num = (v: any) => parseFloat(v) || 0;
-const int = (v: any) => parseInt(v, 10) || 0;
+// Tile values arrive from JSON configuration columns, so anything could be in them;
+// `String` first keeps a stray null or object from turning into a NaN comparison.
+const num = (v: unknown) => parseFloat(String(v)) || 0;
+const int = (v: unknown) => parseInt(String(v), 10) || 0;
 
 /**
  * Resolves a salary tile's rate for one grade. Slab tiles win because their bands

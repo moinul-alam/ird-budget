@@ -7,13 +7,13 @@ import {
   AdminStatusCards,
   type StatusCardMetrics,
   type StatusLevelRow,
-} from './status-cards'
+} from './_components/status-cards'
 import {
   DashboardAnalysisPanel,
   type PieNode,
   type DashboardAnalysis,
   type DepartmentCard,
-} from './analysis-panel'
+} from './_components/analysis-panel'
 import { strings } from '@/lib/strings'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'

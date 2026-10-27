@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Zap, Plus, Edit2, Trash2, Loader2 } from 'lucide-react'
-import { UtilityTypeItem, EconomicCodeOption } from '@/app/actions/admin-settings'
+import { UtilityTypeItem, EconomicCodeOption } from '@/lib/actions/admin-settings'
 import { UtilityModalState } from '../_types/settings'
 
 /** A shadcn Select cannot hold an empty value, so "unbound" needs a sentinel. */

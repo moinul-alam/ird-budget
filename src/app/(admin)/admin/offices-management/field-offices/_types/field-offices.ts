@@ -1,5 +1,5 @@
-import { FieldOfficeItem, HeadOfficeItem } from '@/app/actions/admin-offices-management'
-import { MinistryItem, DepartmentItem, OfficeTypeHierarchyItem } from '@/app/actions/admin-offices-config'
+import { FieldOfficeItem, HeadOfficeItem } from '@/lib/actions/admin-offices-management'
+import { MinistryItem, DepartmentItem, OfficeTypeHierarchyItem } from '@/lib/actions/admin-offices-config'
 
 export interface FieldOfficesClientProps {
   initialFieldOffices: FieldOfficeItem[]

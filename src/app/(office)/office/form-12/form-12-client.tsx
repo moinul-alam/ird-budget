@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { saveFormReturnInfo, deleteFormReturnInfo } from '@/app/actions/forms'
+import { saveFormReturnInfo, deleteFormReturnInfo } from '@/lib/actions/forms/return-info'
 import {
   FileText,
   Plus,
@@ -25,11 +25,12 @@ import {
   UserX,
   BadgeAlert,
 } from 'lucide-react'
+import type { FormReturnInfoInitial } from '@/lib/office/load-form-data'
 import { useState, useTransition } from 'react'
 
 export interface Form12ClientProps {
   submissionId: number | null
-  initialData: any
+  initialData: FormReturnInfoInitial
 }
 
 export function Form12Client({ submissionId, initialData }: Form12ClientProps) {

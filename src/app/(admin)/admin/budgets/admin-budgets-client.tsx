@@ -24,7 +24,7 @@ import {
   deleteFiscalYear,
   saveCycle,
   deleteCycle,
-} from '@/app/actions/admin-budgets'
+} from '@/lib/actions/admin-budgets'
 import {
   AdminBudgetsClientProps,
   BudgetTabType,

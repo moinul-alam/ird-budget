@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Plus, Edit2, Trash2, Loader2 } from 'lucide-react'
-import { FuelTypeItem, FuelCategoryItem } from '@/app/actions/admin-settings'
+import { FuelTypeItem, FuelCategoryItem } from '@/lib/actions/admin-settings'
 import { FuelTypeModalState } from '../_types/settings'
 
 const CATEGORY_TINTS = ['bg-amber-50 text-amber-700', 'bg-sky-50 text-sky-700']

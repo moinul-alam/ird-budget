@@ -1,7 +1,7 @@
 import { getAdminSession } from '@/lib/auth-admin'
 import { redirect } from 'next/navigation'
-import { getOfficeTypes, getDepartments, getOfficeLevels, getMinistries } from '@/app/actions/admin-offices-config'
-import { getBudgetCategories, getExpenseCodesWithCategoryAndMapping, getFormulaTypes } from '@/app/actions/admin-codes'
+import { getOfficeTypes, getDepartments, getOfficeLevels, getMinistries } from '@/lib/actions/admin-offices-config'
+import { getBudgetCategories, getExpenseCodesWithCategoryAndMapping, getFormulaTypes } from '@/lib/actions/admin-codes'
 import { AdminCodesClient } from './admin-codes-client'
 
 export const metadata = {

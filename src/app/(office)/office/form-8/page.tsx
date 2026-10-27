@@ -1,6 +1,6 @@
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import { getVehicleTypes } from '@/app/actions/admin-settings'
+import { getVehicleTypes } from '@/lib/actions/admin-settings'
 import {
   loadFormVehiclesRentInitial,
   loadSalaryMonths,

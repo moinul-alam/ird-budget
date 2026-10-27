@@ -36,8 +36,8 @@ import {
   HeadOfficeItem,
   saveHeadOffice,
   deleteHeadOffice,
-} from '@/app/actions/admin-offices-management'
-import { MinistryItem, DepartmentItem, OfficeTypeHierarchyItem } from '@/app/actions/admin-offices-config'
+} from '@/lib/actions/admin-offices-management'
+import { MinistryItem, DepartmentItem, OfficeTypeHierarchyItem } from '@/lib/actions/admin-offices-config'
 import Link from 'next/link'
 
 interface HeadOfficesClientProps {

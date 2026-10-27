@@ -13,7 +13,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Monitor, Printer, Scan, Copy, Package, Edit2, Loader2, type LucideIcon } from 'lucide-react'
-import { ItEquipmentTypeItem } from '@/app/actions/admin-settings'
+import { ItEquipmentTypeItem } from '@/lib/actions/admin-settings'
 import { EquipmentModalState } from '../_types/settings'
 
 interface TabEquipmentProps {

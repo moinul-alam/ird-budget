@@ -30,10 +30,10 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Card, CardContent } from '@/components/ui/card'
-import { saveFormNewStaffRows, NewStaffRecord } from '@/app/actions/forms'
+import { saveFormNewStaffRows, NewStaffRecord } from '@/lib/actions/forms/staff'
 import { Plus, Trash2, Edit2, UserPlus, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useCallback } from 'react'
 
 /**
  * One row of `ref_grades`. The grade list is administrator-controlled, so the
@@ -149,7 +149,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
   // Last state known to be stored in the database — the diff against `rows`
   // is what tells the shell there is something worth saving.
   const [savedRows, setSavedRows] = useState<NewStaffRecord[]>(initialRows)
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -279,18 +279,24 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
 
   // The officer/staff split comes from `ref_grades.category`, not a fixed
   // grade-number range, so it stays correct if the admin edits the grade list.
-  const gradeNoOf = (row: NewStaffRecord) =>
-    gradeById.get(row.grade_id)?.grade_no ?? row.grade_id
-  const isOfficer = (row: NewStaffRecord) =>
-    gradeById.get(row.grade_id)?.category === 'officer'
+  // Memoised on `gradeById` so the derived lists below stay stable on renders that
+  // only touch `rows`.
+  const gradeNoOf = useCallback(
+    (row: NewStaffRecord) => gradeById.get(row.grade_id)?.grade_no ?? row.grade_id,
+    [gradeById]
+  )
+  const isOfficer = useCallback(
+    (row: NewStaffRecord) => gradeById.get(row.grade_id)?.category === 'officer',
+    [gradeById]
+  )
 
   const officerRows = useMemo(
     () => rows.filter(isOfficer).sort((a, b) => gradeNoOf(a) - gradeNoOf(b)),
-    [rows, gradeById]
+    [rows, isOfficer, gradeNoOf]
   )
   const staffRows = useMemo(
     () => rows.filter((r) => !isOfficer(r)).sort((a, b) => gradeNoOf(a) - gradeNoOf(b)),
-    [rows, gradeById]
+    [rows, isOfficer, gradeNoOf]
   )
 
   const totals = useMemo(() => {
@@ -627,7 +633,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
               <Select value={selectedGrade} onValueChange={(val) => setSelectedGrade(val ?? '')}>
                 <SelectTrigger id="grade_select" className={cn('h-10 w-full rounded-xl', accent.focus)}>
                   <SelectValue placeholder={strings.form4.selectGrade}>
-                    {(value: any) => {
+                    {(value: unknown) => {
                       const grade = value ? gradeById.get(Number(value)) : undefined
                       return grade ? gradeLabel(grade) : strings.form4.selectGrade
                     }}

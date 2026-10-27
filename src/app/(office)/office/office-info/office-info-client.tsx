@@ -8,7 +8,7 @@ import {
   getOfficeTypes,
   getOfficeLevelsForType,
   type MyOfficeProfile,
-} from '@/app/actions/office'
+} from '@/lib/actions/office'
 import { toEnglishNumber } from '@/lib/bangla'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'

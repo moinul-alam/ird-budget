@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { strings } from '@/lib/strings'
 import { toBanglaNumber } from '@/lib/bangla'
@@ -124,21 +124,22 @@ export function SubmissionStatusClient({
     [rows]
   )
 
-  // A cycle switch can leave the previous type selection behind; fall back to "all".
-  useEffect(() => {
-    if (officeTypeFilter !== 'all' && !officeTypeOptions.includes(officeTypeFilter)) {
-      setOfficeTypeFilter('all')
-    }
-  }, [officeTypeOptions, officeTypeFilter])
+  // A cycle switch can leave the previous type selection behind. A type that is no longer
+  // on screen simply reads as "all" — derived here rather than reset from an effect, so
+  // the filter and its dropdown stay in step within the same render.
+  const activeOfficeType =
+    officeTypeFilter === 'all' || officeTypeOptions.includes(officeTypeFilter)
+      ? officeTypeFilter
+      : 'all'
 
   const filteredRows = useMemo(
     () =>
       rows.filter((row) => {
-        if (officeTypeFilter !== 'all' && row.officeType !== officeTypeFilter) return false
+        if (activeOfficeType !== 'all' && row.officeType !== activeOfficeType) return false
         if (statusFilter !== 'all' && row.status !== statusFilter) return false
         return true
       }),
-    [rows, officeTypeFilter, statusFilter]
+    [rows, activeOfficeType, statusFilter]
   )
 
   const statusMeta: Record<
@@ -248,8 +249,8 @@ export function SubmissionStatusClient({
             {/* Office type filter — a dropdown because the number of types is unbounded */}
             <SelectField
               label={s.officeTypeLabel}
-              value={officeTypeFilter}
-              display={officeTypeFilter === 'all' ? s.allOfficeTypes : officeTypeFilter}
+              value={activeOfficeType}
+              display={activeOfficeType === 'all' ? s.allOfficeTypes : activeOfficeType}
               placeholder={s.allOfficeTypes}
               onChange={setOfficeTypeFilter}
             >

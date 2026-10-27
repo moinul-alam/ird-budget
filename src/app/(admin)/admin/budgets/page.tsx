@@ -4,7 +4,7 @@ import {
   getBudgetTypes,
   getFiscalYears,
   getCyclesList,
-} from '@/app/actions/admin-budgets'
+} from '@/lib/actions/admin-budgets'
 import { AdminBudgetsClient } from './admin-budgets-client'
 
 export const metadata = {

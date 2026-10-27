@@ -28,7 +28,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { saveFormVehicleRow, deleteFormVehicleRow } from '@/app/actions/forms'
+import { saveFormVehicleRow, deleteFormVehicleRow } from '@/lib/actions/forms/vehicles'
+import type { VehicleTypeItem, FuelTypeItem } from '@/lib/actions/admin-settings'
+import type {
+  FormVehiclesGovtInitial,
+  VehicleFuelConfigRow,
+} from '@/lib/office/load-form-data'
 import { Plus, Trash2, Edit2, Car } from 'lucide-react'
 import { useState, useTransition, useMemo } from 'react'
 
@@ -46,10 +51,10 @@ export interface Form7VehicleRow {
 
 export interface Form7ClientProps {
   submissionId: number | null
-  initialData: any[]
-  carTypes: any[]
-  fuelTypes: any[]
-  fuelConfigs: any[]
+  initialData: FormVehiclesGovtInitial
+  carTypes: VehicleTypeItem[]
+  fuelTypes: FuelTypeItem[]
+  fuelConfigs: VehicleFuelConfigRow[]
 }
 
 export function Form7Client({
@@ -75,13 +80,16 @@ export function Form7Client({
         vehicle_type_name: carName,
         fuel_type_name: fuelName,
         count: v.count || 0,
-        maintenance_cost: Number(v.maintenance_cost ?? cfg?.annual_maintenance_allowance ?? 0),
+        maintenance_cost: Number(
+          v.maintenance_cost ??
+            (cfg && 'annual_maintenance_allowance' in cfg ? cfg.annual_maintenance_allowance : 0)
+        ),
         additional_expense: Number(v.additional_expense || 0),
       }
     })
   })
 
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -202,7 +210,7 @@ export function Form7Client({
         // Stamp the row with the id the database gave it, matched by the config +
         // fuel pair that identifies the row, so the form's Save can update it
         // instead of trying to insert it a second time.
-        if (res.success && res.id) {
+        if ('success' in res && res.success && res.id) {
           const savedId = res.id
           const key = `${newRow.vehicle_fuel_config_id}:${newRow.fuel_type_id}`
           setRows((prev) =>

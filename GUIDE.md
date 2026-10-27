@@ -104,9 +104,9 @@ ird-budget/
 ├── prisma/
 │   ├── schema.prisma              # schema source of truth
 │   ├── migrations/                # 32 ordered migrations
+│   ├── data/                      # data files the seeds read (JSON + spreadsheets)
 │   ├── seed.js                    # idempotent seed (admin + reference data)
 │   └── seed-head-offices.js       # one-time NBR head-office import
-├── resources/                     # data files referenced by the seed, plus stale SQL (§16)
 ├── src/
 │   ├── app/
 │   │   ├── (office)/              # field-office portal
@@ -117,12 +117,13 @@ ird-budget/
 │   │   │       └── budget-sheet/  # the master sheet
 │   │   ├── (admin)/admin/         # admin portal (see §10)
 │   │   ├── (admin-auth)/admin/login/
-│   │   ├── superadmin/login/      # legacy alias that redirects to admin login
-│   │   ├── actions/               # every server action (mutations)
+│   │   ├── error.tsx              # route-level error boundary
+│   │   ├── not-found.tsx          # 404 page
 │   │   ├── page.tsx               # public landing (office login / register)
 │   │   └── layout.tsx, globals.css
 │   ├── components/                # ui/ primitives, app-shell, admin-shell, form-shell
 │   └── lib/
+│       ├── actions/               # every server action (mutations), forms/ split per domain
 │       ├── db/client.ts           # single PrismaClient
 │       ├── session.ts             # office session cookie
 │       ├── auth-admin.ts          # signed admin session cookie
@@ -130,12 +131,17 @@ ird-budget/
 │       ├── strings.ts             # all UI copy
 │       ├── schemas/forms.ts       # Zod schemas
 │       ├── budget/                # engine + sheet + fetcher + reports + grouping
-│       ├── office/                # forms list, dashboard stats, loaders, defaults
+│       ├── office/                # form-nav (the twelve forms), dashboard stats, loaders, defaults
 │       ├── report/                # specs.ts + export.ts (PDF/Excel)
 │       └── admin/defaults.ts
+├── vitest.config.ts               # test runner config
 ├── prisma.config.ts
 └── .env / .env.example
 ```
+
+Route folders follow one co-location rule: the page's own client component sits beside its
+`page.tsx` as `<folder>-client.tsx`, and anything it shares goes in a private `_components/`,
+`_types/` or `_lib/` folder that the router never exposes as a route.
 
 ***
 
@@ -248,7 +254,7 @@ column alone decides it.
 
 Its seven tabs hold **no hardcoded values**; every card, price and slab is read from a table
 and written back by a server action in
-[admin-settings.ts](src/app/actions/admin-settings.ts):
+[admin-settings.ts](src/lib/actions/admin-settings.ts):
 
 Accent colours and icons are the only thing still in the component — presentation, keyed off
 the row's identity with a neutral fallback. The open tab lives in the URL (`?tab=…`) so a
@@ -335,7 +341,7 @@ may be budgeted on two fuels of the same category (ডিজেল and অকট
 
 ## 9. The twelve forms
 
-Defined once in [src/lib/office/forms.ts](src/lib/office/forms.ts) (`FORM_ITEMS`), which the
+Defined once in [src/lib/office/form-nav.ts](src/lib/office/form-nav.ts) (`FORM_ITEMS`), which the
 drawer and dashboard both read, so the count can never drift from the links.
 
 | #  | Route             | Title                                   |
@@ -355,7 +361,10 @@ drawer and dashboard both read, so the count can never drift from the links.
 
 Every form follows the same pattern: `page.tsx` (server) resolves the session and loads
 existing rows, `form-N-client.tsx` renders inside `<FormShell>` (header + prev/next), and a
-save handler in [forms.ts](src/app/actions/forms.ts) upserts and calls `revalidatePath`.
+save handler in [src/lib/actions/forms/](src/lib/actions/forms) upserts and calls
+`revalidatePath`. The server actions are split one module per domain — `basic.ts`, `staff.ts`,
+`allowances.ts`, `leave.ts`, `vehicles.ts`, `house-rent.ts`, `utilities.ts`, `it-equipment.ts`,
+`return-info.ts` — over a shared `guard.ts`, so no single file carries all twelve forms.
 Persistence uses the `upsert` pattern keyed on `submission_id` (plus the entity id for
 multi-row forms) so re-saving never duplicates rows.
 
@@ -388,7 +397,7 @@ multi-row forms) so re-saving never duplicates rows.
 
 Do it in `/admin/settings`. Do not edit the engine. If a value is genuinely missing from the
 UI, add a column/row to the relevant table (with a migration) and surface it in
-[admin-settings.ts](src/app/actions/admin-settings.ts) — never a constant in code.
+[admin-settings.ts](src/lib/actions/admin-settings.ts) — never a constant in code.
 
 ### Change which formula computes a code, or which forms feed it
 
@@ -404,7 +413,7 @@ Edit the `ref_allowance_types` row's descriptive columns (`label_bn`, `count_lab
 ### Add a form step
 
 Create `src/app/(office)/office/form-N/(page.tsx, form-N-client.tsx)` using `FormShell`, add
-the route to `FORM_ROUTES` in [src/lib/office/forms.ts](src/lib/office/forms.ts) (the drawer
+the route to `FORM_ROUTES` in [src/lib/office/form-nav.ts](src/lib/office/form-nav.ts) (the drawer
 and dashboard follow automatically), add its `strings.forms.formN` entry, and chain
 `prevHref`/`nextHref` across neighbours.
 
@@ -433,11 +442,11 @@ them, so changing that code means changing the rule:
 
 | Invariant | Where |
 | --------- | ----- |
-| One open budget cycle at a time | [admin-budgets.ts](src/app/actions/admin-budgets.ts) — the database has no such constraint. Opening a cycle sweeps the other **`open`** cycles to `closed`; an **`archived`** cycle is never swept |
+| One open budget cycle at a time | [admin-budgets.ts](src/lib/actions/admin-budgets.ts) — the database has no such constraint. Opening a cycle sweeps the other **`open`** cycles to `closed`; an **`archived`** cycle is never swept |
 | An office's level and type must belong to its own department | [placement.ts](src/lib/office/placement.ts) (`assertOfficePlacement`), with the `core_offices_placement_trigger` as backstop |
 | Forms are read-only once the budget is submitted | The form save guard; a submitted budget must be unlocked deliberately to edit |
 | A parent with children is never deleted | Pre-checks in the delete actions, so the admin sees a Bangla message rather than a raw Postgres error |
-| A cycle that received submissions is never deleted | [deleteCycle](src/app/actions/admin-budgets.ts) refuses it, and the UI does not offer the button at all — the cycle is archived instead |
+| A cycle that received submissions is never deleted | [deleteCycle](src/lib/actions/admin-budgets.ts) refuses it, and the UI does not offer the button at all — the cycle is archived instead |
 | The seed never opens a second cycle | [seed.js](prisma/seed.js) — it provisions the first one only, and leaves which cycle is open to the admin |
 | `AUTH_SECRET`, `OFFICE_DEFAULT_PASSWORD`, `ADMIN_DEFAULT_PASSWORD` must be set | The app throws instead of falling back to a default |
 
@@ -498,7 +507,7 @@ The database-side rules are in SCHEMA.md §7.
 | `ref_budget_categories`   | 17                                                                                                   |
 | `ref_budget_types`        | 2                                                                                                    |
 | `ref_fiscal_years`        | 4                                                                                                    |
-| `ref_economic_codes`      | 139, read from [resources/expense\_codes\_backup\_139.json](resources/expense_codes_backup_139.json) |
+| `ref_economic_codes`      | 139, read from [prisma/data/economic-codes.json](prisma/data/economic-codes.json)                    |
 | `ref_employee_categories` | 2 (কর্মকর্তা / কর্মচারী)                                                                             |
 | `ref_grades`              | 20 (1–10 কর্মকর্তা, 11–20 কর্মচারী)                                                                  |
 | `ref_allowance_types`     | 6, with card-shape flags                                                                             |
@@ -520,11 +529,13 @@ upserted with their category resolved by 4-digit prefix. To add reference data, 
 ### NBR head offices (one-time import)
 
 `npm run db:seed:hq` runs [prisma/seed-head-offices.js](prisma/seed-head-offices.js), kept
-out of `db:seed` because it writes organisational data an admin manages by hand. It reads
-`head quarters.xlsx` (`[office type | name]`) and `hq with codes.xlsx` (`[budget code | name]`)
-at the repo root and creates 102 head offices under `জাতীয় রাজস্ব বোর্ড (NBR)`, each at the top
+out of `db:seed` because it writes organisational data an admin manages by hand. It reads the
+single consolidated [prisma/data/head-offices.xlsx](prisma/data/head-offices.xlsx) (sheet
+`budget_codes`, columns `[budget code | office type | head-office name]`) and creates 102 head
+offices under `জাতীয় রাজস্ব বোর্ড (NBR)`, each at the top
 level of its office type, in natural alphabetical order (১, ২, ৩ … ১০, ১১). Like `seed.js` it
-only fills gaps; 15 names with no code in the source carry a temporary `TMP-nnn` budget id to
+only fills gaps and keeps the first of any duplicate code or name; 15 names with no code in the
+source carry a temporary `TMP-nnn` budget id to
 be corrected in the admin UI.
 
 ***
@@ -536,11 +547,12 @@ npm run dev          # start the app
 npm run db:generate  # regenerate the Prisma client after a schema change
 npm run db:deploy    # apply committed migrations
 npm run db:seed      # idempotent: admin user + reference data
-npm run db:seed:hq   # one-time: NBR head offices from the root spreadsheets
+npm run db:seed:hq   # one-time: NBR head offices from prisma/data/head-offices.xlsx
 npm run db:reset     # DESTRUCTIVE: drop everything, re-apply migrations, re-seed
 npm run db:drift     # exits non-zero if the database and schema.prisma disagree
 npm run db:studio    # browse data
 npm run lint         # eslint
+npm run test         # vitest run — unit tests for the pure helpers
 npm run build        # prisma generate && next build
 ```
 
@@ -548,28 +560,39 @@ npm run build        # prisma generate && next build
 result reads `No difference detected.` Rebuilding from nothing is `npm run db:reset` — one
 command returns a wiped database to a working state, login included.
 
+Unit tests run on Vitest (`vitest.config.ts`, `src/**/*.test.ts`) and cover the pure helpers —
+the Bengali formatters in `bangla.ts` and the form registry in `form-nav.ts`. They need no
+database. Add a test beside any new pure module; anything that touches Prisma is exercised
+through the app instead.
+
 **Windows gotcha:** `prisma generate` fails with
 `EPERM ... rename 'query_engine-windows.dll.node'` when a `next dev` process still holds the
 engine DLL. Stop the dev server first — the same applies before `npm run db:reset`.
 
 ***
 
-## 16. Stale files — do not run
+## 16. Repository hygiene
 
-Historical SQL left in the repo. None of it matches the current schema.
+The repo carries no hand-run SQL and no second seed source. Everything the database needs is
+either a committed migration in [prisma/migrations/](prisma/migrations) or an idempotent script
+in [prisma/](prisma); data files the seeds read live in [prisma/data/](prisma/data).
 
-| File                                                                                           | Why it is stale                                                                    |
-| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| [resources/seed\_data.sql](resources/seed_data.sql)                                            | Targets the pre-rename schema (`departments`, `office_types`, `expense_codes`, …). |
-| [resources/grant\_permissions.sql](resources/grant_permissions.sql)                            | Supabase-only grants; unrelated to the Prisma connection.                          |
-| [resources/drop\_level\_unique\_constraint.sql](resources/drop_level_unique_constraint.sql)    | One-off fix for an earlier schema's constraint.                                    |
-| [resources/rename\_to\_core\_economic\_codes.sql](resources/rename_to_core_economic_codes.sql) | Pre-`core_`/`ref_` rename.                                                         |
-| [resources/update\_group\_budget\_rules.sql](resources/update_group_budget_rules.sql)          | One-off data patch for an earlier schema.                                          |
-| [scripts/create-superadmin\*.js/.sql](scripts)                                                 | Predate `prisma/seed.js`.                                                          |
-| [scripts/seed\_redesigned\_data.js](scripts/seed_redesigned_data.js)                           | Superseded by `prisma/seed.js`.                                                    |
+Two rules back that up:
 
-[resources/expense\_codes\_backup\_139.json](resources/expense_codes_backup_139.json) is current
-and read by the seed.
+- **Never leave ad-hoc `*.sql` in the tree.** Past one-off scripts were the direct cause of the
+  schema drift described in §2. A change belongs in a migration.
+- **Never keep a redundant copy of reference data.** Dead columns, orphan tables and superseded
+  seed scripts are deleted, not parked, so there is only ever one writer per fact.
+
+`prisma/data/economic-codes.json` is the live source for `ref_economic_codes`; the head-office
+import reads `prisma/data/head-offices.xlsx` (sheet `budget_codes`, columns
+`[budget code | office type | head-office name]`).
+
+> **Migration prefixes must stay unique and ordered.** Prisma sorts by folder name, so two
+> migrations sharing a timestamp (`20261025120000_…`) apply in alphabetical order of their
+> suffix rather than the order they were written. The pair already applied is independent, so it
+> is harmless and stays as-is — renaming an applied migration would make Prisma treat it as a
+> new one. Give every future migration a fresh, strictly increasing timestamp.
 
 ### Row Level Security
 
@@ -603,5 +626,5 @@ single screen are written inline in that component.
 Implemented and verified: the schema above, the Prisma migration workflow (32 migrations),
 seeding, admin and office authentication, the table-driven reference data, the formula
 registry, the calculation engine, the office budget sheet, the submission snapshots, and the
-three report routes — `npx tsc --noEmit` is clean and `npm run db:drift` reports no
-difference.
+three report routes — `npx tsc --noEmit` and `npm run lint` are clean, `npm run test` is green
+and `npm run db:drift` reports no difference.

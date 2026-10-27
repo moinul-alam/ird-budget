@@ -1,7 +1,7 @@
 import { getAdminSession } from '@/lib/auth-admin'
 import { redirect } from 'next/navigation'
 import { strings } from '@/lib/strings'
-import { getAdminProfile } from '@/app/actions/admin-profile'
+import { getAdminProfile } from '@/lib/actions/admin-profile'
 import { AdminProfileClient } from './profile-client'
 
 export const metadata = {

@@ -19,8 +19,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Loader2 } from 'lucide-react'
-import { HeadOfficeItem } from '@/app/actions/admin-offices-management'
-import { MinistryItem, DepartmentItem, OfficeTypeHierarchyItem, OfficeLevelItem } from '@/app/actions/admin-offices-config'
+import { HeadOfficeItem } from '@/lib/actions/admin-offices-management'
+import { MinistryItem, DepartmentItem, OfficeTypeHierarchyItem, OfficeLevelItem } from '@/lib/actions/admin-offices-config'
 import { FieldOfficeModalState } from '../_types/field-offices'
 
 interface FieldOfficeModalProps {

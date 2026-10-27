@@ -7,7 +7,7 @@ import {
   getParentOffices,
   getOfficeTypes,
   getOfficeLevelsForType,
-} from '@/app/actions/office'
+} from '@/lib/actions/office'
 import { OfficeInfoClient } from './office-info-client'
 
 export default async function OfficeInfoPage() {

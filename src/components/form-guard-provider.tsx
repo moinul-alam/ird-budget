@@ -1,5 +1,7 @@
 'use client'
 
+import { errorMessage } from '@/lib/errors'
+
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertTriangle, Loader2, Save, ArrowRight } from 'lucide-react'
@@ -96,8 +98,8 @@ export function FormGuardProvider({ children }: { children: React.ReactNode }) {
       }
       setIsSaving(false)
       leave(href)
-    } catch (e: any) {
-      setSaveError(e?.message || strings.saveFailed)
+    } catch (e) {
+      setSaveError(errorMessage(e) || strings.saveFailed)
       setIsSaving(false)
     }
   }
@@ -183,7 +185,12 @@ export function useFormGuard(): FormGuardValue {
 export function useRegisterFormGuard(guard: FormGuard) {
   const { registerGuard } = useFormGuard()
   const guardRef = useRef(guard)
-  guardRef.current = guard
+
+  // The ref is refreshed after each commit rather than during render. The registered
+  // callbacks read it lazily, so they always see the form's latest state.
+  useEffect(() => {
+    guardRef.current = guard
+  }, [guard])
 
   useEffect(() => {
     registerGuard({

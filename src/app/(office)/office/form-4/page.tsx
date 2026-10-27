@@ -1,6 +1,6 @@
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import { getFormNewStaffRows, NewStaffRecord } from '@/app/actions/forms'
+import { getFormNewStaffRows, NewStaffRecord } from '@/lib/actions/forms/staff'
 import { Form4Client } from './form-4-client'
 import { loadGrades, loadSubmissionFiscalYear } from '@/lib/office/load-form-data'
 

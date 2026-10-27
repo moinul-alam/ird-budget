@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { strings } from '@/lib/strings'
-import { logoutOffice as logout } from '@/app/actions/auth'
+import { logoutOffice as logout } from '@/lib/actions/auth'
 import {
   LayoutDashboard,
   BarChart3,
@@ -25,7 +26,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { toBanglaNumber } from '@/lib/bangla'
-import { FORM_ITEMS, FORM_SHADES, FORM_COUNT } from '@/lib/office/forms'
+import { FORM_ITEMS, FORM_SHADES, FORM_COUNT } from '@/lib/office/form-nav'
 import { useFormGuard } from '@/components/form-guard-provider'
 import { useState, useRef, useEffect } from 'react'
 
@@ -116,9 +117,11 @@ export function AppShell({
             otherwise leave the logo visibly off-centre. */}
         <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2.5 pointer-events-none max-w-[calc(100%-10rem)] sm:max-w-[calc(100%-18rem)]">
           <div className="h-9 w-9 rounded-full bg-white flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
-            <img
+            <Image
               src="/images/bdgovlogo.png"
               alt={strings.appName}
+              width={32}
+              height={32}
               className="h-8 w-8 object-contain"
             />
           </div>

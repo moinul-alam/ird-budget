@@ -28,7 +28,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { saveFormVehicleRentRow, deleteFormVehicleRentRow } from '@/app/actions/forms'
+import { saveFormVehicleRentRow, deleteFormVehicleRentRow } from '@/lib/actions/forms/vehicles'
+import type { VehicleTypeItem } from '@/lib/actions/admin-settings'
+import type {
+  FormVehiclesRentInitial,
+  VehicleRentConfigRow,
+} from '@/lib/office/load-form-data'
 import { Plus, Trash2, Edit2, CarFront } from 'lucide-react'
 import { useState, useTransition, useMemo } from 'react'
 
@@ -43,9 +48,9 @@ export interface Form8VehicleRentRow {
 
 export interface Form8ClientProps {
   submissionId: number | null
-  initialData: any[]
-  carTypes: any[]
-  rentConfigs: any[]
+  initialData: FormVehiclesRentInitial
+  carTypes: VehicleTypeItem[]
+  rentConfigs: VehicleRentConfigRow[]
   /** বেতন-মাস (/admin/budgets, set on the budget cycle) — annualises the monthly rent like the sheet engine. */
   salaryMonths: number
 }
@@ -62,7 +67,11 @@ export function Form8Client({
     return (initialData || []).map((v) => {
       const cfg = v.vehicle_rent_config || rentConfigs.find((c) => c.id === v.vehicle_rent_config_id)
       const carName = cleanTypeName(cfg?.car_type?.name || '')
-      const monthly = Number(cfg?.monthly_rent_allowance || 0)
+      // The nested config a saved row carries has no rate of its own; only the global
+      // rent config does, so a fall-through to it is what supplies the monthly allowance.
+      const monthly = Number(
+        (cfg && 'monthly_rent_allowance' in cfg ? cfg.monthly_rent_allowance : 0) || 0
+      )
       const count = Number(v.count || 0)
       return {
         id: v.id,
@@ -75,7 +84,7 @@ export function Form8Client({
     })
   })
 
-  const [isPending, startTransition] = useTransition()
+  const [, startTransition] = useTransition()
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -173,7 +182,7 @@ export function Form8Client({
         // Stamp the row with the id the database gave it, matched by the rent
         // config that identifies the row, so the form's Save updates it rather
         // than inserting it a second time.
-        if (res.success && res.id) {
+        if ('success' in res && res.success && res.id) {
           const savedId = res.id
           setRows((prev) =>
             prev.map((r) => (r.vehicle_rent_config_id === configId ? { ...r, id: savedId } : r))

@@ -37,7 +37,7 @@ import {
   Loader2,
   type LucideIcon,
 } from 'lucide-react'
-import { SalaryTileItem, SalarySlabItem } from '@/app/actions/admin-settings'
+import { SalaryTileItem, SalarySlabItem } from '@/lib/actions/admin-settings'
 import {
   SalaryNumberModalState,
   SalaryGradeModalState,

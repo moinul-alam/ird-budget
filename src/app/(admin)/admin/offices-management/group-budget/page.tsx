@@ -1,6 +1,6 @@
 import { getAdminSession } from '@/lib/auth-admin'
 import { redirect } from 'next/navigation'
-import { getGroupBudgetSettings, getOfficeTypes, getOfficeLevels } from '@/app/actions/admin-offices-config'
+import { getGroupBudgetSettings, getOfficeTypes, getOfficeLevels } from '@/lib/actions/admin-offices-config'
 import { GroupBudgetClient } from './group-budget-client'
 
 export const metadata = {

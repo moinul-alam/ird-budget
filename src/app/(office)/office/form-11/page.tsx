@@ -1,6 +1,6 @@
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
-import { getUtilityTypes } from '@/app/actions/admin-settings'
+import { getUtilityTypes } from '@/lib/actions/admin-settings'
 import { loadFormUtilitiesInitial } from '@/lib/office/load-form-data'
 import { Form11Client } from './form-11-client'
 

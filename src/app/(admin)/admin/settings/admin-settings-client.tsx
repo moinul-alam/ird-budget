@@ -15,14 +15,6 @@ import {
   Zap,
 } from 'lucide-react'
 import {
-  SalaryTileItem,
-  SalarySlabItem,
-  VehicleTypeItem,
-  FuelTypeItem,
-  VehicleConfigItem,
-  VehicleRentConfigItem,
-  UtilityTypeItem,
-  ItEquipmentTypeItem,
   saveSalaryTile,
   saveSalarySlabs,
   saveVehicleType,
@@ -36,7 +28,7 @@ import {
   saveUtilityType,
   deleteUtilityType,
   saveItEquipmentType,
-} from '@/app/actions/admin-settings'
+} from '@/lib/actions/admin-settings'
 import {
   AdminSettingsClientProps,
   SETTINGS_TAB_KEYS,

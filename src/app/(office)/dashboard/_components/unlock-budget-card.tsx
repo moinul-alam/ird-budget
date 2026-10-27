@@ -13,7 +13,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { strings } from '@/lib/strings'
-import { unlockBudget } from '@/app/actions/budget'
+import { unlockBudget } from '@/lib/actions/budget'
 
 /**
  * Shown under the submission-status box once a budget has been submitted. The

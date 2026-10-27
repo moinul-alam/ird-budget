@@ -12,7 +12,7 @@ import {
   toggleCodeForOfficeType,
   toggleBulkCodesForOfficeType,
   getExpenseCodesWithCategoryAndMapping,
-} from '@/app/actions/admin-codes'
+} from '@/lib/actions/admin-codes'
 import { CheckCircle2, AlertTriangle, FolderTree, SlidersHorizontal } from 'lucide-react'
 import {
   AdminCodesClientProps,

@@ -13,7 +13,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Plus, Edit2, Trash2, Loader2 } from 'lucide-react'
-import { VehicleTypeItem } from '@/app/actions/admin-settings'
+import { VehicleTypeItem } from '@/lib/actions/admin-settings'
 import { VehicleTypeModalState } from '../_types/settings'
 
 interface TabVehiclesProps {
