@@ -61,14 +61,14 @@ The public landing page is at `/` (office login and registration), the admin con
 | `npm run db:seed:hq` | One-time: import NBR head offices from `prisma/data/head-offices.xlsx` |
 | `npm run db:drift` | Exits non-zero if the database and `schema.prisma` disagree |
 | `npm run db:studio` | Browse the data |
-| `npm run db:reset` | **Destructive.** Drop everything, re-apply migrations, re-seed |
 
-> **Never run `npm run db:reset` against a shared database.** It is a local-only command —
-> it wipes the data every office has submitted. `db:seed` is always safe; it only creates
-> what is missing.
+> **There is no reset script, on purpose.** `prisma migrate reset` drops the entire `public`
+> schema — including the data every office has submitted — and `DATABASE_URL` points at a
+> shared database. Run `npx prisma migrate reset` by hand only against a local database.
+> `db:seed` is always safe; it only creates what is missing.
 
-> **Windows:** stop `npm run dev` before `db:generate` or `db:reset`. A running dev server
-> holds the Prisma engine DLL and the command fails with `EPERM ... rename
+> **Windows:** stop `npm run dev` before `db:generate`. A running dev server holds the Prisma
+> engine DLL and the command fails with `EPERM ... rename
 > 'query_engine-windows.dll.node'`.
 
 ***

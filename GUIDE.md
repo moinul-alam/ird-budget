@@ -548,7 +548,6 @@ npm run db:generate  # regenerate the Prisma client after a schema change
 npm run db:deploy    # apply committed migrations
 npm run db:seed      # idempotent: admin user + reference data
 npm run db:seed:hq   # one-time: NBR head offices from prisma/data/head-offices.xlsx
-npm run db:reset     # DESTRUCTIVE: drop everything, re-apply migrations, re-seed
 npm run db:drift     # exits non-zero if the database and schema.prisma disagree
 npm run db:studio    # browse data
 npm run lint         # eslint
@@ -557,8 +556,12 @@ npm run build        # prisma generate && next build
 ```
 
 `npm run db:drift` is the gate to run after any schema work and is suitable for CI; a clean
-result reads `No difference detected.` Rebuilding from nothing is `npm run db:reset` — one
-command returns a wiped database to a working state, login included.
+result reads `No difference detected.`
+
+There is deliberately **no reset script**. `prisma migrate reset` drops the whole `public`
+schema — every submitted budget among it — and this project's `DATABASE_URL` points at a
+shared database, so the command is not one keystroke away. To rebuild a *local* database,
+run `npx prisma migrate reset` by hand, where the target is unambiguous.
 
 Unit tests run on Vitest (`vitest.config.ts`, `src/**/*.test.ts`) and cover the pure helpers —
 the Bengali formatters in `bangla.ts` and the form registry in `form-nav.ts`. They need no
@@ -567,7 +570,7 @@ through the app instead.
 
 **Windows gotcha:** `prisma generate` fails with
 `EPERM ... rename 'query_engine-windows.dll.node'` when a `next dev` process still holds the
-engine DLL. Stop the dev server first — the same applies before `npm run db:reset`.
+engine DLL. Stop the dev server first.
 
 ***
 
