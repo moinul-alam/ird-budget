@@ -2,7 +2,7 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaNumber } from '@/lib/bangla'
+import { toBanglaNumber, toBanglaDateShort } from '@/lib/bangla'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -274,10 +274,10 @@ export function Form9Client({
                         </TableCell>
                       )}
                       <TableCell className="px-4 py-2.5 text-center font-medium text-slate-600">
-                        {row.contract_start_date || strings.na}
+                        {toBanglaDateShort(row.contract_start_date)}
                       </TableCell>
                       <TableCell className="px-4 py-2.5 text-center font-medium text-slate-600">
-                        {row.contract_end_date || strings.na}
+                        {toBanglaDateShort(row.contract_end_date)}
                       </TableCell>
                       <TableCell className={cn('px-4 py-2.5 text-center font-semibold', accent.value)}>
                         <HazarAmount taka={yearlyTotalWithVat} />
@@ -386,7 +386,9 @@ export function Form9Client({
               </Label>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <span className="text-[11px] text-slate-500">{strings.form9.contractStart}</span>
+                  <span className="text-[11px] text-slate-500">
+                    {strings.form9.contractStart} <span className="text-rose-500">*</span>
+                  </span>
                   <Input
                     type="date"
                     value={startDateInput}
@@ -395,7 +397,9 @@ export function Form9Client({
                   />
                 </div>
                 <div className="space-y-1">
-                  <span className="text-[11px] text-slate-500">{strings.form9.contractEnd}</span>
+                  <span className="text-[11px] text-slate-500">
+                    {strings.form9.contractEnd} <span className="text-rose-500">*</span>
+                  </span>
                   <Input
                     type="date"
                     value={endDateInput}
@@ -419,7 +423,7 @@ export function Form9Client({
             <Button
               type="button"
               onClick={handleSaveModal}
-              disabled={!monthlyInput || isPending}
+              disabled={!monthlyInput || !startDateInput || !endDateInput || isPending}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {isPending ? strings.saving : strings.save}

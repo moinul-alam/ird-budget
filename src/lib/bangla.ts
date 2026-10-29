@@ -157,6 +157,22 @@ export function toBanglaDate(dateStr: string | Date | null | undefined): string 
   return `${toBanglaNumber(d.getDate())} ${BANGLA_MONTHS[d.getMonth()]} ${toBanglaNumber(d.getFullYear())}`;
 }
 
+/**
+ * A plain calendar date as dd-mm-yyyy — the order this app reads dates in. A stored
+ * date is 'yyyy-mm-dd', so it is reordered as text rather than through `new Date`,
+ * which would let the browser's timezone shift the calendar day.
+ */
+export function toBanglaDateShort(dateStr: string | Date | null | undefined): string {
+  if (!dateStr) return '—';
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(dateStr));
+  if (iso) return `${toBanglaNumber(iso[3])}-${toBanglaNumber(iso[2])}-${toBanglaNumber(iso[1])}`;
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '—';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${toBanglaNumber(dd)}-${toBanglaNumber(mm)}-${toBanglaNumber(d.getFullYear())}`;
+}
+
 export function toBanglaDateFull(dateStr: string | Date | null | undefined): string {
   if (!dateStr) return '—';
   const d = new Date(dateStr);

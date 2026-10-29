@@ -82,13 +82,12 @@ export function Form8Client({
   // Map rows from initialData
   const [rows, setRows] = useState<Form8VehicleRentRow[]>(() => {
     return (initialData || []).map((v) => {
-      const cfg = v.vehicle_rent_config || rentConfigs.find((c) => c.id === v.vehicle_rent_config_id)
-      const carName = cleanTypeName(cfg?.car_type?.name || '')
-      // The nested config a saved row carries has no rate of its own; only the global
-      // rent config does, so a fall-through to it is what supplies the monthly allowance.
-      const monthly = Number(
-        (cfg && 'monthly_rent_allowance' in cfg ? cfg.monthly_rent_allowance : 0) || 0
-      )
+      // The rate lives only on the global rent config; the nested config a saved row
+      // carries names the vehicle type but no rate, so resolving by id against
+      // `rentConfigs` is what supplies the monthly allowance.
+      const cfg = rentConfigs.find((c) => c.id === v.vehicle_rent_config_id)
+      const carName = cleanTypeName(cfg?.car_type?.name || v.vehicle_rent_config?.car_type?.name || '')
+      const monthly = Number(cfg?.monthly_rent_allowance || 0)
       const count = Number(v.count || 0)
       return {
         id: v.id,
@@ -278,8 +277,6 @@ export function Form8Client({
           </Button>
         </div>
 
-        <p className="text-xs text-slate-500">{strings.form8.subtitle}</p>
-
         {/* Data Table or Empty State */}
         {rows.length === 0 ? (
           <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-4 py-12 text-center">
@@ -299,7 +296,7 @@ export function Form8Client({
                   <TableHead className={cn(COL_HEAD, 'w-[26%] text-center')}>{strings.form8.vehicleType}</TableHead>
                   <TableHead className={cn(COL_HEAD, 'w-[16%] text-center')}>{strings.form8.countLabel}</TableHead>
                   <TableHead className={cn(COL_HEAD, 'w-[18%] text-center')}>{strings.form8.monthlyAllowance}</TableHead>
-                  <TableHead className={cn(COL_HEAD, 'w-[20%] text-center')}>বার্ষিক মোট ব্যয়</TableHead>
+                  <TableHead className={cn(COL_HEAD, 'w-[20%] text-center')}>{strings.form8.annualTotal}</TableHead>
                   <TableHead className={cn(COL_HEAD, 'w-[12%] text-center')}>অ্যাকশন</TableHead>
                 </TableRow>
               </TableHeader>
@@ -351,10 +348,6 @@ export function Form8Client({
             </Table>
           </div>
         )}
-
-        <p className="text-xs text-slate-400">
-          * {strings.form8.calculationNote}
-        </p>
       </div>
 
       {/* ADD / EDIT MODAL */}

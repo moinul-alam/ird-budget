@@ -2,7 +2,7 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaNumber } from '@/lib/bangla'
+import { toBanglaNumber, toBanglaDateShort } from '@/lib/bangla'
 import { AmountField } from '@/components/amount-field'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/table'
 import { Card, CardContent } from '@/components/ui/card'
 import { saveFormNewStaffRows, NewStaffRecord } from '@/lib/actions/forms/staff'
-import { Plus, Trash2, Edit2, UserPlus, AlertTriangle, Info } from 'lucide-react'
+import { Plus, Trash2, Edit2, UserPlus, AlertTriangle, Info, CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useState, useTransition, useMemo, useCallback } from 'react'
 import type { ReactNode } from 'react'
@@ -116,6 +116,7 @@ function NewStaffTable({
   gradeNoOf,
   subtotalLabel,
   valueClass,
+  appointmentDate,
   onEdit,
   onDelete,
 }: {
@@ -126,6 +127,9 @@ function NewStaffTable({
   gradeNoOf: (row: NewStaffRecord) => number
   subtotalLabel: string
   valueClass: string
+  /** The one appointment date every recruit on this form shares, shown in the header
+   *  rather than repeated on each row. */
+  appointmentDate: string
   onEdit: (row: NewStaffRecord) => void
   onDelete: (row: NewStaffRecord) => void
 }) {
@@ -134,21 +138,27 @@ function NewStaffTable({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
-      <div className={cn('flex items-center gap-2 border-b px-4 py-2.5', headerClass)}>
-        <span className={cn('h-2 w-2 rounded-full', dotClass)} />
-        <h3 className="text-sm font-bold text-slate-800">{title}</h3>
+      <div className={cn('flex items-center justify-between gap-3 border-b px-4 py-2.5', headerClass)}>
+        <div className="flex items-center gap-2">
+          <span className={cn('h-2 w-2 rounded-full', dotClass)} />
+          <h3 className="text-sm font-bold text-slate-800">{title}</h3>
+        </div>
+        {appointmentDate && (
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+            <CalendarDays className="h-3.5 w-3.5" />
+            {strings.form4.dateColumn}: {toBanglaDateShort(appointmentDate)}
+          </span>
+        )}
       </div>
 
       <Table className="min-w-[640px] table-fixed">
         <TableHeader>
           <TableRow className="border-slate-100 hover:bg-transparent">
-            <TableHead className={cn(COL_HEAD, 'w-[8%] text-center')}>{strings.form4.serialColumn}</TableHead>
-            <TableHead className={cn(COL_HEAD, 'w-[16%] text-center')}>{strings.form4.gradeColumn}</TableHead>
-            <TableHead className={cn(COL_HEAD, 'w-[16%] text-center')}>{strings.form4.countColumn}</TableHead>
-            <TableHead className={cn(COL_HEAD, 'w-[18%] text-center')}>{strings.form4.basicColumn}</TableHead>
-            <TableHead className={cn(COL_HEAD, 'w-[18%] text-center')}>{strings.form4.dateColumn}</TableHead>
-            <TableHead className={cn(COL_HEAD, 'w-[14%] text-center')}>{strings.form4.monthsColumn}</TableHead>
-            <TableHead className={cn(COL_HEAD, 'w-[10%] text-center')}>অ্যাকশন</TableHead>
+            <TableHead className={cn(COL_HEAD, 'w-[12%] text-center')}>{strings.form4.serialColumn}</TableHead>
+            <TableHead className={cn(COL_HEAD, 'w-[22%] text-center')}>{strings.form4.gradeColumn}</TableHead>
+            <TableHead className={cn(COL_HEAD, 'w-[20%] text-center')}>{strings.form4.countColumn}</TableHead>
+            <TableHead className={cn(COL_HEAD, 'w-[34%] text-center')}>{strings.form4.basicColumn}</TableHead>
+            <TableHead className={cn(COL_HEAD, 'w-[12%] text-center')}>অ্যাকশন</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -165,12 +175,6 @@ function NewStaffTable({
               </TableCell>
               <TableCell className="px-4 py-2.5 text-center font-semibold text-slate-900">
                 <HazarAmount taka={row.monthly_basic} />
-              </TableCell>
-              <TableCell className="px-4 py-2.5 text-center font-mono text-xs text-slate-600">
-                {row.expected_date ? toBanglaNumber(row.expected_date) : '—'}
-              </TableCell>
-              <TableCell className={cn('px-4 py-2.5 text-center font-semibold', valueClass)}>
-                {toBanglaNumber(row.remaining_months)} {strings.form4.monthsUnit}
               </TableCell>
               <TableCell className="px-4 py-2.5">
                 <div className="flex items-center justify-center gap-1">
@@ -206,8 +210,6 @@ function NewStaffTable({
             <TableCell className={cn('px-4 py-2.5 text-center font-extrabold', valueClass)}>
               <HazarAmount taka={subtotalBasic} />
             </TableCell>
-            <TableCell className="px-4 py-2.5 text-center text-slate-400">—</TableCell>
-            <TableCell className="px-4 py-2.5 text-center text-slate-400">—</TableCell>
             <TableCell />
           </TableRow>
         </TableBody>
@@ -294,10 +296,22 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
   const staffGrades = useMemo(() => grades.filter((g) => g.category !== 'officer'), [grades])
   const gradeLabel = (g: GradeRow) => `গ্রেড ${toBanglaNumber(g.grade_no)} (${g.category_bn})`
 
+  // An appointment is normally one date for every post, so the form keeps a single
+  // date: once any row carries it, that date belongs to the form and the modal stops
+  // asking for it. The first row is the one that sets it.
+  const appointmentDate = useMemo(
+    () => rows.find((r) => r.expected_date)?.expected_date || '',
+    [rows]
+  )
+
+  // While the form has no date yet the modal's own field supplies it; afterwards the
+  // form's date stands in, so later rows inherit the appointment already recorded.
+  const effectiveDate = dateInput || appointmentDate
+
   // Compute remaining months live for modal
   const modalDateInfo = useMemo(() => {
-    return calculateRemainingMonths(dateInput, fiscalYear)
-  }, [dateInput, fiscalYear])
+    return calculateRemainingMonths(effectiveDate, fiscalYear)
+  }, [effectiveDate, fiscalYear])
 
   const modalTotalSalary = useMemo(() => {
     const b = parseFloat(basicInput) || 0
@@ -364,14 +378,14 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
   // includes a row with no headcount, since the salary would then belong to nobody.
   const modalRowFromInputs = (): NewStaffRecord | null => {
     const gradeId = parseInt(selectedGrade, 10)
-    if (!gradeId || isNaN(gradeId) || countValue <= 0) return null
-    const { months } = calculateRemainingMonths(dateInput, fiscalYear)
+    if (!gradeId || isNaN(gradeId) || countValue <= 0 || !effectiveDate) return null
+    const { months } = calculateRemainingMonths(effectiveDate, fiscalYear)
     const monthlyBasic = parseFloat(basicInput) || 0
     return {
       grade_id: gradeId,
       count: countValue,
       monthly_basic: monthlyBasic,
-      expected_date: dateInput,
+      expected_date: effectiveDate,
       remaining_months: months,
       total_salary: monthlyBasic * months,
     }
@@ -467,8 +481,8 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
   const expectedDateText = useMemo(() => {
     const dates = rows.map((r) => r.expected_date).filter(Boolean).sort()
     if (dates.length === 0) return ''
-    if (dates.length === 1) return toBanglaNumber(dates[0])
-    return `${toBanglaNumber(dates[0])} – ${toBanglaNumber(dates[dates.length - 1])}`
+    if (dates.length === 1) return toBanglaDateShort(dates[0])
+    return `${toBanglaDateShort(dates[0])} – ${toBanglaDateShort(dates[dates.length - 1])}`
   }, [rows])
 
   // Save entire form state to database
@@ -530,6 +544,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                 gradeNoOf={gradeNoOf}
                 subtotalLabel={strings.form4.subTotalOfficer}
                 valueClass={accent.officerValue}
+                appointmentDate={appointmentDate}
                 onEdit={(row) => openEditModal(rows.indexOf(row))}
                 onDelete={(row) => setDeleteIndex(rows.indexOf(row))}
               />
@@ -545,6 +560,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                 gradeNoOf={gradeNoOf}
                 subtotalLabel={strings.form4.subTotalStaff}
                 valueClass={accent.staffValue}
+                appointmentDate={appointmentDate}
                 onEdit={(row) => openEditModal(rows.indexOf(row))}
                 onDelete={(row) => setDeleteIndex(rows.indexOf(row))}
               />
@@ -678,25 +694,29 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
               </div>
             </div>
 
-            {/* Expected Appointment Date */}
-            <div className="space-y-1.5">
-              <Label htmlFor="expected_date" className="text-xs font-bold text-slate-700">
-                {strings.form4.dateColumn}
-              </Label>
-              <Input
-                id="expected_date"
-                type="date"
-                value={dateInput}
-                onChange={(e) => setDateInput(e.target.value)}
-                className={cn('h-10 rounded-xl font-mono', accent.focus)}
-              />
-              <p className="text-[11px] text-slate-400">
-                {strings.form4.fiscalYearLabel} {toBanglaNumber(fiscalYear)}
-              </p>
-            </div>
+            {/* Expected Appointment Date — asked once, for the form. After the first
+                row carries a date it belongs to every post, so the field is gone and
+                the date shows in the table header instead. */}
+            {!appointmentDate && (
+              <div className="space-y-1.5">
+                <Label htmlFor="expected_date" className="text-xs font-bold text-slate-700">
+                  {strings.form4.dateColumn} <span className="text-rose-500">*</span>
+                </Label>
+                <Input
+                  id="expected_date"
+                  type="date"
+                  value={dateInput}
+                  onChange={(e) => setDateInput(e.target.value)}
+                  className={cn('h-10 rounded-xl font-mono', accent.focus)}
+                />
+                <p className="text-[11px] text-slate-400">
+                  {strings.form4.fiscalYearLabel} {toBanglaNumber(fiscalYear)}
+                </p>
+              </div>
+            )}
 
             {/* Live Calculation preview */}
-            {dateInput && (
+            {effectiveDate && (
               <div
                 className={cn(
                   'rounded-xl border p-3 text-xs space-y-1',
@@ -739,7 +759,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                 type="button"
                 variant="outline"
                 onClick={handleSaveAndAddMore}
-                disabled={!canCommitRow || !basicInput || !dateInput || !modalDateInfo.inRange}
+                disabled={!canCommitRow || !basicInput || !effectiveDate || !modalDateInfo.inRange}
                 className={cn('rounded-xl text-xs font-bold', accent.emptyButton)}
               >
                 <Plus className="h-3.5 w-3.5 mr-1" />
@@ -749,7 +769,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
             <Button
               type="button"
               onClick={handleSaveModalRow}
-              disabled={!selectedGrade || !countInput || !basicInput || !dateInput || !modalDateInfo.inRange}
+              disabled={!selectedGrade || !countInput || !basicInput || !effectiveDate || !modalDateInfo.inRange}
               className={cn('rounded-xl text-xs font-bold', accent.solidButton)}
             >
               {editingIndex !== null ? 'সংরক্ষণ করুন' : 'যোগ করুন'}

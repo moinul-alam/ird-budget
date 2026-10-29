@@ -30,7 +30,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { saveFormVehicleRow, deleteFormVehicleRow } from '@/lib/actions/forms/vehicles'
-import type { VehicleTypeItem, FuelTypeItem } from '@/lib/actions/admin-settings'
+import type { VehicleTypeItem, FuelTypeItem, FuelCategoryItem } from '@/lib/actions/admin-settings'
 import type {
   FormVehiclesGovtInitial,
   VehicleFuelConfigRow,
@@ -38,6 +38,8 @@ import type {
 import { Plus, Trash2, Edit2, Car, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { HazarAmount } from '@/components/hazar-amount'
+import { Card, CardContent } from '@/components/ui/card'
+import { ceilingToHazar } from '@/lib/budget/hazar'
 import { useState, useTransition, useMemo } from 'react'
 
 export interface Form7VehicleRow {
@@ -58,6 +60,10 @@ export interface Form7ClientProps {
   carTypes: VehicleTypeItem[]
   fuelTypes: FuelTypeItem[]
   fuelConfigs: VehicleFuelConfigRow[]
+  /** Fuel categories (তেল / গ্যাস), each naming the engine code its cost lands in. */
+  fuelCategories: FuelCategoryItem[]
+  /** বেতন-মাস — the multiplier the engine annualises every monthly figure with. */
+  salaryMonths: number
 }
 
 /**
@@ -81,6 +87,8 @@ export function Form7Client({
   carTypes,
   fuelTypes,
   fuelConfigs,
+  fuelCategories,
+  salaryMonths,
 }: Form7ClientProps) {
   // Map rows from initialData
   const [rows, setRows] = useState<Form7VehicleRow[]>(() => {
@@ -279,6 +287,63 @@ export function Form7Client({
         0
     )
 
+  // অতিরিক্ত ব্যয় only earns its column when a row actually carries one; with none
+  // entered the column is dropped rather than shown as a row of '—'.
+  const hasAdditional = rows.some((r) => (r.additional_expense || 0) > 0)
+
+  // Each row as the engine sees it, so the cards below can run the selfsame formulas.
+  const engineRows = useMemo(
+    () =>
+      rows.map((row) => {
+        const cfg = fuelConfigs.find((c) => c.id === row.vehicle_fuel_config_id)
+        const fuel = fuelTypes.find((f) => f.id === row.fuel_type_id)
+        const categoryId = cfg?.fuel_category_id ?? fuel?.category_id ?? null
+        return {
+          code:
+            categoryId != null
+              ? fuelCategories.find((c) => c.id === categoryId)?.economic_code ?? null
+              : null,
+          fuel_unit_price: Number(fuel?.unit_price || 0),
+          count: row.count,
+          monthly_fuel_allowance: Number(cfg?.monthly_fuel_quota_liter || 0),
+          annual_lube_allowance: Number(cfg?.annual_lube_allowance || 0),
+          annual_maintenance_allowance: Number(cfg?.annual_maintenance_allowance || 0),
+          additional_expense: row.additional_expense,
+        }
+      }),
+    [rows, fuelConfigs, fuelTypes, fuelCategories]
+  )
+
+  // `fuel_by_category` (calculate.ts): মাসিক জ্বালানি বরাদ্দ × লিটার দর × বেতন-মাস ×
+  // সংখ্যা + বার্ষিক লুব্রিকেন্ট × সংখ্যা + অতিরিক্ত ব্যয়, summed into the code the
+  // row's fuel category names.
+  const fuelAmountFor = (code: string) =>
+    ceilingToHazar(
+      engineRows
+        .filter((v) => v.code === code)
+        .reduce((sum, v) => {
+          const monthlyFuel = v.monthly_fuel_allowance * v.fuel_unit_price
+          const annualFuel = monthlyFuel * salaryMonths * v.count
+          const annualLube = v.annual_lube_allowance * v.count
+          return sum + annualFuel + annualLube + v.additional_expense
+        }, 0)
+    )
+
+  // `vehicle_maintenance` (calculate.ts): বার্ষিক রক্ষণাবেক্ষণ × যানবাহনের সংখ্যা.
+  const maintenanceAmount = ceilingToHazar(
+    engineRows.reduce((sum, v) => sum + v.annual_maintenance_allowance * v.count, 0)
+  )
+
+  // One card per fuel category, labelled by the ব্যয় খাত its code names, plus the
+  // motor-vehicle repair code — the same three figures the sheet will carry.
+  const fuelCards = fuelCategories
+    .filter((c) => c.economic_code)
+    .map((c) => ({
+      id: c.id,
+      label: c.economic_code_name || c.name_bn,
+      amount: fuelAmountFor(c.economic_code || ''),
+    }))
+
   const handleSaveAll = async () => {
     if (!submissionId) return
     for (const row of rows) {
@@ -341,13 +406,15 @@ export function Form7Client({
             <Table className="min-w-[640px] table-fixed">
               <TableHeader>
                 <TableRow className="border-slate-100 hover:bg-transparent">
-                  <TableHead className={cn(COL_HEAD, 'w-[8%] text-center')}>{strings.form7.serialColumn}</TableHead>
-                  <TableHead className={cn(COL_HEAD, 'w-[20%] text-center')}>{strings.form7.vehicleType}</TableHead>
-                  <TableHead className={cn(COL_HEAD, 'w-[16%] text-center')}>{strings.form7.fuelType}</TableHead>
-                  <TableHead className={cn(COL_HEAD, 'w-[14%] text-center')}>{strings.form7.countLabel}</TableHead>
-                  <TableHead className={cn(COL_HEAD, 'w-[18%] text-center')}>{strings.form7.maintenanceTotal} ({strings.hazar.unit})</TableHead>
-                  <TableHead className={cn(COL_HEAD, 'w-[14%] text-center')}>{strings.form7.additionalExpense} ({strings.hazar.unit})</TableHead>
-                  <TableHead className={cn(COL_HEAD, 'w-[10%] text-center')}>অ্যাকশন</TableHead>
+                  <TableHead className={cn(COL_HEAD, 'w-[6%] text-center')}>{strings.form7.serialColumn}</TableHead>
+                  <TableHead className={cn(COL_HEAD, hasAdditional ? 'w-[21%]' : 'w-[26%]', 'text-left')}>{strings.form7.vehicleType}</TableHead>
+                  <TableHead className={cn(COL_HEAD, hasAdditional ? 'w-[13%]' : 'w-[16%]', 'text-center')}>{strings.form7.fuelType}</TableHead>
+                  <TableHead className={cn(COL_HEAD, hasAdditional ? 'w-[12%]' : 'w-[16%]', 'text-center')}>{strings.form7.countLabel}</TableHead>
+                  <TableHead className={cn(COL_HEAD, hasAdditional ? 'w-[18%]' : 'w-[24%]', 'text-center')}>{strings.form7.maintenanceTotal}</TableHead>
+                  {hasAdditional && (
+                    <TableHead className={cn(COL_HEAD, 'w-[18%] text-center')}>{strings.form7.additionalExpense}</TableHead>
+                  )}
+                  <TableHead className={cn(COL_HEAD, 'w-[12%] text-center')}>অ্যাকশন</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -359,7 +426,7 @@ export function Form7Client({
                       <TableCell className="px-4 py-2.5 text-center text-slate-400">
                         {toBanglaNumber(idx + 1)}
                       </TableCell>
-                      <TableCell className="px-4 py-2.5 text-center font-bold text-slate-800">
+                      <TableCell className="px-4 py-2.5 text-left font-bold text-slate-800">
                         {row.vehicle_type_name || '—'}
                       </TableCell>
                       <TableCell className="px-4 py-2.5 text-center">
@@ -373,9 +440,11 @@ export function Form7Client({
                       <TableCell className="px-4 py-2.5 text-center font-semibold text-slate-900">
                         <HazarAmount taka={maintenanceTotal} />
                       </TableCell>
-                      <TableCell className="px-4 py-2.5 text-center font-medium text-slate-600">
-                        <HazarAmount taka={row.additional_expense} />
-                      </TableCell>
+                      {hasAdditional && (
+                        <TableCell className="px-4 py-2.5 text-center font-medium text-slate-600">
+                          <HazarAmount taka={row.additional_expense} />
+                        </TableCell>
+                      )}
                       <TableCell className="px-4 py-2.5">
                         <div className="flex items-center justify-center gap-1">
                           <Button
@@ -405,6 +474,31 @@ export function Form7Client({
                 })}
               </TableBody>
             </Table>
+          </div>
+        )}
+
+        {/* Engine preview — the three figures this form feeds the budget sheet, each
+            computed with the same formula the engine runs, so they can never drift. */}
+        {rows.length > 0 && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {fuelCards.map((card) => (
+              <Card key={`fuel-${card.id}`} className="border-amber-100 bg-gradient-to-br from-amber-50 to-white shadow-xs">
+                <CardContent className="space-y-1 p-4">
+                  <p className="text-xs font-semibold text-slate-500">{card.label}</p>
+                  <p className="font-mono text-lg font-bold text-slate-800">
+                    <HazarAmount taka={card.amount} />
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+            <Card className="border-sky-100 bg-gradient-to-br from-sky-50 to-white shadow-xs">
+              <CardContent className="space-y-1 p-4">
+                <p className="text-xs font-semibold text-slate-500">{strings.form7.repairCard}</p>
+                <p className="font-mono text-lg font-bold text-slate-800">
+                  <HazarAmount taka={maintenanceAmount} />
+                </p>
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>

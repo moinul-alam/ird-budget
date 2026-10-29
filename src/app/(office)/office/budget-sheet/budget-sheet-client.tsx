@@ -28,6 +28,7 @@ import { useRouter } from 'next/navigation'
 import { useFormLock } from '@/components/form-lock-provider'
 import { useFormGuard, useRegisterFormGuard } from '@/components/form-guard-provider'
 import { ReportDownloader } from '@/components/report-downloader'
+import { hazarValue } from '@/lib/report/specs'
 import type { ReportRow, ReportSpec } from '@/lib/report/export'
 
 interface BudgetSheetClientProps {
@@ -294,18 +295,23 @@ export function BudgetSheetClient({
       category_id: number | null
       category_code: string
       category_name: string
+      /** The group's own total, so each ব্যয় খাত can show what it amounts to. */
+      subtotal: number
       rows: BudgetSheetRowItem[]
     }[] = []
 
     for (const row of filteredRows) {
+      const effective = row.manual_value !== null ? row.manual_value : row.auto_value || 0
       const last = result[result.length - 1]
       if (last && last.category_id === row.category_id) {
         last.rows.push(row)
+        last.subtotal += effective
       } else {
         result.push({
           category_id: row.category_id,
           category_code: row.category_code,
           category_name: row.category_name,
+          subtotal: effective,
           rows: [row],
         })
       }
@@ -343,6 +349,7 @@ export function BudgetSheetClient({
             name: row.name,
             amount: toBanglaHazar(effective),
           },
+          values: { amount: hazarValue(effective) },
         })
       }
     }
@@ -355,6 +362,7 @@ export function BudgetSheetClient({
         name: strings.budgetSheet.totalRow,
         amount: toBanglaHazar(totalManual),
       },
+      values: { amount: hazarValue(totalManual) },
     })
 
     return {
@@ -366,7 +374,13 @@ export function BudgetSheetClient({
         { key: 'serial', label: strings.budgetSheet.serialColumn, align: 'center', width: 0.6 },
         { key: 'code', label: strings.budgetSheet.codeColumn, align: 'left', width: 1.1 },
         { key: 'name', label: strings.budgetSheet.nameColumn, align: 'left', width: 3.4 },
-        { key: 'amount', label: `${strings.budgetSheet.amountColumn} (${strings.hazar.unit})`, align: 'right', width: 1.8 },
+        {
+          key: 'amount',
+          label: `${strings.budgetSheet.amountColumn} (${strings.hazar.unit})`,
+          align: 'right',
+          width: 1.8,
+          numeric: true,
+        },
       ],
       rows: reportRows,
     }
@@ -596,13 +610,16 @@ export function BudgetSheetClient({
         </CardHeader>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
+            <table className="w-full min-w-[960px] table-fixed text-sm text-left">
               <thead className="bg-slate-100/70 text-slate-700 font-bold border-b border-slate-200 text-xs uppercase tracking-wider">
                 <tr>
-                  <th className="py-3 px-4 w-14 text-center">{strings.budgetSheet.serialColumn}</th>
-                  <th className="py-3 px-4 w-32">{strings.budgetSheet.codeColumn}</th>
-                  <th className="py-3 px-4 min-w-[240px]">{strings.budgetSheet.nameColumn}</th>
-                  <th className="py-3 px-4 text-right w-56">
+                  <th className="w-[10%] py-3 px-6 text-center">{strings.budgetSheet.serialColumn}</th>
+                  <th className="w-[20%] py-3 px-6">{strings.budgetSheet.codeColumn}</th>
+                  <th className="w-[30%] py-3 px-6">{strings.budgetSheet.nameColumn}</th>
+                  {/* Unnamed column: it exists only to hold each ব্যয় খাত's own total, so
+                      the category subtotal never shares a column with a code's amount. */}
+                  <th className="w-[20%] py-3 px-6" />
+                  <th className="w-[20%] py-3 px-6 text-right">
                     {strings.budgetSheet.amountColumn} ({strings.hazar.unit})
                   </th>
                 </tr>
@@ -610,7 +627,7 @@ export function BudgetSheetClient({
               <tbody className="divide-y divide-slate-100">
                 {filteredRows.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="py-12 px-4 text-center text-slate-500">
+                    <td colSpan={5} className="py-12 px-6 text-center text-slate-500">
                       <div className="max-w-md mx-auto space-y-2">
                         <AlertCircle className="h-8 w-8 text-slate-400 mx-auto" />
                         <p className="font-bold text-slate-700">কোনো বাজেট কোড পাওয়া যায়নি</p>
@@ -623,16 +640,23 @@ export function BudgetSheetClient({
                 ) : (
                   groups.map((group, groupIndex) => (
                     <Fragment key={`cat-${group.category_id ?? 'none'}-${groupIndex}`}>
-                      {/* Category break point: groups the codes below it and guides the
-                          reader through the long sheet. */}
+                      {/* Category break point: groups the codes below it, guides the reader
+                          through the long sheet, and carries the group's own subtotal as a
+                          chip — visually distinct from the code amounts below it. */}
                       <tr className="bg-slate-100/80 border-y border-slate-200">
-                        <td className="py-2 px-4" />
-                        <td className="py-2 px-4 font-mono font-black text-slate-600 text-xs">
+                        <td className="py-2 px-6" />
+                        <td className="py-2 px-6 font-mono font-black text-slate-600 text-xs">
                           {group.category_code}
                         </td>
-                        <td colSpan={2} className="py-2 px-4 font-black text-slate-700">
+                        <td className="py-2 px-6 font-black text-slate-700">
                           {group.category_name || 'অন্যান্য'}
                         </td>
+                        <td className="py-2 px-6 pl-2 text-left">
+                          <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-0.5 font-mono text-sm font-bold text-emerald-700">
+                            {toBanglaHazar(group.subtotal)}
+                          </span>
+                        </td>
+                        <td className="py-2 px-6" />
                       </tr>
 
                       {group.rows.map((row) => {
@@ -656,24 +680,27 @@ export function BudgetSheetClient({
                             className={`transition-colors hover:bg-blue-100/80 ${ROW_TINTS[rowIndex % 3]}`}
                           >
                             {/* ক্রম */}
-                            <td className="py-3 px-4 text-center font-mono font-bold text-slate-400 text-xs">
+                            <td className="py-3 px-6 text-center font-mono font-bold text-slate-400 text-xs">
                               {toBanglaNumber(rowIndex + 1)}
                             </td>
 
                             {/* Code */}
-                            <td className="py-3 px-4 font-mono font-bold text-slate-700 text-xs sm:text-sm">
+                            <td className="py-3 px-6 font-mono font-bold text-slate-700 text-xs sm:text-sm">
                               {row.code}
                             </td>
 
                             {/* Name */}
-                            <td className="py-3 px-4 text-slate-800 font-medium">
+                            <td className="py-3 px-6 text-slate-800 font-medium">
                               {row.name}
                             </td>
+
+                            {/* The category-total column; a code has nothing to put here. */}
+                            <td className="py-3 px-6" />
 
                             {/* বরাদ্দের পরিমাণ — একটিই cell: হয় সরাসরি এন্ট্রি, নয়তো হিসাব।
                                 হিসাব করা খাতের পাশে তথ্য আইকন থাকে, যেটি কোন ফর্ম থেকে সংখ্যাটি
                                 এলো সেটি দেখায়। */}
-                            <td className="py-2.5 px-4">
+                            <td className="py-2.5 px-6">
                               <div className="flex items-center justify-end gap-2">
                                 {readOnly ? (
                                   <span
@@ -733,18 +760,23 @@ export function BudgetSheetClient({
               </tbody>
               <tfoot className="bg-slate-100 border-t-2 border-slate-300 font-black text-slate-900 text-sm">
                 <tr>
-                  <td colSpan={3} className="pt-4 px-4 text-right">
+                  <td colSpan={3} className="pt-4 px-6 text-right">
                     {strings.budgetSheet.totalRow}:
                   </td>
-                  <td className="pt-4 px-4 text-right font-mono text-emerald-800 text-base">
+                  <td colSpan={2} className="pt-4 px-6 text-right font-mono text-emerald-800 text-base">
                     {toBanglaHazar(totalManual)}
                   </td>
                 </tr>
                 <tr>
-                  <td colSpan={3} className="pb-4 px-4 text-right">
+                  <td colSpan={3} className="pb-4 px-6 text-right">
                     {strings.budgetSheet.totalWordsRow}:
                   </td>
-                  <td className="pb-4 px-4 text-right text-sm font-bold text-emerald-800">
+                  {/* The spoken total is a long phrase, so it takes two columns and is never
+                      allowed to wrap — it must read as one line. */}
+                  <td
+                    colSpan={2}
+                    className="pb-4 px-6 text-right text-sm font-bold text-emerald-800 whitespace-nowrap"
+                  >
                     {toBanglaHazarWords(totalManual)}{' '}
                     <span className="text-xs">{strings.taka}</span>
                   </td>

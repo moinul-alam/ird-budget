@@ -6,6 +6,7 @@ import {
   toBanglaCurrency,
   toBanglaDate,
   toBanglaDateTime,
+  toBanglaDateShort,
   toBanglaHazarWords,
   toBanglaNumber,
   toBanglaPercent,
@@ -126,6 +127,13 @@ describe('Bangla date and time formatting', () => {
 
   it('joins date and time for a full timestamp', () => {
     expect(toBanglaDateTime(new Date(2026, 0, 5, 14, 30))).toBe('৫ জানুয়ারি ২০২৬, ০২:৩০ অপরাহ্ন')
+  })
+
+  it('renders a stored date as dd-mm-yyyy', () => {
+    expect(toBanglaDateShort('2026-07-01')).toBe('০১-০৭-২০২৬')
+    expect(toBanglaDateShort(new Date(2026, 0, 5))).toBe('০৫-০১-২০২৬')
+    expect(toBanglaDateShort(null)).toBe('—')
+    expect(toBanglaDateShort('not-a-date')).toBe('—')
   })
 
   it('renders an em dash for missing or invalid dates', () => {

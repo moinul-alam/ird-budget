@@ -249,15 +249,24 @@ export interface FuelCategoryItem {
   id: number
   name: string
   name_bn: string
+  /** The engine code this category's cost lands in (৩২৪৩৩০১ / ৩২৪৩৩০২). */
+  economic_code: string | null
+  /** That code's ব্যয় খাত name, e.g. পেট্রোল, অয়েল ও লুব্রিকেন্ট. */
+  economic_code_name: string | null
 }
 
 export async function getFuelCategories(): Promise<FuelCategoryItem[]> {
-  const categories = await prisma.refFuelCategory.findMany({ orderBy: { id: 'asc' } })
+  const categories = await prisma.refFuelCategory.findMany({
+    orderBy: { id: 'asc' },
+    include: { economicCode: { select: { code: true, name: true } } },
+  })
 
   return categories.map((c) => ({
     id: Number(c.id),
     name: c.categoryName,
     name_bn: c.categoryNameBn,
+    economic_code: c.economicCode?.code ?? null,
+    economic_code_name: c.economicCode?.name ?? null,
   }))
 }
 

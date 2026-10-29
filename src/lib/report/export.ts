@@ -18,6 +18,8 @@ export interface ReportColumn {
   align?: 'left' | 'center' | 'right'
   /** Relative width weight (default 1). */
   width?: number
+  /** A money column: its Excel cells are written as numbers, not formatted text. */
+  numeric?: boolean
 }
 
 export interface ReportRow {
@@ -29,6 +31,12 @@ export interface ReportRow {
   section?: ReportSection
   /** Cell text keyed by column `key`. */
   cells?: Record<string, string>
+  /**
+   * Raw numbers keyed by column `key`, for columns declared `numeric`. `cells` keeps the
+   * Bengali text the PDF shows; Excel takes the number instead, so its totals and
+   * formulas work on figures rather than on text it cannot add up.
+   */
+  values?: Record<string, number>
   /** Emphasised styling, e.g. a grand total. */
   emphasis?: boolean
 }
@@ -472,7 +480,14 @@ export async function downloadReportExcel(spec: ReportSpec): Promise<void> {
       sheet.push(cells)
       return
     }
-    sheet.push(spec.columns.map((c) => row.cells?.[c.key] ?? ''))
+    sheet.push(
+      spec.columns.map((c) => {
+        // A money column carries its raw figure alongside the text, and Excel gets the
+        // figure — that is what lets the reader total the column.
+        const value = c.numeric ? row.values?.[c.key] : undefined
+        return value !== undefined ? value : row.cells?.[c.key] ?? ''
+      })
+    )
   })
 
   const worksheet = XLSX.utils.aoa_to_sheet(sheet)

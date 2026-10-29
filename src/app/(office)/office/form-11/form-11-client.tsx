@@ -28,12 +28,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Card, CardContent } from '@/components/ui/card'
 import { saveFormUtilityRow, deleteFormUtilityRow } from '@/lib/actions/forms/utilities'
 import { Plus, Trash2, Edit2, Zap, AlertTriangle, Info } from 'lucide-react'
 import type { FormUtilitiesInitial } from '@/lib/office/load-form-data'
 import { useState, useTransition, useMemo } from 'react'
-import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { HazarAmount } from '@/components/hazar-amount'
 
@@ -60,27 +58,6 @@ const accent = {
   rowAction: 'text-slate-500 hover:text-amber-600 hover:bg-amber-50',
   header: 'bg-amber-50/70 border-amber-100',
   dot: 'bg-amber-500',
-  card: 'bg-gradient-to-br from-slate-50 to-amber-50/40 border-amber-100',
-}
-
-/** One cell of the bottom সারসংক্ষেপ. */
-function SummaryBox({
-  label,
-  value,
-  valueClass,
-}: {
-  label: string
-  value: ReactNode
-  valueClass?: string
-}) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5">
-      <span className="block text-[11px] font-medium text-slate-500">{label}</span>
-      <span className={cn('mt-0.5 block font-mono text-lg font-bold text-slate-800', valueClass)}>
-        {value}
-      </span>
-    </div>
-  )
 }
 
 /** The quiet uppercase heading every column shares; only the alignment varies. */
@@ -239,16 +216,8 @@ export function Form11Client({
     }
   }
 
-  // Summary calculations — both figures are sums of what the table already shows:
-  // the annual costs and the arrears the office entered.
-  const summaryAnnual = useMemo(
-    () => rows.reduce((sum, r) => sum + (r.annual_cost || 0), 0),
-    [rows]
-  )
-  const summaryDue = useMemo(() => rows.reduce((sum, r) => sum + (r.due || 0), 0), [rows])
-
   // Arrears only earn their space when someone actually has them — with none entered
-  // the বকেয়া column and its summary card are dropped, never shown as a row of '—'.
+  // the বকেয়া column is dropped, never shown as a row of '—'.
   const hasDue = rows.some((r) => (r.due || 0) > 0)
 
   return (
@@ -312,10 +281,7 @@ export function Form11Client({
                       {toBanglaNumber(idx + 1)}
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-center font-semibold text-slate-800">
-                      <span className="inline-flex items-center justify-center gap-2">
-                        <span className={cn('h-2 w-2 rounded-full', accent.dot)} />
-                        {row.utility_type_name}
-                      </span>
+                      {row.utility_type_name}
                     </TableCell>
                     <TableCell className="px-4 py-2.5 text-center font-semibold text-slate-900">
                       <HazarAmount taka={row.annual_cost} />
@@ -354,29 +320,6 @@ export function Form11Client({
               </TableBody>
             </Table>
           </div>
-        )}
-
-        {/* Summary Card — the two readouts the office checks at a glance */}
-        {rows.length > 0 && (
-          <Card className={cn('border shadow-xs', accent.card)}>
-            <CardContent className="space-y-4 p-5">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">
-                {strings.form11.title}
-              </h3>
-              <div className={cn('grid grid-cols-1 gap-3', hasDue ? 'sm:grid-cols-2' : 'sm:grid-cols-1')}>
-                <SummaryBox
-                  label={strings.form11.summaryAnnual}
-                  value={<HazarAmount taka={summaryAnnual} />}
-                />
-                {hasDue && (
-                  <SummaryBox
-                    label={strings.form11.summaryDue}
-                    value={<HazarAmount taka={summaryDue} />}
-                  />
-                )}
-              </div>
-            </CardContent>
-          </Card>
         )}
       </div>
 

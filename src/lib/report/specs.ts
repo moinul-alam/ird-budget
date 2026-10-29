@@ -1,4 +1,5 @@
 import { toBanglaHazar, toBanglaNumber } from '@/lib/bangla'
+import { toHazar } from '@/lib/budget/hazar'
 import { groupCodesByCategory, type GroupableCode } from '@/lib/budget/group-codes'
 import { strings } from '@/lib/strings'
 import type { ReportColumn, ReportRow, ReportSpec } from '@/lib/report/export'
@@ -18,7 +19,7 @@ const CODE_COLUMNS: ReportColumn[] = [
   { key: 'serial', label: COLUMNS.serialColumn, align: 'center', width: 0.6 },
   { key: 'code', label: COLUMNS.codeColumn, align: 'left', width: 1.1 },
   { key: 'name', label: COLUMNS.codeNameColumn, align: 'left', width: 3.4 },
-  { key: 'amount', label: COLUMNS.amountColumn, align: 'right', width: 1.6 },
+  { key: 'amount', label: COLUMNS.amountColumn, align: 'right', width: 1.6, numeric: true },
 ]
 
 const OFFICE_TOTAL_COLUMNS: ReportColumn[] = [
@@ -26,7 +27,7 @@ const OFFICE_TOTAL_COLUMNS: ReportColumn[] = [
   { key: 'budgetId', label: COLUMNS.budgetIdColumn, align: 'left', width: 1.5 },
   { key: 'officeName', label: COLUMNS.officeNameColumn, align: 'left', width: 3.2 },
   { key: 'status', label: COLUMNS.statusColumn, align: 'center', width: 1.2 },
-  { key: 'total', label: COLUMNS.officeTotalColumn, align: 'right', width: 1.6 },
+  { key: 'total', label: COLUMNS.officeTotalColumn, align: 'right', width: 1.6, numeric: true },
 ]
 
 const OFFICE_LIST_COLUMNS: ReportColumn[] = [
@@ -41,6 +42,14 @@ const OFFICE_LIST_COLUMNS: ReportColumn[] = [
 /** The হাজার cell text for a report table, matching how the screens blank out zeroes. */
 function amountCell(amount: number): string {
   return amount ? toBanglaHazar(amount) : '—'
+}
+
+/**
+ * The same figure `amountCell` shows, as a plain number on the হাজার scale — the form
+ * Excel needs so a reader can total the column instead of reading Bengali text.
+ */
+export function hazarValue(amount: number): number {
+  return Math.round(toHazar(amount) * 100) / 100
 }
 
 export function reportStatusLabel(status: 'submitted' | 'draft' | 'not_started'): string {
@@ -66,6 +75,7 @@ function buildCodeRows<T extends GroupableCode>(codes: T[]): ReportRow[] {
           name: code.name,
           amount: amountCell(code.amount),
         },
+        values: { amount: hazarValue(code.amount) },
       })
     }
   }
@@ -99,6 +109,7 @@ export function buildCodeWiseSpec(input: CodeWiseSpecInput): ReportSpec {
       name: TOTAL_ROW,
       amount: toBanglaHazar(input.grandTotal),
     },
+    values: { amount: hazarValue(input.grandTotal) },
   })
 
   return { ...specHeader(input.title, input.scopeName, input.headOfficeName), fileName: input.fileName, columns: CODE_COLUMNS, rows }
@@ -130,11 +141,13 @@ export function buildOfficeTotalsSpec(input: OfficeTotalsSpecInput): ReportSpec 
       status: reportStatusLabel(office.status),
       total: amountCell(office.total),
     },
+    values: { total: hazarValue(office.total) },
   }))
 
   rows.push({
     emphasis: true,
     cells: { serial: '', budgetId: '', officeName: TOTAL_ROW, status: '', total: toBanglaHazar(input.grandTotal) },
+    values: { total: hazarValue(input.grandTotal) },
   })
 
   return { ...specHeader(input.title, input.scopeName, input.headOfficeName), fileName: input.fileName, columns: OFFICE_TOTAL_COLUMNS, rows }
