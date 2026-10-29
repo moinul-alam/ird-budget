@@ -6,6 +6,7 @@ import {
   toBanglaCurrency,
   toBanglaDate,
   toBanglaDateTime,
+  toBanglaHazarWords,
   toBanglaNumber,
   toBanglaPercent,
   toBanglaTime,
@@ -84,6 +85,31 @@ describe('toBanglaAmountCompact', () => {
 
   it('renders an em dash for missing values', () => {
     expect(toBanglaAmountCompact(null)).toBe('—')
+  })
+})
+
+describe('toBanglaHazarWords', () => {
+  it('speaks a figure in হাজার words, as the amount field does', () => {
+    expect(toBanglaHazarWords(10000)).toBe('১০ হাজার')
+    expect(toBanglaHazarWords(100000)).toBe('১ লক্ষ')
+    expect(toBanglaHazarWords(110000)).toBe('১ লক্ষ ১০ হাজার')
+  })
+
+  it('reads higher caps as লক্ষ and কোটি', () => {
+    expect(toBanglaHazarWords(999000)).toBe('৯ লক্ষ ৯৯ হাজার')
+    expect(toBanglaHazarWords(9999000)).toBe('৯৯ লক্ষ ৯৯ হাজার')
+    expect(toBanglaHazarWords(99999000)).toBe('৯ কোটি ৯৯ লক্ষ ৯৯ হাজার')
+  })
+
+  it('keeps a typed fraction on the হাজার it landed in', () => {
+    expect(toBanglaHazarWords(110500)).toBe('১ লক্ষ ১০.৫ হাজার')
+    expect(toBanglaHazarWords(10050)).toBe('১০.০৫ হাজার')
+  })
+
+  it('reads zero as হাজার and missing values as an em dash', () => {
+    expect(toBanglaHazarWords(0)).toBe('০ হাজার')
+    expect(toBanglaHazarWords(null)).toBe('—')
+    expect(toBanglaHazarWords('abc')).toBe('—')
   })
 })
 

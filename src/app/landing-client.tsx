@@ -58,6 +58,9 @@ const STEPS = [
   },
 ]
 
+/** How long a complete budget id has to sit untouched in the field before it is looked up. */
+const LOOKUP_DWELL_MS = 2000
+
 export function LandingClient() {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -69,25 +72,48 @@ export function LandingClient() {
   const [englishOnlyWarning, setEnglishOnlyWarning] = useState(false)
   const lookupSeq = useRef(0)
   const lastLookupId = useRef<string | null>(null)
+  // Settles the request that a completed ID earns: it only goes out once typing has stopped.
+  const lookupTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const clearLookupTimer = () => {
+    if (lookupTimer.current !== null) {
+      clearTimeout(lookupTimer.current)
+      lookupTimer.current = null
+    }
+  }
+
+  useEffect(() => () => {
+    if (lookupTimer.current !== null) clearTimeout(lookupTimer.current)
+  }, [])
 
   // While the field is focused it spans the full row; on blur it contracts to exactly the width
   // of the typed digits, and the freed space on the right hosts the lookup status / result.
   const [idFocused, setIdFocused] = useState(false)
   const idMirrorRef = useRef<HTMLSpanElement | null>(null)
+  // A second twin, holding a full-length ID. It is the floor the contract can never go below, so
+  // a 3-digit value and a 13-digit one leave the field exactly the same width and the row does
+  // not reflow when a validation message turns into an office result.
+  const idFloorRef = useRef<HTMLSpanElement | null>(null)
   const [idWidth, setIdWidth] = useState(0)
+  const [idFloorWidth, setIdFloorWidth] = useState(0)
 
-  // Measure the mirror continuously rather than once per keystroke. This keeps the contracted
+  // Measure the twins continuously rather than once per keystroke. This keeps the contracted
   // width correct even when a web font swaps in after the first paint, which would otherwise
   // leave the box too narrow and push the digits under the status chip.
   useEffect(() => {
     const mirror = idMirrorRef.current
-    if (!mirror) return
+    const floor = idFloorRef.current
+    if (!mirror || !floor) return
 
-    const measure = () => setIdWidth(mirror.offsetWidth)
+    const measure = () => {
+      setIdWidth(mirror.offsetWidth)
+      setIdFloorWidth(floor.offsetWidth)
+    }
     measure()
 
     const observer = new ResizeObserver(measure)
     observer.observe(mirror)
+    observer.observe(floor)
     return () => observer.disconnect()
   }, [])
 
@@ -117,8 +143,12 @@ export function LandingClient() {
   // Runs the office lookup. Only ever called with a complete budget id, so no database
   // connection is ever spent on a partial value.
   const runLookup = (englishId: string) => {
-    // Same ID, already resolved (e.g. the blur caused by clicking লগইন করুন) — skip the extra query
-    if (englishId === lastLookupId.current && (lookupState === 'found' || lookupState === 'notFound')) {
+    // Same ID, already resolved or still in flight (e.g. the blur caused by clicking লগইন করুন,
+    // or the dwell firing just before it) — skip the extra query
+    if (
+      englishId === lastLookupId.current &&
+      (lookupState === 'searching' || lookupState === 'found' || lookupState === 'notFound')
+    ) {
       return
     }
     lastLookupId.current = englishId
@@ -140,6 +170,7 @@ export function LandingClient() {
 
   // Background lookup — fires on blur / Enter, never steals focus from the password field
   const handleLookup = () => {
+    clearLookupTimer()
     const englishId = toEnglishNumber(budgetId.trim())
 
     if (englishId.length !== BUDGET_ID_LENGTH) {
@@ -161,13 +192,21 @@ export function LandingClient() {
     const nextId = digitsOnly.slice(0, BUDGET_ID_LENGTH)
     setBudgetId(nextId)
 
-    // Editing the ID invalidates any previous result
+    // Editing the ID invalidates any previous result, and cancels the request the old value
+    // had already earned.
+    clearLookupTimer()
     lookupSeq.current += 1
     setLookupOffice(null)
+    setLookupState('idle')
 
-    // The moment the last digit lands, look the office up — no need to wait for a blur
-    if (nextId.length === BUDGET_ID_LENGTH) runLookup(nextId)
-    else setLookupState('idle')
+    // A complete ID is looked up on its own after a short pause inside the field, so the office
+    // never has to click away to see the name; a blur resolves it immediately instead.
+    if (nextId.length === BUDGET_ID_LENGTH) {
+      lookupTimer.current = setTimeout(() => {
+        lookupTimer.current = null
+        runLookup(nextId)
+      }, LOOKUP_DWELL_MS)
+    }
   }
 
   // Login — single step, no separate confirm screen
@@ -292,9 +331,12 @@ export function LandingClient() {
     })
   }
 
-  // Lookup feedback. It only exists while the field is contracted (i.e. after a blur) or when
-  // there is a validation warning while typing, and sits inline to the right of the input.
-  const shouldContract = (!idFocused && budgetId.length > 0) || (idFocused && englishOnlyWarning)
+  // Lookup feedback sits inline to the right of the input, which contracts to make room for it.
+  // The chip claims that space as soon as there is anything to say — a warning, a settled
+  // result — so the office name appears without leaving the field, and it stays for any content
+  // once the field has been left behind.
+  const hasStatus = englishOnlyWarning || lookupState !== 'idle'
+  const shouldContract = hasStatus || (!idFocused && budgetId.length > 0)
 
   const lookupTitle = lookupOffice
     ? lookupOffice.headOffice
@@ -328,10 +370,12 @@ export function LandingClient() {
     >
       <CheckCircle2 className={`${chipIcon} text-emerald-600`} />
       <span className={`${chipText} flex flex-col`}>
-        {/* Field office: name on top, head office on the second line. Head office: name only. */}
-        <span>{lookupOffice.name}</span>
+        {/* Field office: name on top, head office on the second line. Head office: name only.
+            Each line is capped at a single row, so a long pair ellipsises inside the chip
+            instead of wrapping to a third line and overrunning the fixed height. */}
+        <span className="truncate">{lookupOffice.name}</span>
         {lookupOffice.headOffice && (
-          <span className="font-semibold text-emerald-600/80">{lookupOffice.headOffice}</span>
+          <span className="truncate font-semibold text-emerald-600/80">{lookupOffice.headOffice}</span>
         )}
       </span>
     </span>
@@ -420,11 +464,16 @@ export function LandingClient() {
                   {strings.landing.budgetIdLabel} <span className="text-red-500">*</span>
                 </label>
                 <div className="flex items-center gap-3">
-                  {/* The field keeps the full row while focused, then contracts to the exact width
-                      of the typed digits so the status can sit beside it without moving anything. */}
+                  {/* The field keeps the full row while it has nothing to report, then contracts
+                      to the width of a complete ID so the status can sit beside it without
+                      moving anything, whatever the status happens to be. */}
                   <div
                     className="relative shrink-0 transition-[width] duration-300 ease-out"
-                    style={{ width: shouldContract ? `${Math.max(idWidth, 48)}px` : '100%' }}
+                    style={{
+                      width: shouldContract
+                        ? `${Math.max(idWidth, idFloorWidth, 48)}px`
+                        : '100%',
+                    }}
                   >
                     <input
                       type="text"
@@ -461,6 +510,15 @@ export function LandingClient() {
                       className="invisible absolute left-0 top-0 w-max whitespace-pre rounded-2xl border border-transparent px-4 py-3 text-base font-semibold"
                     >
                       {budgetId || '0'}
+                    </span>
+                    {/* The floor twin — a full-length ID, so the contract never drops below the
+                        width the completed field needs. */}
+                    <span
+                      ref={idFloorRef}
+                      aria-hidden
+                      className="invisible absolute left-0 top-0 w-max whitespace-pre rounded-2xl border border-transparent px-4 py-3 text-base font-semibold"
+                    >
+                      {'0'.repeat(BUDGET_ID_LENGTH)}
                     </span>
                   </div>
 

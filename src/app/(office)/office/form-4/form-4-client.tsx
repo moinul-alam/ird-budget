@@ -2,7 +2,7 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaHazar, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaHazar, toBanglaHazarWords, toBanglaNumber } from '@/lib/bangla'
 import { AmountField } from '@/components/amount-field'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -195,6 +195,14 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
     )
   }, [selectedGrade, countInput, basicInput, dateInput])
 
+  // The count as the row will hold it, and whether a salary was typed without one. The
+  // money is paid to the posts, so a row carrying a figure and no count would be stored
+  // against nobody: the modal refuses to commit it, and `guardStaffCount` re-applies the
+  // same rule on the server.
+  const countValue = parseInt(countInput, 10) || 0
+  const countMissing = Boolean(basicInput.trim()) && countValue <= 0
+  const canCommitRow = Boolean(selectedGrade) && countValue > 0
+
   const openAddModal = () => {
     setEditingIndex(null)
     setSelectedGrade(staffGrades[0]?.id ? String(staffGrades[0].id) : '')
@@ -234,15 +242,16 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
     }
   }
 
-  // The modal's inputs as a row, or null when the grade is not usable yet.
+  // The modal's inputs as a row, or null when the grade is not usable yet — which
+  // includes a row with no headcount, since the salary would then belong to nobody.
   const modalRowFromInputs = (): NewStaffRecord | null => {
     const gradeId = parseInt(selectedGrade, 10)
-    if (!gradeId || isNaN(gradeId)) return null
+    if (!gradeId || isNaN(gradeId) || countValue <= 0) return null
     const { months } = calculateRemainingMonths(dateInput, fiscalYear)
     const monthlyBasic = parseFloat(basicInput) || 0
     return {
       grade_id: gradeId,
-      count: parseInt(countInput, 10) || 0,
+      count: countValue,
       monthly_basic: monthlyBasic,
       expected_date: dateInput,
       remaining_months: months,
@@ -606,19 +615,26 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                       {strings.form4.staffRowLabel}
                     </span>
                   </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
                     <SummaryBox
                       label={strings.form4.summaryCountLabel}
                       value={`${toBanglaNumber(totals.grand.count)} ${strings.form4.personUnit}`}
                     />
                     <SummaryBox
                       label={strings.form4.summaryBasicLabel}
-                      value={`${toBanglaHazar(totals.grand.monthly_basic)} ${strings.hazar.unit}`}
+                      value={`${toBanglaHazarWords(totals.grand.monthly_basic)} ${strings.taka}`}
                       valueClass={accent.officerValue}
                     />
                     <SummaryBox
                       label={strings.form4.summaryDateLabel}
                       value={expectedDateText || '—'}
+                    />
+                    {/* The engine reads a new recruit's own `total_salary` — the month of
+                        basic already stretched over the row's remaining months — so the
+                        বার্ষিক box is that sum, not a figure annualised a second time. */}
+                    <SummaryBox
+                      label={strings.form4.annualSummaryLabel}
+                      value={`${toBanglaHazarWords(totals.grand.total_salary)} ${strings.taka}`}
                     />
                   </div>
                 </div>
@@ -692,6 +708,11 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                   onChange={(e) => setCountInput(e.target.value)}
                   className={cn('h-10 rounded-xl font-mono', accent.focus)}
                 />
+                {countMissing && (
+                  <p className="text-[11px] font-bold leading-4 text-rose-600">
+                    {strings.countMissing}
+                  </p>
+                )}
               </div>
 
               {/* Monthly Basic Salary */}
@@ -750,7 +771,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                 </div>
                 <div className="flex justify-between border-t border-emerald-200 pt-1">
                   <span className="font-bold">{strings.form4.estimatedCost}</span>
-                  <span className="font-mono font-bold">{toBanglaHazar(modalTotalSalary)} {strings.hazar.unit}</span>
+                  <span className="font-mono font-bold">{toBanglaHazarWords(modalTotalSalary)} {strings.taka}</span>
                 </div>
               </div>
             )}
@@ -770,7 +791,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                 type="button"
                 variant="outline"
                 onClick={handleSaveAndAddMore}
-                disabled={!selectedGrade || !countInput || !basicInput || !dateInput || !modalDateInfo.inRange}
+                disabled={!canCommitRow || !basicInput || !dateInput || !modalDateInfo.inRange}
                 className={cn('rounded-xl text-xs font-bold', accent.emptyButton)}
               >
                 <Plus className="h-3.5 w-3.5 mr-1" />

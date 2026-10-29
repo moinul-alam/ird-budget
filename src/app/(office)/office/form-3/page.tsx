@@ -1,7 +1,7 @@
 import { getOfficeSession } from '@/lib/session'
 import { redirect } from 'next/navigation'
 import { Form3Client } from './form-3-client'
-import { loadFormStaffSuspendedInitial, loadGrades } from '@/lib/office/load-form-data'
+import { loadFormStaffSuspendedInitial, loadGrades, loadSalaryMonths } from '@/lib/office/load-form-data'
 
 export default async function Form3Page() {
   const session = await getOfficeSession()
@@ -9,9 +9,10 @@ export default async function Form3Page() {
 
   const submissionId = session.submission_id || null
 
-  const [initialData, grades] = await Promise.all([
+  const [initialData, grades, salaryMonths] = await Promise.all([
     submissionId != null ? loadFormStaffSuspendedInitial(submissionId) : Promise.resolve([]),
     loadGrades(),
+    loadSalaryMonths(),
   ])
 
   return (
@@ -19,6 +20,7 @@ export default async function Form3Page() {
       initialData={initialData}
       submissionId={submissionId}
       grades={grades}
+      salaryMonths={salaryMonths}
     />
   )
 }

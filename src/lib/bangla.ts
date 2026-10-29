@@ -68,6 +68,40 @@ export function toBanglaHazar(number: number | string | null | undefined): strin
 }
 
 /**
+ * A হাজার amount spelled out in the words the office reads it in — the readout above
+ * an amount field: 10,000 taka → '১০ হাজার', 1,00,000 → '১ লক্ষ', 1,10,000 →
+ * '১ লক্ষ ১০ হাজার'. The scale is the হাজার one the field itself speaks, so a hundred
+ * হাজার is a লক্ষ and ten thousand হাজার a কোটি. A typed fraction rides on the last
+ * unit it lands in: 1,10,500 → '১ লক্ষ ১০.৫ হাজার'.
+ */
+export function toBanglaHazarWords(number: number | string | null | undefined): string {
+  if (number === null || number === undefined || number === '') return '—';
+  const hazar = Number(number) / 1000;
+  if (!Number.isFinite(hazar)) return '—';
+
+  const sign = hazar < 0 ? '-' : '';
+  const rounded = Math.round(Math.abs(hazar) * 100) / 100;
+  const whole = Math.trunc(rounded);
+  const fraction = Math.round((rounded - whole) * 100);
+
+  const crore = Math.floor(whole / 10000);
+  const lakh = Math.floor((whole % 10000) / 100);
+  const hazars = whole % 100;
+
+  const parts: string[] = [];
+  if (crore) parts.push(`${toBanglaNumber(crore)} কোটি`);
+  if (lakh) parts.push(`${toBanglaNumber(lakh)} লক্ষ`);
+  if (hazars || fraction || parts.length === 0) {
+    const decimals = fraction
+      ? `.${toBanglaNumber(String(fraction).padStart(2, '0').replace(/0+$/, ''))}`
+      : '';
+    parts.push(`${toBanglaNumber(hazars)}${decimals} হাজার`);
+  }
+
+  return sign + parts.join(' ');
+}
+
+/**
  * Short form of an amount for tight spots (chart centres, chips), on the Indian
  * crore/lakh scale: 123456789 → ১২.৩৫ কোটি. Use `toBanglaAmount` where the exact
  * figure matters.

@@ -2,12 +2,9 @@ import { prisma } from '@/lib/db/client'
 import { getOfficeSession } from '@/lib/session'
 import { getSubmissionDigitCap } from '@/lib/budget/sheet'
 import {
-  TAKA_PER_HAZAR,
   exceedsDigitCap,
-  hazarCapCeiling,
   toHazar,
 } from '@/lib/budget/hazar'
-import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
 import { strings } from '@/lib/strings'
 
 /**
@@ -68,12 +65,26 @@ export async function guardDigitCap(
   )
   if (!over) return null
 
-  const maxHazar = hazarCapCeiling(cap)
-  return {
-    error: strings.hazar.capExceeded(
-      toBanglaNumber(cap),
-      toBanglaNumber(maxHazar),
-      toBanglaAmount(maxHazar * TAKA_PER_HAZAR)
-    ),
-  }
+  return { error: strings.hazar.capExceeded }
+}
+
+/**
+ * Refuses a salary that arrives without the headcount it belongs to.
+ *
+ * The modal already withholds a figure until a count is typed, but a count reaches the
+ * server as a plain number like every other field, so the same rule is re-applied where
+ * the amounts actually land — otherwise a crafted request could store a salary against
+ * nobody. The guard names no field of its own: each caller pairs one count with the
+ * amounts that belong to it.
+ */
+export function guardStaffCount(
+  rows: Array<{ count: number; salary: Array<number | null | undefined> }>
+): { error: string } | null {
+  const orphaned = rows.some(
+    (row) =>
+      !(row.count > 0) &&
+      row.salary.some((amount) => amount !== null && amount !== undefined && amount > 0)
+  )
+
+  return orphaned ? { error: strings.countMissing } : null
 }

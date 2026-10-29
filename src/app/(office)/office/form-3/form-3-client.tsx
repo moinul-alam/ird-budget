@@ -2,7 +2,7 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaHazar, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaHazar, toBanglaHazarWords, toBanglaNumber } from '@/lib/bangla'
 import { AmountField } from '@/components/amount-field'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -61,6 +61,12 @@ interface Form3ClientProps {
   initialData: FormStaffSuspendedInitial
   submissionId: number | null
   grades: GradeRow[]
+  /**
+   * The cycle's বেতন-মাস — the engine's own annualising multiplier. The summary's
+   * বার্ষিক box is computed with it so the figure the office sees is the one the
+   * sheet will carry, never a month count this form assumed.
+   */
+  salaryMonths: number
 }
 
 /**
@@ -105,7 +111,7 @@ function SummaryBox({
   )
 }
 
-export function Form3Client({ initialData, submissionId, grades }: Form3ClientProps) {
+export function Form3Client({ initialData, submissionId, grades, salaryMonths }: Form3ClientProps) {
   const gradeById = useMemo(() => new Map(grades.map((g) => [g.id, g])), [grades])
 
   const initialRows = useMemo<SuspendedStaffRow[]>(
@@ -161,6 +167,14 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
     )
   }, [selectedGrade, countInput, basicInput, dueInput])
 
+  // The count as the row will hold it, and whether a figure was typed without one. A
+  // salary is what the headcount is paid for, so a row carrying one with no count would
+  // be stored against nobody: the modal refuses to commit it, and `guardStaffCount`
+  // re-applies the same rule on the server.
+  const countValue = parseInt(countInput, 10) || 0
+  const countMissing = Boolean(basicInput.trim() || dueInput.trim()) && countValue <= 0
+  const canCommitRow = Boolean(selectedGrade) && countValue > 0
+
   // Available grades (not yet added, except currently editing)
   const availableGrades = useMemo(() => {
     const used = new Set(
@@ -213,13 +227,14 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
     }
   }
 
-  // The modal's inputs as a row, or null when the grade is not usable yet.
+  // The modal's inputs as a row, or null when the grade is not usable yet — which
+  // includes a row with no headcount, since the salary would then belong to nobody.
   const modalRowFromInputs = (): SuspendedStaffRow | null => {
     const gradeId = parseInt(selectedGrade, 10)
-    if (!gradeId || isNaN(gradeId)) return null
+    if (!gradeId || isNaN(gradeId) || countValue <= 0) return null
     return {
       grade_id: gradeId,
-      suspended_count: parseInt(countInput, 10) || 0,
+      suspended_count: countValue,
       suspended_total_basic: parseFloat(basicInput) || 0,
       suspended_due_salary: parseFloat(dueInput) || 0,
     }
@@ -317,24 +332,40 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
     let officerCount = 0
     let officerBasic = 0
     let officerDue = 0
+    let officerAnnual = 0
     let staffCount = 0
     let staffBasic = 0
     let staffDue = 0
+    let staffAnnual = 0
 
     rows.forEach((r) => {
+      // The engine's own salary formula: a month of basic stretched over বেতন-মাস,
+      // plus the arrears, which are added once and never multiplied.
+      const annual = (r.suspended_total_basic || 0) * salaryMonths + (r.suspended_due_salary || 0)
       if (isOfficer(r)) {
         officerCount += r.suspended_count || 0
         officerBasic += r.suspended_total_basic || 0
         officerDue += r.suspended_due_salary || 0
+        officerAnnual += annual
       } else {
         staffCount += r.suspended_count || 0
         staffBasic += r.suspended_total_basic || 0
         staffDue += r.suspended_due_salary || 0
+        staffAnnual += annual
       }
     })
 
-    return { officerCount, officerBasic, officerDue, staffCount, staffBasic, staffDue }
-  }, [rows, isOfficer])
+    return {
+      officerCount,
+      officerBasic,
+      officerDue,
+      officerAnnual,
+      staffCount,
+      staffBasic,
+      staffDue,
+      staffAnnual,
+    }
+  }, [rows, isOfficer, salaryMonths])
 
   // Save entire form state to database
   const handleSaveAll = async () => {
@@ -534,7 +565,7 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
           </div>
         )}
 
-        {/* Summary Card — one row per employee category, three boxes inside each */}
+        {/* Summary Card — one row per employee category, four boxes inside each */}
         {rows.length > 0 && (
           <Card className={cn('border shadow-xs', accent.card)}>
             <CardContent className="space-y-4 p-5">
@@ -550,19 +581,23 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
                     {strings.form3.officerRowLabel}
                   </span>
                 </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
                   <SummaryBox
                     label={strings.form3.officerCountLabel}
                     value={`${toBanglaNumber(summary.officerCount)} ${strings.form3.personUnit}`}
                   />
                   <SummaryBox
                     label={strings.form3.monthlyBasicSummaryLabel}
-                    value={`${toBanglaHazar(summary.officerBasic)} ${strings.hazar.unit}`}
+                    value={`${toBanglaHazarWords(summary.officerBasic)} ${strings.taka}`}
                     valueClass={accent.officerValue}
                   />
                   <SummaryBox
                     label={strings.form3.dueSummaryLabel}
-                    value={summary.officerDue ? `${toBanglaHazar(summary.officerDue)} ${strings.hazar.unit}` : '—'}
+                    value={summary.officerDue ? `${toBanglaHazarWords(summary.officerDue)} ${strings.taka}` : '—'}
+                  />
+                  <SummaryBox
+                    label={strings.form3.annualSummaryLabel}
+                    value={`${toBanglaHazarWords(summary.officerAnnual)} ${strings.taka}`}
                   />
                 </div>
               </div>
@@ -575,19 +610,23 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
                     {strings.form3.staffRowLabel}
                   </span>
                 </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
                   <SummaryBox
                     label={strings.form3.staffCountLabel}
                     value={`${toBanglaNumber(summary.staffCount)} ${strings.form3.personUnit}`}
                   />
                   <SummaryBox
                     label={strings.form3.monthlyBasicSummaryLabel}
-                    value={`${toBanglaHazar(summary.staffBasic)} ${strings.hazar.unit}`}
+                    value={`${toBanglaHazarWords(summary.staffBasic)} ${strings.taka}`}
                     valueClass={accent.staffValue}
                   />
                   <SummaryBox
                     label={strings.form3.dueSummaryLabel}
-                    value={summary.staffDue ? `${toBanglaHazar(summary.staffDue)} ${strings.hazar.unit}` : '—'}
+                    value={summary.staffDue ? `${toBanglaHazarWords(summary.staffDue)} ${strings.taka}` : '—'}
+                  />
+                  <SummaryBox
+                    label={strings.form3.annualSummaryLabel}
+                    value={`${toBanglaHazarWords(summary.staffAnnual)} ${strings.taka}`}
                   />
                 </div>
               </div>
@@ -677,6 +716,11 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
                   onChange={(e) => setCountInput(e.target.value)}
                   className={cn('h-10 rounded-xl font-mono', accent.focus)}
                 />
+                {countMissing && (
+                  <p className="text-[11px] font-bold leading-4 text-rose-600">
+                    {strings.countMissing}
+                  </p>
+                )}
               </div>
 
               {/* Total Basic */}
@@ -723,7 +767,7 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
                 type="button"
                 variant="outline"
                 onClick={handleSaveAndAddMore}
-                disabled={!selectedGrade || (!countInput && !basicInput)}
+                disabled={!canCommitRow}
                 className={cn('rounded-xl text-xs font-bold', accent.emptyButton)}
               >
                 <Plus className="h-3.5 w-3.5 mr-1" />

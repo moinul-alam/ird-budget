@@ -48,11 +48,8 @@ export const strings = {
     unit: 'হাজার টাকা',
     /** Short badge inside an amount field. */
     badge: 'হাজার',
-    /** The readout above an amount field, spelling out what the typed figure is worth. */
-    readout: (taka: string) => `= ${taka} টাকা`,
     /** Replaces the entry when it needs more digits than the office level allows. */
-    capExceeded: (cap: string, maxHazar: string, maxTaka: string) =>
-      `হাজারে ইনপুট দিন — সর্বোচ্চ ${cap} ডিজিট (সর্বোচ্চ ${maxHazar} হাজার = ${maxTaka} টাকা)। উদাহরণ: ১০,০০০ টাকা লিখতে ১০ লিখুন।`,
+    capExceeded: 'হাজারে ইনপুট দিতে হবে। যেমনঃ ১,০০,০০০ টাকা লিখতে ১০০ ইনপুট দিন।',
   },
 
   yes: 'হ্যাঁ',
@@ -61,6 +58,8 @@ export const strings = {
   select: 'নির্বাচন করুন',
   required: 'এই তথ্যটি আবশ্যক',
   optional: '(ঐচ্ছিক)',
+  /** Shown when a salary was entered but the headcount it belongs to was not. */
+  countMissing: 'সংখ্যা ছাড়া বেতন সংরক্ষণ করা যাবে না — প্রথমে সংখ্যা ইনপুট দিন।',
   na: 'প্রযোজ্য নয়',
 
   unsavedChanges: {
@@ -162,6 +161,7 @@ export const strings = {
     staffBasicLabel: 'কর্মচারীদের মোট মূল বেতন',
     summaryTitle: 'বেতন তথ্যের সারসংক্ষেপ',
     monthlyBasicSummaryLabel: 'একমাসের মোট মূলবেতন',
+    annualSummaryLabel: 'বার্ষিক',
     dueSummaryLabel: 'বকেয়া',
     personUnit: 'জন',
     emptyState: 'কোনো বেতনের তথ্য যোগ করা হয়নি। তথ্য যোগ করতে ওপরের বাটনে চাপুন।',
@@ -198,6 +198,7 @@ export const strings = {
     staffBasicLabel: 'বরখাস্তকৃত কর্মচারীদের মোট মূল বেতন',
     summaryTitle: 'বরখাস্তকৃত কর্মকর্তা/কর্মচারীর বিবরণী সারসংক্ষেপ',
     monthlyBasicSummaryLabel: 'একমাসের মোট মূলবেতন',
+    annualSummaryLabel: 'বার্ষিক',
     dueSummaryLabel: 'বকেয়া',
     personUnit: 'জন',
     emptyState: 'কোনো সাময়িক বরখাস্তকৃত কর্মকর্তা/কর্মচারীর তথ্য নেই। তথ্য থাকলে ওপরের বাটনে চাপুন।',
@@ -251,6 +252,7 @@ export const strings = {
     summaryTitle: 'নবনিয়োগ তথ্যের সারসংক্ষেপ',
     summaryCountLabel: 'নিয়োগযোগ্য কর্মচারীর',
     summaryBasicLabel: 'সম্ভাব্য একমাসের মোট মূলবেতন',
+    annualSummaryLabel: 'বার্ষিক',
     summaryDateLabel: 'সম্ভাব্য নিয়োগের তারিখ',
     personUnit: 'জন',
     vacantPostLabel: 'মোট সম্ভাব্য নিয়োগপ্রাপ্ত পদ:',
