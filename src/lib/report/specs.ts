@@ -1,4 +1,4 @@
-import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaHazar, toBanglaNumber } from '@/lib/bangla'
 import { groupCodesByCategory, type GroupableCode } from '@/lib/budget/group-codes'
 import { strings } from '@/lib/strings'
 import type { ReportColumn, ReportRow, ReportSpec } from '@/lib/report/export'
@@ -38,9 +38,9 @@ const OFFICE_LIST_COLUMNS: ReportColumn[] = [
   { key: 'status', label: COLUMNS.statusColumn, align: 'center', width: 1.2 },
 ]
 
-/** The ৳ cell text for a report table, matching how the screens blank out zeroes. */
+/** The হাজার cell text for a report table, matching how the screens blank out zeroes. */
 function amountCell(amount: number): string {
-  return amount ? toBanglaAmount(amount) : '—'
+  return amount ? toBanglaHazar(amount) : '—'
 }
 
 export function reportStatusLabel(status: 'submitted' | 'draft' | 'not_started'): string {
@@ -97,7 +97,7 @@ export function buildCodeWiseSpec(input: CodeWiseSpecInput): ReportSpec {
       serial: '',
       code: '',
       name: TOTAL_ROW,
-      amount: toBanglaAmount(input.grandTotal),
+      amount: toBanglaHazar(input.grandTotal),
     },
   })
 
@@ -134,7 +134,7 @@ export function buildOfficeTotalsSpec(input: OfficeTotalsSpecInput): ReportSpec 
 
   rows.push({
     emphasis: true,
-    cells: { serial: '', budgetId: '', officeName: TOTAL_ROW, status: '', total: toBanglaAmount(input.grandTotal) },
+    cells: { serial: '', budgetId: '', officeName: TOTAL_ROW, status: '', total: toBanglaHazar(input.grandTotal) },
   })
 
   return { ...specHeader(input.title, input.scopeName, input.headOfficeName), fileName: input.fileName, columns: OFFICE_TOTAL_COLUMNS, rows }

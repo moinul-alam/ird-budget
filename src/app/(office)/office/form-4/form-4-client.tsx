@@ -2,7 +2,8 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaHazar, toBanglaNumber } from '@/lib/bangla'
+import { AmountField } from '@/components/amount-field'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -434,10 +435,10 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                       <TableHead className="w-16 text-center font-bold text-slate-700">ক্রম</TableHead>
                       <TableHead className="w-28 font-bold text-slate-700">{strings.form4.gradeColumn}</TableHead>
                       <TableHead className="text-right font-bold text-slate-700">{strings.form4.countColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form4.basicColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form4.basicColumn} ({strings.hazar.unit})</TableHead>
                       <TableHead className="text-center font-bold text-slate-700">{strings.form4.dateColumn}</TableHead>
                       <TableHead className="text-center font-bold text-slate-700">{strings.form4.monthsColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form4.totalSalaryColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form4.totalSalaryColumn} ({strings.hazar.unit})</TableHead>
                       <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -452,7 +453,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                         </TableCell>
                         <TableCell className="text-right font-mono font-medium">{toBanglaNumber(row.count)}</TableCell>
                         <TableCell className="text-right font-mono font-medium text-slate-800">
-                          {toBanglaAmount(row.monthly_basic)}
+                          {toBanglaHazar(row.monthly_basic)}
                         </TableCell>
                         <TableCell className="text-center font-mono text-xs">
                           {row.expected_date ? toBanglaNumber(row.expected_date) : '—'}
@@ -461,7 +462,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                           {toBanglaNumber(row.remaining_months)} মাস
                         </TableCell>
                         <TableCell className="text-right font-mono font-bold text-slate-900">
-                          {toBanglaAmount(row.total_salary)}
+                          {toBanglaHazar(row.total_salary)}
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-1">
@@ -495,7 +496,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                       <TableCell className="text-right font-mono">—</TableCell>
                       <TableCell colSpan={2} className="text-center">—</TableCell>
                       <TableCell className={cn('text-right font-mono font-extrabold', accent.officerValue)}>
-                        {toBanglaAmount(totals.officers.total_salary)}
+                        {toBanglaHazar(totals.officers.total_salary)}
                       </TableCell>
                       <TableCell />
                     </TableRow>
@@ -522,10 +523,10 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                       <TableHead className="w-16 text-center font-bold text-slate-700">ক্রম</TableHead>
                       <TableHead className="w-28 font-bold text-slate-700">{strings.form4.gradeColumn}</TableHead>
                       <TableHead className="text-right font-bold text-slate-700">{strings.form4.countColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form4.basicColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form4.basicColumn} ({strings.hazar.unit})</TableHead>
                       <TableHead className="text-center font-bold text-slate-700">{strings.form4.dateColumn}</TableHead>
                       <TableHead className="text-center font-bold text-slate-700">{strings.form4.monthsColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form4.totalSalaryColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form4.totalSalaryColumn} ({strings.hazar.unit})</TableHead>
                       <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -540,7 +541,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                         </TableCell>
                         <TableCell className="text-right font-mono font-medium">{toBanglaNumber(row.count)}</TableCell>
                         <TableCell className="text-right font-mono font-medium text-slate-800">
-                          {toBanglaAmount(row.monthly_basic)}
+                          {toBanglaHazar(row.monthly_basic)}
                         </TableCell>
                         <TableCell className="text-center font-mono text-xs">
                           {row.expected_date ? toBanglaNumber(row.expected_date) : '—'}
@@ -549,7 +550,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                           {toBanglaNumber(row.remaining_months)} মাস
                         </TableCell>
                         <TableCell className="text-right font-mono font-bold text-slate-900">
-                          {toBanglaAmount(row.total_salary)}
+                          {toBanglaHazar(row.total_salary)}
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-1">
@@ -583,7 +584,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                       <TableCell className="text-right font-mono">—</TableCell>
                       <TableCell colSpan={2} className="text-center">—</TableCell>
                       <TableCell className="text-right font-mono font-extrabold text-slate-900">
-                        {toBanglaAmount(totals.staff.total_salary)}
+                        {toBanglaHazar(totals.staff.total_salary)}
                       </TableCell>
                       <TableCell />
                     </TableRow>
@@ -612,7 +613,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                     />
                     <SummaryBox
                       label={strings.form4.summaryBasicLabel}
-                      value={`${toBanglaAmount(totals.grand.monthly_basic)} টাকা`}
+                      value={`${toBanglaHazar(totals.grand.monthly_basic)} ${strings.hazar.unit}`}
                       valueClass={accent.officerValue}
                     />
                     <SummaryBox
@@ -698,13 +699,11 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                 <Label htmlFor="basic_input" className="text-xs font-bold text-slate-700">
                   {strings.form4.basicColumn}
                 </Label>
-                <Input
+                <AmountField
                   id="basic_input"
-                  type="number"
-                  min="0"
-                  placeholder="যেমন: ২২০০০"
+                  placeholder="যেমন: ২২"
                   value={basicInput}
-                  onChange={(e) => setBasicInput(e.target.value)}
+                  onValueChange={(taka) => setBasicInput(taka)}
                   className={cn('h-10 rounded-xl font-mono', accent.focus)}
                 />
               </div>
@@ -751,7 +750,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                 </div>
                 <div className="flex justify-between border-t border-emerald-200 pt-1">
                   <span className="font-bold">{strings.form4.estimatedCost}</span>
-                  <span className="font-mono font-bold">{toBanglaAmount(modalTotalSalary)} টাকা</span>
+                  <span className="font-mono font-bold">{toBanglaHazar(modalTotalSalary)} {strings.hazar.unit}</span>
                 </div>
               </div>
             )}

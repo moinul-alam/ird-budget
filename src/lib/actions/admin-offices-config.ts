@@ -7,6 +7,7 @@ import { prisma } from '@/lib/db/client'
 import { getAdminSession } from '@/lib/auth-admin'
 import { revalidatePath, updateTag } from 'next/cache'
 import { ADMIN_DATA_TAG } from '@/lib/budget/fetcher'
+import { DEFAULT_DIGIT_CAP } from '@/lib/budget/hazar'
 import { budgetDataBlockMessage } from '@/lib/office/budget-data'
 
 export interface MinistryItem {
@@ -47,6 +48,8 @@ export interface OfficeLevelItem {
   department_name?: string
   level_name: string
   level_order: number
+  /** How many digits this level's offices may type in one হাজার amount field. */
+  digit_cap: number
   created_at?: string
 }
 
@@ -459,6 +462,7 @@ export async function getOfficeLevels(): Promise<OfficeLevelItem[]> {
     department_name: l.department?.name,
     level_name: l.levelName,
     level_order: l.levelOrder,
+    digit_cap: l.digitCap,
     created_at: l.createdAt.toISOString(),
   }))
 }
@@ -469,6 +473,7 @@ export async function saveOfficeLevel(data: {
   owner_id: string
   level_name: string
   level_order?: number
+  digit_cap?: number
 }) {
   const session = await getAdminSession()
   if (!session) return { error: 'অননুমোদিত প্রবেশাধিকার' }
@@ -490,14 +495,17 @@ export async function saveOfficeLevel(data: {
     // Tier 3 is the first field-office level (ministry = 1, department = 2). The modal always
     // sends an explicit order, so the fallback only guards a caller that omits one.
     const levelOrder = data.level_order ?? 3
+    // The cap decides how large a হাজার figure the level's offices may type, so it is kept
+    // inside a usable range rather than trusted blindly from the form.
+    const digitCap = Math.min(Math.max(Math.trunc(data.digit_cap ?? DEFAULT_DIGIT_CAP), 1), 9)
     if (data.id) {
       await prisma.coreOfficeLevel.update({
         where: { id: BigInt(data.id) },
-        data: { ...ownership, levelName: trimmedName, levelOrder },
+        data: { ...ownership, levelName: trimmedName, levelOrder, digitCap },
       })
     } else {
       await prisma.coreOfficeLevel.create({
-        data: { ...ownership, levelName: trimmedName, levelOrder },
+        data: { ...ownership, levelName: trimmedName, levelOrder, digitCap },
       })
     }
 

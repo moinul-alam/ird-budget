@@ -2,7 +2,7 @@
 
 import { Fragment, useRef, useState } from 'react'
 import { strings } from '@/lib/strings'
-import { toBanglaAmount, toBanglaAmountCompact, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaHazar, toBanglaNumber } from '@/lib/bangla'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Building2, ChevronRight, MousePointerClick, PieChart } from 'lucide-react'
@@ -367,10 +367,10 @@ function DrilldownPiePanel({
                 captioned directly above the slices. */}
             <div className="mb-4 text-center">
               <p className="text-xs font-bold leading-5 text-slate-500">
-                {scope ? scope.label : s.totalSubmittedAmount}
+                {scope ? scope.label : s.totalSubmittedAmount} ({strings.hazar.unit})
               </p>
               <p className="mt-0.5 text-xl font-black font-mono leading-7 tracking-tight text-slate-900 sm:text-2xl">
-                ৳ {toBanglaAmountCompact(scopeTotal)}
+                {toBanglaHazar(scopeTotal)}
               </p>
               <p className="mt-1.5 inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold leading-4 text-slate-600">
                 {toBanglaNumber(scopeOffices)} {s.unitOffices}
@@ -445,7 +445,7 @@ function DrilldownPiePanel({
                   <div className="mt-2 space-y-1 border-t border-white/10 pt-2">
                     <TooltipRow
                       label={s.tooltipAmount}
-                      value={`৳ ${toBanglaAmount(hoveredNode.amount)}`}
+                      value={`${toBanglaHazar(hoveredNode.amount)} ${strings.hazar.unit}`}
                     />
                     <TooltipRow
                       label={s.tooltipOffices}
@@ -508,7 +508,7 @@ function DrilldownPiePanel({
                     </span>
                     <span className="shrink-0 text-right">
                       <span className="block whitespace-nowrap text-xs font-black font-mono leading-5 text-slate-900">
-                        ৳ {toBanglaAmount(sector.node.amount)}
+                        {toBanglaHazar(sector.node.amount)}
                       </span>
                       <span className="block whitespace-nowrap text-[11px] leading-4 text-slate-400">
                         {toBanglaNumber(sector.node.count)} {s.unitOffices} ·{' '}

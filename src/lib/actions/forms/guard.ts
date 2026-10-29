@@ -1,5 +1,14 @@
 import { prisma } from '@/lib/db/client'
 import { getOfficeSession } from '@/lib/session'
+import { getSubmissionDigitCap } from '@/lib/budget/sheet'
+import {
+  TAKA_PER_HAZAR,
+  exceedsDigitCap,
+  hazarCapCeiling,
+  toHazar,
+} from '@/lib/budget/hazar'
+import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
+import { strings } from '@/lib/strings'
 
 /**
  * The submission the signed-in office owns, or null when there is no session.
@@ -39,4 +48,32 @@ export async function guardDraftWrite(submissionId: number): Promise<{ error: st
   })
 
   return touched.count === 0 ? SUBMITTED_LOCKED : null
+}
+
+/**
+ * The office level's digit cap, re-applied to the amounts a write is about to store.
+ *
+ * The amount field already refuses an over-cap entry, but the figure reaches the server
+ * as a plain number, so the same limit is re-checked here — a crafted request cannot slip
+ * a 1000× figure past the cap the office level allows. Amounts are in taka, the unit the
+ * engine and the database use; the cap counts digits of the হাজার they stand for.
+ */
+export async function guardDigitCap(
+  submissionId: number,
+  amounts: Array<number | null | undefined>
+): Promise<{ error: string } | null> {
+  const cap = await getSubmissionDigitCap(submissionId)
+  const over = amounts.some(
+    (amount) => amount !== null && amount !== undefined && exceedsDigitCap(toHazar(amount), cap)
+  )
+  if (!over) return null
+
+  const maxHazar = hazarCapCeiling(cap)
+  return {
+    error: strings.hazar.capExceeded(
+      toBanglaNumber(cap),
+      toBanglaNumber(maxHazar),
+      toBanglaAmount(maxHazar * TAKA_PER_HAZAR)
+    ),
+  }
 }

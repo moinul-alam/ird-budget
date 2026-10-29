@@ -20,34 +20,51 @@ export function cleanTypeName(raw: string | null | undefined): string {
   return raw.split(':::')[0].trim();
 }
 
+/** Indian grouping of an unsigned digit string: 1234567 → ১২,৩৪,৫৬৭. */
+function groupBanglaDigits(absDigits: string): string {
+  if (absDigits.length <= 3) return toBanglaNumber(absDigits);
+
+  let formatted = absDigits.slice(-3);
+  let remaining = absDigits.slice(0, -3);
+  while (remaining.length > 2) {
+    formatted = remaining.slice(-2) + ',' + formatted;
+    remaining = remaining.slice(0, -2);
+  }
+  return toBanglaNumber(remaining + ',' + formatted);
+}
+
 export function toBanglaCurrency(number: number | string | null | undefined, showUnit = true): string {
   if (number === null || number === undefined || number === '') return '—';
   const n = Math.round(Number(number));
   if (isNaN(n)) return '—';
 
-  const isNegative = n < 0;
-  const absStr = Math.abs(n).toString();
-
-  let formatted = '';
-  if (absStr.length <= 3) {
-    formatted = absStr;
-  } else {
-    formatted = absStr.slice(-3);
-    let remaining = absStr.slice(0, -3);
-    while (remaining.length > 2) {
-      formatted = remaining.slice(-2) + ',' + formatted;
-      remaining = remaining.slice(0, -2);
-    }
-    formatted = remaining + ',' + formatted;
-  }
-
-  const bangla = toBanglaNumber(formatted);
-  const sign = isNegative ? '-' : '';
+  const sign = n < 0 ? '-' : '';
+  const bangla = groupBanglaDigits(Math.abs(n).toString());
   return showUnit ? `${sign}${bangla} টাকা` : `${sign}${bangla}`;
 }
 
 export function toBanglaAmount(number: number | string | null | undefined): string {
   return toBanglaCurrency(number, false);
+}
+
+/**
+ * An amount in হাজার — the unit every office-facing surface reads and writes, where
+ * `10` means ১০,০০০ টাকা. A computed budget always lands on a whole হাজার (the engine
+ * ceilings it there), but an office's typed figure may carry two decimals, so 10250
+ * taka reads '১০.২৫'. `toBanglaAmount` remains the taka formatter — the admin's
+ * settings screens are the only place that still speaks in real taka.
+ */
+export function toBanglaHazar(number: number | string | null | undefined): string {
+  if (number === null || number === undefined || number === '') return '—';
+  const hazar = Number(number) / 1000;
+  if (!Number.isFinite(hazar)) return '—';
+
+  const rounded = Math.round(hazar * 100) / 100;
+  const [whole, fraction] = Math.abs(rounded).toFixed(2).split('.');
+  const decimals = fraction.replace(/0+$/, '');
+  const sign = rounded < 0 ? '-' : '';
+
+  return `${sign}${groupBanglaDigits(whole)}${decimals ? `.${toBanglaNumber(decimals)}` : ''}`;
 }
 
 /**

@@ -47,6 +47,8 @@ export interface HierarchyModalState {
   office_type_id: string
   level_name: string
   level_order: number
+  /** How many digits this level's offices may type in one হাজার amount field. */
+  digit_cap: number
 }
 
 export interface GroupModalState {

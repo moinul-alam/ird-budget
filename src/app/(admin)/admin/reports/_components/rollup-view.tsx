@@ -1,5 +1,6 @@
 import { Fragment } from 'react'
-import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaHazar, toBanglaNumber } from '@/lib/bangla'
+import { strings } from '@/lib/strings'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { CheckCircle2, Clock } from 'lucide-react'
@@ -47,7 +48,7 @@ export function RollupView({
                   <th className="py-3 px-4 w-16">ক্রম</th>
                   <th className="py-3 px-4 w-32">কোড</th>
                   <th className="py-3 px-4">খরচের বিবরণ</th>
-                  <th className="py-3 px-4 w-48 text-right">পরিমাণ (৳)</th>
+                  <th className="py-3 px-4 w-48 text-right">{strings.reports.amountColumn}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -65,7 +66,7 @@ export function RollupView({
                           {group.category_name || 'অন্যান্য'}
                         </td>
                         <td className="py-2.5 px-4 font-mono font-bold text-slate-700 text-right">
-                          {toBanglaAmount(group.subtotal)}
+                          {toBanglaHazar(group.subtotal)}
                         </td>
                       </tr>
                       {group.codes.map((code) => {
@@ -80,7 +81,7 @@ export function RollupView({
                             </td>
                             <td className="py-3 px-4 font-medium text-slate-800">{code.name}</td>
                             <td className="py-3 px-4 font-mono font-bold text-slate-900 text-right">
-                              {code.amount ? toBanglaAmount(code.amount) : '—'}
+                              {code.amount ? toBanglaHazar(code.amount) : '—'}
                             </td>
                           </tr>
                         )
@@ -95,7 +96,7 @@ export function RollupView({
                     সর্বমোট
                   </td>
                   <td className="py-3.5 px-4 font-mono font-black text-blue-800 text-sm text-right">
-                    {toBanglaAmount(report.grand_total)}
+                    {toBanglaHazar(report.grand_total)}
                   </td>
                 </tr>
               </tfoot>
@@ -121,7 +122,7 @@ export function RollupView({
                   <th className="py-3 px-4 w-40">বাজেট আইডি</th>
                   <th className="py-3 px-4">অফিসের নাম</th>
                   <th className="py-3 px-4 w-32 text-center">দাখিল স্ট্যাটাস</th>
-                  <th className="py-3 px-4 w-48 text-right">মোট বাজেট (৳)</th>
+                  <th className="py-3 px-4 w-48 text-right">{strings.reports.officeTotalColumn}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -161,7 +162,7 @@ export function RollupView({
                         </Badge>
                       </td>
                       <td className="py-3 px-4 font-mono font-bold text-slate-900 text-right">
-                        {office.total ? toBanglaAmount(office.total) : '—'}
+                        {office.total ? toBanglaHazar(office.total) : '—'}
                       </td>
                     </tr>
                   ))
@@ -173,7 +174,7 @@ export function RollupView({
                     সর্বমোট
                   </td>
                   <td className="py-3.5 px-4 font-mono font-black text-blue-800 text-sm text-right">
-                    {toBanglaAmount(report.grand_total)}
+                    {toBanglaHazar(report.grand_total)}
                   </td>
                 </tr>
               </tfoot>

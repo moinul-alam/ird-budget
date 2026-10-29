@@ -2,7 +2,7 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaAmount, toBanglaNumber, cleanTypeName } from '@/lib/bangla'
+import { toBanglaHazar, toBanglaNumber, cleanTypeName } from '@/lib/bangla'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -285,8 +285,8 @@ export function Form8Client({
                 <TableRow>
                   <TableHead className="w-48 font-bold text-slate-700">{strings.form8.vehicleType}</TableHead>
                   <TableHead className="text-right font-bold text-slate-700">{strings.form8.countLabel}</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">{strings.form8.monthlyAllowance}</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">বার্ষিক মোট ব্যয়</TableHead>
+                  <TableHead className="text-right font-bold text-slate-700">{strings.form8.monthlyAllowance} ({strings.hazar.unit})</TableHead>
+                  <TableHead className="text-right font-bold text-slate-700">বার্ষিক মোট ব্যয় ({strings.hazar.unit})</TableHead>
                   <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
                 </TableRow>
               </TableHeader>
@@ -300,10 +300,10 @@ export function Form8Client({
                       {toBanglaNumber(row.count)} টি
                     </TableCell>
                     <TableCell className="text-right font-mono font-medium text-slate-800">
-                      {toBanglaAmount(row.monthly_allowance)}
+                      {toBanglaHazar(row.monthly_allowance)}
                     </TableCell>
                     <TableCell className="text-right font-mono font-medium text-indigo-700">
-                      {toBanglaAmount(row.annual_total)}
+                      {toBanglaHazar(row.annual_total)}
                     </TableCell>
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1">
@@ -391,7 +391,7 @@ export function Form8Client({
             {/* Auto Filled Monthly Allowance */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label htmlFor="monthly_allowance">{strings.form8.monthlyAllowance}</Label>
+                <Label htmlFor="monthly_allowance">{strings.form8.monthlyAllowance} ({strings.hazar.unit})</Label>
                 <span className="text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
                   স্বয়ংক্রিয় নির্ধারিত
                 </span>
@@ -400,7 +400,7 @@ export function Form8Client({
                 id="monthly_allowance"
                 type="text"
                 readOnly
-                value={autoMonthlyAllowance ? `${toBanglaAmount(autoMonthlyAllowance)}` : '০ টাকা'}
+                value={autoMonthlyAllowance ? `${toBanglaHazar(autoMonthlyAllowance)}` : '০'}
                 className="bg-slate-50 text-slate-700 font-mono font-medium border-slate-200"
               />
             </div>

@@ -3,7 +3,7 @@
 import { errorMessage } from '@/lib/errors'
 
 import { prisma } from '@/lib/db/client'
-import { currentSubmissionId, NOT_OWNED, guardDraftWrite } from './guard'
+import { currentSubmissionId, NOT_OWNED, guardDigitCap, guardDraftWrite } from './guard'
 
 export async function saveFormVehicleRow(
   submissionId: number,
@@ -19,6 +19,12 @@ export async function saveFormVehicleRow(
 ) {
   const guard = await guardDraftWrite(submissionId)
   if (guard) return guard
+
+  const capGuard = await guardDigitCap(submissionId, [
+    data.maintenance_cost,
+    data.additional_expense,
+  ])
+  if (capGuard) return capGuard
 
   try {
     const payload = {

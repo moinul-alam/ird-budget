@@ -2,7 +2,8 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaAmount, toBanglaNumber, cleanTypeName } from '@/lib/bangla'
+import { toBanglaHazar, toBanglaNumber, cleanTypeName } from '@/lib/bangla'
+import { AmountField } from '@/components/amount-field'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -330,8 +331,8 @@ export function Form7Client({
                   <TableHead className="w-36 font-bold text-slate-700">{strings.form7.vehicleType}</TableHead>
                   <TableHead className="w-32 font-bold text-slate-700">{strings.form7.fuelType}</TableHead>
                   <TableHead className="text-right font-bold text-slate-700">{strings.form7.countLabel}</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">{strings.form7.maintenanceTotal}</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">{strings.form7.additionalExpense}</TableHead>
+                  <TableHead className="text-right font-bold text-slate-700">{strings.form7.maintenanceTotal} ({strings.hazar.unit})</TableHead>
+                  <TableHead className="text-right font-bold text-slate-700">{strings.form7.additionalExpense} ({strings.hazar.unit})</TableHead>
                   <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
                 </TableRow>
               </TableHeader>
@@ -353,10 +354,10 @@ export function Form7Client({
                         {toBanglaNumber(row.count)}
                       </TableCell>
                       <TableCell className="text-right font-mono font-medium text-slate-800">
-                        {maintenanceTotal ? toBanglaAmount(maintenanceTotal) : '—'}
+                        {maintenanceTotal ? toBanglaHazar(maintenanceTotal) : '—'}
                       </TableCell>
                       <TableCell className="text-right font-mono text-slate-600">
-                        {row.additional_expense ? toBanglaAmount(row.additional_expense) : '০'}
+                        {row.additional_expense ? toBanglaHazar(row.additional_expense) : '০'}
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-1">
@@ -463,7 +464,7 @@ export function Form7Client({
             {/* Auto Filled Maintenance Cost */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <Label htmlFor="maintenance_cost">{strings.form7.maintenanceCost}</Label>
+                <Label htmlFor="maintenance_cost">{strings.form7.maintenanceCost} ({strings.hazar.unit})</Label>
                 <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
                   স্বয়ংক্রিয় নির্ধারিত
                 </span>
@@ -472,7 +473,7 @@ export function Form7Client({
                 id="maintenance_cost"
                 type="text"
                 readOnly
-                value={autoMaintenanceCost ? `${toBanglaAmount(autoMaintenanceCost)}` : '০ টাকা'}
+                value={autoMaintenanceCost ? `${toBanglaHazar(autoMaintenanceCost)}` : '০'}
                 className="bg-slate-50 text-slate-700 font-mono font-medium border-slate-200"
               />
             </div>
@@ -480,13 +481,12 @@ export function Form7Client({
             {/* Additional Expense (user entered) */}
             <div className="space-y-1.5">
               <Label htmlFor="additional_expense">{strings.form7.additionalExpense}</Label>
-              <Input
+              <AmountField
                 id="additional_expense"
-                type="number"
                 min="0"
-                placeholder="যেমন: ৫০০০ (ঐচ্ছিক)"
+                placeholder="যেমন: ৫ (ঐচ্ছিক)"
                 value={additionalInput}
-                onChange={(e) => setAdditionalInput(e.target.value)}
+                onValueChange={(taka) => setAdditionalInput(taka)}
               />
             </div>
           </div>

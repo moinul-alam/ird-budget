@@ -20,7 +20,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { GitBranch, Plus, Edit2, Trash2, ArrowRight, Loader2 } from 'lucide-react'
-import { toBanglaNumber } from '@/lib/bangla'
+import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
+import { DEFAULT_DIGIT_CAP, TAKA_PER_HAZAR, hazarCapCeiling } from '@/lib/budget/hazar'
 import {
   DepartmentItem,
   MinistryItem,
@@ -124,6 +125,7 @@ export function TabOfficeLevels({
       office_type_id: '',
       level_name: '',
       level_order: 3,
+      digit_cap: DEFAULT_DIGIT_CAP,
     }
     setHierarchyModal(applyChain(base, {}))
   }
@@ -143,6 +145,7 @@ export function TabOfficeLevels({
       office_type_id: lvl.office_type_id,
       level_name: lvl.level_name,
       level_order: lvl.level_order,
+      digit_cap: lvl.digit_cap,
     })
   }
 
@@ -250,6 +253,7 @@ export function TabOfficeLevels({
                   <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
                     <th className="py-3 px-4 w-28">স্তরের ক্রম</th>
                     <th className="py-3 px-4">স্তরের নাম</th>
+                    <th className="py-3 px-4 w-24">ডিজিট সীমা</th>
                     <th className="py-3 px-4">অফিসের ধরণ</th>
                     <th className="py-3 px-4">উর্ধ্বতন অফিস</th>
                     <th className="py-3 px-4 text-center w-36">একশন</th>
@@ -258,7 +262,7 @@ export function TabOfficeLevels({
                 <tbody className="divide-y divide-slate-100">
                   {filteredOfficeTypeLevels.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="py-10 px-4 text-center text-xs text-slate-500">
+                      <td colSpan={6} className="py-10 px-4 text-center text-xs text-slate-500">
                         এই অফিসের ধরণের কোনো স্তর নির্ধারণ করা হয়নি।
                       </td>
                     </tr>
@@ -275,6 +279,11 @@ export function TabOfficeLevels({
                         </td>
                         <td className="py-3.5 px-4 font-bold text-slate-800 text-sm">
                           {lvl.level_name}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className="px-2.5 py-0.5 bg-slate-100 text-slate-700 rounded-lg font-bold font-mono">
+                            {toBanglaNumber(lvl.digit_cap)}
+                          </span>
                         </td>
                         <td className="py-3.5 px-4">
                           <span className="px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-lg font-bold">
@@ -428,6 +437,29 @@ export function TabOfficeLevels({
                   এই অফিসের ধরণের জন্য প্রস্তাবিত ক্রম: {toBanglaNumber(suggestedTier)}
                 </p>
               )}
+            </div>
+
+            {/* ৬. ডিজিট সীমা — হাজার ঘরে সর্বোচ্চ কত ডিজিট */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-slate-700">ডিজিট সীমা</Label>
+              <Input
+                type="number"
+                min={1}
+                max={9}
+                value={hierarchyModal.digit_cap}
+                onChange={(e) =>
+                  setHierarchyModal((prev) => ({
+                    ...prev,
+                    digit_cap: parseInt(e.target.value, 10) || 1,
+                  }))
+                }
+                className="rounded-xl border-slate-200 font-mono text-xs"
+              />
+              <p className="text-[11px] text-slate-500 leading-4">
+                এই স্তরের অফিস হাজার টাকার ঘরে সর্বোচ্চ এই সংখ্যক ডিজিট লিখতে পারবে। সর্বোচ্চ{' '}
+                {toBanglaNumber(hazarCapCeiling(hierarchyModal.digit_cap))} হাজার ={' '}
+                {toBanglaAmount(hazarCapCeiling(hierarchyModal.digit_cap) * TAKA_PER_HAZAR)} টাকা।
+              </p>
             </div>
           </div>
           <DialogFooter className="pt-2">

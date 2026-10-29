@@ -2,7 +2,8 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaHazar, toBanglaNumber } from '@/lib/bangla'
+import { AmountField } from '@/components/amount-field'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -412,8 +413,8 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
                     <TableRow>
                       <TableHead className="w-28 font-bold text-slate-700">{strings.form3.gradeColumn}</TableHead>
                       <TableHead className="text-right font-bold text-slate-700">{strings.form3.officerCountColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form3.basicColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form3.tableDueSalaryColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form3.basicColumn} ({strings.hazar.unit})</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form3.tableDueSalaryColumn} ({strings.hazar.unit})</TableHead>
                       <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -427,10 +428,10 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
                           {toBanglaNumber(row.suspended_count)}
                         </TableCell>
                         <TableCell className="text-right font-mono font-medium text-slate-800">
-                          {toBanglaAmount(row.suspended_total_basic)}
+                          {toBanglaHazar(row.suspended_total_basic)}
                         </TableCell>
                         <TableCell className="text-right font-mono text-slate-600">
-                          {row.suspended_due_salary ? toBanglaAmount(row.suspended_due_salary) : '—'}
+                          {row.suspended_due_salary ? toBanglaHazar(row.suspended_due_salary) : '—'}
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-1">
@@ -480,8 +481,8 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
                     <TableRow>
                       <TableHead className="w-28 font-bold text-slate-700">{strings.form3.gradeColumn}</TableHead>
                       <TableHead className="text-right font-bold text-slate-700">{strings.form3.staffCountColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form3.basicColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form3.tableDueSalaryColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form3.basicColumn} ({strings.hazar.unit})</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form3.tableDueSalaryColumn} ({strings.hazar.unit})</TableHead>
                       <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -495,10 +496,10 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
                           {toBanglaNumber(row.suspended_count)}
                         </TableCell>
                         <TableCell className="text-right font-mono font-medium text-slate-800">
-                          {toBanglaAmount(row.suspended_total_basic)}
+                          {toBanglaHazar(row.suspended_total_basic)}
                         </TableCell>
                         <TableCell className="text-right font-mono text-slate-600">
-                          {row.suspended_due_salary ? toBanglaAmount(row.suspended_due_salary) : '—'}
+                          {row.suspended_due_salary ? toBanglaHazar(row.suspended_due_salary) : '—'}
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-1">
@@ -556,12 +557,12 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
                   />
                   <SummaryBox
                     label={strings.form3.monthlyBasicSummaryLabel}
-                    value={`${toBanglaAmount(summary.officerBasic)} টাকা`}
+                    value={`${toBanglaHazar(summary.officerBasic)} ${strings.hazar.unit}`}
                     valueClass={accent.officerValue}
                   />
                   <SummaryBox
                     label={strings.form3.dueSummaryLabel}
-                    value={summary.officerDue ? `${toBanglaAmount(summary.officerDue)} টাকা` : '—'}
+                    value={summary.officerDue ? `${toBanglaHazar(summary.officerDue)} ${strings.hazar.unit}` : '—'}
                   />
                 </div>
               </div>
@@ -581,12 +582,12 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
                   />
                   <SummaryBox
                     label={strings.form3.monthlyBasicSummaryLabel}
-                    value={`${toBanglaAmount(summary.staffBasic)} টাকা`}
+                    value={`${toBanglaHazar(summary.staffBasic)} ${strings.hazar.unit}`}
                     valueClass={accent.staffValue}
                   />
                   <SummaryBox
                     label={strings.form3.dueSummaryLabel}
-                    value={summary.staffDue ? `${toBanglaAmount(summary.staffDue)} টাকা` : '—'}
+                    value={summary.staffDue ? `${toBanglaHazar(summary.staffDue)} ${strings.hazar.unit}` : '—'}
                   />
                 </div>
               </div>
@@ -683,13 +684,11 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
                 <Label htmlFor="basic_input_2b" className="text-xs font-bold text-slate-700">
                   {strings.form3.basicColumn}
                 </Label>
-                <Input
+                <AmountField
                   id="basic_input_2b"
-                  type="number"
-                  min="0"
-                  placeholder="যেমন: ৩৫০০০"
+                  placeholder="যেমন: ৩৫"
                   value={basicInput}
-                  onChange={(e) => setBasicInput(e.target.value)}
+                  onValueChange={(taka) => setBasicInput(taka)}
                   className={cn('h-10 rounded-xl font-mono', accent.focus)}
                 />
               </div>
@@ -700,13 +699,11 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
               <Label htmlFor="due_input_2b" className="text-xs font-bold text-slate-700">
                 {strings.form3.modalDueSalaryColumn}
               </Label>
-              <Input
+              <AmountField
                 id="due_input_2b"
-                type="number"
-                min="0"
                 placeholder="ঐচ্ছিক (বকেয়া থাকলে)"
                 value={dueInput}
-                onChange={(e) => setDueInput(e.target.value)}
+                onValueChange={(taka) => setDueInput(taka)}
                 className={cn('h-10 rounded-xl font-mono', accent.focus)}
               />
             </div>

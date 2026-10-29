@@ -76,6 +76,10 @@ model CoreOfficeLevel {
   departmentId BigInt?  @map("department_id")
   levelName    String   @map("level_name") @db.Text
   levelOrder   Int      @default(1) @map("level_order")
+  /// How many digits this level's offices may enter in a হাজার amount field. Without it
+  /// the two-layer guard has no ground truth, so every level starts at the default and
+  /// the administrator raises it for the tiers whose figures run larger.
+  digitCap     Int      @default(3) @map("digit_cap")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
 

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
-import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaHazar, toBanglaNumber } from '@/lib/bangla'
 import { strings } from '@/lib/strings'
 import {
   ArrowRight,
@@ -191,10 +191,10 @@ export function AdminStatusCards({ metrics }: { metrics: StatusCardMetrics }) {
               <div className="flex items-center justify-between gap-3 border-t border-dashed border-slate-200 px-5 py-4">
                 <div className="min-w-0">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                    {s.budgetAmount}
+                    {s.budgetAmount} ({strings.hazar.unit})
                   </p>
                   <p className="mt-0.5 text-lg font-black font-mono text-slate-900 leading-6">
-                    ৳ {toBanglaAmount(metric.amount)}
+                    {toBanglaHazar(metric.amount)}
                   </p>
                 </div>
                 <span className={`flex items-center gap-1 text-[11px] font-bold shrink-0 ${tone.value}`}>
@@ -236,8 +236,8 @@ export function AdminStatusCards({ metrics }: { metrics: StatusCardMetrics }) {
                     <span className="font-mono">{toBanglaNumber(openMetric.count)}</span>
                   </span>
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 ring-1 ring-inset ring-white/25 backdrop-blur-sm px-3 py-1.5 text-[11px] font-bold">
-                    <span className="text-white/70">{s.budgetAmount}:</span>
-                    <span className="font-mono">৳ {toBanglaAmount(openMetric.amount)}</span>
+                    <span className="text-white/70">{s.budgetAmount} ({strings.hazar.unit}):</span>
+                    <span className="font-mono">{toBanglaHazar(openMetric.amount)}</span>
                   </span>
                 </div>
 
@@ -257,7 +257,7 @@ export function AdminStatusCards({ metrics }: { metrics: StatusCardMetrics }) {
                         <tr className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider">
                           <th className="px-4 py-3">{s.modal.levelColumn}</th>
                           <th className="px-4 py-3 text-center">{openTone.rowCountLabel}</th>
-                          <th className="px-4 py-3 text-right">{s.modal.amountColumn}</th>
+                          <th className="px-4 py-3 text-right">{s.modal.amountColumn} ({strings.hazar.unit})</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -299,7 +299,7 @@ export function AdminStatusCards({ metrics }: { metrics: StatusCardMetrics }) {
                                 <span className="font-medium text-slate-400"> টি</span>
                               </td>
                               <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
-                                ৳ {toBanglaAmount(row.total)}
+                                {toBanglaHazar(row.total)}
                               </td>
                             </tr>
                           )
@@ -312,7 +312,7 @@ export function AdminStatusCards({ metrics }: { metrics: StatusCardMetrics }) {
                             {toBanglaNumber(openMetric.count)} টি
                           </td>
                           <td className="px-4 py-3 text-right font-mono font-bold">
-                            ৳ {toBanglaAmount(openMetric.amount)}
+                            {toBanglaHazar(openMetric.amount)}
                           </td>
                         </tr>
                       </tfoot>

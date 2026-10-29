@@ -10,6 +10,7 @@ import {
 } from '@/lib/budget/sheet'
 import { getConfigFingerprint } from '@/lib/budget/fetcher'
 import { getOfficeSession, setOfficeSession } from '@/lib/session'
+import { guardDigitCap } from './forms/guard'
 
 /**
  * The submission the signed-in office owns, or null when there is no session.
@@ -319,6 +320,9 @@ export async function saveManualValues(
       return { success: false, error: ALREADY_SUBMITTED }
     }
 
+    const capGuard = await guardDigitCap(submissionId, manualValues.map((entry) => entry.value))
+    if (capGuard) return { success: false, error: capGuard.error }
+
     const resolved = await resolveManualEntries(manualValues)
     if (resolved.length === 0) return { success: true }
 
@@ -357,6 +361,9 @@ export async function submitBudget(
     if ((await submissionStatus(submissionId)) === 'submitted') {
       return { success: false, error: ALREADY_SUBMITTED }
     }
+
+    const capGuard = await guardDigitCap(submissionId, manualValues.map((entry) => entry.value))
+    if (capGuard) return { success: false, error: capGuard.error }
 
     const resolved = await resolveManualEntries(manualValues)
     const overrides = new Map<number, number | null>(

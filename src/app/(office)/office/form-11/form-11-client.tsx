@@ -2,10 +2,10 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaAmount, toBanglaNumber, cleanTypeName } from '@/lib/bangla'
+import { toBanglaHazar, toBanglaNumber, cleanTypeName } from '@/lib/bangla'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { AmountField } from '@/components/amount-field'
 import {
   Dialog,
   DialogContent,
@@ -251,8 +251,8 @@ export function Form11Client({
                   <TableRow>
                     <TableHead className="w-16 text-center font-bold text-slate-700">#</TableHead>
                     <TableHead className="font-bold text-slate-700 min-w-[200px]">{strings.form11.utilityType}</TableHead>
-                    <TableHead className="text-right font-bold text-slate-700 min-w-[180px]">{strings.form11.annualCost}</TableHead>
-                    <TableHead className="text-right font-bold text-slate-700 min-w-[180px]">{strings.form11.dueIfAny}</TableHead>
+                    <TableHead className="text-right font-bold text-slate-700 min-w-[180px]">{strings.form11.annualCost} ({strings.hazar.unit})</TableHead>
+                    <TableHead className="text-right font-bold text-slate-700 min-w-[180px]">{strings.form11.dueIfAny} ({strings.hazar.unit})</TableHead>
                     <TableHead className="w-28 text-center font-bold text-slate-700">কার্যক্রম</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -269,11 +269,11 @@ export function Form11Client({
                         </div>
                       </TableCell>
                       <TableCell className="text-right font-semibold text-slate-900 font-mono">
-                        {toBanglaAmount(row.annual_cost)}
+                        {toBanglaHazar(row.annual_cost)}
                       </TableCell>
                       <TableCell className="text-right font-medium text-slate-700 font-mono">
                         {row.due > 0 ? (
-                          <span className="text-rose-600 font-semibold">{toBanglaAmount(row.due)}</span>
+                          <span className="text-rose-600 font-semibold">{toBanglaHazar(row.due)}</span>
                         ) : (
                           <span className="text-slate-400 text-xs">—</span>
                         )}
@@ -352,12 +352,10 @@ export function Form11Client({
               <Label className="text-xs font-semibold text-slate-700">
                 {strings.form11.annualCost} <span className="text-rose-500">*</span>
               </Label>
-              <Input
-                type="number"
-                min="0"
-                placeholder="যেমন: ১২০০০০"
+              <AmountField
+                placeholder="যেমন: ১২০"
                 value={annualCostInput}
-                onChange={(e) => setAnnualCostInput(e.target.value)}
+                onValueChange={(taka) => setAnnualCostInput(taka)}
                 className="bg-white"
               />
             </div>
@@ -367,12 +365,10 @@ export function Form11Client({
               <Label className="text-xs font-semibold text-slate-700">
                 {strings.form11.dueIfAny}
               </Label>
-              <Input
-                type="number"
-                min="0"
-                placeholder="যেমন: ১৫০০০"
+              <AmountField
+                placeholder="যেমন: ১৫"
                 value={dueInput}
-                onChange={(e) => setDueInput(e.target.value)}
+                onValueChange={(taka) => setDueInput(taka)}
                 className="bg-white"
               />
             </div>

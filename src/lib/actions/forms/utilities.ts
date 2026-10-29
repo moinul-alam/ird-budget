@@ -3,7 +3,7 @@
 import { errorMessage } from '@/lib/errors'
 
 import { prisma } from '@/lib/db/client'
-import { guardDraftWrite } from './guard'
+import { guardDigitCap, guardDraftWrite } from './guard'
 
 export async function saveFormUtilityRow(
   submissionId: number,
@@ -12,6 +12,9 @@ export async function saveFormUtilityRow(
 ) {
   const guard = await guardDraftWrite(submissionId)
   if (guard) return guard
+
+  const capGuard = await guardDigitCap(submissionId, [data.annual_cost, data.due])
+  if (capGuard) return capGuard
 
   try {
     await prisma.officeFormUtility.upsert({

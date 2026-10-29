@@ -4,7 +4,7 @@ import { errorMessage } from '@/lib/errors'
 
 import { updateTag } from 'next/cache'
 import { prisma } from '@/lib/db/client'
-import { guardDraftWrite } from './guard'
+import { guardDigitCap, guardDraftWrite } from './guard'
 import { ADMIN_DATA_TAG } from '@/lib/budget/fetcher'
 
 /**
@@ -57,6 +57,9 @@ export async function saveFormITEquipmentRow(
 ) {
   const guard = await guardDraftWrite(submissionId)
   if (guard) return guard
+
+  const capGuard = await guardDigitCap(submissionId, [data.toner_cost])
+  if (capGuard) return capGuard
 
   try {
     const itConfigId = await resolveItConfigId(submissionId, equipmentTypeId)

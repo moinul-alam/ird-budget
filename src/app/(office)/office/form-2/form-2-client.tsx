@@ -2,7 +2,8 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaHazar, toBanglaNumber } from '@/lib/bangla'
+import { AmountField } from '@/components/amount-field'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -402,8 +403,8 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
                     <TableRow>
                       <TableHead className="w-28 font-bold text-slate-700">{strings.form2.gradeColumn}</TableHead>
                       <TableHead className="text-right font-bold text-slate-700">{strings.form2.officerCountColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form2.basicColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form2.tableDueSalaryColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form2.basicColumn} ({strings.hazar.unit})</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form2.tableDueSalaryColumn} ({strings.hazar.unit})</TableHead>
                       <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -417,10 +418,10 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
                           {toBanglaNumber(row.count)}
                         </TableCell>
                         <TableCell className="text-right font-mono font-medium text-slate-800">
-                          {toBanglaAmount(row.total_basic)}
+                          {toBanglaHazar(row.total_basic)}
                         </TableCell>
                         <TableCell className="text-right font-mono text-slate-600">
-                          {row.due_salary ? toBanglaAmount(row.due_salary) : '—'}
+                          {row.due_salary ? toBanglaHazar(row.due_salary) : '—'}
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-1">
@@ -470,8 +471,8 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
                     <TableRow>
                       <TableHead className="w-28 font-bold text-slate-700">{strings.form2.gradeColumn}</TableHead>
                       <TableHead className="text-right font-bold text-slate-700">{strings.form2.staffCountColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form2.basicColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form2.tableDueSalaryColumn}</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form2.basicColumn} ({strings.hazar.unit})</TableHead>
+                      <TableHead className="text-right font-bold text-slate-700">{strings.form2.tableDueSalaryColumn} ({strings.hazar.unit})</TableHead>
                       <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -485,10 +486,10 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
                           {toBanglaNumber(row.count)}
                         </TableCell>
                         <TableCell className="text-right font-mono font-medium text-slate-800">
-                          {toBanglaAmount(row.total_basic)}
+                          {toBanglaHazar(row.total_basic)}
                         </TableCell>
                         <TableCell className="text-right font-mono text-slate-600">
-                          {row.due_salary ? toBanglaAmount(row.due_salary) : '—'}
+                          {row.due_salary ? toBanglaHazar(row.due_salary) : '—'}
                         </TableCell>
                         <TableCell className="text-center">
                           <div className="flex items-center justify-center gap-1">
@@ -546,12 +547,12 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
                   />
                   <SummaryBox
                     label={strings.form2.monthlyBasicSummaryLabel}
-                    value={`${toBanglaAmount(summary.officerBasic)} টাকা`}
+                    value={`${toBanglaHazar(summary.officerBasic)} ${strings.hazar.unit}`}
                     valueClass={accent.officerValue}
                   />
                   <SummaryBox
                     label={strings.form2.dueSummaryLabel}
-                    value={summary.officerDue ? `${toBanglaAmount(summary.officerDue)} টাকা` : '—'}
+                    value={summary.officerDue ? `${toBanglaHazar(summary.officerDue)} ${strings.hazar.unit}` : '—'}
                   />
                 </div>
               </div>
@@ -571,12 +572,12 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
                   />
                   <SummaryBox
                     label={strings.form2.monthlyBasicSummaryLabel}
-                    value={`${toBanglaAmount(summary.staffBasic)} টাকা`}
+                    value={`${toBanglaHazar(summary.staffBasic)} ${strings.hazar.unit}`}
                     valueClass={accent.staffValue}
                   />
                   <SummaryBox
                     label={strings.form2.dueSummaryLabel}
-                    value={summary.staffDue ? `${toBanglaAmount(summary.staffDue)} টাকা` : '—'}
+                    value={summary.staffDue ? `${toBanglaHazar(summary.staffDue)} ${strings.hazar.unit}` : '—'}
                   />
                 </div>
               </div>
@@ -673,13 +674,11 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
                 <Label htmlFor="basic_input" className="text-xs font-bold text-slate-700">
                   {strings.form2.basicColumn}
                 </Label>
-                <Input
+                <AmountField
                   id="basic_input"
-                  type="number"
-                  min="0"
-                  placeholder="যেমন: ১০৫০০০"
+                  placeholder="যেমন: ১০৫"
                   value={basicInput}
-                  onChange={(e) => setBasicInput(e.target.value)}
+                  onValueChange={(taka) => setBasicInput(taka)}
                   className={cn('h-10 rounded-xl font-mono', accent.focus)}
                 />
               </div>
@@ -690,13 +689,11 @@ export function Form2Client({ initialData, submissionId, grades }: Form2ClientPr
               <Label htmlFor="due_input" className="text-xs font-bold text-slate-700">
                 {strings.form2.modalDueSalaryColumn}
               </Label>
-              <Input
+              <AmountField
                 id="due_input"
-                type="number"
-                min="0"
                 placeholder="ঐচ্ছিক (বকেয়া থাকলে)"
                 value={dueInput}
-                onChange={(e) => setDueInput(e.target.value)}
+                onValueChange={(taka) => setDueInput(taka)}
                 className={cn('h-10 rounded-xl font-mono', accent.focus)}
               />
             </div>

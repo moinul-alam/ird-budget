@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db/client'
 import type { Prisma } from '@prisma/client'
 import { getBudgetContext, getRefData, getConfigFingerprint } from './fetcher'
 import { calculateAll, type BudgetContext } from './calculate'
+import { DEFAULT_DIGIT_CAP } from './hazar'
 
 /**
  * The single place a submission's code-wise amounts are produced. The office's own
@@ -52,6 +53,22 @@ async function getSubmissionOfficeLevelId(submissionId: number): Promise<number 
     select: { office: { select: { officeLevelId: true } } },
   })
   return submission?.office?.officeLevelId ? Number(submission.office.officeLevelId) : null
+}
+
+/**
+ * The digit cap the office's level allows in an amount field — the safety net that stops
+ * an office typing today's taka figure into a হাজার box. A level the administrator left
+ * unset, or an office with no level at all, falls back to the default.
+ */
+export async function getSubmissionDigitCap(submissionId: number): Promise<number> {
+  const officeLevelId = await getSubmissionOfficeLevelId(submissionId)
+  if (officeLevelId === null) return DEFAULT_DIGIT_CAP
+
+  const level = await prisma.coreOfficeLevel.findUnique({
+    where: { id: BigInt(officeLevelId) },
+    select: { digitCap: true },
+  })
+  return level?.digitCap ?? DEFAULT_DIGIT_CAP
 }
 
 /**

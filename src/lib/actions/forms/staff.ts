@@ -3,7 +3,7 @@
 import { errorMessage } from '@/lib/errors'
 
 import { prisma } from '@/lib/db/client'
-import { currentSubmissionId, guardDraftWrite } from './guard'
+import { currentSubmissionId, guardDigitCap, guardDraftWrite } from './guard'
 
 export async function saveFormStaffActiveRows(
   submissionId: number,
@@ -16,6 +16,12 @@ export async function saveFormStaffActiveRows(
 ) {
   const guard = await guardDraftWrite(submissionId)
   if (guard) return guard
+
+  const capGuard = await guardDigitCap(
+    submissionId,
+    rows.flatMap((r) => [r.total_basic, r.due_salary])
+  )
+  if (capGuard) return capGuard
 
   try {
     for (const row of rows) {
@@ -58,6 +64,12 @@ export async function saveFormStaffSuspendedRows(
 ) {
   const guard = await guardDraftWrite(submissionId)
   if (guard) return guard
+
+  const capGuard = await guardDigitCap(
+    submissionId,
+    rows.flatMap((r) => [r.suspended_total_basic, r.suspended_due_salary])
+  )
+  if (capGuard) return capGuard
 
   try {
     for (const row of rows) {
@@ -142,6 +154,14 @@ export async function saveFormStaffRow(
   const guard = await guardDraftWrite(submissionId)
   if (guard) return guard
 
+  const capGuard = await guardDigitCap(submissionId, [
+    data.total_basic,
+    data.due_salary,
+    data.suspended_total_basic,
+    data.suspended_due_salary,
+  ])
+  if (capGuard) return capGuard
+
   try {
     // Save active
     await prisma.officeFormStaffWorking.upsert({
@@ -223,6 +243,12 @@ export async function getFormNewStaffRows(submissionId: number): Promise<NewStaf
 export async function saveFormNewStaffRows(submissionId: number, rows: NewStaffRecord[]) {
   const guard = await guardDraftWrite(submissionId)
   if (guard) return guard
+
+  const capGuard = await guardDigitCap(
+    submissionId,
+    rows.flatMap((r) => [r.monthly_basic, r.total_salary])
+  )
+  if (capGuard) return capGuard
 
   try {
     // Clean existing rows

@@ -41,6 +41,20 @@ export const strings = {
   grandTotal: 'সর্বমোট',
   taka: 'টাকা',
 
+  /** The unit every office-facing amount field speaks: ১০ মানে ১০,০০০ টাকা. The admin's
+   *  settings screens are the one place that still enters and reads real taka. */
+  hazar: {
+    /** Suffix on a column heading or a card label. */
+    unit: 'হাজার টাকা',
+    /** Short badge inside an amount field. */
+    badge: 'হাজার',
+    /** The readout above an amount field, spelling out what the typed figure is worth. */
+    readout: (taka: string) => `= ${taka} টাকা`,
+    /** Replaces the entry when it needs more digits than the office level allows. */
+    capExceeded: (cap: string, maxHazar: string, maxTaka: string) =>
+      `হাজারে ইনপুট দিন — সর্বোচ্চ ${cap} ডিজিট (সর্বোচ্চ ${maxHazar} হাজার = ${maxTaka} টাকা)। উদাহরণ: ১০,০০০ টাকা লিখতে ১০ লিখুন।`,
+  },
+
   yes: 'হ্যাঁ',
   no: 'না',
   search: 'অনুসন্ধান',
@@ -210,7 +224,7 @@ export const strings = {
     basicColumn: 'মোট মূল বেতন (মাসিক)',
     dateColumn: 'সম্ভাব্য নিয়োগের তারিখ',
     monthsColumn: 'অবশিষ্ট মাস',
-    totalSalaryColumn: 'মোট সম্ভাব্য বেতন (টাকা)',
+    totalSalaryColumn: 'মোট সম্ভাব্য বেতন',
     subTotalOfficer: 'উপমোট (কর্মকর্তা):',
     subTotalStaff: 'উপমোট (কর্মচারী):',
     officerRowLabel: 'কর্মকর্তা',
@@ -300,7 +314,7 @@ export const strings = {
     countLabel: 'যানবাহনের সংখ্যা',
     maintenanceCost: 'বার্ষিক রক্ষণাবেক্ষণ ব্যয় (প্রতি গাড়ি)',
     maintenanceTotal: 'বার্ষিক রক্ষণাবেক্ষণ ব্যয়',
-    additionalExpense: 'অতিরিক্ত ব্যয় (টাকা)',
+    additionalExpense: 'অতিরিক্ত ব্যয়',
     addVehicle: 'যানবাহনের তথ্য যোগ করুন +',
     editVehicle: 'সম্পাদনা করুন',
     deleteVehicle: 'মুছুন',
@@ -343,7 +357,7 @@ export const strings = {
     },
     existingCount: 'বিদ্যমান সংখ্যা',
     damagedCount: 'অকেজো সংখ্যা',
-    tonerPricePerUnit: 'প্রতি টোনারের দাম (টাকা)',
+    tonerPricePerUnit: 'প্রতি টোনারের দাম (হাজার টাকা)',
     newRequiredQty: 'নতুন প্রয়োজন',
     addInfo: 'তথ্য যোগ করুন (+)',
     editInfo: 'সম্পাদনা করুন',
@@ -367,7 +381,6 @@ export const strings = {
     unitPriceLabel: 'একক মূল্য',
     estimatedValueLabel: 'মোট প্রাক্কলিত মূল্য',
     unitPiece: 'টি',
-    unitTaka: 'টাকা',
   },
 
   form11: {
@@ -375,7 +388,7 @@ export const strings = {
     subtitle: 'ইউটিলিটির ধরন অনুযায়ী বার্ষিক ব্যয় ও বকেয়া সংক্রান্ত তথ্য যোগ করুন',
     utilityType: 'ইউটিলিটির ধরন',
     selectUtilityType: 'ইউটিলিটির ধরন নির্বাচন করুন',
-    annualCost: 'বার্ষিক ব্যয় (টাকা)',
+    annualCost: 'বার্ষিক ব্যয়',
     dueIfAny: 'বকেয়া (যদি থাকে)',
     due: 'বকেয়া',
     addUtility: 'ইউটিলিটির তথ্য যোগ করুন +',
@@ -395,9 +408,9 @@ export const strings = {
     subtitle: 'অফিস নিজস্ব ভবনে পরিচালিত না হয়ে ভাড়া ভবনে থাকলে তথ্য যোগ করুন। অন্যথায় প্রযোজ্য নয়।',
     applicableNote: 'প্রযোজ্য ক্ষেত্রে তথ্য যোগ করুন',
     monthlyBillExVat: 'ভ্যাট ব্যতিত মাসিক ভাড়া',
-    monthlyBillExVatPlaceholder: 'যেমন: ৮৫০০০',
+    monthlyBillExVatPlaceholder: 'যেমন: ৮৫',
     dueExVat: 'ভ্যাট ব্যতিত বকেয়া ভাড়া (যদি থাকে)',
-    dueExVatPlaceholder: 'যেমন: ২০০০০',
+    dueExVatPlaceholder: 'যেমন: ২০',
     contractDuration: 'চুক্তির মেয়াদ',
     contractStart: 'শুরুর তারিখ',
     contractEnd: 'শেষের তারিখ',
@@ -411,7 +424,6 @@ export const strings = {
     confirmDeleteDesc: 'তথ্য মুছে ফেলার পর তা আর উদ্ধার করা যাবে না।',
     yearlyTotalWithVat: 'ভ্যাটসহ বাৎসরিক অফিস ভাড়া',
     vatRateNote: 'এডমিন কর্তৃক নির্ধারিত ভ্যাট হার যুক্ত',
-    unitTaka: 'টাকা',
   },
 
   form12: {
@@ -592,13 +604,13 @@ export const strings = {
     serialColumn: 'ক্রম',
     codeColumn: 'কোড',
     codeNameColumn: 'খরচের বিবরণ',
-    amountColumn: 'পরিমাণ (৳)',
+    amountColumn: 'পরিমাণ (হাজার টাকা)',
     budgetIdColumn: 'বাজেট আইডি',
     officeNameColumn: 'অফিসের নাম',
     departmentColumn: 'বিভাগ',
     officeTypeColumn: 'অফিসের ধরণ',
     statusColumn: 'দাখিল স্ট্যাটাস',
-    officeTotalColumn: 'মোট বাজেট (৳)',
+    officeTotalColumn: 'মোট বাজেট (হাজার টাকা)',
 
     // File name stems, prefixed to the scope name.
     codeWiseFile: 'কোডভিত্তিক-মোট',

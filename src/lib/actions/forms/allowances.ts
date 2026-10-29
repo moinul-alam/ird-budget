@@ -3,7 +3,7 @@
 import { errorMessage } from '@/lib/errors'
 
 import { prisma } from '@/lib/db/client'
-import { guardDraftWrite } from './guard'
+import { guardDigitCap, guardDraftWrite } from './guard'
 
 export async function saveFormAllowanceRow(
   submissionId: number,
@@ -19,6 +19,9 @@ export async function saveFormAllowanceRow(
 ) {
   const guard = await guardDraftWrite(submissionId)
   if (guard) return guard
+
+  const capGuard = await guardDigitCap(submissionId, [data.total_basic, data.amount, data.due])
+  if (capGuard) return capGuard
 
   try {
     const isZero =

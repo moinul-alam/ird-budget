@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { toBanglaNumber } from '@/lib/bangla'
+import { DEFAULT_DIGIT_CAP } from '@/lib/budget/hazar'
 import {
   Landmark,
   Building2,
@@ -109,6 +110,7 @@ export function AdminOfficesConfigClient({
     office_type_id: '',
     level_name: '',
     level_order: 3,
+    digit_cap: DEFAULT_DIGIT_CAP,
   })
 
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
@@ -295,6 +297,7 @@ export function AdminOfficesConfigClient({
         owner_id: hierarchyModal.office_type_id,
         level_name: hierarchyModal.level_name,
         level_order: hierarchyModal.level_order,
+        digit_cap: hierarchyModal.digit_cap,
       })
       if (res.error) {
         showStatus(res.error, 'error')
@@ -312,6 +315,7 @@ export function AdminOfficesConfigClient({
           office_type_id: '',
           level_name: '',
           level_order: 3,
+          digit_cap: DEFAULT_DIGIT_CAP,
         })
       }
     })

@@ -2,7 +2,8 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaHazar, toBanglaNumber } from '@/lib/bangla'
+import { AmountField } from '@/components/amount-field'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -223,15 +224,15 @@ export function Form6Client({ submissionId, initialData }: Form6ClientProps) {
                         </span>
                       </div>
                       <div className="flex justify-between py-1 border-b border-slate-100">
-                        <span className="text-slate-500">{strings.form6.monthlyTotalBasic}:</span>
+                        <span className="text-slate-500">{strings.form6.monthlyTotalBasic} ({strings.hazar.badge}):</span>
                         <span className="font-bold font-mono text-slate-800">
-                          {toBanglaAmount(item.basic)}
+                          {toBanglaHazar(item.basic)}
                         </span>
                       </div>
                       <div className="flex justify-between py-1">
-                        <span className="text-slate-500">{strings.form6.due}:</span>
+                        <span className="text-slate-500">{strings.form6.due} ({strings.hazar.badge}):</span>
                         <span className="font-bold font-mono text-slate-700">
-                          {item.due ? toBanglaAmount(item.due) : '—'}
+                          {item.due ? toBanglaHazar(item.due) : '—'}
                         </span>
                       </div>
                     </div>
@@ -312,26 +313,24 @@ export function Form6Client({ submissionId, initialData }: Form6ClientProps) {
               {/* Monthly Total Basic */}
               <div className="space-y-1.5">
                 <Label htmlFor="leave_basic">{strings.form6.monthlyTotalBasic}</Label>
-                <Input
+                <AmountField
                   id="leave_basic"
-                  type="number"
                   min="0"
-                  placeholder="যেমন: ৫০000"
+                  placeholder="যেমন: ৫০"
                   value={basicInput}
-                  onChange={(e) => setBasicInput(e.target.value)}
+                  onValueChange={(taka) => setBasicInput(taka)}
                 />
               </div>
 
               {/* Due */}
               <div className="space-y-1.5">
                 <Label htmlFor="leave_due">{strings.form6.dueIfAny}</Label>
-                <Input
+                <AmountField
                   id="leave_due"
-                  type="number"
                   min="0"
                   placeholder="ঐচ্ছিক (বকেয়া থাকলে)"
                   value={dueInput}
-                  onChange={(e) => setDueInput(e.target.value)}
+                  onValueChange={(taka) => setDueInput(taka)}
                 />
               </div>
             </div>

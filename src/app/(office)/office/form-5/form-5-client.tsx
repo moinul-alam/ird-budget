@@ -2,7 +2,8 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaHazar, toBanglaNumber } from '@/lib/bangla'
+import { AmountField } from '@/components/amount-field'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -309,27 +310,27 @@ export function Form5Client({
 
                         {type.has_basic && (
                           <div className="flex justify-between py-0.5 border-b border-slate-100">
-                            <span className="text-slate-500">{strings.form5.totalBasicMonthly}</span>
+                            <span className="text-slate-500">{strings.form5.totalBasicMonthly} ({strings.hazar.badge})</span>
                             <span className="font-bold font-mono text-slate-800">
-                              {toBanglaAmount(data.total_basic)}
+                              {toBanglaHazar(data.total_basic)}
                             </span>
                           </div>
                         )}
 
                         {type.has_amount && (
                           <div className="flex justify-between py-0.5 border-b border-slate-100">
-                            <span className="text-slate-500">{strings.form5.amount}</span>
+                            <span className="text-slate-500">{strings.form5.amount} ({strings.hazar.badge})</span>
                             <span className="font-bold font-mono text-slate-800">
-                              {toBanglaAmount(data.amount)}
+                              {toBanglaHazar(data.amount)}
                             </span>
                           </div>
                         )}
 
                         {type.has_due && (
                           <div className="flex justify-between py-0.5">
-                            <span className="text-slate-500">{strings.form5.due}</span>
+                            <span className="text-slate-500">{strings.form5.due} ({strings.hazar.badge})</span>
                             <span className="font-bold font-mono text-slate-700">
-                              {data.due ? toBanglaAmount(data.due) : '—'}
+                              {data.due ? toBanglaHazar(data.due) : '—'}
                             </span>
                           </div>
                         )}
@@ -416,13 +417,12 @@ export function Form5Client({
               {activeType.has_basic && (
                 <div className="space-y-1.5">
                   <Label htmlFor="allowance_basic">{strings.form5.totalBasicMonthly}</Label>
-                  <Input
+                  <AmountField
                     id="allowance_basic"
-                    type="number"
                     min="0"
-                    placeholder="যেমন: ৭০০০০"
+                    placeholder="যেমন: ৭০"
                     value={basicInput}
-                    onChange={(e) => setBasicInput(e.target.value)}
+                    onValueChange={(taka) => setBasicInput(taka)}
                   />
                 </div>
               )}
@@ -431,13 +431,12 @@ export function Form5Client({
               {activeType.has_amount && (
                 <div className="space-y-1.5">
                   <Label htmlFor="allowance_amount">{strings.form5.amount}</Label>
-                  <Input
+                  <AmountField
                     id="allowance_amount"
-                    type="number"
                     min="0"
-                    placeholder="যেমন: ১৫০০"
+                    placeholder="যেমন: ১.৫"
                     value={amountInput}
-                    onChange={(e) => setAmountInput(e.target.value)}
+                    onValueChange={(taka) => setAmountInput(taka)}
                   />
                 </div>
               )}
@@ -446,13 +445,12 @@ export function Form5Client({
               {activeType.has_due && (
                 <div className="space-y-1.5">
                   <Label htmlFor="allowance_due">{strings.form5.due}</Label>
-                  <Input
+                  <AmountField
                     id="allowance_due"
-                    type="number"
                     min="0"
                     placeholder="ঐচ্ছিক (বকেয়া থাকলে)"
                     value={dueInput}
-                    onChange={(e) => setDueInput(e.target.value)}
+                    onValueChange={(taka) => setDueInput(taka)}
                   />
                 </div>
               )}

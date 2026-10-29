@@ -11,6 +11,8 @@
  * computes 0: this engine never invents an amount.
  */
 
+import { ceilingToHazar } from './hazar'
+
 /** One grade band of a "slab" tile (see AdminSalarySlab). */
 export interface SalarySlab {
   from_grade: number;
@@ -467,6 +469,13 @@ export const calculateAllowance = (
 /**
  * Computes every code the caller passes, dispatching each to the formula its
  * `formula_key` names. A code with no key — or a key with no formula — is 0.
+ *
+ * Each computed figure is raised to the next whole হাজার. That is the deliberate
+ * over-provision the budget is built on: a fraction of a thousand is rounded up rather
+ * than dropped, so an office never ends up short. Only the engine rounds this way — the
+ * office's typed inputs and the sheet's overrides are stored exactly as entered — and
+ * because an economic code has no child rows, ceiling each one keeps every category and
+ * the grand total consistent with the rows they are summed from.
  */
 export const calculateAll = (
   codes: Array<{ code: string; formula_key: string | null }>,
@@ -475,7 +484,7 @@ export const calculateAll = (
   const results: Record<string, number> = {}
   for (const c of codes) {
     const fn = c.formula_key ? formulaRegistry[c.formula_key] : undefined
-    results[c.code] = fn ? Math.round(fn(ctx, c.code)) : 0
+    results[c.code] = fn ? ceilingToHazar(fn(ctx, c.code)) : 0
   }
   return results
 }

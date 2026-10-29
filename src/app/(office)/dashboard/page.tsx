@@ -15,7 +15,7 @@ import {
   Lock,
   RotateCcw,
 } from 'lucide-react'
-import { toBanglaAmount, toBanglaDate, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaHazar, toBanglaDate, toBanglaNumber } from '@/lib/bangla'
 import { getOfficeSession } from '@/lib/session'
 import { getOfficeDashboard } from '@/lib/office/dashboard'
 import { FORM_COUNT, FORM_ITEMS, FORM_SHADES } from '@/lib/office/form-nav'
@@ -247,7 +247,8 @@ export default async function DashboardPage() {
               {strings.dashboard.totalBudget}
             </span>
             <div className="mt-3 text-2xl lg:text-3xl font-black text-blue-700 font-mono tracking-tight">
-              ৳ {toBanglaAmount(totalBudgetAmount)}
+              {toBanglaHazar(totalBudgetAmount)}{' '}
+              <span className="text-base font-bold">{strings.hazar.unit}</span>
             </div>
           </div>
           <p className="text-[11px] text-slate-400 mt-2 font-medium">

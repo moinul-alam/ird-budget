@@ -2,10 +2,11 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaHazar, toBanglaNumber } from '@/lib/bangla'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { AmountField } from '@/components/amount-field'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
@@ -380,7 +381,7 @@ export function Form10Client({
                         <div className="flex justify-between py-1 border-b border-slate-100 bg-emerald-50/40 px-1.5 rounded">
                           <span className="text-emerald-800 font-medium">{strings.form10.tonerPricePerUnit}:</span>
                           <span className="font-bold text-emerald-700">
-                            {data.toner_cost > 0 ? toBanglaAmount(data.toner_cost) : '—'}
+                            {data.toner_cost > 0 ? toBanglaHazar(data.toner_cost) : '—'}
                           </span>
                         </div>
                       )}
@@ -478,10 +479,10 @@ export function Form10Client({
                       <span className="font-medium text-purple-900 truncate">{row.title}</span>
                       <span className="text-purple-700/80 whitespace-nowrap">
                         {toBanglaNumber(row.qty)} {strings.form10.unitPiece} ×{' '}
-                        {toBanglaAmount(row.unitPrice)}
+                        {toBanglaHazar(row.unitPrice)}
                       </span>
                       <span className="font-mono font-bold text-purple-900 whitespace-nowrap">
-                        {toBanglaAmount(row.total)}
+                        {toBanglaHazar(row.total)}
                       </span>
                     </div>
                   ))}
@@ -494,10 +495,10 @@ export function Form10Client({
               </div>
               <div className="mt-3 pt-2.5 border-t border-purple-200/70 flex items-baseline justify-between">
                 <span className="text-xs font-semibold text-purple-800">
-                  {strings.form10.purchaseAllocationTotal}
+                  {strings.form10.purchaseAllocationTotal} ({strings.hazar.unit})
                 </span>
                 <span className="text-lg font-extrabold font-mono text-purple-900">
-                  {toBanglaAmount(computerAccessoriesTotal)}
+                  {toBanglaHazar(computerAccessoriesTotal)}
                 </span>
               </div>
             </div>
@@ -536,7 +537,7 @@ export function Form10Client({
                       {strings.form10.tonerPricePerUnit}
                     </span>
                     <span className="font-mono font-bold text-emerald-900 whitespace-nowrap">
-                      {toBanglaAmount(dataMap.printer.toner_cost)}
+                      {toBanglaHazar(dataMap.printer.toner_cost)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between gap-2 text-[11px] bg-white/70 border border-emerald-100/70 rounded-lg px-2.5 py-1.5">
@@ -551,10 +552,10 @@ export function Form10Client({
               </div>
               <div className="mt-3 pt-2.5 border-t border-emerald-200/70 flex items-baseline justify-between">
                 <span className="text-xs font-semibold text-emerald-800">
-                  {strings.form10.annualAllocation}
+                  {strings.form10.annualAllocation} ({strings.hazar.unit})
                 </span>
                 <span className="text-lg font-extrabold font-mono text-emerald-700">
-                  {toBanglaAmount(computerSuppliesTotal)}
+                  {toBanglaHazar(computerSuppliesTotal)}
                 </span>
               </div>
             </div>
@@ -613,12 +614,10 @@ export function Form10Client({
                 <Label className="text-xs font-semibold text-emerald-900">
                   {strings.form10.tonerPricePerUnit}
                 </Label>
-                <Input
-                  type="number"
-                  min="0"
-                  placeholder="যেমন: ২৫০০"
+                <AmountField
+                  placeholder="যেমন: ২.৫"
                   value={tonerPriceInput}
-                  onChange={(e) => setTonerPriceInput(e.target.value)}
+                  onValueChange={(taka) => setTonerPriceInput(taka)}
                   className="bg-white"
                 />
               </div>
@@ -645,13 +644,13 @@ export function Form10Client({
                 <div className="text-[11px] text-purple-800">
                   {strings.form10.unitPriceLabel}:{' '}
                   <span className="font-mono font-bold text-purple-900">
-                    {toBanglaAmount(activeConfig.unitPrice)}
+                    {toBanglaHazar(activeConfig.unitPrice)}
                   </span>
                 </div>
                 <div className="text-[11px] text-purple-800">
                   {strings.form10.estimatedValueLabel}:{' '}
                   <span className="font-mono font-bold text-purple-900">
-                    {toBanglaAmount((parseInt(requiredInput, 10) || 0) * activeConfig.unitPrice)}
+                    {toBanglaHazar((parseInt(requiredInput, 10) || 0) * activeConfig.unitPrice)}
                   </span>
                 </div>
               </div>

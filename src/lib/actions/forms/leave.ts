@@ -3,7 +3,7 @@
 import { errorMessage } from '@/lib/errors'
 
 import { prisma } from '@/lib/db/client'
-import { guardDraftWrite } from './guard'
+import { guardDigitCap, guardDraftWrite } from './guard'
 
 export async function saveFormLeave(
   submissionId: number,
@@ -18,6 +18,16 @@ export async function saveFormLeave(
 ) {
   const guard = await guardDraftWrite(submissionId)
   if (guard) return guard
+
+  const capGuard = await guardDigitCap(submissionId, [
+    data.leave_encashment_officer_basic,
+    data.leave_encashment_officer_due,
+    data.leave_encashment_staff_basic,
+    data.leave_encashment_staff_due,
+    data.rest_recreation_amount,
+    data.rest_recreation_due,
+  ])
+  if (capGuard) return capGuard
 
   try {
     await prisma.officeFormLeaveEncashment.upsert({
@@ -56,6 +66,12 @@ export async function saveFormRestRecreation(
 ) {
   const guard = await guardDraftWrite(submissionId)
   if (guard) return guard
+
+  const capGuard = await guardDigitCap(submissionId, [
+    data.rest_recreation_amount,
+    data.rest_recreation_due,
+  ])
+  if (capGuard) return capGuard
 
   try {
     const existing = await prisma.officeFormLeaveEncashment.findUnique({

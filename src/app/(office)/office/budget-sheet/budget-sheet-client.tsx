@@ -3,7 +3,8 @@
 import { errorMessage as describeError } from '@/lib/errors'
 
 import { strings } from '@/lib/strings'
-import { toBanglaAmount, toBanglaNumber, toBanglaDateTime } from '@/lib/bangla'
+import { toBanglaHazar, toBanglaNumber, toBanglaDateTime } from '@/lib/bangla'
+import { AmountField } from '@/components/amount-field'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -333,7 +334,7 @@ export function BudgetSheetClient({
             serial: toBanglaNumber(index),
             code: row.code,
             name: row.name,
-            amount: toBanglaAmount(effective),
+            amount: toBanglaHazar(effective),
           },
         })
       }
@@ -345,7 +346,7 @@ export function BudgetSheetClient({
         serial: '',
         code: '',
         name: strings.budgetSheet.totalRow,
-        amount: toBanglaAmount(totalManual),
+        amount: toBanglaHazar(totalManual),
       },
     })
 
@@ -358,7 +359,7 @@ export function BudgetSheetClient({
         { key: 'serial', label: strings.budgetSheet.serialColumn, align: 'center', width: 0.6 },
         { key: 'code', label: strings.budgetSheet.codeColumn, align: 'left', width: 1.1 },
         { key: 'name', label: strings.budgetSheet.nameColumn, align: 'left', width: 3.4 },
-        { key: 'amount', label: strings.budgetSheet.amountColumn, align: 'right', width: 1.6 },
+        { key: 'amount', label: `${strings.budgetSheet.amountColumn} (${strings.hazar.unit})`, align: 'right', width: 1.8 },
       ],
       rows: reportRows,
     }
@@ -497,7 +498,7 @@ export function BudgetSheetClient({
               {strings.budgetSheet.totalFinalLabel}
             </CardDescription>
             <CardTitle className="text-2xl font-black text-emerald-700 font-mono">
-              ৳ {toBanglaAmount(totalManual)}
+              {toBanglaHazar(totalManual)} <span className="text-base">{strings.hazar.unit}</span>
             </CardTitle>
           </CardHeader>
         </Card>
@@ -568,7 +569,9 @@ export function BudgetSheetClient({
                   <th className="py-3 px-4 w-14 text-center">{strings.budgetSheet.serialColumn}</th>
                   <th className="py-3 px-4 w-32">{strings.budgetSheet.codeColumn}</th>
                   <th className="py-3 px-4 min-w-[240px]">{strings.budgetSheet.nameColumn}</th>
-                  <th className="py-3 px-4 text-right w-48">{strings.budgetSheet.amountColumn}</th>
+                  <th className="py-3 px-4 text-right w-56">
+                    {strings.budgetSheet.amountColumn} ({strings.hazar.unit})
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -643,22 +646,21 @@ export function BudgetSheetClient({
                                   <span
                                     className={`font-mono font-bold px-2 text-sm ${hasValue ? 'text-slate-900' : 'text-slate-300'}`}
                                   >
-                                    {toBanglaAmount(effectiveValue)}
+                                    {toBanglaHazar(effectiveValue)}
                                   </span>
                                 ) : isManualType || canOverride ? (
-                                  <Input
-                                    type="number"
-                                    min="0"
-                                    className="w-40 text-right font-mono font-bold h-9 bg-amber-50/40 text-slate-900 border-2 border-amber-400 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                                  <AmountField
+                                    allowDecimal={false}
+                                    className="w-40 text-right font-mono font-bold bg-amber-50/40 text-slate-900 border-2 border-amber-400 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                                     value={row.manual_value ?? ''}
-                                    onChange={(e) => handleManualChange(row.code, e.target.value)}
-                                    placeholder={canOverride ? toBanglaAmount(row.auto_value) : '০'}
+                                    onValueChange={(taka) => handleManualChange(row.code, taka)}
+                                    placeholder={canOverride ? toBanglaHazar(row.auto_value) : '০'}
                                   />
                                 ) : (
                                   <span
                                     className={`font-mono font-bold px-2 text-sm ${hasValue ? 'text-slate-900' : 'text-slate-300'}`}
                                   >
-                                    {toBanglaAmount(effectiveValue)}
+                                    {toBanglaHazar(effectiveValue)}
                                   </span>
                                 )}
 
@@ -702,7 +704,8 @@ export function BudgetSheetClient({
                     {strings.budgetSheet.totalRow}:
                   </td>
                   <td className="py-4 px-4 text-right font-mono text-emerald-800 text-base">
-                    ৳ {toBanglaAmount(totalManual)}
+                    {toBanglaHazar(totalManual)}{' '}
+                    <span className="text-xs font-bold">{strings.hazar.unit}</span>
                   </td>
                 </tr>
               </tfoot>

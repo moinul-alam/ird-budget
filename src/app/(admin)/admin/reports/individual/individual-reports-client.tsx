@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaHazar, toBanglaNumber } from '@/lib/bangla'
 import { groupCodesByCategory } from '@/lib/budget/group-codes'
 import { buildCodeWiseSpec, buildOfficeListSpec } from '@/lib/report/specs'
 import { strings } from '@/lib/strings'
@@ -114,7 +114,7 @@ function OfficeDetail({ detail }: { detail: DetailProps }) {
           <div className="text-right">
             <span className="text-[11px] font-bold text-slate-500 uppercase block">সর্বমোট</span>
             <span className="text-lg font-black text-blue-800 font-mono">
-              ৳ {toBanglaAmount(detail.total)}
+              {toBanglaHazar(detail.total)} <span className="text-xs font-bold">{strings.hazar.unit}</span>
             </span>
           </div>
           <Link
@@ -134,7 +134,7 @@ function OfficeDetail({ detail }: { detail: DetailProps }) {
                 <th className="py-3 px-4 w-16">ক্রম</th>
                 <th className="py-3 px-4 w-32">কোড</th>
                 <th className="py-3 px-4">খরচের বিবরণ</th>
-                <th className="py-3 px-4 w-48 text-right">পরিমাণ (৳)</th>
+                <th className="py-3 px-4 w-48 text-right">{strings.reports.amountColumn}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -152,7 +152,7 @@ function OfficeDetail({ detail }: { detail: DetailProps }) {
                         {group.category_name || 'অন্যান্য'}
                       </td>
                       <td className="py-2 px-4 font-mono font-bold text-slate-700 text-right">
-                        {toBanglaAmount(group.subtotal)}
+                        {toBanglaHazar(group.subtotal)}
                       </td>
                     </tr>
                     {group.codes.map((code) => {
@@ -167,7 +167,7 @@ function OfficeDetail({ detail }: { detail: DetailProps }) {
                           </td>
                           <td className="py-2.5 px-4 font-medium text-slate-800">{code.name}</td>
                           <td className="py-2.5 px-4 font-mono font-bold text-slate-900 text-right">
-                            {code.amount ? toBanglaAmount(code.amount) : '—'}
+                            {code.amount ? toBanglaHazar(code.amount) : '—'}
                           </td>
                         </tr>
                       )
@@ -182,7 +182,7 @@ function OfficeDetail({ detail }: { detail: DetailProps }) {
                   সর্বমোট
                 </td>
                 <td className="py-3 px-4 font-mono font-black text-blue-800 text-sm text-right">
-                  {toBanglaAmount(detail.total)}
+                  {toBanglaHazar(detail.total)}
                 </td>
               </tr>
             </tfoot>
@@ -281,7 +281,7 @@ export function IndividualReportsClient({
             {detail ? 'নির্বাচিত অফিসের সর্বমোট' : 'মোট অফিস'}
           </span>
           <span className="text-xl font-black text-blue-700 font-mono">
-            {detail ? `৳ ${toBanglaAmount(detail.total)}` : toBanglaNumber(offices.length)}
+            {detail ? `${toBanglaHazar(detail.total)} ${strings.hazar.unit}` : toBanglaNumber(offices.length)}
           </span>
         </div>
       </div>

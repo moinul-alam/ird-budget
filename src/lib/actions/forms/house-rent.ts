@@ -3,7 +3,7 @@
 import { errorMessage } from '@/lib/errors'
 
 import { prisma } from '@/lib/db/client'
-import { guardDraftWrite } from './guard'
+import { guardDigitCap, guardDraftWrite } from './guard'
 import { loadSalaryMonths } from '@/lib/office/load-form-data'
 
 export async function saveFormHouseRent(
@@ -17,6 +17,9 @@ export async function saveFormHouseRent(
 ) {
   const guard = await guardDraftWrite(submissionId)
   if (guard) return guard
+
+  const capGuard = await guardDigitCap(submissionId, [data.monthly_bill, data.due])
+  if (capGuard) return capGuard
 
   try {
     const contractStartDate = data.contract_start_date

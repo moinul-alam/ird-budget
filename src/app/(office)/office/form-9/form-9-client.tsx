@@ -2,10 +2,11 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaAmount, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaHazar, toBanglaNumber } from '@/lib/bangla'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { AmountField } from '@/components/amount-field'
 import {
   Dialog,
   DialogContent,
@@ -248,7 +249,7 @@ export function Form9Client({
                     {strings.form9.monthlyBillExVat}
                   </span>
                   <p className="text-lg font-bold text-slate-900 font-mono">
-                    {toBanglaAmount(data.monthly_bill)}
+                    {toBanglaHazar(data.monthly_bill)}
                   </p>
                 </div>
 
@@ -259,7 +260,7 @@ export function Form9Client({
                   </span>
                   <p className="text-lg font-bold text-slate-900 font-mono">
                     {data.due > 0 ? (
-                      <span className="text-rose-600">{toBanglaAmount(data.due)}</span>
+                      <span className="text-rose-600">{toBanglaHazar(data.due)}</span>
                     ) : (
                       <span className="text-slate-400 text-sm">কোনো বকেয়া নেই</span>
                     )}
@@ -288,7 +289,7 @@ export function Form9Client({
                 </div>
                 <div>
                   <h4 className="text-sm font-bold text-blue-950">
-                    {strings.form9.yearlyTotalWithVat}
+                    {strings.form9.yearlyTotalWithVat} ({strings.hazar.unit})
                   </h4>
                   <p className="text-xs text-blue-700 mt-0.5">
                     ({strings.form9.vatRateNote}: {toBanglaNumber(vatRate)}% ভ্যাট সংযুক্ত)
@@ -298,7 +299,7 @@ export function Form9Client({
 
               <div className="text-left sm:text-right">
                 <p className="text-2xl font-black text-blue-900 font-mono tracking-tight">
-                  {toBanglaAmount(yearlyTotalWithVat)}
+                  {toBanglaHazar(yearlyTotalWithVat)}
                 </p>
                 <p className="text-[11px] text-blue-600/90 mt-0.5">
                   (মাসিক ভাড়া × {toBanglaNumber(salaryMonths)} মাস × {toBanglaNumber(1 + vatRate / 100)}) + বকেয়া
@@ -325,12 +326,10 @@ export function Form9Client({
               <Label className="text-xs font-semibold text-slate-700">
                 {strings.form9.monthlyBillExVat} <span className="text-rose-500">*</span>
               </Label>
-              <Input
-                type="number"
-                min="0"
+              <AmountField
                 placeholder={strings.form9.monthlyBillExVatPlaceholder}
                 value={monthlyInput}
-                onChange={(e) => setMonthlyInput(e.target.value)}
+                onValueChange={(taka) => setMonthlyInput(taka)}
                 className="bg-white"
               />
             </div>
@@ -340,12 +339,10 @@ export function Form9Client({
               <Label className="text-xs font-semibold text-slate-700">
                 {strings.form9.dueExVat}
               </Label>
-              <Input
-                type="number"
-                min="0"
+              <AmountField
                 placeholder={strings.form9.dueExVatPlaceholder}
                 value={dueInput}
-                onChange={(e) => setDueInput(e.target.value)}
+                onValueChange={(taka) => setDueInput(taka)}
                 className="bg-white"
               />
             </div>
