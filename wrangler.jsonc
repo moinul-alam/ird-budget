@@ -5,6 +5,11 @@
 	"name": "ird-budget",
 	// The bundle produced by `opennextjs-cloudflare build`.
 	"main": ".open-next/worker.js",
+	// Wrangler treats this file, not the dashboard, as the source of truth for bindings, so a
+	// deploy would otherwise drop any plaintext variable set in the dashboard (DATABASE_URL,
+	// ADMIN_DEFAULT_PASSWORD, ...). Encrypted secrets survive a deploy regardless; this guards
+	// the plaintext ones.
+	"keep_vars": true,
 	"compatibility_date": "2026-10-23",
 	// `nodejs_compat` is what makes `pg` work: it needs node:net, node:tls and node:crypto,
 	// which is how the Prisma driver adapter (src/lib/db/client.ts) reaches PostgreSQL.
