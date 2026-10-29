@@ -1,8 +1,8 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	// Must match the existing Worker created in the Cloudflare dashboard; wrangler otherwise
-	// deploys to a second, empty Worker and the dashboard's domains/secrets are left behind.
-	"name": "ird-budget",
+	// Must match the Worker in the Cloudflare dashboard (`budget`); wrangler otherwise deploys to
+	// a second, empty Worker that has none of the dashboard's variables, secrets or domains.
+	"name": "budget",
 	// The bundle produced by `opennextjs-cloudflare build`.
 	"main": ".open-next/worker.js",
 	// Wrangler treats this file, not the dashboard, as the source of truth for bindings, so a
