@@ -2,7 +2,7 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaHazar, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaNumber } from '@/lib/bangla'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,6 +14,15 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Card, CardContent } from '@/components/ui/card'
 import { saveFormHouseRent, deleteFormHouseRent } from '@/lib/actions/forms/house-rent'
 import {
   Building2,
@@ -23,10 +32,12 @@ import {
   Calendar,
   AlertTriangle,
   Info,
-  Receipt,
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { HazarAmount } from '@/components/hazar-amount'
 import type { FormHouseRentInitial } from '@/lib/office/load-form-data'
 import { useState, useTransition } from 'react'
+import type { ReactNode } from 'react'
 
 export interface Form9ClientProps {
   submissionId: number | null
@@ -34,6 +45,42 @@ export interface Form9ClientProps {
   vatPercentage: number
   /** বেতন-মাস (/admin/budgets, set on the budget cycle) — annualises the monthly rent like the sheet engine. */
   salaryMonths: number
+}
+
+/**
+ * Colour profile of this form. The toolbar's solid button, the table card's tinted
+ * strip and every row action read from here, so the list keeps one hue throughout.
+ */
+const accent = {
+  solidButton: 'bg-blue-600 hover:bg-blue-700 text-white',
+  rowAction: 'text-slate-500 hover:text-blue-600 hover:bg-blue-50',
+  header: 'bg-blue-50/70 border-blue-100',
+  dot: 'bg-blue-600',
+  value: 'text-blue-700',
+  card: 'bg-gradient-to-br from-slate-50 to-blue-50/40 border-blue-100',
+}
+
+/** The quiet uppercase heading every column shares; only the alignment varies. */
+const COL_HEAD = 'px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-500'
+
+/** One cell of the bottom সারসংক্ষেপ. */
+function SummaryBox({
+  label,
+  value,
+  valueClass,
+}: {
+  label: string
+  value: ReactNode
+  valueClass?: string
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5">
+      <span className="block text-[11px] font-medium text-slate-500">{label}</span>
+      <span className={cn('mt-0.5 block font-mono text-lg font-bold text-slate-800', valueClass)}>
+        {value}
+      </span>
+    </div>
+  )
 }
 
 export function Form9Client({
@@ -84,6 +131,12 @@ export function Form9Client({
   const vatRate = vatPercentage || 0
   // Formula: ভ্যাটসহ বাৎসরিক অফিস ভাড়া = (ভ্যাট ব্যতিত মাসিক ভাড়া × বেতন-ভাতা মাস × (১ + ভ্যাট%)) + ভ্যাট ব্যতিত বকেয়া ভাড়া
   const yearlyTotalWithVat = Math.round(monthly * salaryMonths * (1 + vatRate / 100) + due)
+
+  // The record as a one-row list, so the table reads the same way as every other form.
+  const rows = data ? [data] : []
+  // Arrears are the exception, not the rule — with none entered the column is just
+  // noise, so it is dropped and the remaining columns take back its width.
+  const hasDue = rows.some((r) => (r.due || 0) > 0)
 
   const openAddModal = () => {
     setMonthlyInput(data?.monthly_bill ? String(data.monthly_bill) : '')
@@ -150,162 +203,140 @@ export function Form9Client({
       nextHref="/office/form-10"
       onSave={submissionId ? handleSaveAll : undefined}
     >
-      <div className="p-6 lg:p-8 space-y-6 max-w-4xl mx-auto">
-        {/* Top Disclaimer / Instruction Banner (Form 2B style: instructing only enter if applicable) */}
-        <div className="bg-amber-50/80 border border-amber-200/90 rounded-2xl p-5 flex items-start gap-3.5 shadow-xs">
-          <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
-            <Info className="w-5 h-5" />
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-bold text-amber-900">
-                {strings.form9.title}
-              </h3>
-              <span className="text-[11px] font-semibold bg-amber-200/80 text-amber-800 px-2 py-0.5 rounded-full">
-                {strings.form9.applicableNote}
-              </span>
-            </div>
-            <p className="text-xs text-amber-800/90 mt-1 leading-relaxed">
-              {strings.form9.subtitle}
+      <div className="p-6 lg:p-8 space-y-6">
+        {/* Toolbar — the one entry point for the rent record, with the হাজার-unit
+            convention spelled out beside it. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          {/* Height-matched to the button (h-8) so the toolbar reads as one strip. */}
+          <div className="flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 shadow-sm sm:h-8 sm:py-0">
+            <Info className="h-4 w-4 shrink-0 text-amber-600" />
+            <p className="text-xs font-medium leading-snug text-amber-900 sm:text-sm sm:whitespace-nowrap">
+              {strings.hazar.hint}
             </p>
           </div>
-          {!data && (
-            <Button
-              type="button"
-              onClick={openAddModal}
-              className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 gap-1.5 rounded-xl font-medium shadow-xs"
-            >
-              <Plus className="h-4 w-4" />
-              {strings.form9.addHouseRent}
-            </Button>
-          )}
+          <Button
+            type="button"
+            onClick={openAddModal}
+            className={cn('shrink-0 gap-1.5 rounded-xl', accent.solidButton)}
+          >
+            <Plus className="h-4 w-4" />
+            {strings.form9.addHouseRent}
+          </Button>
         </div>
 
-        {/* Empty State */}
-        {!data ? (
-          <div className="text-center py-16 px-4 border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50">
-            <Building2 className="mx-auto h-12 w-12 text-slate-300 mb-3" />
-            <p className="text-slate-600 font-medium text-base mb-2">
-              {strings.form9.noHouseRent}
-            </p>
-            <p className="text-xs text-slate-400 max-w-md mx-auto mb-5">
-              যদি আপনার অফিস ভাড়া ভবনে অবস্থিত হয়, তবে নিচের বাটনে চাপ দিয়ে চুক্তি ও ভাড়ার তথ্য যোগ করুন।
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={openAddModal}
-              className="text-blue-700 border-blue-200 hover:bg-blue-50 rounded-xl"
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              {strings.form9.addHouseRent}
-            </Button>
+        {/* The legal/explanatory note that carries this form's meaning. */}
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800">
+            {strings.form9.applicableNote}
+          </span>
+          <p className="text-xs text-slate-500">{strings.form9.subtitle}</p>
+        </div>
+
+        {/* Data Table or Empty State */}
+        {rows.length === 0 ? (
+          <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-4 py-12 text-center">
+            <Building2 className="mx-auto mb-3 h-12 w-12 text-slate-300" />
+            <p className="text-base font-medium text-slate-600">{strings.form9.noHouseRent}</p>
           </div>
         ) : (
-          /* Entered Information Card */
           <div className="space-y-6">
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-              <div className="px-6 py-4 bg-slate-50/80 border-b border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                    <Building2 className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-800">
-                      ভাড়া সংক্রান্ত সংরক্ষিত বিবরণ
-                    </h4>
-                    <p className="text-[11px] text-slate-500">
-                      অফিস স্পেস ও চুক্তির বিস্তারিত তথ্য
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={openAddModal}
-                    className="text-blue-700 border-blue-200 hover:bg-blue-50 text-xs h-8 gap-1.5 rounded-lg"
-                  >
-                    <Edit2 className="h-3.5 w-3.5" />
-                    {strings.form9.editHouseRent}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setShowDeleteConfirm(true)}
-                    className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 h-8 w-8 p-0 rounded-lg"
-                    title={strings.form9.deleteHouseRent}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+              <div className={cn('flex items-center gap-2 border-b px-4 py-2.5', accent.header)}>
+                <span className={cn('h-2 w-2 rounded-full', accent.dot)} />
+                <h3 className="text-sm font-bold text-slate-800">{strings.form9.title}</h3>
               </div>
-
-              <div className="p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-                {/* ভ্যাট ব্যতিত মাসিক ভাড়া */}
-                <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-100 space-y-1">
-                  <span className="text-xs text-slate-500 font-medium">
-                    {strings.form9.monthlyBillExVat}
-                  </span>
-                  <p className="text-lg font-bold text-slate-900 font-mono">
-                    {toBanglaHazar(data.monthly_bill)}
-                  </p>
-                </div>
-
-                {/* ভ্যাট ব্যতিত বকেয়া ভাড়া */}
-                <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-100 space-y-1">
-                  <span className="text-xs text-slate-500 font-medium">
-                    {strings.form9.dueExVat}
-                  </span>
-                  <p className="text-lg font-bold text-slate-900 font-mono">
-                    {data.due > 0 ? (
-                      <span className="text-rose-600">{toBanglaHazar(data.due)}</span>
-                    ) : (
-                      <span className="text-slate-400 text-sm">কোনো বকেয়া নেই</span>
+              <Table className="min-w-[640px] table-fixed">
+                <TableHeader>
+                  <TableRow className="border-slate-100 hover:bg-transparent">
+                    <TableHead className={cn(COL_HEAD, 'w-[8%] text-center')}>{strings.form9.serialColumn}</TableHead>
+                    <TableHead className={cn(COL_HEAD, hasDue ? 'w-[18%]' : 'w-[22%]', 'text-center')}>{strings.form9.monthlyBillExVat}</TableHead>
+                    {hasDue && (
+                      <TableHead className={cn(COL_HEAD, 'w-[14%] text-center')}>{strings.form9.dueExVat}</TableHead>
                     )}
-                  </p>
-                </div>
-
-                {/* চুক্তির মেয়াদ */}
-                <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-100 space-y-1">
-                  <span className="text-xs text-slate-500 font-medium flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                    {strings.form9.contractDuration}
-                  </span>
-                  <p className="text-xs font-semibold text-slate-700 mt-1">
-                    {data.contract_start_date ? data.contract_start_date : '—'} হতে{' '}
-                    {data.contract_end_date ? data.contract_end_date : '—'}
-                  </p>
-                </div>
-              </div>
+                    <TableHead className={cn(COL_HEAD, hasDue ? 'w-[15%]' : 'w-[17%]', 'text-center')}>{strings.form9.contractStart}</TableHead>
+                    <TableHead className={cn(COL_HEAD, hasDue ? 'w-[15%]' : 'w-[17%]', 'text-center')}>{strings.form9.contractEnd}</TableHead>
+                    <TableHead className={cn(COL_HEAD, hasDue ? 'w-[19%]' : 'w-[24%]', 'text-center')}>{strings.form9.yearlyTotalWithVat}</TableHead>
+                    <TableHead className={cn(COL_HEAD, 'w-[12%] text-center')}>অ্যাকশন</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((row, idx) => (
+                    <TableRow key={idx} className="border-slate-100 even:bg-slate-50/50 hover:bg-slate-50">
+                      <TableCell className="px-4 py-2.5 text-center text-slate-400">
+                        {toBanglaNumber(idx + 1)}
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5 text-center font-semibold text-slate-800">
+                        <HazarAmount taka={row.monthly_bill} />
+                      </TableCell>
+                      {hasDue && (
+                        <TableCell className="px-4 py-2.5 text-center font-medium text-slate-600">
+                          <HazarAmount taka={row.due} />
+                        </TableCell>
+                      )}
+                      <TableCell className="px-4 py-2.5 text-center font-medium text-slate-600">
+                        {row.contract_start_date || strings.na}
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5 text-center font-medium text-slate-600">
+                        {row.contract_end_date || strings.na}
+                      </TableCell>
+                      <TableCell className={cn('px-4 py-2.5 text-center font-semibold', accent.value)}>
+                        <HazarAmount taka={yearlyTotalWithVat} />
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5">
+                        <div className="flex items-center justify-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={openAddModal}
+                            className={cn('h-8 w-8 p-0', accent.rowAction)}
+                            title={strings.form9.editHouseRent}
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowDeleteConfirm(true)}
+                            className="h-8 w-8 p-0 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                            title={strings.form9.deleteHouseRent}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
 
-            {/* Bottom Summary: ভ্যাটসহ বাৎসরিক অফিস ভাড়া ____ টাকা */}
-            <div className="bg-gradient-to-r from-blue-50/90 to-indigo-50/70 rounded-2xl border border-blue-200/80 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-                  <Receipt className="w-6 h-6" />
+            {/* Summary Card */}
+            <Card className={cn('border shadow-xs', accent.card)}>
+              <CardContent className="space-y-4 p-5">
+                <div className={cn('grid grid-cols-1 gap-3', hasDue ? 'sm:grid-cols-3' : 'sm:grid-cols-2')}>
+                  <SummaryBox
+                    label={strings.form9.monthlyBillExVat}
+                    value={<HazarAmount taka={monthly} />}
+                  />
+                  {hasDue && (
+                    <SummaryBox
+                      label={strings.form9.dueExVat}
+                      value={<HazarAmount taka={due} />}
+                    />
+                  )}
+                  <SummaryBox
+                    label={strings.form9.yearlyTotalWithVat}
+                    value={<HazarAmount taka={yearlyTotalWithVat} />}
+                    valueClass={accent.value}
+                  />
                 </div>
-                <div>
-                  <h4 className="text-sm font-bold text-blue-950">
-                    {strings.form9.yearlyTotalWithVat} ({strings.hazar.unit})
-                  </h4>
-                  <p className="text-xs text-blue-700 mt-0.5">
-                    ({strings.form9.vatRateNote}: {toBanglaNumber(vatRate)}% ভ্যাট সংযুক্ত)
-                  </p>
-                </div>
-              </div>
-
-              <div className="text-left sm:text-right">
-                <p className="text-2xl font-black text-blue-900 font-mono tracking-tight">
-                  {toBanglaHazar(yearlyTotalWithVat)}
+                <p className="text-xs text-slate-500">
+                  {strings.form9.vatRateNote}: {toBanglaNumber(vatRate)}% ভ্যাট সংযুক্ত
                 </p>
-                <p className="text-[11px] text-blue-600/90 mt-0.5">
-                  (মাসিক ভাড়া × {toBanglaNumber(salaryMonths)} মাস × {toBanglaNumber(1 + vatRate / 100)}) + বকেয়া
-                </p>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
         )}
       </div>

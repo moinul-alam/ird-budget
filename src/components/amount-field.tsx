@@ -65,6 +65,9 @@ export function AmountField({
   const digitCap = useDigitCap()
   const [draft, setDraft] = useState(() => draftFromTaka(value))
   const [overflowed, setOverflowed] = useState(false)
+  // The readout is a hint, not a marker: it shows while the field is being worked in and
+  // lets go the moment the office moves on.
+  const [active, setActive] = useState(false)
   // A modal re-seeding itself may arrive while the office is typing, and that must not
   // clobber the draft — hence the ref rather than a plain `value` comparison.
   const focused = useRef(false)
@@ -89,7 +92,7 @@ export function AmountField({
   }
 
   const taka = parseFloat(draft) * TAKA_PER_HAZAR
-  const showReadout = draft !== '' && Number.isFinite(taka) && !overflowed
+  const showReadout = active && draft !== '' && Number.isFinite(taka) && !overflowed
 
   return (
     <>
@@ -110,9 +113,11 @@ export function AmountField({
           onChange={(e) => handleChange(e.target.value)}
           onFocus={() => {
             focused.current = true
+            setActive(true)
           }}
           onBlur={() => {
             focused.current = false
+            setActive(false)
           }}
           className={cn(
             'pr-16',

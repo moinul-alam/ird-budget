@@ -2,7 +2,7 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaHazar, toBanglaHazarWords, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaNumber } from '@/lib/bangla'
 import { AmountField } from '@/components/amount-field'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,9 +32,11 @@ import {
 } from '@/components/ui/table'
 import { Card, CardContent } from '@/components/ui/card'
 import { saveFormNewStaffRows, NewStaffRecord } from '@/lib/actions/forms/staff'
-import { Plus, Trash2, Edit2, UserPlus, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, Edit2, UserPlus, AlertTriangle, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useState, useTransition, useMemo, useCallback } from 'react'
+import type { ReactNode } from 'react'
+import { HazarAmount } from '@/components/hazar-amount'
 
 /**
  * One row of `ref_grades`. The grade list is administrator-controlled, so the
@@ -85,7 +87,7 @@ function SummaryBox({
   valueClass,
 }: {
   label: string
-  value: string
+  value: ReactNode
   valueClass?: string
 }) {
   return (
@@ -94,6 +96,122 @@ function SummaryBox({
       <span className={cn('mt-0.5 block font-mono text-lg font-bold text-slate-800', valueClass)}>
         {value}
       </span>
+    </div>
+  )
+}
+
+/** The quiet uppercase heading every column shares; only the alignment varies. */
+const COL_HEAD = 'px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-500'
+
+/**
+ * One new-recruit table. Officers and staff differ only in wording and tint, so
+ * both render through this one shell — fixed column widths and centred cells,
+ * which is what keeps the figures in a straight line down the table.
+ */
+function NewStaffTable({
+  title,
+  dotClass,
+  headerClass,
+  rows,
+  gradeNoOf,
+  subtotalLabel,
+  valueClass,
+  onEdit,
+  onDelete,
+}: {
+  title: string
+  dotClass: string
+  headerClass: string
+  rows: NewStaffRecord[]
+  gradeNoOf: (row: NewStaffRecord) => number
+  subtotalLabel: string
+  valueClass: string
+  onEdit: (row: NewStaffRecord) => void
+  onDelete: (row: NewStaffRecord) => void
+}) {
+  const subtotalCount = rows.reduce((acc, r) => acc + (r.count || 0), 0)
+  const subtotalBasic = rows.reduce((acc, r) => acc + (r.monthly_basic || 0), 0)
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+      <div className={cn('flex items-center gap-2 border-b px-4 py-2.5', headerClass)}>
+        <span className={cn('h-2 w-2 rounded-full', dotClass)} />
+        <h3 className="text-sm font-bold text-slate-800">{title}</h3>
+      </div>
+
+      <Table className="min-w-[640px] table-fixed">
+        <TableHeader>
+          <TableRow className="border-slate-100 hover:bg-transparent">
+            <TableHead className={cn(COL_HEAD, 'w-[8%] text-center')}>{strings.form4.serialColumn}</TableHead>
+            <TableHead className={cn(COL_HEAD, 'w-[16%] text-center')}>{strings.form4.gradeColumn}</TableHead>
+            <TableHead className={cn(COL_HEAD, 'w-[16%] text-center')}>{strings.form4.countColumn}</TableHead>
+            <TableHead className={cn(COL_HEAD, 'w-[18%] text-center')}>{strings.form4.basicColumn}</TableHead>
+            <TableHead className={cn(COL_HEAD, 'w-[18%] text-center')}>{strings.form4.dateColumn}</TableHead>
+            <TableHead className={cn(COL_HEAD, 'w-[14%] text-center')}>{strings.form4.monthsColumn}</TableHead>
+            <TableHead className={cn(COL_HEAD, 'w-[10%] text-center')}>অ্যাকশন</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row, idx) => (
+            <TableRow key={idx} className="border-slate-100 even:bg-slate-50/50 hover:bg-emerald-50/40">
+              <TableCell className="px-4 py-2.5 text-center text-slate-400">
+                {toBanglaNumber(idx + 1)}
+              </TableCell>
+              <TableCell className="px-4 py-2.5 text-center font-bold text-slate-800">
+                গ্রেড {toBanglaNumber(gradeNoOf(row))}
+              </TableCell>
+              <TableCell className="px-4 py-2.5 text-center font-semibold text-slate-700">
+                {toBanglaNumber(row.count)} {strings.form4.personUnit}
+              </TableCell>
+              <TableCell className="px-4 py-2.5 text-center font-semibold text-slate-900">
+                <HazarAmount taka={row.monthly_basic} />
+              </TableCell>
+              <TableCell className="px-4 py-2.5 text-center font-mono text-xs text-slate-600">
+                {row.expected_date ? toBanglaNumber(row.expected_date) : '—'}
+              </TableCell>
+              <TableCell className={cn('px-4 py-2.5 text-center font-semibold', valueClass)}>
+                {toBanglaNumber(row.remaining_months)} {strings.form4.monthsUnit}
+              </TableCell>
+              <TableCell className="px-4 py-2.5">
+                <div className="flex items-center justify-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onEdit(row)}
+                    className={cn('h-8 w-8 p-0', accent.rowAction)}
+                    title="সম্পাদনা করুন"
+                  >
+                    <Edit2 className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onDelete(row)}
+                    className="h-8 w-8 p-0 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                    title="মুছে ফেলুন"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+          <TableRow className="border-t border-slate-100 bg-slate-50/90 font-bold text-slate-800">
+            <TableCell colSpan={2} className="px-4 py-2.5 text-center">{subtotalLabel}</TableCell>
+            <TableCell className="px-4 py-2.5 text-center font-semibold">
+              {toBanglaNumber(subtotalCount)} {strings.form4.personUnit}
+            </TableCell>
+            <TableCell className={cn('px-4 py-2.5 text-center font-extrabold', valueClass)}>
+              <HazarAmount taka={subtotalBasic} />
+            </TableCell>
+            <TableCell className="px-4 py-2.5 text-center text-slate-400">—</TableCell>
+            <TableCell className="px-4 py-2.5 text-center text-slate-400">—</TableCell>
+            <TableCell />
+          </TableRow>
+        </TableBody>
+      </Table>
     </div>
   )
 }
@@ -329,38 +447,21 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
     [rows, isOfficer, gradeNoOf]
   )
 
-  const totals = useMemo(() => {
-    // `monthly_basic` is the grade's total monthly basic — the same figure forms
-    // 2 and 3 store — so the one-month total is a plain sum. `total_salary` is
-    // that figure stretched over the row's remaining months.
-    const sumOfficers = officerRows.reduce(
-      (acc, r) => ({
-        count: acc.count + (r.count || 0),
-        monthly_basic: acc.monthly_basic + (r.monthly_basic || 0),
-        total_salary: acc.total_salary + (r.total_salary || 0),
-      }),
-      { count: 0, monthly_basic: 0, total_salary: 0 }
-    )
-
-    const sumStaff = staffRows.reduce(
-      (acc, r) => ({
-        count: acc.count + (r.count || 0),
-        monthly_basic: acc.monthly_basic + (r.monthly_basic || 0),
-        total_salary: acc.total_salary + (r.total_salary || 0),
-      }),
-      { count: 0, monthly_basic: 0, total_salary: 0 }
-    )
-
-    return {
-      officers: sumOfficers,
-      staff: sumStaff,
-      grand: {
-        count: sumOfficers.count + sumStaff.count,
-        monthly_basic: sumOfficers.monthly_basic + sumStaff.monthly_basic,
-        total_salary: sumOfficers.total_salary + sumStaff.total_salary,
-      },
-    }
-  }, [officerRows, staffRows])
+  // The summary spans both tables, so it sums every row. `monthly_basic` is the
+  // grade's total monthly basic — the same figure forms 2 and 3 store — while
+  // `total_salary` is that figure stretched over the row's remaining months.
+  const totals = useMemo(
+    () =>
+      rows.reduce(
+        (acc, r) => ({
+          count: acc.count + (r.count || 0),
+          monthly_basic: acc.monthly_basic + (r.monthly_basic || 0),
+          total_salary: acc.total_salary + (r.total_salary || 0),
+        }),
+        { count: 0, monthly_basic: 0, total_salary: 0 }
+      ),
+    [rows]
+  )
 
   // Rows may carry different dates, so the summary shows the range.
   const expectedDateText = useMemo(() => {
@@ -390,12 +491,14 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
       dirty={dirty}
     >
       <div className="p-6 lg:p-8 space-y-6">
-        {/* Top Action */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-          <div>
-            <h2 className="text-base font-bold text-slate-800">{strings.form4.title}</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              অর্থবছর {toBanglaNumber(fiscalYear)}-এ {strings.form4.subtitle}
+        {/* Toolbar — the one entry point for a new-recruit row, with the হাজার-unit
+            convention spelled out beside it. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          {/* Height-matched to the button (h-8) so the toolbar reads as one strip. */}
+          <div className="flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 shadow-sm sm:h-8 sm:py-0">
+            <Info className="h-4 w-4 shrink-0 text-amber-600" />
+            <p className="text-xs font-medium leading-snug text-amber-900 sm:text-sm sm:whitespace-nowrap">
+              {strings.hazar.hint}
             </p>
           </div>
           <Button
@@ -412,194 +515,39 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
         {/* Data Tables or Empty State */}
         {rows.length === 0 ? (
           <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-4 py-12 text-center">
-            <UserPlus className="mx-auto h-12 w-12 text-slate-300 mb-3" />
-            <p className="text-slate-600 font-medium text-base mb-2">{strings.form4.emptyState}</p>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={openAddModal}
-              className={cn('mt-2 rounded-xl', accent.emptyButton)}
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              {strings.form4.addButtonEmpty}
-            </Button>
+            <UserPlus className="mx-auto mb-3 h-12 w-12 text-slate-300" />
+            <p className="text-base font-medium text-slate-600">{strings.form4.emptyState}</p>
           </div>
         ) : (
           <div className="space-y-6">
             {/* Officer Table */}
             {officerRows.length > 0 && (
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
-                <div className={cn('flex items-center justify-between border-b px-4 py-2.5', accent.officerHeader)}>
-                  <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                    <span className={cn('h-2 w-2 rounded-full', accent.officerDot)} />
-                    {strings.form4.officerRowLabel}
-                  </h3>
-                  <span className="text-xs font-semibold text-slate-500">
-                    মোট পদ: {toBanglaNumber(totals.officers.count)} টি
-                  </span>
-                </div>
-                <Table>
-                  <TableHeader className="bg-slate-50">
-                    <TableRow>
-                      <TableHead className="w-16 text-center font-bold text-slate-700">ক্রম</TableHead>
-                      <TableHead className="w-28 font-bold text-slate-700">{strings.form4.gradeColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form4.countColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form4.basicColumn} ({strings.hazar.unit})</TableHead>
-                      <TableHead className="text-center font-bold text-slate-700">{strings.form4.dateColumn}</TableHead>
-                      <TableHead className="text-center font-bold text-slate-700">{strings.form4.monthsColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form4.totalSalaryColumn} ({strings.hazar.unit})</TableHead>
-                      <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {officerRows.map((row, idx) => (
-                      <TableRow key={idx} className="hover:bg-slate-50/70">
-                        <TableCell className="text-center font-mono text-xs text-slate-500">
-                          {toBanglaNumber(idx + 1)}
-                        </TableCell>
-                        <TableCell className="font-mono font-bold text-slate-800">
-                          গ্রেড {toBanglaNumber(gradeNoOf(row))}
-                        </TableCell>
-                        <TableCell className="text-right font-mono font-medium">{toBanglaNumber(row.count)}</TableCell>
-                        <TableCell className="text-right font-mono font-medium text-slate-800">
-                          {toBanglaHazar(row.monthly_basic)}
-                        </TableCell>
-                        <TableCell className="text-center font-mono text-xs">
-                          {row.expected_date ? toBanglaNumber(row.expected_date) : '—'}
-                        </TableCell>
-                        <TableCell className={cn('text-center font-mono font-semibold', accent.officerValue)}>
-                          {toBanglaNumber(row.remaining_months)} মাস
-                        </TableCell>
-                        <TableCell className="text-right font-mono font-bold text-slate-900">
-                          {toBanglaHazar(row.total_salary)}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEditModal(rows.indexOf(row))}
-                              className={cn('h-8 w-8 p-0', accent.rowAction)}
-                              title="সম্পাদনা করুন"
-                            >
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setDeleteIndex(rows.indexOf(row))}
-                              className="h-8 w-8 p-0 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                              title="মুছে ফেলুন"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="border-t bg-slate-50/90 font-bold text-slate-800">
-                      <TableCell colSpan={2} className="text-right pr-4">{strings.form4.subTotalOfficer}</TableCell>
-                      <TableCell className="text-right font-mono">{toBanglaNumber(totals.officers.count)}</TableCell>
-                      <TableCell className="text-right font-mono">—</TableCell>
-                      <TableCell colSpan={2} className="text-center">—</TableCell>
-                      <TableCell className={cn('text-right font-mono font-extrabold', accent.officerValue)}>
-                        {toBanglaHazar(totals.officers.total_salary)}
-                      </TableCell>
-                      <TableCell />
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </div>
+              <NewStaffTable
+                title={strings.form4.officerRowLabel}
+                dotClass={accent.officerDot}
+                headerClass={accent.officerHeader}
+                rows={officerRows}
+                gradeNoOf={gradeNoOf}
+                subtotalLabel={strings.form4.subTotalOfficer}
+                valueClass={accent.officerValue}
+                onEdit={(row) => openEditModal(rows.indexOf(row))}
+                onDelete={(row) => setDeleteIndex(rows.indexOf(row))}
+              />
             )}
 
             {/* Staff Table */}
             {staffRows.length > 0 && (
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
-                <div className={cn('flex items-center justify-between border-b px-4 py-2.5', accent.staffHeader)}>
-                  <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                    <span className={cn('h-2 w-2 rounded-full', accent.staffDot)} />
-                    {strings.form4.staffRowLabel}
-                  </h3>
-                  <span className="text-xs font-semibold text-slate-500">
-                    মোট পদ: {toBanglaNumber(totals.staff.count)} টি
-                  </span>
-                </div>
-                <Table>
-                  <TableHeader className="bg-slate-50">
-                    <TableRow>
-                      <TableHead className="w-16 text-center font-bold text-slate-700">ক্রম</TableHead>
-                      <TableHead className="w-28 font-bold text-slate-700">{strings.form4.gradeColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form4.countColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form4.basicColumn} ({strings.hazar.unit})</TableHead>
-                      <TableHead className="text-center font-bold text-slate-700">{strings.form4.dateColumn}</TableHead>
-                      <TableHead className="text-center font-bold text-slate-700">{strings.form4.monthsColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form4.totalSalaryColumn} ({strings.hazar.unit})</TableHead>
-                      <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {staffRows.map((row, idx) => (
-                      <TableRow key={idx} className="hover:bg-slate-50/70">
-                        <TableCell className="text-center font-mono text-xs text-slate-500">
-                          {toBanglaNumber(idx + 1)}
-                        </TableCell>
-                        <TableCell className="font-mono font-bold text-slate-800">
-                          গ্রেড {toBanglaNumber(gradeNoOf(row))}
-                        </TableCell>
-                        <TableCell className="text-right font-mono font-medium">{toBanglaNumber(row.count)}</TableCell>
-                        <TableCell className="text-right font-mono font-medium text-slate-800">
-                          {toBanglaHazar(row.monthly_basic)}
-                        </TableCell>
-                        <TableCell className="text-center font-mono text-xs">
-                          {row.expected_date ? toBanglaNumber(row.expected_date) : '—'}
-                        </TableCell>
-                        <TableCell className={cn('text-center font-mono font-semibold', accent.staffValue)}>
-                          {toBanglaNumber(row.remaining_months)} মাস
-                        </TableCell>
-                        <TableCell className="text-right font-mono font-bold text-slate-900">
-                          {toBanglaHazar(row.total_salary)}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEditModal(rows.indexOf(row))}
-                              className={cn('h-8 w-8 p-0', accent.rowAction)}
-                              title="সম্পাদনা করুন"
-                            >
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setDeleteIndex(rows.indexOf(row))}
-                              className="h-8 w-8 p-0 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                              title="মুছে ফেলুন"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow className="border-t bg-slate-50/90 font-bold text-slate-800">
-                      <TableCell colSpan={2} className="text-right pr-4">{strings.form4.subTotalStaff}</TableCell>
-                      <TableCell className="text-right font-mono">{toBanglaNumber(totals.staff.count)}</TableCell>
-                      <TableCell className="text-right font-mono">—</TableCell>
-                      <TableCell colSpan={2} className="text-center">—</TableCell>
-                      <TableCell className="text-right font-mono font-extrabold text-slate-900">
-                        {toBanglaHazar(totals.staff.total_salary)}
-                      </TableCell>
-                      <TableCell />
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </div>
+              <NewStaffTable
+                title={strings.form4.staffTableTitle}
+                dotClass={accent.staffDot}
+                headerClass={accent.staffHeader}
+                rows={staffRows}
+                gradeNoOf={gradeNoOf}
+                subtotalLabel={strings.form4.subTotalStaff}
+                valueClass={accent.staffValue}
+                onEdit={(row) => openEditModal(rows.indexOf(row))}
+                onDelete={(row) => setDeleteIndex(rows.indexOf(row))}
+              />
             )}
 
             {/* Summary Card */}
@@ -608,21 +556,21 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                 <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">
                   {strings.form4.summaryTitle}
                 </h3>
-                <div className={cn('rounded-2xl border p-3.5', accent.officerRow)}>
+                <div className={cn('rounded-2xl border p-3.5', accent.staffRow)}>
                   <div className="mb-3 flex items-center gap-2">
-                    <span className={cn('h-2.5 w-2.5 rounded-full', accent.officerDot)} />
+                    <span className={cn('h-2.5 w-2.5 rounded-full', accent.staffDot)} />
                     <span className="text-xs font-bold text-slate-700">
-                      {strings.form4.staffRowLabel}
+                      {strings.form4.staffTableTitle}
                     </span>
                   </div>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
                     <SummaryBox
                       label={strings.form4.summaryCountLabel}
-                      value={`${toBanglaNumber(totals.grand.count)} ${strings.form4.personUnit}`}
+                      value={`${toBanglaNumber(totals.count)} ${strings.form4.personUnit}`}
                     />
                     <SummaryBox
                       label={strings.form4.summaryBasicLabel}
-                      value={`${toBanglaHazarWords(totals.grand.monthly_basic)} ${strings.taka}`}
+                      value={<HazarAmount taka={totals.monthly_basic} />}
                       valueClass={accent.officerValue}
                     />
                     <SummaryBox
@@ -634,7 +582,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                         বার্ষিক box is that sum, not a figure annualised a second time. */}
                     <SummaryBox
                       label={strings.form4.annualSummaryLabel}
-                      value={`${toBanglaHazarWords(totals.grand.total_salary)} ${strings.taka}`}
+                      value={<HazarAmount taka={totals.total_salary} />}
                     />
                   </div>
                 </div>
@@ -771,7 +719,7 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
                 </div>
                 <div className="flex justify-between border-t border-emerald-200 pt-1">
                   <span className="font-bold">{strings.form4.estimatedCost}</span>
-                  <span className="font-mono font-bold">{toBanglaHazarWords(modalTotalSalary)} {strings.taka}</span>
+                  <HazarAmount taka={modalTotalSalary} className="font-mono font-bold" />
                 </div>
               </div>
             )}

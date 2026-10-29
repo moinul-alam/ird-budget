@@ -22,7 +22,6 @@ import {
   LogIn,
   ShieldCheck,
   Check,
-  CheckCircle2,
   AlertTriangle,
 } from 'lucide-react'
 
@@ -86,36 +85,9 @@ export function LandingClient() {
     if (lookupTimer.current !== null) clearTimeout(lookupTimer.current)
   }, [])
 
-  // While the field is focused it spans the full row; on blur it contracts to exactly the width
-  // of the typed digits, and the freed space on the right hosts the lookup status / result.
+  // While the field is focused — or while it has nothing to report — it spans the full row; once
+  // a result arrives it collapses to exactly 40% and the freed space hosts the result box.
   const [idFocused, setIdFocused] = useState(false)
-  const idMirrorRef = useRef<HTMLSpanElement | null>(null)
-  // A second twin, holding a full-length ID. It is the floor the contract can never go below, so
-  // a 3-digit value and a 13-digit one leave the field exactly the same width and the row does
-  // not reflow when a validation message turns into an office result.
-  const idFloorRef = useRef<HTMLSpanElement | null>(null)
-  const [idWidth, setIdWidth] = useState(0)
-  const [idFloorWidth, setIdFloorWidth] = useState(0)
-
-  // Measure the twins continuously rather than once per keystroke. This keeps the contracted
-  // width correct even when a web font swaps in after the first paint, which would otherwise
-  // leave the box too narrow and push the digits under the status chip.
-  useEffect(() => {
-    const mirror = idMirrorRef.current
-    const floor = idFloorRef.current
-    if (!mirror || !floor) return
-
-    const measure = () => {
-      setIdWidth(mirror.offsetWidth)
-      setIdFloorWidth(floor.offsetWidth)
-    }
-    measure()
-
-    const observer = new ResizeObserver(measure)
-    observer.observe(mirror)
-    observer.observe(floor)
-    return () => observer.disconnect()
-  }, [])
 
   // Registration modal
   const [showRegModal, setShowRegModal] = useState(false)
@@ -331,10 +303,9 @@ export function LandingClient() {
     })
   }
 
-  // Lookup feedback sits inline to the right of the input, which contracts to make room for it.
-  // The chip claims that space as soon as there is anything to say — a warning, a settled
-  // result — so the office name appears without leaving the field, and it stays for any content
-  // once the field has been left behind.
+  // The row is only split while there is something to report — a warning or a settled lookup.
+  // Until then the field keeps the whole row, and it also keeps it while the office is typing
+  // (focused with digits in it), so the contraction only ever happens behind a real result.
   const hasStatus = englishOnlyWarning || lookupState !== 'idle'
   const shouldContract = hasStatus || (!idFocused && budgetId.length > 0)
 
@@ -344,14 +315,12 @@ export function LandingClient() {
       : lookupOffice.name
     : ''
 
-  // Mirrors the budget-id input box: same shape, padding, border and fixed height, so the result
-  // reads as a sibling field and swapping it in/out never changes the row height (no layout blink).
+  // Mirrors the budget-id input box — same shape, border and minimum height — so the result reads
+  // as a sibling field next to the input rather than replacing it.
   const chipBase =
-    'flex h-14 w-full min-w-0 items-center gap-3 rounded-2xl border px-4 text-xs font-bold'
+    'flex min-h-14 w-full min-w-0 items-center gap-3 rounded-2xl border px-4 py-2.5 text-xs font-bold'
   const chipIcon = 'h-3.5 w-3.5 shrink-0'
-  // The icon is a spinning (transformed) element in the waiting state, which lets it composite
-  // above later siblings. Lifting the label keeps its first character on top in every state.
-  const chipText = 'relative z-10 min-w-0 break-words leading-snug'
+  const chipText = 'relative z-10 min-w-0 leading-snug'
 
   const statusPill = englishOnlyWarning ? (
     <span className={`${chipBase} border-amber-200 bg-amber-50 text-amber-700`}>
@@ -366,14 +335,13 @@ export function LandingClient() {
   ) : lookupState === 'found' && lookupOffice ? (
     <span
       title={lookupTitle}
-      className={`${chipBase} border-emerald-200 bg-emerald-50 text-emerald-800`}
+      className={`${chipBase} items-start border-emerald-200 bg-emerald-50 text-emerald-800`}
     >
-      <CheckCircle2 className={`${chipIcon} text-emerald-600`} />
+      {/* No tick — the green box itself says the office was found. A field office shows its own
+          name with the head office on the line below; a head office shows its name alone. The
+          name is given up to three lines and ellipsised beyond that rather than growing the row. */}
       <span className={`${chipText} flex flex-col`}>
-        {/* Field office: name on top, head office on the second line. Head office: name only.
-            Each line is capped at a single row, so a long pair ellipsises inside the chip
-            instead of wrapping to a third line and overrunning the fixed height. */}
-        <span className="truncate">{lookupOffice.name}</span>
+        <span className="line-clamp-3">{lookupOffice.name}</span>
         {lookupOffice.headOffice && (
           <span className="truncate font-semibold text-emerald-600/80">{lookupOffice.headOffice}</span>
         )}
@@ -385,9 +353,22 @@ export function LandingClient() {
       <span className={chipText}>{strings.landing.budgetIdLengthHint}</span>
     </span>
   ) : lookupState === 'notFound' ? (
-    <span className={`${chipBase} border-rose-200 bg-rose-50 text-rose-700`}>
-      <AlertTriangle className={`${chipIcon} text-rose-600`} />
-      <span className={chipText}>{strings.landing.noOffice}</span>
+    // Both lines sit centred in a box that is exactly the field's height (h-14), so a missing
+    // office never grows the row.
+    <span className="flex h-14 w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-2xl border border-rose-200 bg-rose-50 px-3 text-center text-[11px] font-bold text-rose-700">
+      <span className="flex items-center gap-1.5">
+        <AlertTriangle className={`${chipIcon} text-rose-600`} />
+        <span className={`${chipText} text-[11px]`}>{strings.landing.noOffice}</span>
+      </span>
+      {/* Same green as the registration button, so the way out of a missing office is obvious. */}
+      <button
+        type="button"
+        onClick={handleOpenRegModal}
+        className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 transition-colors hover:text-emerald-500"
+      >
+        <Plus className="h-3 w-3 shrink-0" />
+        {strings.landing.registerCta}
+      </button>
     </span>
   ) : null
 
@@ -464,16 +445,11 @@ export function LandingClient() {
                   {strings.landing.budgetIdLabel} <span className="text-red-500">*</span>
                 </label>
                 <div className="flex items-center gap-3">
-                  {/* The field keeps the full row while it has nothing to report, then contracts
-                      to the width of a complete ID so the status can sit beside it without
-                      moving anything, whatever the status happens to be. */}
+                  {/* Full row while it has nothing to report; on contraction it hands exactly 45%
+                      to the field so the result box beside it takes the remaining 55%. */}
                   <div
-                    className="relative shrink-0 transition-[width] duration-300 ease-out"
-                    style={{
-                      width: shouldContract
-                        ? `${Math.max(idWidth, idFloorWidth, 48)}px`
-                        : '100%',
-                    }}
+                    className="shrink-0 transition-[width] duration-300 ease-out"
+                    style={{ width: shouldContract ? '45%' : '100%' }}
                   >
                     <input
                       type="text"
@@ -498,28 +474,8 @@ export function LandingClient() {
                       autoComplete="off"
                       spellCheck={false}
                       aria-describedby="budget_id_status"
-                      className="h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-4 pr-4 text-base font-semibold text-slate-900 transition-colors placeholder:font-normal placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15 focus:placeholder:text-transparent"
+                      className="h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-semibold text-slate-900 transition-colors placeholder:font-normal placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-blue-500/15 focus:placeholder:text-transparent sm:text-base"
                     />
-                    {/* Invisible twin of the digits — its width is what the field contracts to.
-                        `w-max` keeps it at the true text width instead of being clamped by the
-                        shrinking wrapper, which would otherwise feed a smaller value back into
-                        the width transition and collapse the box. */}
-                    <span
-                      ref={idMirrorRef}
-                      aria-hidden
-                      className="invisible absolute left-0 top-0 w-max whitespace-pre rounded-2xl border border-transparent px-4 py-3 text-base font-semibold"
-                    >
-                      {budgetId || '0'}
-                    </span>
-                    {/* The floor twin — a full-length ID, so the contract never drops below the
-                        width the completed field needs. */}
-                    <span
-                      ref={idFloorRef}
-                      aria-hidden
-                      className="invisible absolute left-0 top-0 w-max whitespace-pre rounded-2xl border border-transparent px-4 py-3 text-base font-semibold"
-                    >
-                      {'0'.repeat(BUDGET_ID_LENGTH)}
-                    </span>
                   </div>
 
                   <div

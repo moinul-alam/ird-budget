@@ -48,6 +48,24 @@ export function toBanglaAmount(number: number | string | null | undefined): stri
 }
 
 /**
+ * Grouping of an unsigned digit string in pairs all the way back, which is the shape the
+ * হাজার seat reads in: 110 → ১,১০, 1110 → ১১,১০, 11110 → ১,১১,১০, 1111110 → ১,১১,১১,১০.
+ * The lakh/crore scale stacks in pairs, so every seat above হাজার is one group of two —
+ * unlike `groupBanglaDigits`, whose taka reading keeps a trailing group of three.
+ */
+function groupBanglaHazarDigits(absDigits: string): string {
+  if (absDigits.length <= 2) return toBanglaNumber(absDigits);
+
+  let grouped = absDigits;
+  let formatted = '';
+  while (grouped.length > 2) {
+    formatted = ',' + grouped.slice(-2) + formatted;
+    grouped = grouped.slice(0, -2);
+  }
+  return toBanglaNumber(grouped + formatted);
+}
+
+/**
  * An amount in হাজার — the unit every office-facing surface reads and writes, where
  * `10` means ১০,০০০ টাকা. A computed budget always lands on a whole হাজার (the engine
  * ceilings it there), but an office's typed figure may carry two decimals, so 10250
@@ -64,7 +82,7 @@ export function toBanglaHazar(number: number | string | null | undefined): strin
   const decimals = fraction.replace(/0+$/, '');
   const sign = rounded < 0 ? '-' : '';
 
-  return `${sign}${groupBanglaDigits(whole)}${decimals ? `.${toBanglaNumber(decimals)}` : ''}`;
+  return `${sign}${groupBanglaHazarDigits(whole)}${decimals ? `.${toBanglaNumber(decimals)}` : ''}`;
 }
 
 /**

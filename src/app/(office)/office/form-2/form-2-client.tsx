@@ -2,7 +2,7 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaHazar, toBanglaHazarWords, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaNumber } from '@/lib/bangla'
 import { AmountField } from '@/components/amount-field'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,9 +32,11 @@ import {
 } from '@/components/ui/table'
 import { Card, CardContent } from '@/components/ui/card'
 import { saveFormStaffActiveRows, deleteFormStaffActiveRow } from '@/lib/actions/forms/staff'
-import { Plus, Trash2, Edit2, Users, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, Edit2, Users, AlertTriangle, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useState, useTransition, useMemo, useCallback } from 'react'
+import type { ReactNode } from 'react'
+import { HazarAmount } from '@/components/hazar-amount'
 
 export interface ActiveStaffRow {
   grade_id: number
@@ -97,7 +99,7 @@ function SummaryBox({
   valueClass,
 }: {
   label: string
-  value: string
+  value: ReactNode
   valueClass?: string
 }) {
   return (
@@ -106,6 +108,111 @@ function SummaryBox({
       <span className={cn('mt-0.5 block font-mono text-lg font-bold text-slate-800', valueClass)}>
         {value}
       </span>
+    </div>
+  )
+}
+
+/** The quiet uppercase heading every column shares; only the alignment varies. */
+const COL_HEAD = 'px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-500'
+
+/**
+ * One grade table. Officers and staff differ only in wording and tint, so both render
+ * through this one shell — fixed column widths and a right-aligned numeric edge, which
+ * is what keeps the figures in a straight line down the table.
+ */
+function GradeTable({
+  title,
+  dotClass,
+  headerClass,
+  countColumnLabel,
+  rows,
+  gradeNoOf,
+  rowAction,
+  showDue,
+  onEdit,
+  onDelete,
+}: {
+  title: string
+  dotClass: string
+  headerClass: string
+  countColumnLabel: string
+  rows: ActiveStaffRow[]
+  gradeNoOf: (row: ActiveStaffRow) => number
+  rowAction: string
+  /** Arrears are the exception, not the rule — with none entered the column is just
+   *  noise, so it is dropped and the remaining columns take back its width. */
+  showDue: boolean
+  onEdit: (row: ActiveStaffRow) => void
+  onDelete: (gradeId: number) => void
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+      <div className={cn('flex items-center gap-2 border-b px-4 py-2.5', headerClass)}>
+        <span className={cn('h-2 w-2 rounded-full', dotClass)} />
+        <h3 className="text-sm font-bold text-slate-800">{title}</h3>
+      </div>
+
+      <Table className="min-w-[640px] table-fixed">
+        <TableHeader>
+          <TableRow className="border-slate-100 hover:bg-transparent">
+            <TableHead className={cn(COL_HEAD, 'text-center', showDue ? 'w-[8%]' : 'w-[10%]')}>{strings.form2.serialColumn}</TableHead>
+            <TableHead className={cn(COL_HEAD, 'text-center', showDue ? 'w-[16%]' : 'w-[20%]')}>{strings.form2.gradeColumn}</TableHead>
+            <TableHead className={cn(COL_HEAD, 'text-center', showDue ? 'w-[16%]' : 'w-[20%]')}>{countColumnLabel}</TableHead>
+            <TableHead className={cn(COL_HEAD, 'text-center', showDue ? 'w-[24%]' : 'w-[30%]')}>{strings.form2.basicColumn}</TableHead>
+            {showDue && (
+              <TableHead className={cn(COL_HEAD, 'w-[24%] text-center')}>{strings.form2.tableDueSalaryColumn}</TableHead>
+            )}
+            <TableHead className={cn(COL_HEAD, 'text-center', showDue ? 'w-[12%]' : 'w-[20%]')}>অ্যাকশন</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row, idx) => (
+            <TableRow key={row.grade_id} className="border-slate-100 even:bg-slate-50/50 hover:bg-blue-50/40">
+              <TableCell className="px-4 py-2.5 text-center text-slate-400">
+                {toBanglaNumber(idx + 1)}
+              </TableCell>
+              <TableCell className="px-4 py-2.5 text-center font-bold text-slate-800">
+                গ্রেড {toBanglaNumber(gradeNoOf(row))}
+              </TableCell>
+              <TableCell className="px-4 py-2.5 text-center font-semibold text-slate-700">
+                {toBanglaNumber(row.count)} {strings.form2.personUnit}
+              </TableCell>
+              <TableCell className="px-4 py-2.5 text-center font-semibold text-slate-900">
+                <HazarAmount taka={row.total_basic} />
+              </TableCell>
+              {showDue && (
+                <TableCell className="px-4 py-2.5 text-center font-medium text-slate-600">
+                  <HazarAmount taka={row.due_salary} />
+                </TableCell>
+              )}
+              <TableCell className="px-4 py-2.5">
+                <div className="flex items-center justify-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onEdit(row)}
+                    className={cn('h-8 w-8 p-0', rowAction)}
+                    title="সম্পাদনা করুন"
+                  >
+                    <Edit2 className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onDelete(row.grade_id)}
+                    className="h-8 w-8 p-0 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                    title="মুছে ফেলুন"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   )
 }
@@ -357,6 +464,9 @@ export function Form2Client({ initialData, submissionId, grades, salaryMonths }:
     }
   }, [rows, isOfficer, salaryMonths])
 
+  // Arrears only earn their space when someone actually has them.
+  const hasDue = summary.officerDue > 0 || summary.staffDue > 0
+
   // Save entire form state to database
   const handleSaveAll = async () => {
     if (!submissionId) return
@@ -377,14 +487,14 @@ export function Form2Client({ initialData, submissionId, grades, salaryMonths }:
       dirty={dirty}
     >
       <div className="p-6 lg:p-8 space-y-6">
-        {/* Top Action */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-          <div>
-            <h2 className="text-base font-bold text-slate-800">
-              কর্মকর্তা ও কর্মচারীর বেতন বিবরণী (কর্মরত)
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              প্রয়োজনীয় গ্রেড নির্বাচন করে কর্মকর্তা ও কর্মচারীর সংখ্যা ও মাসিক মোট মূল বেতন যোগ করুন।
+        {/* Toolbar — the one entry point for a new grade row, with the হাজার-unit
+            convention spelled out beside it. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          {/* Height-matched to the button (h-8) so the toolbar reads as one strip. */}
+          <div className="flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 shadow-sm sm:h-8 sm:py-0">
+            <Info className="h-4 w-4 shrink-0 text-amber-600" />
+            <p className="text-xs font-medium leading-snug text-amber-900 sm:text-sm sm:whitespace-nowrap">
+              {strings.hazar.hint}
             </p>
           </div>
           <Button
@@ -401,156 +511,41 @@ export function Form2Client({ initialData, submissionId, grades, salaryMonths }:
         {/* Data Tables or Empty State */}
         {rows.length === 0 ? (
           <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-4 py-12 text-center">
-            <Users className="mx-auto h-12 w-12 text-slate-300 mb-3" />
-            <p className="text-slate-600 font-medium text-base mb-2">
-              {strings.form2.emptyState}
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={openAddModal}
-              className={cn('mt-2 rounded-xl', accent.emptyButton)}
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              {strings.form2.addButton}
-            </Button>
+            <Users className="mx-auto mb-3 h-12 w-12 text-slate-300" />
+            <p className="text-base font-medium text-slate-600">{strings.form2.emptyState}</p>
           </div>
         ) : (
           <div className="space-y-6">
             {/* Officer Table */}
             {officerRows.length > 0 && (
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
-                <div className={cn('flex items-center justify-between border-b px-4 py-2.5', accent.officerHeader)}>
-                  <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                    <span className={cn('h-2 w-2 rounded-full', accent.officerDot)} />
-                    {strings.form2.officerTableTitle}
-                  </h3>
-                  <span className="text-xs font-semibold text-slate-500">
-                    মোট: {toBanglaNumber(officerRows.length)} টি গ্রেড
-                  </span>
-                </div>
-                <Table>
-                  <TableHeader className="bg-slate-50">
-                    <TableRow>
-                      <TableHead className="w-28 font-bold text-slate-700">{strings.form2.gradeColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form2.officerCountColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form2.basicColumn} ({strings.hazar.unit})</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form2.tableDueSalaryColumn} ({strings.hazar.unit})</TableHead>
-                      <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {officerRows.map((row) => (
-                      <TableRow key={row.grade_id} className="hover:bg-slate-50/70">
-                        <TableCell className="font-mono font-bold text-slate-800">
-                          গ্রেড {toBanglaNumber(gradeNoOf(row))}
-                        </TableCell>
-                        <TableCell className="text-right font-mono font-medium">
-                          {toBanglaNumber(row.count)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono font-medium text-slate-800">
-                          {toBanglaHazar(row.total_basic)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-slate-600">
-                          {row.due_salary ? toBanglaHazar(row.due_salary) : '—'}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEditModal(row)}
-                              className={cn('h-8 w-8 p-0', accent.rowAction)}
-                              title="সম্পাদনা করুন"
-                            >
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setGradeToDelete(row.grade_id)}
-                              className="h-8 w-8 p-0 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                              title="মুছে ফেলুন"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              <GradeTable
+                title={strings.form2.officerTableTitle}
+                dotClass={accent.officerDot}
+                headerClass={accent.officerHeader}
+                countColumnLabel={strings.form2.officerCountColumn}
+                rows={officerRows}
+                gradeNoOf={gradeNoOf}
+                rowAction={accent.rowAction}
+                showDue={hasDue}
+                onEdit={openEditModal}
+                onDelete={setGradeToDelete}
+              />
             )}
 
             {/* Staff Table */}
             {staffRows.length > 0 && (
-              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
-                <div className={cn('flex items-center justify-between border-b px-4 py-2.5', accent.staffHeader)}>
-                  <h3 className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                    <span className={cn('h-2 w-2 rounded-full', accent.staffDot)} />
-                    {strings.form2.staffTableTitle}
-                  </h3>
-                  <span className="text-xs font-semibold text-slate-500">
-                    মোট: {toBanglaNumber(staffRows.length)} টি গ্রেড
-                  </span>
-                </div>
-                <Table>
-                  <TableHeader className="bg-slate-50">
-                    <TableRow>
-                      <TableHead className="w-28 font-bold text-slate-700">{strings.form2.gradeColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form2.staffCountColumn}</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form2.basicColumn} ({strings.hazar.unit})</TableHead>
-                      <TableHead className="text-right font-bold text-slate-700">{strings.form2.tableDueSalaryColumn} ({strings.hazar.unit})</TableHead>
-                      <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {staffRows.map((row) => (
-                      <TableRow key={row.grade_id} className="hover:bg-slate-50/70">
-                        <TableCell className="font-mono font-bold text-slate-800">
-                          গ্রেড {toBanglaNumber(gradeNoOf(row))}
-                        </TableCell>
-                        <TableCell className="text-right font-mono font-medium">
-                          {toBanglaNumber(row.count)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono font-medium text-slate-800">
-                          {toBanglaHazar(row.total_basic)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-slate-600">
-                          {row.due_salary ? toBanglaHazar(row.due_salary) : '—'}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex items-center justify-center gap-1">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openEditModal(row)}
-                              className={cn('h-8 w-8 p-0', accent.rowAction)}
-                              title="সম্পাদনা করুন"
-                            >
-                              <Edit2 className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setGradeToDelete(row.grade_id)}
-                              className="h-8 w-8 p-0 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                              title="মুছে ফেলুন"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              <GradeTable
+                title={strings.form2.staffTableTitle}
+                dotClass={accent.staffDot}
+                headerClass={accent.staffHeader}
+                countColumnLabel={strings.form2.staffCountColumn}
+                rows={staffRows}
+                gradeNoOf={gradeNoOf}
+                rowAction={accent.rowAction}
+                showDue={hasDue}
+                onEdit={openEditModal}
+                onDelete={setGradeToDelete}
+              />
             )}
           </div>
         )}
@@ -563,63 +558,71 @@ export function Form2Client({ initialData, submissionId, grades, salaryMonths }:
                 {strings.form2.summaryTitle}
               </h3>
 
-              {/* কর্মকর্তা */}
-              <div className={cn('rounded-2xl border p-3.5', accent.officerRow)}>
-                <div className="mb-3 flex items-center gap-2">
-                  <span className={cn('h-2.5 w-2.5 rounded-full', accent.officerDot)} />
-                  <span className="text-xs font-bold text-slate-700">
-                    {strings.form2.officerRowLabel}
-                  </span>
+              {/* A category with no rows has nothing to summarise, so its block is
+                  simply absent — the office only ever sees what it actually entered. */}
+              {officerRows.length > 0 && (
+                <div className={cn('rounded-2xl border p-3.5', accent.officerRow)}>
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className={cn('h-2.5 w-2.5 rounded-full', accent.officerDot)} />
+                    <span className="text-xs font-bold text-slate-700">
+                      {strings.form2.officerRowLabel}
+                    </span>
+                  </div>
+                  <div className={cn('grid grid-cols-1 gap-3', hasDue ? 'sm:grid-cols-4' : 'sm:grid-cols-3')}>
+                    <SummaryBox
+                      label={strings.form2.officerCountLabel}
+                      value={`${toBanglaNumber(summary.officerCount)} ${strings.form2.personUnit}`}
+                    />
+                    <SummaryBox
+                      label={strings.form2.monthlyBasicSummaryLabel}
+                      value={<HazarAmount taka={summary.officerBasic} />}
+                      valueClass={accent.officerValue}
+                    />
+                    {hasDue && (
+                      <SummaryBox
+                        label={strings.form2.dueSummaryLabel}
+                        value={<HazarAmount taka={summary.officerDue} />}
+                      />
+                    )}
+                    <SummaryBox
+                      label={strings.form2.annualSummaryLabel}
+                      value={<HazarAmount taka={summary.officerAnnual} />}
+                    />
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-                  <SummaryBox
-                    label={strings.form2.officerCountLabel}
-                    value={`${toBanglaNumber(summary.officerCount)} ${strings.form2.personUnit}`}
-                  />
-                  <SummaryBox
-                    label={strings.form2.monthlyBasicSummaryLabel}
-                    value={`${toBanglaHazarWords(summary.officerBasic)} ${strings.taka}`}
-                    valueClass={accent.officerValue}
-                  />
-                  <SummaryBox
-                    label={strings.form2.dueSummaryLabel}
-                    value={summary.officerDue ? `${toBanglaHazarWords(summary.officerDue)} ${strings.taka}` : '—'}
-                  />
-                  <SummaryBox
-                    label={strings.form2.annualSummaryLabel}
-                    value={`${toBanglaHazarWords(summary.officerAnnual)} ${strings.taka}`}
-                  />
-                </div>
-              </div>
+              )}
 
-              {/* কর্মচারী */}
-              <div className={cn('rounded-2xl border p-3.5', accent.staffRow)}>
-                <div className="mb-3 flex items-center gap-2">
-                  <span className={cn('h-2.5 w-2.5 rounded-full', accent.staffDot)} />
-                  <span className="text-xs font-bold text-slate-700">
-                    {strings.form2.staffRowLabel}
-                  </span>
+              {staffRows.length > 0 && (
+                <div className={cn('rounded-2xl border p-3.5', accent.staffRow)}>
+                  <div className="mb-3 flex items-center gap-2">
+                    <span className={cn('h-2.5 w-2.5 rounded-full', accent.staffDot)} />
+                    <span className="text-xs font-bold text-slate-700">
+                      {strings.form2.staffRowLabel}
+                    </span>
+                  </div>
+                  <div className={cn('grid grid-cols-1 gap-3', hasDue ? 'sm:grid-cols-4' : 'sm:grid-cols-3')}>
+                    <SummaryBox
+                      label={strings.form2.staffCountLabel}
+                      value={`${toBanglaNumber(summary.staffCount)} ${strings.form2.personUnit}`}
+                    />
+                    <SummaryBox
+                      label={strings.form2.monthlyBasicSummaryLabel}
+                      value={<HazarAmount taka={summary.staffBasic} />}
+                      valueClass={accent.staffValue}
+                    />
+                    {hasDue && (
+                      <SummaryBox
+                        label={strings.form2.dueSummaryLabel}
+                        value={<HazarAmount taka={summary.staffDue} />}
+                      />
+                    )}
+                    <SummaryBox
+                      label={strings.form2.annualSummaryLabel}
+                      value={<HazarAmount taka={summary.staffAnnual} />}
+                    />
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-                  <SummaryBox
-                    label={strings.form2.staffCountLabel}
-                    value={`${toBanglaNumber(summary.staffCount)} ${strings.form2.personUnit}`}
-                  />
-                  <SummaryBox
-                    label={strings.form2.monthlyBasicSummaryLabel}
-                    value={`${toBanglaHazarWords(summary.staffBasic)} ${strings.taka}`}
-                    valueClass={accent.staffValue}
-                  />
-                  <SummaryBox
-                    label={strings.form2.dueSummaryLabel}
-                    value={summary.staffDue ? `${toBanglaHazarWords(summary.staffDue)} ${strings.taka}` : '—'}
-                  />
-                  <SummaryBox
-                    label={strings.form2.annualSummaryLabel}
-                    value={`${toBanglaHazarWords(summary.staffAnnual)} ${strings.taka}`}
-                  />
-                </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         )}

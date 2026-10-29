@@ -57,6 +57,11 @@ interface BudgetSheetDataResponse {
   officeName: string
   /** Head quarter (department for a head office, parent office for a field office). */
   headOfficeName: string
+  /** The office's 13-digit budget id, shown as the identity line on the sheet header. */
+  budgetId: string
+  /** True when the office reports to a parent, i.e. it sits below the ministry /
+   *  department / head-office tiers and so shows its parent office as its head office. */
+  isFieldOffice: boolean
   missingForms?: string[]
   /** True when the rows are the frozen snapshot of an already-submitted budget. */
   isSubmitted: boolean
@@ -78,6 +83,8 @@ function emptySheetResponse(error: string): BudgetSheetDataResponse {
     officeLevel: '',
     officeName: '',
     headOfficeName: '',
+    budgetId: '',
+    isFieldOffice: false,
     isSubmitted: false,
     configStale: false,
     capturedAt: null,
@@ -111,6 +118,7 @@ export async function getBudgetSheetData(submissionId: number): Promise<BudgetSh
         office: {
           select: {
             name: true,
+            budgetId: true,
             parentOfficeId: true,
             officeLevel: { select: { levelName: true } },
             department: { select: { name: true } },
@@ -128,6 +136,10 @@ export async function getBudgetSheetData(submissionId: number): Promise<BudgetSh
         : office.parentOffice?.name ?? ''
       : ''
     const officeName = office?.name || ''
+    const budgetId = office?.budgetId || ''
+    // A parent link is what separates a field office from the ministry / department /
+    // head-office tiers — those sit at the top of the chain and have nothing above them.
+    const isFieldOffice = office?.parentOfficeId !== null && office?.parentOfficeId !== undefined
 
     const rows: BudgetSheetRowItem[] = sheet.map((r) => ({
       id: r.id,
@@ -165,6 +177,8 @@ export async function getBudgetSheetData(submissionId: number): Promise<BudgetSh
       officeLevel,
       officeName,
       headOfficeName,
+      budgetId,
+      isFieldOffice,
       missingForms,
       isSubmitted: source === 'snapshot',
       configStale: Boolean(configStale),

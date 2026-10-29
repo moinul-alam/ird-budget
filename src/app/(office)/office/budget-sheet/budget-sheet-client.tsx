@@ -3,7 +3,7 @@
 import { errorMessage as describeError } from '@/lib/errors'
 
 import { strings } from '@/lib/strings'
-import { toBanglaHazar, toBanglaNumber, toBanglaDateTime } from '@/lib/bangla'
+import { toBanglaHazar, toBanglaHazarWords, toBanglaNumber, toBanglaDateTime } from '@/lib/bangla'
 import { AmountField } from '@/components/amount-field'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -36,12 +36,17 @@ interface BudgetSheetClientProps {
   initialTotalManual: number
   initialError?: string | null
   initialMissingForms?: string[]
-  /** The office's level name, shown as a summary card. */
+  /** The office's level name, shown in the identity card's hover tooltip. */
   officeLevel: string
   /** Office name for the download header. */
   officeName: string
   /** Head quarter / department for the download header. */
   headOfficeName: string
+  /** The office's 13-digit budget id, shown under its name. */
+  budgetId: string
+  /** True for a field office — one that sits below the ministry / department /
+   *  head-office tiers and so names its parent as its head office. */
+  isFieldOffice: boolean
   /** True when these rows are the frozen snapshot of an already-submitted budget. */
   isSubmitted: boolean
   /** Snapshot only: the admin's rates/config changed after this budget was submitted. */
@@ -88,6 +93,8 @@ export function BudgetSheetClient({
   officeLevel,
   officeName,
   headOfficeName,
+  budgetId,
+  isFieldOffice,
   isSubmitted,
   configStale,
   capturedAt,
@@ -468,40 +475,66 @@ export function BudgetSheetClient({
         </div>
       )}
 
-      {/* Summary Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border-slate-200 shadow-xs bg-white">
-          <CardHeader>
-            <CardDescription className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              {strings.budgetSheet.officeLevelLabel}
-            </CardDescription>
-            <CardTitle className="text-2xl font-black text-slate-800">
-              {officeLevel || '—'}
-            </CardTitle>
-          </CardHeader>
-        </Card>
+      {/* Summary Stat Cards — the office's identity (50%), the sheet's scale (20%) and
+          its money (30%). Each card carries its own pale wash so the row reads as three
+          distinct blocks, and the two that hold a spoken figure reveal it on hover. */}
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-4">
+        {/* Identity — no title: the name is the label. A field office names the office it
+            reports to under its own name; the top three tiers have nothing above them. */}
+        <div className="relative group lg:col-span-4">
+          <Card className="h-full border-sky-200 bg-sky-50/70 shadow-xs">
+            <CardContent className="flex h-full flex-col justify-center gap-1">
+              <p className="text-lg font-black leading-tight text-slate-900 sm:text-xl">
+                {officeName || '—'}
+              </p>
+              {isFieldOffice && headOfficeName && (
+                <p className="text-sm font-bold text-slate-600">{headOfficeName}</p>
+              )}
+              <p className="font-mono text-xs font-semibold text-slate-500">
+                {toBanglaNumber(budgetId) || '—'}
+              </p>
+            </CardContent>
+          </Card>
+          <div className="pointer-events-none absolute left-0 top-full z-30 hidden group-hover:block">
+            <div className="mt-2 whitespace-nowrap rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white shadow-xl">
+              {strings.budgetSheet.officeLevelLabel}: {officeLevel || '—'}
+            </div>
+          </div>
+        </div>
 
-        <Card className="border-slate-200 shadow-xs bg-white">
-          <CardHeader>
-            <CardDescription className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              {strings.budgetSheet.codeCountLabel}
-            </CardDescription>
-            <CardTitle className="text-2xl font-black text-slate-800 font-mono">
-              {toBanglaNumber(rows.length)}
-            </CardTitle>
-          </CardHeader>
-        </Card>
+        {/* Scale — how many economic codes the sheet runs on. */}
+        <div className="lg:col-span-3">
+          <Card className="h-full border-violet-200 bg-violet-50/70 shadow-xs">
+            <CardHeader className="justify-items-center text-center">
+              <CardDescription className="text-xs font-bold uppercase tracking-wider text-violet-700/70">
+                {strings.budgetSheet.codeCountLabel}
+              </CardDescription>
+              <CardTitle className="font-mono text-2xl font-black text-slate-800">
+                {toBanglaNumber(rows.length)}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
 
-        <Card className="border-slate-200 shadow-xs bg-white">
-          <CardHeader>
-            <CardDescription className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              {strings.budgetSheet.totalFinalLabel}
-            </CardDescription>
-            <CardTitle className="text-2xl font-black text-emerald-700 font-mono">
-              {toBanglaHazar(totalManual)} <span className="text-base">{strings.hazar.unit}</span>
-            </CardTitle>
-          </CardHeader>
-        </Card>
+        {/* Money — the figure in হাজার, spelled out in words on hover. */}
+        <div className="relative group lg:col-span-3">
+          <Card className="h-full border-emerald-200 bg-emerald-50/70 shadow-xs">
+            <CardHeader className="justify-items-end text-right">
+              <CardDescription className="text-xs font-bold uppercase tracking-wider text-emerald-700/70">
+                {strings.budgetSheet.totalLabel}
+              </CardDescription>
+              <CardTitle className="tracking-tight text-emerald-800">
+                <span className="font-mono text-2xl font-black">{toBanglaHazar(totalManual)}</span>{' '}
+                <span className="text-xs font-bold text-emerald-600">{strings.hazar.unit}</span>
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <div className="pointer-events-none absolute right-0 top-full z-30 hidden group-hover:block">
+            <div className="mt-2 whitespace-nowrap rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-bold text-white shadow-xl">
+              {toBanglaHazarWords(totalManual)} {strings.taka}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Budget Table Card */}
@@ -700,12 +733,20 @@ export function BudgetSheetClient({
               </tbody>
               <tfoot className="bg-slate-100 border-t-2 border-slate-300 font-black text-slate-900 text-sm">
                 <tr>
-                  <td colSpan={3} className="py-4 px-4 text-right">
+                  <td colSpan={3} className="pt-4 px-4 text-right">
                     {strings.budgetSheet.totalRow}:
                   </td>
-                  <td className="py-4 px-4 text-right font-mono text-emerald-800 text-base">
-                    {toBanglaHazar(totalManual)}{' '}
-                    <span className="text-xs font-bold">{strings.hazar.unit}</span>
+                  <td className="pt-4 px-4 text-right font-mono text-emerald-800 text-base">
+                    {toBanglaHazar(totalManual)}
+                  </td>
+                </tr>
+                <tr>
+                  <td colSpan={3} className="pb-4 px-4 text-right">
+                    {strings.budgetSheet.totalWordsRow}:
+                  </td>
+                  <td className="pb-4 px-4 text-right text-sm font-bold text-emerald-800">
+                    {toBanglaHazarWords(totalManual)}{' '}
+                    <span className="text-xs">{strings.taka}</span>
                   </td>
                 </tr>
               </tfoot>

@@ -15,7 +15,8 @@ import {
   Lock,
   RotateCcw,
 } from 'lucide-react'
-import { toBanglaHazar, toBanglaDate, toBanglaNumber } from '@/lib/bangla'
+import { toBanglaDate, toBanglaNumber } from '@/lib/bangla'
+import { HazarAmount } from '@/components/hazar-amount'
 import { getOfficeSession } from '@/lib/session'
 import { getOfficeDashboard } from '@/lib/office/dashboard'
 import { FORM_COUNT, FORM_ITEMS, FORM_SHADES } from '@/lib/office/form-nav'
@@ -246,9 +247,8 @@ export default async function DashboardPage() {
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">
               {strings.dashboard.totalBudget}
             </span>
-            <div className="mt-3 text-2xl lg:text-3xl font-black text-blue-700 font-mono tracking-tight">
-              {toBanglaHazar(totalBudgetAmount)}{' '}
-              <span className="text-base font-bold">{strings.hazar.unit}</span>
+            <div className="mt-3 text-xl lg:text-2xl font-black text-blue-700 tracking-tight">
+              <HazarAmount taka={totalBudgetAmount} />
             </div>
           </div>
           <p className="text-[11px] text-slate-400 mt-2 font-medium">

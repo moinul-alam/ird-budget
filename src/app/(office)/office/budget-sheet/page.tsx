@@ -16,6 +16,8 @@ export default async function BudgetSheetPage() {
   let officeLevel = ''
   let officeName = ''
   let headOfficeName = ''
+  let budgetId = ''
+  let isFieldOffice = false
   let isSubmitted = false
   let configStale = false
   let capturedAt: string | null = null
@@ -29,6 +31,8 @@ export default async function BudgetSheetPage() {
       officeLevel = result.officeLevel || ''
       officeName = result.officeName || ''
       headOfficeName = result.headOfficeName || ''
+      budgetId = result.budgetId || ''
+      isFieldOffice = result.isFieldOffice
       isSubmitted = result.isSubmitted
       configStale = result.configStale
       capturedAt = result.capturedAt
@@ -49,6 +53,8 @@ export default async function BudgetSheetPage() {
       officeLevel={officeLevel}
       officeName={officeName}
       headOfficeName={headOfficeName}
+      budgetId={budgetId}
+      isFieldOffice={isFieldOffice}
       isSubmitted={isSubmitted}
       configStale={configStale}
       capturedAt={capturedAt}

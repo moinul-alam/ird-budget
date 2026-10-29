@@ -34,7 +34,9 @@ import type {
   FormVehiclesRentInitial,
   VehicleRentConfigRow,
 } from '@/lib/office/load-form-data'
-import { Plus, Trash2, Edit2, CarFront } from 'lucide-react'
+import { Plus, Trash2, Edit2, CarFront, Info } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { HazarAmount } from '@/components/hazar-amount'
 import { useState, useTransition, useMemo } from 'react'
 
 export interface Form8VehicleRentRow {
@@ -54,6 +56,21 @@ export interface Form8ClientProps {
   /** বেতন-মাস (/admin/budgets, set on the budget cycle) — annualises the monthly rent like the sheet engine. */
   salaryMonths: number
 }
+
+/**
+ * Colour profile of this form. The toolbar's solid button, the table card's tinted
+ * strip and every row action read from here, so the list keeps one hue throughout.
+ */
+const accent = {
+  solidButton: 'bg-indigo-600 hover:bg-indigo-700 text-white',
+  rowAction: 'text-slate-500 hover:text-indigo-600 hover:bg-indigo-50',
+  header: 'bg-indigo-50/70 border-indigo-100',
+  dot: 'bg-indigo-600',
+  value: 'text-indigo-700',
+}
+
+/** The quiet uppercase heading every column shares; only the alignment varies. */
+const COL_HEAD = 'px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-500'
 
 export function Form8Client({
   submissionId,
@@ -241,78 +258,77 @@ export function Form8Client({
       onSave={submissionId ? handleSaveAll : undefined}
     >
       <div className="p-6 lg:p-8 space-y-6">
-        {/* Top Header & Action */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-          <div>
-            <h2 className="text-base font-bold text-slate-800">
-              {strings.form8.title}
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {strings.form8.subtitle}
+        {/* Toolbar — the one entry point for a new vehicle row, with the হাজার-unit
+            convention spelled out beside it. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          {/* Height-matched to the button (h-8) so the toolbar reads as one strip. */}
+          <div className="flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 shadow-sm sm:h-8 sm:py-0">
+            <Info className="h-4 w-4 shrink-0 text-amber-600" />
+            <p className="text-xs font-medium leading-snug text-amber-900 sm:text-sm sm:whitespace-nowrap">
+              {strings.hazar.hint}
             </p>
           </div>
           <Button
             type="button"
             onClick={openAddModal}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white shrink-0 gap-1.5"
+            className={cn('shrink-0 gap-1.5 rounded-xl', accent.solidButton)}
           >
             <Plus className="h-4 w-4" />
             {strings.form8.addVehicle}
           </Button>
         </div>
 
-        {/* Empty State or Table */}
+        <p className="text-xs text-slate-500">{strings.form8.subtitle}</p>
+
+        {/* Data Table or Empty State */}
         {rows.length === 0 ? (
-          <div className="text-center py-12 px-4 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
-            <CarFront className="mx-auto h-12 w-12 text-slate-300 mb-3" />
-            <p className="text-slate-600 font-medium text-base mb-2">
-              {strings.form8.noVehicle}
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={openAddModal}
-              className="mt-2 text-indigo-700 border-indigo-200 hover:bg-indigo-50"
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              {strings.form8.addVehicle}
-            </Button>
+          <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-4 py-12 text-center">
+            <CarFront className="mx-auto mb-3 h-12 w-12 text-slate-300" />
+            <p className="text-base font-medium text-slate-600">{strings.form8.noVehicle}</p>
           </div>
         ) : (
-          <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
-            <Table>
-              <TableHeader className="bg-slate-50">
-                <TableRow>
-                  <TableHead className="w-48 font-bold text-slate-700">{strings.form8.vehicleType}</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">{strings.form8.countLabel}</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">{strings.form8.monthlyAllowance} ({strings.hazar.unit})</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">বার্ষিক মোট ব্যয় ({strings.hazar.unit})</TableHead>
-                  <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+            <div className={cn('flex items-center gap-2 border-b px-4 py-2.5', accent.header)}>
+              <span className={cn('h-2 w-2 rounded-full', accent.dot)} />
+              <h3 className="text-sm font-bold text-slate-800">{strings.form8.title}</h3>
+            </div>
+            <Table className="min-w-[640px] table-fixed">
+              <TableHeader>
+                <TableRow className="border-slate-100 hover:bg-transparent">
+                  <TableHead className={cn(COL_HEAD, 'w-[8%] text-center')}>{strings.form8.serialColumn}</TableHead>
+                  <TableHead className={cn(COL_HEAD, 'w-[26%] text-center')}>{strings.form8.vehicleType}</TableHead>
+                  <TableHead className={cn(COL_HEAD, 'w-[16%] text-center')}>{strings.form8.countLabel}</TableHead>
+                  <TableHead className={cn(COL_HEAD, 'w-[18%] text-center')}>{strings.form8.monthlyAllowance}</TableHead>
+                  <TableHead className={cn(COL_HEAD, 'w-[20%] text-center')}>বার্ষিক মোট ব্যয়</TableHead>
+                  <TableHead className={cn(COL_HEAD, 'w-[12%] text-center')}>অ্যাকশন</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((row, idx) => (
-                  <TableRow key={row.id || idx} className="hover:bg-slate-50/70">
-                    <TableCell className="font-bold text-slate-800">
+                  <TableRow key={row.id || idx} className="border-slate-100 even:bg-slate-50/50 hover:bg-slate-50">
+                    <TableCell className="px-4 py-2.5 text-center text-slate-400">
+                      {toBanglaNumber(idx + 1)}
+                    </TableCell>
+                    <TableCell className="px-4 py-2.5 text-center font-bold text-slate-800">
                       {row.vehicle_type_name || '—'}
                     </TableCell>
-                    <TableCell className="text-right font-mono font-medium">
+                    <TableCell className="px-4 py-2.5 text-center font-semibold text-slate-700">
                       {toBanglaNumber(row.count)} টি
                     </TableCell>
-                    <TableCell className="text-right font-mono font-medium text-slate-800">
-                      {toBanglaHazar(row.monthly_allowance)}
+                    <TableCell className="px-4 py-2.5 text-center font-semibold text-slate-800">
+                      <HazarAmount taka={row.monthly_allowance} />
                     </TableCell>
-                    <TableCell className="text-right font-mono font-medium text-indigo-700">
-                      {toBanglaHazar(row.annual_total)}
+                    <TableCell className={cn('px-4 py-2.5 text-center font-semibold', accent.value)}>
+                      <HazarAmount taka={row.annual_total} />
                     </TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="px-4 py-2.5">
                       <div className="flex items-center justify-center gap-1">
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
                           onClick={() => openEditModal(row, idx)}
-                          className="text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 h-8 w-8 p-0"
+                          className={cn('h-8 w-8 p-0', accent.rowAction)}
                           title={strings.form8.editVehicle}
                         >
                           <Edit2 className="h-3.5 w-3.5" />
@@ -322,7 +338,7 @@ export function Form8Client({
                           variant="ghost"
                           size="sm"
                           onClick={() => setDeleteIndex(idx)}
-                          className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
+                          className="h-8 w-8 p-0 text-slate-400 hover:bg-red-50 hover:text-red-600"
                           title={strings.form8.deleteVehicle}
                         >
                           <Trash2 className="h-3.5 w-3.5" />

@@ -35,7 +35,9 @@ import type {
   FormVehiclesGovtInitial,
   VehicleFuelConfigRow,
 } from '@/lib/office/load-form-data'
-import { Plus, Trash2, Edit2, Car } from 'lucide-react'
+import { Plus, Trash2, Edit2, Car, Info } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { HazarAmount } from '@/components/hazar-amount'
 import { useState, useTransition, useMemo } from 'react'
 
 export interface Form7VehicleRow {
@@ -57,6 +59,21 @@ export interface Form7ClientProps {
   fuelTypes: FuelTypeItem[]
   fuelConfigs: VehicleFuelConfigRow[]
 }
+
+/**
+ * Colour profile of this form — its own emerald hue, kept distinct from the
+ * blue of Form 2. Only these class strings carry the colour; the layout below
+ * is the shared master pattern.
+ */
+const accent = {
+  solidButton: 'bg-emerald-600 hover:bg-emerald-700 text-white',
+  rowAction: 'text-slate-500 hover:text-emerald-600 hover:bg-emerald-50',
+  header: 'bg-emerald-50/70 border-emerald-100',
+  dot: 'bg-emerald-500',
+}
+
+/** The quiet uppercase heading every column shares; only the alignment varies. */
+const COL_HEAD = 'px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-500'
 
 export function Form7Client({
   submissionId,
@@ -286,54 +303,51 @@ export function Form7Client({
       onSave={submissionId ? handleSaveAll : undefined}
     >
       <div className="p-6 lg:p-8 space-y-6">
-        {/* Top Header & Action */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-          <div>
-            <h2 className="text-base font-bold text-slate-800">
-              {strings.form7.title}
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              {strings.form7.subtitle}
+        {/* Toolbar — the one entry point for a new vehicle row, with the হাজার-unit
+            convention spelled out beside it. The form's own subtitle rides on its
+            own full-width line above the strip so it is never squeezed out. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <p className="text-xs text-slate-500 sm:w-full">{strings.form7.subtitle}</p>
+          {/* Height-matched to the button (h-8) so the toolbar reads as one strip. */}
+          <div className="flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 shadow-sm sm:h-8 sm:py-0">
+            <Info className="h-4 w-4 shrink-0 text-amber-600" />
+            <p className="text-xs font-medium leading-snug text-amber-900 sm:text-sm sm:whitespace-nowrap">
+              {strings.hazar.hint}
             </p>
           </div>
           <Button
             type="button"
             onClick={openAddModal}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 gap-1.5"
+            className={cn('shrink-0 gap-1.5 rounded-xl', accent.solidButton)}
           >
             <Plus className="h-4 w-4" />
             {strings.form7.addVehicle}
           </Button>
         </div>
 
-        {/* Empty State or Table */}
+        {/* Data Table or Empty State */}
         {rows.length === 0 ? (
-          <div className="text-center py-12 px-4 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
-            <Car className="mx-auto h-12 w-12 text-slate-300 mb-3" />
-            <p className="text-slate-600 font-medium text-base mb-2">
-              {strings.form7.noVehicle}
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={openAddModal}
-              className="mt-2 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              {strings.form7.addVehicle}
-            </Button>
+          <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-4 py-12 text-center">
+            <Car className="mx-auto mb-3 h-12 w-12 text-slate-300" />
+            <p className="text-base font-medium text-slate-600">{strings.form7.noVehicle}</p>
           </div>
         ) : (
-          <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-xs">
-            <Table>
-              <TableHeader className="bg-slate-50">
-                <TableRow>
-                  <TableHead className="w-36 font-bold text-slate-700">{strings.form7.vehicleType}</TableHead>
-                  <TableHead className="w-32 font-bold text-slate-700">{strings.form7.fuelType}</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">{strings.form7.countLabel}</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">{strings.form7.maintenanceTotal} ({strings.hazar.unit})</TableHead>
-                  <TableHead className="text-right font-bold text-slate-700">{strings.form7.additionalExpense} ({strings.hazar.unit})</TableHead>
-                  <TableHead className="w-24 text-center font-bold text-slate-700">অ্যাকশন</TableHead>
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+            <div className={cn('flex items-center gap-2 border-b px-4 py-2.5', accent.header)}>
+              <span className={cn('h-2 w-2 rounded-full', accent.dot)} />
+              <h3 className="text-sm font-bold text-slate-800">{strings.form7.title}</h3>
+            </div>
+
+            <Table className="min-w-[640px] table-fixed">
+              <TableHeader>
+                <TableRow className="border-slate-100 hover:bg-transparent">
+                  <TableHead className={cn(COL_HEAD, 'w-[8%] text-center')}>{strings.form7.serialColumn}</TableHead>
+                  <TableHead className={cn(COL_HEAD, 'w-[20%] text-center')}>{strings.form7.vehicleType}</TableHead>
+                  <TableHead className={cn(COL_HEAD, 'w-[16%] text-center')}>{strings.form7.fuelType}</TableHead>
+                  <TableHead className={cn(COL_HEAD, 'w-[14%] text-center')}>{strings.form7.countLabel}</TableHead>
+                  <TableHead className={cn(COL_HEAD, 'w-[18%] text-center')}>{strings.form7.maintenanceTotal} ({strings.hazar.unit})</TableHead>
+                  <TableHead className={cn(COL_HEAD, 'w-[14%] text-center')}>{strings.form7.additionalExpense} ({strings.hazar.unit})</TableHead>
+                  <TableHead className={cn(COL_HEAD, 'w-[10%] text-center')}>অ্যাকশন</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -341,32 +355,35 @@ export function Form7Client({
                   const maintenanceTotal = perVehicleMaintenance(row) * row.count
 
                   return (
-                    <TableRow key={row.id || idx} className="hover:bg-slate-50/70">
-                      <TableCell className="font-bold text-slate-800">
+                    <TableRow key={row.id || idx} className="border-slate-100 even:bg-slate-50/50 hover:bg-slate-50">
+                      <TableCell className="px-4 py-2.5 text-center text-slate-400">
+                        {toBanglaNumber(idx + 1)}
+                      </TableCell>
+                      <TableCell className="px-4 py-2.5 text-center font-bold text-slate-800">
                         {row.vehicle_type_name || '—'}
                       </TableCell>
-                      <TableCell>
-                        <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                      <TableCell className="px-4 py-2.5 text-center">
+                        <span className="inline-flex rounded-full border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-700">
                           {row.fuel_type_name || '—'}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right font-mono font-medium">
+                      <TableCell className="px-4 py-2.5 text-center font-semibold text-slate-700">
                         {toBanglaNumber(row.count)}
                       </TableCell>
-                      <TableCell className="text-right font-mono font-medium text-slate-800">
-                        {maintenanceTotal ? toBanglaHazar(maintenanceTotal) : '—'}
+                      <TableCell className="px-4 py-2.5 text-center font-semibold text-slate-900">
+                        <HazarAmount taka={maintenanceTotal} />
                       </TableCell>
-                      <TableCell className="text-right font-mono text-slate-600">
-                        {row.additional_expense ? toBanglaHazar(row.additional_expense) : '০'}
+                      <TableCell className="px-4 py-2.5 text-center font-medium text-slate-600">
+                        <HazarAmount taka={row.additional_expense} />
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="px-4 py-2.5">
                         <div className="flex items-center justify-center gap-1">
                           <Button
                             type="button"
                             variant="ghost"
                             size="sm"
                             onClick={() => openEditModal(row, idx)}
-                            className="text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 h-8 w-8 p-0"
+                            className={cn('h-8 w-8 p-0', accent.rowAction)}
                             title={strings.form7.editVehicle}
                           >
                             <Edit2 className="h-3.5 w-3.5" />
@@ -376,7 +393,7 @@ export function Form7Client({
                             variant="ghost"
                             size="sm"
                             onClick={() => setDeleteIndex(idx)}
-                            className="text-slate-400 hover:text-red-600 hover:bg-red-50 h-8 w-8 p-0"
+                            className="h-8 w-8 p-0 text-slate-400 hover:bg-red-50 hover:text-red-600"
                             title={strings.form7.deleteVehicle}
                           >
                             <Trash2 className="h-3.5 w-3.5" />

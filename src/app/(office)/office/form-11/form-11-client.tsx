@@ -2,7 +2,7 @@
 
 import { FormShell } from '@/components/form-shell'
 import { strings } from '@/lib/strings'
-import { toBanglaHazar, toBanglaNumber, cleanTypeName } from '@/lib/bangla'
+import { toBanglaNumber, cleanTypeName } from '@/lib/bangla'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { AmountField } from '@/components/amount-field'
@@ -28,10 +28,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Card, CardContent } from '@/components/ui/card'
 import { saveFormUtilityRow, deleteFormUtilityRow } from '@/lib/actions/forms/utilities'
-import { Plus, Trash2, Edit2, Zap, AlertTriangle } from 'lucide-react'
+import { Plus, Trash2, Edit2, Zap, AlertTriangle, Info } from 'lucide-react'
 import type { FormUtilitiesInitial } from '@/lib/office/load-form-data'
 import { useState, useTransition, useMemo } from 'react'
+import type { ReactNode } from 'react'
+import { cn } from '@/lib/utils'
+import { HazarAmount } from '@/components/hazar-amount'
 
 export interface Form11UtilityRow {
   utility_type_id: number
@@ -45,6 +49,42 @@ export interface Form11ClientProps {
   utilityTypes: Array<{ id: number; name: string }>
   initialData: FormUtilitiesInitial
 }
+
+/**
+ * Colour profile of this form — its own amber hue (the utility / electricity bolt),
+ * kept distinct from the blue of Form 2. Only these class strings carry the colour;
+ * the layout below is the shared master pattern.
+ */
+const accent = {
+  solidButton: 'bg-amber-600 hover:bg-amber-700 text-white',
+  rowAction: 'text-slate-500 hover:text-amber-600 hover:bg-amber-50',
+  header: 'bg-amber-50/70 border-amber-100',
+  dot: 'bg-amber-500',
+  card: 'bg-gradient-to-br from-slate-50 to-amber-50/40 border-amber-100',
+}
+
+/** One cell of the bottom সারসংক্ষেপ. */
+function SummaryBox({
+  label,
+  value,
+  valueClass,
+}: {
+  label: string
+  value: ReactNode
+  valueClass?: string
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5">
+      <span className="block text-[11px] font-medium text-slate-500">{label}</span>
+      <span className={cn('mt-0.5 block font-mono text-lg font-bold text-slate-800', valueClass)}>
+        {value}
+      </span>
+    </div>
+  )
+}
+
+/** The quiet uppercase heading every column shares; only the alignment varies. */
+const COL_HEAD = 'px-4 py-2.5 text-[11px] font-bold uppercase tracking-wider text-slate-500'
 
 export function Form11Client({
   submissionId,
@@ -199,6 +239,18 @@ export function Form11Client({
     }
   }
 
+  // Summary calculations — both figures are sums of what the table already shows:
+  // the annual costs and the arrears the office entered.
+  const summaryAnnual = useMemo(
+    () => rows.reduce((sum, r) => sum + (r.annual_cost || 0), 0),
+    [rows]
+  )
+  const summaryDue = useMemo(() => rows.reduce((sum, r) => sum + (r.due || 0), 0), [rows])
+
+  // Arrears only earn their space when someone actually has them — with none entered
+  // the বকেয়া column and its summary card are dropped, never shown as a row of '—'.
+  const hasDue = rows.some((r) => (r.due || 0) > 0)
+
   return (
     <FormShell
       title={strings.forms.form11.title}
@@ -207,19 +259,21 @@ export function Form11Client({
       nextHref="/office/form-12"
       onSave={submissionId ? handleSaveAll : undefined}
     >
-      <div className="p-6 lg:p-8 space-y-6 max-w-5xl mx-auto">
-        {/* Top Header & Action (Form 5 style) */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-          <div>
-            <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-              <Zap className="w-5 h-5 text-amber-500" />
-              {strings.form11.title}
-            </h2>
+      <div className="p-6 lg:p-8 space-y-6">
+        {/* Toolbar — the one entry point for a new utility row, with the হাজার-unit
+            convention spelled out beside it. */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          {/* Height-matched to the button (h-8) so the toolbar reads as one strip. */}
+          <div className="flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2 shadow-sm sm:h-8 sm:py-0">
+            <Info className="h-4 w-4 shrink-0 text-amber-600" />
+            <p className="text-xs font-medium leading-snug text-amber-900 sm:text-sm sm:whitespace-nowrap">
+              {strings.hazar.hint}
+            </p>
           </div>
           <Button
             type="button"
             onClick={handleOpenAdd}
-            className="bg-blue-600 hover:bg-blue-700 text-white shrink-0 gap-1.5 rounded-xl font-medium shadow-sm transition-all"
+            className={cn('shrink-0 gap-1.5 rounded-xl', accent.solidButton)}
           >
             <Plus className="h-4 w-4" />
             {strings.form11.addUtility}
@@ -228,84 +282,101 @@ export function Form11Client({
 
         {/* Empty State or Table */}
         {rows.length === 0 ? (
-          <div className="text-center py-16 px-4 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
-            <Zap className="mx-auto h-12 w-12 text-slate-300 mb-3" />
-            <p className="text-slate-600 font-medium text-base mb-2">
-              {strings.form11.noUtility}
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleOpenAdd}
-              className="mt-2 text-blue-700 border-blue-200 hover:bg-blue-50 rounded-xl"
-            >
-              <Plus className="h-4 w-4 mr-1.5" />
-              {strings.form11.addUtility}
-            </Button>
+          <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 px-4 py-12 text-center">
+            <Zap className="mx-auto mb-3 h-12 w-12 text-slate-300" />
+            <p className="text-base font-medium text-slate-600">{strings.form11.noUtility}</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="bg-slate-50/80 border-b border-slate-200">
-                  <TableRow>
-                    <TableHead className="w-16 text-center font-bold text-slate-700">#</TableHead>
-                    <TableHead className="font-bold text-slate-700 min-w-[200px]">{strings.form11.utilityType}</TableHead>
-                    <TableHead className="text-right font-bold text-slate-700 min-w-[180px]">{strings.form11.annualCost} ({strings.hazar.unit})</TableHead>
-                    <TableHead className="text-right font-bold text-slate-700 min-w-[180px]">{strings.form11.dueIfAny} ({strings.hazar.unit})</TableHead>
-                    <TableHead className="w-28 text-center font-bold text-slate-700">কার্যক্রম</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="divide-y divide-slate-100">
-                  {rows.map((row, idx) => (
-                    <TableRow key={row.utility_type_id} className="hover:bg-slate-50/70 transition-colors">
-                      <TableCell className="text-center font-medium text-slate-500">
-                        {toBanglaNumber(idx + 1)}
-                      </TableCell>
-                      <TableCell className="font-semibold text-slate-800">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-amber-400" />
-                          <span>{row.utility_type_name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-right font-semibold text-slate-900 font-mono">
-                        {toBanglaHazar(row.annual_cost)}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-slate-700 font-mono">
-                        {row.due > 0 ? (
-                          <span className="text-rose-600 font-semibold">{toBanglaHazar(row.due)}</span>
-                        ) : (
-                          <span className="text-slate-400 text-xs">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleOpenEdit(idx)}
-                            className="h-8 w-8 p-0 text-slate-600 hover:text-blue-600"
-                            title={strings.form11.editUtility}
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setDeleteIndex(idx)}
-                            className="h-8 w-8 p-0 text-slate-400 hover:text-rose-600"
-                            title={strings.form11.deleteUtility}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xs">
+            <div className={cn('flex items-center gap-2 border-b px-4 py-2.5', accent.header)}>
+              <span className={cn('h-2 w-2 rounded-full', accent.dot)} />
+              <h3 className="text-sm font-bold text-slate-800">{strings.form11.subtitle}</h3>
             </div>
+
+            <Table className="min-w-[640px] table-fixed">
+              <TableHeader>
+                <TableRow className="border-slate-100 hover:bg-transparent">
+                  <TableHead className={cn(COL_HEAD, 'text-center', hasDue ? 'w-[8%]' : 'w-[10%]')}>{strings.form11.serialColumn}</TableHead>
+                  <TableHead className={cn(COL_HEAD, 'text-center', hasDue ? 'w-[36%]' : 'w-[48%]')}>{strings.form11.utilityType}</TableHead>
+                  <TableHead className={cn(COL_HEAD, 'text-center', hasDue ? 'w-[22%]' : 'w-[27%]')}>{strings.form11.annualCost}</TableHead>
+                  {hasDue && (
+                    <TableHead className={cn(COL_HEAD, 'w-[22%] text-center')}>{strings.form11.due}</TableHead>
+                  )}
+                  <TableHead className={cn(COL_HEAD, 'text-center', hasDue ? 'w-[12%]' : 'w-[15%]')}>অ্যাকশন</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row, idx) => (
+                  <TableRow key={row.utility_type_id} className="border-slate-100 even:bg-slate-50/50 hover:bg-slate-50">
+                    <TableCell className="px-4 py-2.5 text-center text-slate-400">
+                      {toBanglaNumber(idx + 1)}
+                    </TableCell>
+                    <TableCell className="px-4 py-2.5 text-center font-semibold text-slate-800">
+                      <span className="inline-flex items-center justify-center gap-2">
+                        <span className={cn('h-2 w-2 rounded-full', accent.dot)} />
+                        {row.utility_type_name}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-4 py-2.5 text-center font-semibold text-slate-900">
+                      <HazarAmount taka={row.annual_cost} />
+                    </TableCell>
+                    {hasDue && (
+                      <TableCell className="px-4 py-2.5 text-center font-medium text-slate-600">
+                        <HazarAmount taka={row.due} />
+                      </TableCell>
+                    )}
+                    <TableCell className="px-4 py-2.5">
+                      <div className="flex items-center justify-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenEdit(idx)}
+                          className={cn('h-8 w-8 p-0', accent.rowAction)}
+                          title={strings.form11.editUtility}
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeleteIndex(idx)}
+                          className="h-8 w-8 p-0 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                          title={strings.form11.deleteUtility}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
+        )}
+
+        {/* Summary Card — the two readouts the office checks at a glance */}
+        {rows.length > 0 && (
+          <Card className={cn('border shadow-xs', accent.card)}>
+            <CardContent className="space-y-4 p-5">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">
+                {strings.form11.title}
+              </h3>
+              <div className={cn('grid grid-cols-1 gap-3', hasDue ? 'sm:grid-cols-2' : 'sm:grid-cols-1')}>
+                <SummaryBox
+                  label={strings.form11.summaryAnnual}
+                  value={<HazarAmount taka={summaryAnnual} />}
+                />
+                {hasDue && (
+                  <SummaryBox
+                    label={strings.form11.summaryDue}
+                    value={<HazarAmount taka={summaryDue} />}
+                  />
+                )}
+              </div>
+            </CardContent>
+          </Card>
         )}
       </div>
 
