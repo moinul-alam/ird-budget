@@ -20,6 +20,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Cloudflare build output and wrangler's local state, both gitignored.
+    // Without these, `npm run lint` lints the generated OpenNext bundle.
+    ".open-next/**",
+    ".wrangler/**",
   ]),
 ]);
 

@@ -14,6 +14,21 @@
 	// `nodejs_compat` is what makes `pg` work: it needs node:net, node:tls and node:crypto,
 	// which is how the Prisma driver adapter (src/lib/db/client.ts) reaches PostgreSQL.
 	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+	// How the Worker reaches PostgreSQL. The `pg` driver must NOT connect to Supabase directly:
+	// workerd's socket stack always validates the server certificate against its own CA bundle
+	// and ignores the `ca` / `rejectUnauthorized` options, while the Supabase pooler serves a
+	// private chain (Supabase Root 2021 CA, self-signed). Every `sslmode` value therefore fails
+	// the handshake with `UnknownIssuer`. Hyperdrive terminates that TLS itself and hands the
+	// Worker a plain local socket, so the Worker side needs no TLS at all.
+	//
+	// The origin is Supabase's *direct* connection (db.<ref>.supabase.co), not the pooler:
+	// Hyperdrive is itself a pooler, and chaining two causes errors.
+	"hyperdrive": [
+		{
+			"binding": "HYPERDRIVE",
+			"id": "b1354874407149a09c5ad5f57e41d2f5"
+		}
+	],
 	"assets": {
 		"directory": ".open-next/assets",
 		"binding": "ASSETS"
