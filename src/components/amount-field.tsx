@@ -40,10 +40,12 @@ const sanitize = (raw: string, allowDecimal: boolean): string => {
  *
  * The value it is handed and the value it hands back are both in taka, so every form,
  * action and the engine keep working in the exact unit the rates are defined in — the
- * conversion lives here and nowhere else. A readout above the box spells out what the
- * typed figure is worth, always in warning red, because the whole point is that the
- * office notices the magnitude before moving on. Typing more digits than the office
- * level allows is refused outright, with the entry replaced by an explanation.
+ * conversion lives here and nowhere else. A readout spells out what the typed figure is
+ * worth, always in warning red, because the whole point is that the office notices the
+ * magnitude before moving on. It floats above the box rather than taking a line of its
+ * own, so the fields in a row still line up, and it steps aside the moment the office
+ * clicks in to type. Typing more digits than the office level allows is refused outright,
+ * with the entry replaced by an explanation.
  */
 export function AmountField({
   value,
@@ -63,6 +65,9 @@ export function AmountField({
   const [draft, setDraft] = useState(() => draftFromTaka(value))
   const [overflowed, setOverflowed] = useState(false)
   const focused = useRef(false)
+  // Focus is mirrored in state because the readout is an overlay: it is hidden while the
+  // office is typing, and hiding it has to re-render, which a ref alone would not cause.
+  const [typing, setTyping] = useState(false)
 
   // An existing row's figure arrives when its modal opens, so the stored value is copied
   // in while the field sits idle — a modal re-seeding itself must not clobber live typing.
@@ -85,15 +90,19 @@ export function AmountField({
 
   const taka = parseFloat(draft) * TAKA_PER_HAZAR
   const maxHazar = hazarCapCeiling(digitCap)
+  const showReadout = draft !== '' && Number.isFinite(taka) && !typing && !overflowed
 
   return (
-    <div className="space-y-1">
-      {/* Reserved line, so a field never jumps as its readout appears and disappears. */}
-      <div className="h-4 text-[11px] font-bold leading-4 text-rose-600">
-        {draft !== '' && Number.isFinite(taka) ? strings.hazar.readout(toBanglaAmount(taka)) : ''}
-      </div>
-
+    <>
       <div className="relative">
+        {/* Overlay, not a layout line: it floats over the top edge of the box so a row of
+            fields stays aligned, and it hides while the office is typing in the box. */}
+        {showReadout && (
+          <span className="pointer-events-none absolute -top-5 right-1 z-10 whitespace-nowrap rounded bg-white/95 px-1 text-[11px] font-bold leading-4 text-rose-600">
+            {strings.hazar.readout(toBanglaAmount(taka))}
+          </span>
+        )}
+
         <Input
           {...props}
           type="text"
@@ -102,9 +111,11 @@ export function AmountField({
           onChange={(e) => handleChange(e.target.value)}
           onFocus={() => {
             focused.current = true
+            setTyping(true)
           }}
           onBlur={() => {
             focused.current = false
+            setTyping(false)
           }}
           className={cn(
             'pr-16',
@@ -118,7 +129,7 @@ export function AmountField({
       </div>
 
       {overflowed && (
-        <p className="text-[11px] font-bold leading-4 text-rose-600">
+        <p className="mt-1 text-[11px] font-bold leading-4 text-rose-600">
           {strings.hazar.capExceeded(
             toBanglaNumber(digitCap),
             toBanglaNumber(maxHazar),
@@ -126,6 +137,6 @@ export function AmountField({
           )}
         </p>
       )}
-    </div>
+    </>
   )
 }
