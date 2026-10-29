@@ -212,34 +212,60 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
     }
   }
 
-  // Save row from modal
-  const handleSaveModalRow = () => {
+  // The modal's inputs as a row, or null when the grade is not usable yet.
+  const modalRowFromInputs = (): SuspendedStaffRow | null => {
     const gradeId = parseInt(selectedGrade, 10)
-    if (!gradeId || isNaN(gradeId)) return
-
-    const newRow: SuspendedStaffRow = {
+    if (!gradeId || isNaN(gradeId)) return null
+    return {
       grade_id: gradeId,
       suspended_count: parseInt(countInput, 10) || 0,
       suspended_total_basic: parseFloat(basicInput) || 0,
       suspended_due_salary: parseFloat(dueInput) || 0,
     }
+  }
 
-    setRows((prev) => {
-      // Remove previous entry if editing different grade
-      const filtered = editingGradeId !== null && editingGradeId !== gradeId
-        ? prev.filter((r) => r.grade_id !== editingGradeId)
-        : prev
+  // Rows are keyed by grade, so a save replaces that grade's row and re-sorts.
+  // Pure, so both save buttons commit through exactly the same rule.
+  const rowsWithSaved = (newRow: SuspendedStaffRow) => {
+    const gradeId = newRow.grade_id
+    const base =
+      editingGradeId !== null && editingGradeId !== gradeId
+        ? rows.filter((r) => r.grade_id !== editingGradeId)
+        : rows
 
-      const existsIndex = filtered.findIndex((r) => r.grade_id === gradeId)
-      if (existsIndex >= 0) {
-        const next = [...filtered]
-        next[existsIndex] = newRow
-        return next.sort((a, b) => a.grade_id - b.grade_id)
-      }
-      return [...filtered, newRow].sort((a, b) => a.grade_id - b.grade_id)
-    })
+    const existsIndex = base.findIndex((r) => r.grade_id === gradeId)
+    const next =
+      existsIndex >= 0
+        ? base.map((r, i) => (i === existsIndex ? newRow : r))
+        : [...base, newRow]
+    return [...next].sort((a, b) => a.grade_id - b.grade_id)
+  }
 
+  // Save row from modal
+  const handleSaveModalRow = () => {
+    const newRow = modalRowFromInputs()
+    if (!newRow) return
+    setRows(rowsWithSaved(newRow))
     resetModalFields()
+  }
+
+  // Save row and stay open on the next unused grade, so a run of grades can be
+  // entered without reopening the modal for each one.
+  const handleSaveAndAddMore = () => {
+    const newRow = modalRowFromInputs()
+    if (!newRow) return
+    const nextRows = rowsWithSaved(newRow)
+    setRows(nextRows)
+
+    setEditingGradeId(null)
+    setCountInput('')
+    setBasicInput('')
+    setDueInput('')
+    setShowConfirmClose(false)
+
+    const used = new Set(nextRows.map((r) => r.grade_id))
+    const nextGrade = grades.find((g) => !used.has(g.id))
+    setSelectedGrade(nextGrade ? String(nextGrade.id) : '')
   }
 
   // Delete row with confirmation
@@ -695,6 +721,18 @@ export function Form3Client({ initialData, submissionId, grades }: Form3ClientPr
             >
               {strings.close}
             </Button>
+            {editingGradeId === null && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSaveAndAddMore}
+                disabled={!selectedGrade || (!countInput && !basicInput)}
+                className={cn('rounded-xl text-xs font-bold', accent.emptyButton)}
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                {strings.saveAndAddMore}
+              </Button>
+            )}
             <Button
               type="button"
               onClick={handleSaveModalRow}

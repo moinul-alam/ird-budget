@@ -132,8 +132,11 @@ export function Form8Client({
     setCountInput('')
   }
 
-  const handleSaveModal = async () => {
-    if (!selectedCarTypeId) return
+  // Everything the modal needs to put a row into the list and persist it, kept in
+  // one place so the save buttons cannot diverge. Returns the row, or null when
+  // the selection has no rent config to attach it to.
+  const commitModalRow = (): Form8VehicleRentRow | null => {
+    if (!selectedCarTypeId) return null
     const carId = parseInt(selectedCarTypeId, 10)
 
     let configId = currentConfig?.id
@@ -141,7 +144,7 @@ export function Form8Client({
       const match = rentConfigs.find((c) => c.car_type_id === carId)
       configId = match?.id
     }
-    if (!configId) return
+    if (!configId) return null
 
     const carObj = carTypes.find((c) => c.id === carId)
     const count = parseInt(countInput, 10) || 0
@@ -170,8 +173,6 @@ export function Form8Client({
       setRows((prev) => [...prev, newRow])
     }
 
-    closeModal()
-
     if (submissionId) {
       startTransition(async () => {
         const res = await saveFormVehicleRentRow(submissionId, {
@@ -190,6 +191,20 @@ export function Form8Client({
         }
       })
     }
+
+    return newRow
+  }
+
+  const handleSaveModal = () => {
+    if (!commitModalRow()) return
+    closeModal()
+  }
+
+  // Save and stay on the add form, cleared, so several vehicles can be entered in
+  // one run without reopening the modal each time.
+  const handleSaveAndAddMore = () => {
+    if (!commitModalRow()) return
+    openAddModal()
   }
 
   const handleConfirmDelete = async () => {
@@ -399,6 +414,17 @@ export function Form8Client({
             >
               {strings.close}
             </Button>
+            {editingIndex === null && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSaveAndAddMore}
+                disabled={!selectedCarTypeId || !countInput}
+                className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+              >
+                {strings.saveAndAddMore}
+              </Button>
+            )}
             <Button
               type="button"
               onClick={handleSaveModal}

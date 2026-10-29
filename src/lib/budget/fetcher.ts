@@ -420,6 +420,7 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
   const formattedUtilities = utilities.map((u) => ({
     economic_code: utilityTypeEconomicCodeById.get(Number(u.utilityTypeId)) ?? null,
     annual_cost: Number(u.annualBill || 0),
+    due: Number(u.arrearsDue || 0),
   }))
 
   // Format Vehicles
@@ -461,6 +462,7 @@ export async function getBudgetContext(submissionId: number): Promise<BudgetCont
     return {
       has_toner: Boolean(equipmentType?.hasToner),
       existing_count: Number(eq.existingCount || 0),
+      damaged_count: Number(eq.damagedCount || 0),
       toner_cost: Number(eq.tonerCostMonthly || 0),
       new_demand_count: Number(eq.newDemandCount || 0),
       // The administrator's price is the global equipment type price; a

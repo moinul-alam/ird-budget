@@ -155,15 +155,18 @@ export function Form7Client({
     setAdditionalInput('')
   }
 
-  const handleSaveModal = async () => {
-    if (!selectedCarTypeId || !selectedFuelTypeId) return
+  // Everything the modal needs to put a row into the list and persist it, kept in
+  // one place so the save buttons cannot diverge. Returns the row, or null when
+  // the selection has no allowance config to attach it to.
+  const commitModalRow = (): Form7VehicleRow | null => {
+    if (!selectedCarTypeId || !selectedFuelTypeId) return null
     const carId = parseInt(selectedCarTypeId, 10)
     const fuelId = parseInt(selectedFuelTypeId, 10)
 
     // The config carries the litre quota, lube and maintenance for this vehicle on this
     // fuel's category; without one there is no allowance to attach the row to.
     const configId = currentConfig?.id
-    if (!configId) return
+    if (!configId) return null
 
     const carObj = carTypes.find((c) => c.id === carId)
     const fuelObj = fuelTypes.find((f) => f.id === fuelId)
@@ -195,8 +198,6 @@ export function Form7Client({
       setRows((prev) => [...prev, newRow])
     }
 
-    closeModal()
-
     if (submissionId) {
       startTransition(async () => {
         const res = await saveFormVehicleRow(submissionId, {
@@ -221,6 +222,20 @@ export function Form7Client({
         }
       })
     }
+
+    return newRow
+  }
+
+  const handleSaveModal = () => {
+    if (!commitModalRow()) return
+    closeModal()
+  }
+
+  // Save and stay on the add form, cleared, so several vehicles can be entered in
+  // one run without reopening the modal each time.
+  const handleSaveAndAddMore = () => {
+    if (!commitModalRow()) return
+    openAddModal()
   }
 
   const handleConfirmDelete = async () => {
@@ -484,6 +499,17 @@ export function Form7Client({
             >
               {strings.close}
             </Button>
+            {editingIndex === null && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSaveAndAddMore}
+                disabled={!selectedCarTypeId || !selectedFuelTypeId || !countInput}
+                className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
+              >
+                {strings.saveAndAddMore}
+              </Button>
+            )}
             <Button
               type="button"
               onClick={handleSaveModal}

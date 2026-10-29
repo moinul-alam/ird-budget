@@ -67,6 +67,8 @@ export interface BudgetContext {
   utilities: Array<{
     economic_code: string | null;
     annual_cost: number;
+    /** বকেয়া — added once, not scaled by the budget months. */
+    due: number;
   }>;
   houseRent: {
     monthly_bill: number;
@@ -100,6 +102,8 @@ export interface BudgetContext {
     /** `ref_it_equipment_types.has_toner` — a toner-fed device, not a name match. */
     has_toner: boolean;
     existing_count: number;
+    /** অকেজো — devices out of service; excluded from the toner-consumption count. */
+    damaged_count: number;
     toner_cost: number;
     /** Form 10's requested new units and the administrator's price per unit. */
     new_demand_count: number;
@@ -326,11 +330,11 @@ export const formulaRegistry: Record<string, (ctx: BudgetContext, code: string) 
 
   // ইউটিলিটি বিল (ফরম ১১) — বিদ্যুৎ / পানি / ইন্টারনেট / টেলিফোন সব একই সূত্রে,
   // কেবল কোডটি আলাদা। প্রতিটি ইউটিলিটির ধরন তার নিজের অর্থনৈতিক কোডে যোগ হয়
-  // (`ref_utility_types.economic_code_id`), নাম মিলিয়ে নয়।
+  // (`ref_utility_types.economic_code_id`), নাম মিলিয়ে নয়। বকেয়া একবার যোগ হয়।
   utility_bill: (ctx, code) =>
     ctx.utilities
       .filter((u) => u.economic_code === code)
-      .reduce((sum, u) => sum + num(u.annual_cost), 0),
+      .reduce((sum, u) => sum + num(u.annual_cost) + num(u.due), 0),
 
   // ডাক — only a কর সার্কেল raises a postal demand, and only a কর সার্কেল fills ফর্ম ১২
   // (the form tells every other office to leave it empty). So the office's own return info
@@ -384,12 +388,20 @@ export const formulaRegistry: Record<string, (ctx: BudgetContext, code: string) 
 
   // কম্পিউটার সামগ্রী — প্রতি টোনারের দাম × টোনার-চালিত যন্ত্রের সংখ্যা × বেতন-ভাতা মাস
   // (/admin/settings)। কোন যন্ত্র টোনার নেয় তা `has_toner` বলে, নাম নয়; মাসের সংখ্যা
-  // কোনো জায়গায় স্থির নয় — দুটির একটি না থাকলে গুণক শূন্য।
+  // কোনো জায়গায় স্থির নয় — দুটির একটি না থাকলে গুণক শূন্য। অকেজো (damaged) যন্ত্র
+  // টোনার খরচ করে না, তাই তা বাদ যায়।
   it_toner: (ctx) => {
     const months = budgetMonths(ctx)
     return (ctx.itEquipment || [])
       .filter((eq) => eq.has_toner)
-      .reduce((sum, eq) => sum + int(eq.existing_count) * num(eq.toner_cost) * months, 0)
+      .reduce(
+        (sum, eq) =>
+          sum +
+          Math.max(0, int(eq.existing_count) - int(eq.damaged_count)) *
+            num(eq.toner_cost) *
+            months,
+        0
+      )
   },
 
   // কম্পিউটার ও আনুষঙ্গিক — চাহিদাকৃত সংখ্যা × প্রমিত সরকারি ক্রয়মূল্য

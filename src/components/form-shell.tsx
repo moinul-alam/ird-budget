@@ -18,7 +18,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { useFormLock } from '@/components/form-lock-provider'
-import { useFormGuard, useRegisterFormGuard } from '@/components/form-guard-provider'
+import { useRegisterFormGuard } from '@/components/form-guard-provider'
 
 /**
  * Server actions in src/app/actions/forms.ts report failure by returning
@@ -54,7 +54,6 @@ export function FormShell({
 }: FormShellProps) {
   const router = useRouter()
   const { locked, notice: lockNotice } = useFormLock()
-  const { requestNavigation } = useFormGuard()
   const [isPending, startTransition] = useTransition()
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -87,13 +86,30 @@ export function FormShell({
 
   // Any navigation away from the form is routed through the guard, so unsaved
   // edits can be saved or discarded deliberately instead of silently dropped.
+  // Prev/Next, though, never drop work: the current edits are written first — the
+  // save is awaited so the write lands before the page changes — and the move then
+  // goes ahead regardless of how the save ended. Leaving is the user's call, so
+  // the form does not hold them back.
   const handleNavClick =
     (href: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
         return
       }
       e.preventDefault()
-      requestNavigation(href)
+
+      if (!onSave || !dirty) {
+        router.push(href)
+        return
+      }
+
+      startTransition(async () => {
+        try {
+          await onSave()
+        } catch {
+          // The move proceeds either way, so a failed save is not reported here.
+        }
+        router.push(href)
+      })
     }
 
   const handleSaveOnly = () => {

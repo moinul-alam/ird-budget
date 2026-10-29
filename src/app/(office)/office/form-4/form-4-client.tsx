@@ -233,15 +233,13 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
     }
   }
 
-  // Save row from modal — kept in local state, persisted by the shell save.
-  const handleSaveModalRow = () => {
+  // The modal's inputs as a row, or null when the grade is not usable yet.
+  const modalRowFromInputs = (): NewStaffRecord | null => {
     const gradeId = parseInt(selectedGrade, 10)
-    if (!gradeId || isNaN(gradeId)) return
-
+    if (!gradeId || isNaN(gradeId)) return null
     const { months } = calculateRemainingMonths(dateInput, fiscalYear)
     const monthlyBasic = parseFloat(basicInput) || 0
-
-    const newRow: NewStaffRecord = {
+    return {
       grade_id: gradeId,
       count: parseInt(countInput, 10) || 0,
       monthly_basic: monthlyBasic,
@@ -249,6 +247,12 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
       remaining_months: months,
       total_salary: monthlyBasic * months,
     }
+  }
+
+  // Save row from modal — kept in local state, persisted by the shell save.
+  const handleSaveModalRow = () => {
+    const newRow = modalRowFromInputs()
+    if (!newRow) return
 
     setRows((prev) => {
       if (editingIndex !== null) {
@@ -260,6 +264,22 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
     })
 
     resetModalFields()
+  }
+
+  // Save row and stay open on cleared fields, so a run of new recruits can be
+  // entered without reopening the modal for each one. Several rows may share a
+  // grade, so the same grade stays selectable.
+  const handleSaveAndAddMore = () => {
+    const newRow = modalRowFromInputs()
+    if (!newRow) return
+    setRows((prev) => [...prev, newRow])
+
+    setEditingIndex(null)
+    setCountInput('')
+    setBasicInput('')
+    setDateInput('')
+    setShowConfirmClose(false)
+    setSelectedGrade(staffGrades[0]?.id ? String(staffGrades[0].id) : '')
   }
 
   // Delete row with confirmation — removed from the database right away.
@@ -746,6 +766,18 @@ export function Form4Client({ initialData, submissionId, fiscalYear, grades }: F
             >
               {strings.cancel}
             </Button>
+            {editingIndex === null && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSaveAndAddMore}
+                disabled={!selectedGrade || !countInput || !basicInput || !dateInput || !modalDateInfo.inRange}
+                className={cn('rounded-xl text-xs font-bold', accent.emptyButton)}
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                {strings.saveAndAddMore}
+              </Button>
+            )}
             <Button
               type="button"
               onClick={handleSaveModalRow}

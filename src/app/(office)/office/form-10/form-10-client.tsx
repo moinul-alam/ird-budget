@@ -257,11 +257,13 @@ export function Form10Client({
   }
 
   // সারসংক্ষেপ কার্ড ১ — কম্পিউটার সামগ্রী: প্রতি টোনারের দাম × প্রিন্টারের সংখ্যা
-  // × বেতন-ভাতা মাস. The same inputs and the same multiplier the engine's 3255101
-  // uses, so the card can never disagree with the budget sheet.
+  // × বেতন-ভাতা মাস. অকেজো (damaged) যন্ত্র বাদ দেওয়া হয়। The same inputs and the
+  // same multiplier the engine's 3255101 uses, so the card can never disagree with
+  // the budget sheet.
   const computerSuppliesTotal = useMemo(() => {
     const printerData = dataMap.printer
-    return printerData.existing_count * printerData.toner_cost * salaryMonths
+    const usableCount = Math.max(0, printerData.existing_count - printerData.damaged_count)
+    return usableCount * printerData.toner_cost * salaryMonths
   }, [dataMap, salaryMonths])
 
   // সারসংক্ষেপ কার্ড ২ — কম্পিউটার ও আনুষঙ্গিক: প্রতিটি চাহিদা অ্যাডমিনের নিজের

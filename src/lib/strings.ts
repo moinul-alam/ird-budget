@@ -27,6 +27,8 @@ export const strings = {
   error: 'ত্রুটি',
   success: 'সফল',
   save: 'সংরক্ষণ করুন',
+  /** Second save button on the row modals: commit the row and stay open for the next one. */
+  saveAndAddMore: 'সংরক্ষণ করে আরও যোগ করুন',
   cancel: 'বাতিল',
   confirm: 'নিশ্চিত করুন',
   edit: 'সম্পাদনা',

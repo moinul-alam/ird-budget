@@ -111,9 +111,10 @@ export function Form11Client({
     setIsModalOpen(true)
   }
 
-  // Save modal handler
-  const handleSaveModal = () => {
-    if (!selectedTypeId) return
+  // Everything the modal needs to put a row into the list and persist it, kept in
+  // one place so the save buttons cannot diverge.
+  const commitModalRow = (): Form11UtilityRow | null => {
+    if (!selectedTypeId) return null
     const typeId = parseInt(selectedTypeId, 10)
     const typeObj = utilityTypes.find((t) => t.id === typeId)
     const name = cleanTypeName(typeObj?.name || `ইউটিলিটি #${typeId}`)
@@ -146,9 +147,30 @@ export function Form11Client({
         }
         return newRows.sort((a, b) => a.utility_type_id - b.utility_type_id)
       })
-
-      setIsModalOpen(false)
     })
+
+    return updatedRow
+  }
+
+  // Save modal handler
+  const handleSaveModal = () => {
+    if (!commitModalRow()) return
+    setIsModalOpen(false)
+  }
+
+  // Save and stay open on the next unused utility type, so a run of types can be
+  // entered without reopening the modal for each one.
+  const handleSaveAndAddMore = () => {
+    const row = commitModalRow()
+    if (!row) return
+
+    const used = new Set([...rows.map((r) => r.utility_type_id), row.utility_type_id])
+    const next = utilityTypes.find((t) => !used.has(t.id))
+
+    setEditingIndex(null)
+    setSelectedTypeId(next ? String(next.id) : '')
+    setAnnualCostInput('')
+    setDueInput('')
   }
 
   // Confirm delete handler
@@ -365,6 +387,18 @@ export function Form11Client({
             >
               {strings.cancel}
             </Button>
+            {editingIndex === null && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSaveAndAddMore}
+                disabled={!selectedTypeId || isPending}
+                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                {strings.saveAndAddMore}
+              </Button>
+            )}
             <Button
               type="button"
               onClick={handleSaveModal}
