@@ -19,6 +19,8 @@ build/
 out/
 .output/
 .next/
+.open-next/
+.wrangler/
 .nuxt/
 .astro/
 .svelte-kit/
@@ -64,6 +66,9 @@ cypress/screenshots/
 .env.example
 !.env.example
 !.env.template
+# Wrangler's local secrets file (used by `npm run preview`), never committed
+.dev.vars*
+!.dev.vars.example
 
 
 # ==========================================

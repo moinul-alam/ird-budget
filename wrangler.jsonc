@@ -1,0 +1,21 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	// Must match the existing Worker created in the Cloudflare dashboard; wrangler otherwise
+	// deploys to a second, empty Worker and the dashboard's domains/secrets are left behind.
+	"name": "ird-budget",
+	// The bundle produced by `opennextjs-cloudflare build`.
+	"main": ".open-next/worker.js",
+	"compatibility_date": "2026-10-23",
+	// `nodejs_compat` is what makes `pg` work: it needs node:net, node:tls and node:crypto,
+	// which is how the Prisma driver adapter (src/lib/db/client.ts) reaches PostgreSQL.
+	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	// Only used by next/image — served from Cloudflare Images. If the binding is absent the
+	// adapter logs a warning and serves the original file, so this is not load-bearing.
+	"images": {
+		"binding": "IMAGES"
+	}
+}
