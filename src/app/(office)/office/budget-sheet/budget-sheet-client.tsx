@@ -620,7 +620,8 @@ export function BudgetSheetClient({
                       the category subtotal never shares a column with a code's amount. */}
                   <th className="w-[20%] py-3 px-6" />
                   <th className="w-[20%] py-3 px-6 text-right">
-                    {strings.budgetSheet.amountColumn} ({strings.hazar.unit})
+                    <span className="block">{strings.budgetSheet.amountColumn}</span>
+                    <span className="block">({strings.hazar.unit})</span>
                   </th>
                 </tr>
               </thead>
