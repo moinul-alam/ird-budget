@@ -45,10 +45,71 @@ function databaseUrl(): string {
 // It is built on first use rather than at module scope because `getCloudflareContext()` is only
 // readable inside a request: a module-scope read would fall back to DATABASE_URL, which on a
 // Worker is the pooler connection whose TLS handshake cannot complete.
+// How many sockets one process may hold open. `connection_limit` in DATABASE_URL was written for
+// Prisma's own query engine and is meaningless to `pg`, which would otherwise use its own default
+// of 10 — so the number the environment declares is read here and handed to the driver as `max`.
+//
+// Without this the declared limit is silently not applied, and the failure is not subtle: on a
+// serverless host the module is evaluated per instance, so ten instances open ten pools of ten,
+// and Supabase's session pooler — which caps the whole project at 15 clients and holds each one for
+// its lifetime — starts refusing connections with
+//   (EMAXCONNSESSION) max clients reached in session mode - max clients are limited to pool_size: 15
+// Light pages survive it and heavy ones do not, which is exactly the shape of the bug it causes.
+function connectionLimit(connectionString: string): number | undefined {
+  try {
+    const limit = Number(new URL(connectionString).searchParams.get('connection_limit'))
+    return Number.isInteger(limit) && limit > 0 ? limit : undefined
+  } catch {
+    // Not a URL we can parse — let `pg` pick its own default.
+    return undefined
+  }
+}
+
+// TEMPORARY DIAGNOSTIC — remove once the Vercel login failure is resolved.
+// A host that holds a working connection string and one that holds a broken copy produce the same
+// opaque `P1000` in the logs, because the difference is inside the secret and secrets are not
+// readable from the dashboard. This prints the *shape* of the string — host, port, user, database,
+// password length, parameter names — and never the password, so the two hosts can be compared
+// without exposing anything.
+function fingerprint(connectionString: string): string {
+  try {
+    const url = new URL(connectionString)
+    return [
+      `host=${url.hostname}`,
+      `port=${url.port || '(default)'}`,
+      `user=${url.username}`,
+      `db=${url.pathname.replace(/^\//, '') || '(default)'}`,
+      `passwordLength=${url.password.length}`,
+      `passwordNonAlphanumeric=${/[^A-Za-z0-9]/.test(url.password)}`,
+      `params=${[...url.searchParams.keys()].sort().join(',') || '(none)'}`,
+    ].join(' ')
+  } catch {
+    // Not a string `new URL` accepts. That is itself the answer — a quoted paste, a
+    // `DATABASE_URL=` prefix, or an unreplaced `[YOUR-PASSWORD]` placeholder all land here.
+    return [
+      'unparseable',
+      `length=${connectionString.length}`,
+      `startsWithQuote=${connectionString.trimStart().startsWith('"')}`,
+      `endsWithQuote=${connectionString.trimEnd().endsWith('"')}`,
+      `hasVarNamePrefix=${connectionString.startsWith('DATABASE_URL=')}`,
+      `hasPasswordPlaceholder=${connectionString.includes('[YOUR-PASSWORD]')}`,
+      `hasSurroundingSpace=${connectionString !== connectionString.trim()}`,
+    ].join(' ')
+  }
+}
+
 function createPrisma(): PrismaClient {
+  const connectionString = databaseUrl()
+  // Workers keep one connection per request and retire them themselves (`maxUses` below), so the
+  // pool size is theirs to decide; everywhere else the URL's `connection_limit` governs.
+  const max = onWorkers ? undefined : connectionLimit(connectionString)
+
+  console.warn(`[db] connection fingerprint (${onWorkers ? 'workers' : 'node'}): ${fingerprint(connectionString)}`)
+
   return new PrismaClient({
     adapter: new PrismaPg({
-      connectionString: databaseUrl(),
+      connectionString,
+      ...(max === undefined ? {} : { max }),
       // Workers only. An isolate is frozen between requests and the runtime kills its sockets, so a
       // connection that outlives its request is dead; the next request that borrows it waits on a
       // socket that will never answer, and Cloudflare cancels the request with "your Worker's code
